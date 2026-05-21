@@ -569,10 +569,14 @@ export default function App() {
     setLoading(true);
     setLoginError('');
     try {
+      const sanitizedLoginForm = {
+        username: loginForm.username.trim().toLowerCase(),
+        password: loginForm.password
+      };
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(loginForm)
+        body: JSON.stringify(sanitizedLoginForm)
       });
       
       if (!res.ok) {
@@ -639,70 +643,98 @@ export default function App() {
 
   if (!isLoggedIn && !window.location.pathname.startsWith('/share/')) {
     return (
-      <div className="min-h-screen bg-brand-secondary flex items-center justify-center p-6 relative overflow-hidden">
-        <div className="absolute top-8 right-8 z-50">
+      <div className="min-h-screen bg-brand-secondary flex flex-col items-center justify-center p-4 sm:p-6 md:p-8 relative overflow-hidden">
+        {/* Modern Corner Ambient Glows */}
+        <div className="absolute inset-0 bg-gradient-to-br from-brand-primary/10 via-brand-secondary to-brand-secondary" />
+        <div className="absolute -top-32 -left-32 w-[30rem] h-[30rem] bg-brand-primary/5 rounded-full blur-[120px] pointer-events-none" />
+        <div className="absolute -bottom-32 -right-32 w-[30rem] h-[30rem] bg-brand-primary/5 rounded-full blur-[120px] pointer-events-none" />
+
+        {/* Floating Top Header Options */}
+        <div className="w-full max-w-md flex justify-between items-center mb-6 z-10 px-2">
+          <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-brand-ink/30 font-bold">TJ INVEST</span>
           <button 
+            type="button"
             onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-            className="p-4 bg-brand-paper/50 backdrop-blur-md border border-brand-primary/10 rounded-2xl text-brand-primary hover:bg-brand-primary/10 transition-all flex items-center gap-3"
+            className="p-3 bg-brand-paper/40 backdrop-blur-md border border-brand-primary/10 rounded-xl text-brand-primary hover:bg-brand-primary/15 transition-all flex items-center gap-2"
           >
-            {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
-            <span className="text-[10px] font-bold uppercase tracking-widest">{theme === 'dark' ? 'Modo Claro' : 'Modo Escuro'}</span>
+            {theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
+            <span className="text-[9px] font-bold uppercase tracking-wider">{theme === 'dark' ? 'Claro' : 'Escuro'}</span>
           </button>
         </div>
-        <div className="absolute inset-0 bg-gradient-to-br from-brand-primary/20 via-brand-secondary to-brand-secondary" />
-        <div className="absolute -top-24 -left-24 w-96 h-96 bg-brand-primary/10 rounded-full blur-3xl" />
-        <div className="absolute -bottom-24 -right-24 w-96 h-96 bg-brand-primary/10 rounded-full blur-3xl" />
         
+        {/* Form Card */}
         <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-brand-paper w-full max-w-md rounded-[3rem] p-12 shadow-[0_20px_60px_rgba(0,0,0,0.5)] border border-brand-primary/10 relative z-10"
+          initial={{ opacity: 0, scale: 0.98, y: 15 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          transition={{ duration: 0.4 }}
+          className="bg-brand-paper w-full max-w-md rounded-[2rem] sm:rounded-[2.5rem] p-6 sm:p-10 md:p-12 shadow-[0_30px_70px_rgba(0,0,0,0.45)] border border-brand-primary/10 relative z-10"
         >
-          <div className="text-center mb-12">
-            <div className="w-24 h-24 bg-brand-primary rounded-[2.5rem] flex items-center justify-center text-black mx-auto mb-8 shadow-2xl shadow-brand-primary/20">
-              <Gavel size={48} />
+          {/* Logo and Brand Title Header */}
+          <div className="text-center mb-8">
+            <div className="w-16 h-16 sm:w-20 sm:h-20 bg-brand-primary rounded-2xl sm:rounded-3xl flex items-center justify-center text-black mx-auto mb-5 shadow-xl shadow-brand-primary/15 filter drop-shadow-md">
+              <Gavel size={32} />
             </div>
-            <h1 className="text-4xl font-serif font-bold tracking-tight text-brand-primary">Leilões Pro</h1>
-            <p className="text-brand-ink/40 font-medium mt-3 text-lg">Sistema Profissional de Análise</p>
+            <h1 className="text-3xl sm:text-4xl font-serif font-bold tracking-tight text-brand-primary">Leilões Pro</h1>
+            <p className="text-brand-ink/40 font-semibold mt-2.5 text-xs sm:text-sm uppercase tracking-widest">Sistema Profissional de Análise</p>
           </div>
 
-          <form onSubmit={handleLogin} className="space-y-8">
+          {/* Login Form */}
+          <form onSubmit={handleLogin} className="space-y-6">
             <div>
-              <label className="block text-[10px] font-bold uppercase tracking-[0.2em] text-brand-ink/30 mb-3 ml-1">Usuário</label>
-              <input 
-                type="text" 
-                required
-                className="w-full bg-brand-bg border-none rounded-2xl py-5 px-8 focus:ring-2 focus:ring-brand-primary transition-all font-medium text-lg"
-                value={loginForm.username}
-                onChange={e => setLoginForm({...loginForm, username: e.target.value})}
-              />
+              <label className="block text-[9px] font-bold uppercase tracking-[0.2em] text-brand-ink/40 mb-2 ml-1">Usuário</label>
+              <div className="relative">
+                <input 
+                  type="text" 
+                  required
+                  placeholder="Seu usuário"
+                  className="w-full bg-brand-bg border border-brand-border/10 focus:border-brand-primary/40 rounded-xl sm:rounded-2xl py-3.5 sm:py-4 px-5 sm:px-6 focus:ring-1 focus:ring-brand-primary/20 transition-all font-medium text-sm sm:text-base outline-none text-brand-ink"
+                  value={loginForm.username}
+                  onChange={e => setLoginForm({...loginForm, username: e.target.value})}
+                />
+              </div>
             </div>
             <div>
-              <label className="block text-[10px] font-bold uppercase tracking-[0.2em] text-brand-ink/30 mb-3 ml-1">Senha</label>
+              <label className="block text-[9px] font-bold uppercase tracking-[0.2em] text-brand-ink/40 mb-2 ml-1">Senha</label>
               <div className="relative">
                 <input 
                   type={showPassword ? "text" : "password"} 
                   required
-                  className="w-full bg-brand-bg border-none rounded-2xl py-5 px-8 pr-16 focus:ring-2 focus:ring-brand-primary transition-all font-medium text-lg"
+                  placeholder="Sua senha"
+                  className="w-full bg-brand-bg border border-brand-border/10 focus:border-brand-primary/40 rounded-xl sm:rounded-2xl py-3.5 sm:py-4 px-5 sm:px-6 pr-14 sm:pr-16 focus:ring-1 focus:ring-brand-primary/20 transition-all font-medium text-sm sm:text-base outline-none text-brand-ink"
                   value={loginForm.password}
                   onChange={e => setLoginForm({...loginForm, password: e.target.value})}
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-5 top-1/2 -translate-y-1/2 p-2 rounded-xl text-brand-ink/40 hover:bg-brand-primary/10 hover:text-brand-primary transition-all"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 p-2 rounded-lg text-brand-ink/30 hover:bg-brand-primary/10 hover:text-brand-primary transition-all"
                 >
-                  {showPassword ? <EyeOff size={22} /> : <Eye size={22} />}
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
               </div>
             </div>
-            {loginError && <p className="text-red-500 text-sm font-medium text-center">{loginError}</p>}
+
+            {/* Error Message Section */}
+            <AnimatePresence mode="wait">
+              {loginError && (
+                <motion.div 
+                  initial={{ opacity: 0, y: -5 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                  className="p-3 bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-semibold text-center rounded-xl"
+                >
+                  {loginError}
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Submit Button */}
             <button 
               type="submit"
               disabled={loading}
-              className="w-full bg-brand-primary text-black py-5 rounded-2xl font-bold text-sm uppercase tracking-widest hover:scale-[1.02] transition-all shadow-xl shadow-brand-primary/40 flex items-center justify-center gap-3"
+              className="w-full bg-brand-primary text-black py-3.5 sm:py-4.5 rounded-xl sm:rounded-2xl font-bold text-xs sm:text-sm uppercase tracking-widest hover:brightness-110 active:scale-[0.99] transition-all shadow-lg hover:shadow-brand-primary/25 disabled:opacity-50 disabled:pointer-events-none flex items-center justify-center gap-2 mt-4 cursor-pointer"
             >
-              {loading ? <Loader2 className="animate-spin" size={20} /> : "Entrar no Sistema"}
+              {loading ? <Loader2 className="animate-spin" size={16} /> : "Acessar Painel"}
             </button>
           </form>
         </motion.div>

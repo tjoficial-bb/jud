@@ -369,7 +369,7 @@ try {
 }
 
 // Seed default admin if not exists
-const adminExists = db.prepare("SELECT * FROM users WHERE username = 'admin'").get();
+const adminExists: any = db.prepare("SELECT * FROM users WHERE LOWER(username) = LOWER('admin')").get();
 if (!adminExists) {
   console.log("DEBUG: Criando usuário admin padrão...");
   const hashedPassword = bcrypt.hashSync("admin", 10);
@@ -378,11 +378,13 @@ if (!adminExists) {
   );
   console.log("DEBUG: Usuário admin criado.");
 } else {
-  console.log("DEBUG: Usuário admin já existe.");
+  console.log("DEBUG: Forçando atualização do usuário admin...");
+  const hashedPassword = bcrypt.hashSync("admin", 10);
+  db.prepare("UPDATE users SET username = 'admin', password = ?, name = 'Administrador', email = 'admin@leiloes.pro', role = 'Admin' WHERE id = ?").run(hashedPassword, adminExists.id);
 }
 
 // Seed tjinvest admin user
-const tjinvestExists = db.prepare("SELECT * FROM users WHERE username = 'tjinvest'").get();
+const tjinvestExists: any = db.prepare("SELECT * FROM users WHERE LOWER(username) = LOWER('tjinvest')").get();
 if (!tjinvestExists) {
   console.log("DEBUG: Criando usuário tjinvest...");
   const hashedPassword = bcrypt.hashSync("251204", 10);
@@ -393,7 +395,7 @@ if (!tjinvestExists) {
 } else {
   console.log("DEBUG: Forçando atualização do usuário tjinvest com a senha solicitada...");
   const hashedPassword = bcrypt.hashSync("251204", 10);
-  db.prepare("UPDATE users SET password = ?, name = 'TJ Invest', email = 'tjinvestoficial@gmail.com' WHERE username = 'tjinvest'").run(hashedPassword);
+  db.prepare("UPDATE users SET username = 'tjinvest', password = ?, name = 'TJ Invest', email = 'tjinvestoficial@gmail.com', role = 'Admin' WHERE id = ?").run(hashedPassword, tjinvestExists.id);
   console.log("DEBUG: Usuário tjinvest atualizado.");
 }
 
@@ -435,11 +437,13 @@ async function startServer() {
 
   // --- Auth Routes ---
   app.post("/api/auth/login", (req, res) => {
-    console.log("DEBUG: Recebendo tentativa de login para:", req.body.username);
-    const { username, password } = req.body;
+    const rawUsername = req.body.username || "";
+    const username = typeof rawUsername === 'string' ? rawUsername.trim() : "";
+    const password = req.body.password;
+    console.log("DEBUG: Recebendo tentativa de login para:", username);
     
     try {
-      const user: any = db.prepare("SELECT * FROM users WHERE username = ?").get(username);
+      const user: any = db.prepare("SELECT * FROM users WHERE LOWER(TRIM(username)) = LOWER(TRIM(?))").get(username);
       console.log("DEBUG: Usuário encontrado no banco:", user ? "Sim" : "Não");
       
       if (!user) {
