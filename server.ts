@@ -1031,16 +1031,6 @@ async function startServer() {
     });
     app.use(vite.middlewares);
     console.log("Vite middleware configurado com optimizeDeps force.");
-    
-    // Serve source files for sourcemaps to work in development without 404s
-    // Serve .ts/.tsx as text/plain instead of video/mp2t so browser doesn't block it
-    app.use("/src", express.static(path.join(process.cwd(), "src"), {
-      setHeaders: (res, filePath) => {
-        if (filePath.endsWith('.ts') || filePath.endsWith('.tsx')) {
-          res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-        }
-      }
-    }));
 
     // Catch-all to log requests hitting Vite
     app.use((req, res, next) => {
