@@ -9,8 +9,8 @@ import axios from "axios";
 import multer from "multer";
 import { createRequire } from 'module';
 import fs from "fs";
-const require = createRequire(import.meta.url);
-const pdf = require('pdf-parse');
+const localRequire = typeof require !== 'undefined' ? require : createRequire(import.meta.url);
+const pdf = localRequire('pdf-parse');
 
 dotenv.config();
 
