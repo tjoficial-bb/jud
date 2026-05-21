@@ -14,6 +14,9 @@ const pdf = localRequire('pdf-parse');
 
 dotenv.config();
 
+import { runBackendAnalysis, runBackendProcessStory, runBackendChatMessage } from "./server/aiRunner";
+
+
 const upload = multer({ storage: multer.memoryStorage() });
 
 async function extractTextFromBuffer(buffer: Buffer, mimeType: string): Promise<string> {
@@ -1017,6 +1020,142 @@ async function startServer() {
     } catch (error: any) {
       console.error("Erro ao compartilhar imóvel:", error.message);
       res.status(500).json({ error: "Erro ao compartilhar imóvel: " + error.message });
+    }
+  });
+
+  // --- Secure Server-Side AI Proxy Endpoints ---
+  app.post("/api/ai/analyze", authenticateToken, async (req, res) => {
+    try {
+      const { files, systemInstruction, model, apiKey, auctionUrls, analysisType } = req.body;
+      const provider = model.startsWith('gemini') ? 'gemini' : 
+                       model.startsWith('claude') ? 'claude' : 
+                       (model.startsWith('gpt') || model.startsWith('o1')) ? 'openai' : 'deepseek';
+
+      let resolvedKey = apiKey || "";
+      if (!resolvedKey || resolvedKey.trim() === "") {
+        const config: any = db.prepare("SELECT * FROM ai_config LIMIT 1").get() || {};
+        if (provider === 'gemini') resolvedKey = config.gemini_key || "";
+        else if (provider === 'openai') resolvedKey = config.openai_key || "";
+        else if (provider === 'claude') resolvedKey = config.claude_key || "";
+        else if (provider === 'deepseek') resolvedKey = config.deepseek_key || "";
+      }
+
+      if (!resolvedKey || resolvedKey.trim() === "") {
+        if (provider === 'gemini') {
+          resolvedKey = process.env.GEMINI_API_KEY || process.env.API_KEY || "";
+        } else if (provider === 'openai') {
+          resolvedKey = process.env.OPENAI_API_KEY || "";
+        } else if (provider === 'claude') {
+          resolvedKey = process.env.CLAUDE_API_KEY || "";
+        } else if (provider === 'deepseek') {
+          resolvedKey = process.env.DEEPSEEK_API_KEY || "";
+        }
+      }
+
+      if (resolvedKey.includes(' • ')) {
+        resolvedKey = resolvedKey.split(' • ')[1].trim();
+      }
+
+      if (!resolvedKey || resolvedKey.trim().length < 5) {
+        return res.status(400).json({ error: `Configuração de IA incompleta: Nenhuma chave de API válida encontrada para o provedor ${provider.toUpperCase()}` });
+      }
+
+      console.log(`[Proxy] Iniciando análise de IA com provedor ${provider} de ${files.length} arquivos.`);
+      const result = await runBackendAnalysis(files, systemInstruction, model, resolvedKey, auctionUrls, analysisType);
+      res.json({ result });
+    } catch (error: any) {
+      console.error("Erro na API de análise server-side:", error);
+      res.status(500).json({ error: error.message || "Erro desconhecido na análise." });
+    }
+  });
+
+  app.post("/api/ai/story", authenticateToken, async (req, res) => {
+    try {
+      const { files, model, apiKey } = req.body;
+      const provider = model.startsWith('gemini') ? 'gemini' : 
+                       model.startsWith('claude') ? 'claude' : 
+                       (model.startsWith('gpt') || model.startsWith('o1')) ? 'openai' : 'deepseek';
+
+      let resolvedKey = apiKey || "";
+      if (!resolvedKey || resolvedKey.trim() === "") {
+        const config: any = db.prepare("SELECT * FROM ai_config LIMIT 1").get() || {};
+        if (provider === 'gemini') resolvedKey = config.gemini_key || "";
+        else if (provider === 'openai') resolvedKey = config.openai_key || "";
+        else if (provider === 'claude') resolvedKey = config.claude_key || "";
+        else if (provider === 'deepseek') resolvedKey = config.deepseek_key || "";
+      }
+
+      if (!resolvedKey || resolvedKey.trim() === "") {
+        if (provider === 'gemini') {
+          resolvedKey = process.env.GEMINI_API_KEY || process.env.API_KEY || "";
+        } else if (provider === 'openai') {
+          resolvedKey = process.env.OPENAI_API_KEY || "";
+        } else if (provider === 'claude') {
+          resolvedKey = process.env.CLAUDE_API_KEY || "";
+        } else if (provider === 'deepseek') {
+          resolvedKey = process.env.DEEPSEEK_API_KEY || "";
+        }
+      }
+
+      if (resolvedKey.includes(' • ')) {
+        resolvedKey = resolvedKey.split(' • ')[1].trim();
+      }
+
+      if (!resolvedKey || resolvedKey.trim().length < 5) {
+        return res.status(400).json({ error: `Configuração de IA incompleta: Nenhuma chave de API válida encontrada para o provedor ${provider.toUpperCase()}` });
+      }
+
+      console.log(`[Proxy] Iniciando geração da história do processo com provedor ${provider}.`);
+      const result = await runBackendProcessStory(files, model, resolvedKey);
+      res.json(result);
+    } catch (error: any) {
+      console.error("Erro na API de Process Story server-side:", error);
+      res.status(500).json({ error: error.message || "Erro desconhecido ao gerar história." });
+    }
+  });
+
+  app.post("/api/ai/chat", authenticateToken, async (req, res) => {
+    try {
+      const { messages, systemInstruction, model, apiKey } = req.body;
+      const provider = model.startsWith('gemini') ? 'gemini' : 
+                       model.startsWith('claude') ? 'claude' : 
+                       (model.startsWith('gpt') || model.startsWith('o1')) ? 'openai' : 'deepseek';
+
+      let resolvedKey = apiKey || "";
+      if (!resolvedKey || resolvedKey.trim() === "") {
+        const config: any = db.prepare("SELECT * FROM ai_config LIMIT 1").get() || {};
+        if (provider === 'gemini') resolvedKey = config.gemini_key || "";
+        else if (provider === 'openai') resolvedKey = config.openai_key || "";
+        else if (provider === 'claude') resolvedKey = config.claude_key || "";
+        else if (provider === 'deepseek') resolvedKey = config.deepseek_key || "";
+      }
+
+      if (!resolvedKey || resolvedKey.trim() === "") {
+        if (provider === 'gemini') {
+          resolvedKey = process.env.GEMINI_API_KEY || process.env.API_KEY || "";
+        } else if (provider === 'openai') {
+          resolvedKey = process.env.OPENAI_API_KEY || "";
+        } else if (provider === 'claude') {
+          resolvedKey = process.env.CLAUDE_API_KEY || "";
+        } else if (provider === 'deepseek') {
+          resolvedKey = process.env.DEEPSEEK_API_KEY || "";
+        }
+      }
+
+      if (resolvedKey.includes(' • ')) {
+        resolvedKey = resolvedKey.split(' • ')[1].trim();
+      }
+
+      if (!resolvedKey || resolvedKey.trim().length < 5) {
+        return res.status(400).json({ error: `Configuração de IA incompleta: Nenhuma chave de API válida encontrada para o provedor ${provider.toUpperCase()}` });
+      }
+
+      console.log(`[Proxy] Iniciando chat interativo IA com provedor ${provider}.`);
+      const result = await runBackendChatMessage(messages, systemInstruction, model, resolvedKey);
+      res.json({ result });
+    } catch (error: any) {
+      console.error("Erro na API de Chat server-side:", error);
+      res.status(500).json({ error: error.message || "Erro desconhecido no chat." });
     }
   });
 
