@@ -1,0 +1,41 @@
+src/components/DocumentUploadSlot.tsx:export function DocumentUploadSlot({ label, onUpload, uploading, hasFile, helperText, multiple, accept, count }: { 
+src/components/DocumentUploadSlot.tsx:  console.log(`DocumentUploadSlot: ${label}`);
+src/components/DocumentManager.tsx:interface DocumentManagerProps {
+src/components/DocumentManager.tsx:export const DocumentManager: React.FC<DocumentManagerProps> = ({ 
+src/services/aiService.ts:export const analyzeAuctionDocuments = async (
+src/services/aiService.ts:        return { text: `[Documento: ${file.mimeType} - Conteúdo Extraído]\n${file.extractedText}` };
+src/services/aiService.ts:      currentFiles[item.index].optimizedText = `[AVISO DO SISTEMA: O arquivo original '${currentFiles[item.index].filename || 'Documento'}' era muito grande (aprox. ${(item.size / (1024 * 1024)).toFixed(1)}MB) e não pôde ser enviado para a IA devido aos limites técnicos da API. O conteúdo deste arquivo foi omitido da análise.]`;
+src/services/aiService.ts:        return { text: `[Documento: ${file.mimeType} - Conteúdo Extraído]\n${file.optimizedText}` };
+src/services/aiService.ts:          text: `[Documento: ${file.mimeType} - Conteúdo Extraído]\n${file.optimizedText}`
+src/services/aiService.ts:          text: `[Documento: ${file.mimeType} - Conteúdo Extraído]\n${file.optimizedText}`
+src/services/aiService.ts:          text: `[Documento PDF - Conteúdo Extraído]\n${file.optimizedText}`
+src/services/aiService.ts:        return `[Documento: ${file.mimeType} - Conteúdo Extraído]\n${file.extractedText}`;
+src/services/documentService.ts:export async function uploadDocuments(
+src/services/documentService.ts:export async function linkDocuments(
+src/services/documentService.ts:export async function deleteDocument(
+src/App.tsx:import { uploadDocuments } from './services/documentService';
+src/App.tsx:import { DocumentManager } from './components/DocumentManager';
+src/App.tsx:                  <p className="text-sm text-brand-ink/40 line-clamp-3 leading-relaxed">{item.source || (item.url ? item.url : 'Documento indexado para análise estratégica.')}</p>
+src/App.tsx:                    <option>Documentos</option>
+src/App.tsx:  'Edital': 'Documento oficial que contém todas as regras, condições e prazos do leilão.',
+src/App.tsx:  'Matrícula': 'Documento que registra todo o histórico de um imóvel, incluindo proprietários e ônus.',
+src/App.tsx:  'Carta de Arrematação': 'Documento oficial que serve como título de propriedade para registrar o imóvel no cartório.',
+src/App.tsx:  'Auto de Arrematação': 'Documento assinado logo após o leilão que formaliza quem comprou o bem.',
+src/App.tsx:      const { analyzeAuctionDocuments } = await import('./services/aiService');
+src/App.tsx:      const analysis = await analyzeAuctionDocuments(fileParts, "Analise o Edital", state.selectedModel || 'gemini-2.5-flash', undefined, [], 'edital');
+src/App.tsx:      const { analyzeAuctionDocuments } = await import('./services/aiService');
+src/App.tsx:      const analysis = await analyzeAuctionDocuments(fileParts, "Analise a Matrícula", state.selectedModel || 'gemini-2.5-flash', undefined, [], 'matricula');
+src/App.tsx:      const { analyzeAuctionDocuments } = await import('./services/aiService');
+src/App.tsx:      const analysis = await analyzeAuctionDocuments(fileParts, prompt, state.selectedModel || 'gemini-2.5-flash', undefined, [], 'processo');
+src/App.tsx:        const newDocs = await uploadDocuments(files, docType, propertyId, token);
+src/App.tsx:  const handleDeleteDocument = async (id: string) => {
+src/App.tsx:        alert("Documento excluído com sucesso.");
+src/App.tsx:      const { analyzeAuctionDocuments, generateProcessStory } = await import('./services/aiService');
+src/App.tsx:      const analysis = await analyzeAuctionDocuments(fileParts, promptWithBrain, selectedModel, finalApiKey || undefined, state.auctionUrls);
+src/App.tsx:          <p className="text-brand-ink/40 font-medium text-lg">Fluxo completo: Consulta CNJ, Documentos e Análise de IA.</p>
+src/App.tsx:              <AnalysisTab active={activeSubTab === 'documents'} onClick={() => updateState({ activeSubTab: 'documents' })} icon={<Files size={16} />} label="Documentos" />
+src/App.tsx:                            Adicionar Documentos
+src/App.tsx:                          Documentos Relevantes do Processo
+src/App.tsx:                    <DocumentManager 
+src/App.tsx:                      onDelete={handleDeleteDocument}
+src/App.tsx:          {hasFile ? "Substituir" : "Subir Documento"}

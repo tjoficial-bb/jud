@@ -1,0 +1,194 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300..700&family=Outfit:wght@100..900&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap');
+@import "tailwindcss";
+
+:root {
+  --brand-primary: #D4AF37;
+  --brand-secondary: #000000;
+  --brand-bg: #050505;
+  --brand-paper: #0F0F0F;
+  --brand-ink: #FFFFFF;
+  --brand-border: rgba(212, 175, 55, 0.15);
+}
+
+.light-mode {
+  --brand-secondary: #FFFFFF;
+  --brand-bg: #F5F5F0;
+  --brand-paper: #FFFFFF;
+  --brand-ink: #000000;
+  --brand-border: rgba(0, 0, 0, 0.15);
+}
+
+.light-mode .text-brand-ink\/40 {
+  color: rgba(0, 0, 0, 0.6);
+}
+
+.light-mode .text-brand-ink\/30 {
+  color: rgba(0, 0, 0, 0.5);
+}
+
+.light-mode .text-brand-ink\/60 {
+  color: rgba(0, 0, 0, 0.8);
+}
+
+@theme {
+  --font-sans: "Outfit", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "Space Grotesk", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+  
+  --color-brand-primary: var(--brand-primary);
+  --color-brand-secondary: var(--brand-secondary);
+  --color-brand-bg: var(--brand-bg);
+  --color-brand-paper: var(--brand-paper);
+  --color-brand-ink: var(--brand-ink);
+  --color-brand-border: var(--brand-border);
+}
+
+@layer base {
+  body {
+    @apply bg-brand-bg text-brand-ink font-sans antialiased;
+  }
+
+  .markdown-body {
+    @apply text-brand-ink leading-relaxed font-sans;
+  }
+  .markdown-body h1 {
+    @apply text-4xl font-serif font-bold mt-12 mb-8 border-b-2 border-brand-border pb-6 text-brand-primary tracking-tight;
+  }
+  .markdown-body h2 {
+    @apply text-2xl font-serif font-semibold mt-10 mb-6 text-brand-primary/90 border-l-4 border-brand-primary pl-4 py-1 border-b border-brand-border/30 pb-4;
+  }
+  .markdown-body h3 {
+    @apply text-lg font-sans font-bold mt-8 mb-4 uppercase tracking-[0.15em] text-brand-primary/70 border-b border-brand-border/20 pb-2;
+  }
+  .markdown-body p {
+    @apply mb-6 text-lg text-brand-ink/80 leading-relaxed;
+  }
+  .markdown-body ul, .markdown-body ol {
+    @apply mb-6 pl-10 space-y-3;
+  }
+  .markdown-body ul {
+    @apply list-none;
+  }
+  .markdown-body ul li {
+    @apply relative before:content-[''] before:absolute before:-left-6 before:top-3 before:w-2 before:h-2 before:bg-brand-primary before:rounded-full;
+  }
+  .markdown-body ol {
+    @apply list-decimal marker:text-brand-primary marker:font-bold;
+  }
+  .markdown-body li {
+    @apply text-lg text-brand-ink/80;
+  }
+  .markdown-body blockquote {
+    @apply border-l-4 border-brand-primary pl-8 italic my-8 bg-brand-primary/5 py-6 rounded-r-3xl text-xl font-serif text-brand-ink/90 shadow-sm;
+  }
+  .markdown-body strong {
+    @apply font-bold text-brand-primary;
+  }
+  .markdown-body table {
+    @apply w-full border-collapse my-10 overflow-hidden rounded-2xl border border-brand-primary/10 shadow-sm;
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .markdown-body th, .markdown-body td {
+    @apply border-b border-brand-primary/5 p-5 text-left text-base;
+  }
+  .markdown-body tr:last-child td {
+    @apply border-b-0;
+  }
+  .markdown-body th {
+    @apply bg-brand-primary/5 font-bold uppercase text-[10px] tracking-[0.2em] text-brand-primary/80;
+  }
+  .markdown-body tr:nth-child(even) {
+    @apply bg-brand-primary/[0.02];
+  }
+  .markdown-body tr:hover {
+    @apply bg-brand-primary/[0.05] transition-colors duration-200;
+  }
+
+  .markdown-body.\!text-sm p, 
+  .markdown-body.\!text-sm li, 
+  .markdown-body.\!text-sm td {
+    @apply text-sm;
+  }
+}
+
+.glass-panel {
+  @apply bg-brand-paper/70 backdrop-blur-md border border-brand-ink/10 shadow-xl;
+}
+
+.premium-card {
+  @apply bg-brand-paper rounded-[32px] shadow-[0_4px_20px_rgba(0,0,0,0.03)] border border-brand-primary/5 transition-all duration-500;
+}
+
+.stat-card-hover {
+  @apply hover:shadow-[0_20px_40px_rgba(255,99,33,0.1)] hover:-translate-y-2;
+}
+
+.nav-item-active {
+  @apply bg-gradient-to-r from-brand-primary to-orange-600 text-white shadow-[0_10px_25px_rgba(255,99,33,0.4)];
+}
+
+.nav-item-hover {
+  @apply hover:bg-brand-primary/5 hover:text-brand-primary transition-all duration-300;
+}
+
+@media print {
+  body {
+    background: white !important;
+    color: black !important;
+  }
+  .no-print, 
+  nav, 
+  aside, 
+  button, 
+  .lg\:col-span-1, 
+  .border-t, 
+  .pt-10,
+  .fixed,
+  .absolute {
+    display: none !important;
+  }
+  .lg\:col-span-4,
+  .xl\:col-span-5 {
+    grid-column: span 1 / span 1 !important;
+    width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+  .prose, 
+  .markdown-body {
+    background: transparent !important;
+    padding: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+  .markdown-body h1 {
+    margin-top: 0 !important;
+    font-size: 24pt !important;
+  }
+  .markdown-body h2 {
+    font-size: 18pt !important;
+  }
+  .markdown-body p, 
+  .markdown-body li {
+    font-size: 11pt !important;
+  }
+  .markdown-body table {
+    display: table !important;
+    width: 100% !important;
+    border: 1px solid #eee !important;
+  }
+  .markdown-body th, 
+  .markdown-body td {
+    border: 1px solid #eee !important;
+    padding: 8px !important;
+  }
+  .print-only {
+    display: block !important;
+  }
+  main {
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+}

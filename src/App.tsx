@@ -1,0 +1,6504 @@
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { SessionException } from './lib/exceptions';
+import { 
+  LayoutDashboard, 
+  Home, 
+  FileText, 
+  Files, 
+  DollarSign, 
+  Brain, 
+  Settings, 
+  Users, 
+  Search, 
+  LogOut, 
+  Plus, 
+  Trash2, 
+  Edit, 
+  Edit2,
+  Gavel, 
+  AlertTriangle, 
+  CheckCircle2, 
+  Check,
+  Scale,
+  Loader2, 
+  Download,
+  ChevronRight,
+  Menu,
+  X,
+  Cpu,
+  Database,
+  RefreshCw,
+  FileDown,
+  TrendingUp,
+  Percent,
+  Clock,
+  MessageSquare,
+  Send,
+  Save,
+  Printer,
+  ChevronDown,
+  Info,
+  Calculator,
+  Sparkles,
+  Zap,
+  Clipboard,
+  ExternalLink,
+  Sun,
+  Moon,
+  Globe,
+  BookOpen,
+  Star
+} from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import rehypeRaw from 'rehype-raw';
+import { clsx, type ClassValue } from 'clsx';
+import { twMerge } from 'tailwind-merge';
+import { TIRCalculator } from './components/TIRCalculator';
+import { CashFlowChart } from './components/CashFlowChart';
+import { User, Property, Process, AIConfig, StrategicBrainItem } from './types';
+
+const SimulationContext = React.createContext<{ simulationData: any, updateState: (s: any) => void, onJumpToSimulation?: (id: string) => void }>({
+  simulationData: null,
+  updateState: () => {},
+  onJumpToSimulation: () => {}
+});
+
+import { cn } from './lib/utils';
+import { uploadDocuments } from './services/documentService';
+import { Sidebar } from './components/layout/Sidebar';
+
+type Tab = 'dashboard' | 'properties' | 'processes' | 'documents' | 'debts' | 'ai-analysis' | 'simulations' | 'brain' | 'ai-config' | 'users' | 'settings' | 'datajud';
+
+type AIModel = 
+  | 'gemini-3.1-pro-preview' 
+  | 'gemini-3.1-flash-preview'
+  | 'gemini-3-flash-preview' 
+  | 'gemini-2.5-pro'
+  | 'gemini-2.5-flash'
+  | 'gemini-flash-latest' 
+  | 'claude-4-6-opus'
+  | 'claude-4-6-sonnet'
+  | 'claude-4-5-haiku'
+  | 'claude-4-5-opus'
+  | 'claude-4-5-sonnet'
+  | 'gpt-5'
+  | 'gpt-4o'
+  | 'o1-preview'
+  | 'deepseek-v3'
+  | 'deepseek-r1';
+
+interface ChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+const parseJsonResponse = async (res: Response) => {
+  const text = await res.text();
+  try {
+    const trimmed = text.trim();
+    const lowerTrimmed = trimmed.toLowerCase();
+    
+    // Check if it looks like HTML
+    if (lowerTrimmed.startsWith('<!doctype') || lowerTrimmed.includes('<html') || lowerTrimmed.includes('<body') || lowerTrimmed.startsWith('<')) {
+      console.warn(`API Warning: Received HTML instead of JSON for ${res.url}. Status: ${res.status}.`);
+      const msg = "Sessão expirada ou cookies bloqueados.\n\nPor favor, tente abrir o sistema em uma nova aba para renovar a sessão.";
+      throw new SessionException(msg);
+    }
+    
+    return JSON.parse(trimmed);
+  } catch (e) {
+    if (e instanceof SessionException) {
+      throw e;
+    }
+    console.error(`Erro ao parsear JSON para ${res.url}. Status: ${res.status}. Content: ${text.substring(0, 200)}...`);
+    throw new Error(`Resposta do servidor não é JSON para ${res.url} (Status: ${res.status})`);
+  }
+};
+
+const formatErrorMessage = (err: any) => {
+  if (err instanceof TypeError && err.message === 'Failed to fetch') {
+    return "Erro de conexão. Verifique sua rede e tente novamente.";
+  }
+  return err instanceof Error ? err.message : String(err);
+};
+
+const CostsEditor = ({ simulationData, updateSimulationData }: { simulationData: any, updateSimulationData: (data: any) => void }) => {
+  const [saving, setSaving] = React.useState(false);
+  if (!simulationData) return <div>Dados de simulação não disponíveis.</div>;
+
+  const updateField = (field: string, value: number) => {
+    updateSimulationData({
+      ...simulationData,
+      [field]: { ...simulationData[field], value }
+    });
+  };
+
+  const fields = [
+    { key: 'commission', label: 'Comissão Leiloeiro (%)' },
+    { key: 'assessoria', label: 'Assessoria TJ INVEST (%)' },
+    { key: 'entrada', label: 'Entrada TJ INVEST (R$)' },
+    { key: 'desocupacaoAcordo', label: 'Desocupação Acordo (R$)' },
+    { key: 'desocupacaoDespesas', label: 'Desocupação Despesas (R$)' },
+    { key: 'preAnaliseImobiliaria', label: 'Pré-Análise Imobiliária (R$)' },
+    { key: 'preAnaliseJuridica', label: 'Pré-Análise Jurídica (R$)' },
+    { key: 'itbi', label: 'ITBI (R$)' },
+    { key: 'impostos', label: 'Impostos/Taxas (R$)' },
+    { key: 'custosRegistro', label: 'Custos de Registro (R$)' },
+    { key: 'reforma', label: 'Reforma/Manutenção (R$)' },
+    { key: 'holdingCosts', label: 'Custos de Manutenção/Holding (R$)' },
+    { key: 'extraFees', label: 'Taxas Extras (R$)' },
+  ];
+
+  const handleSave = () => {
+    setSaving(true);
+    setTimeout(() => setSaving(false), 1000);
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-bold text-brand-primary">Custos da Arrematação</h2>
+        <button 
+          onClick={handleSave}
+          disabled={saving}
+          className="bg-brand-primary text-black px-6 py-2 rounded-xl font-bold hover:bg-brand-primary/90 transition-all disabled:opacity-50"
+        >
+          {saving ? 'Salvando...' : 'Salvar Custos'}
+        </button>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {fields.map(field => (
+          <div key={field.key}>
+            <label className="block text-xs font-bold uppercase tracking-widest text-brand-ink/40 mb-2">{field.label}</label>
+            <input 
+              type="number" 
+              className="w-full bg-brand-bg border border-brand-primary/10 rounded-xl p-3 text-brand-ink"
+              value={simulationData[field.key]?.value || 0}
+              onChange={(e) => updateField(field.key, parseFloat(e.target.value))}
+            />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+export default function App() {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
+  const [activeTab, setActiveTab] = useState<Tab>('dashboard');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
+  const [theme, setTheme] = useState<'dark' | 'light'>(localStorage.getItem('theme') as 'dark' | 'light' || 'dark');
+
+  useEffect(() => {
+    if (theme === 'light') {
+      document.documentElement.classList.add('light-mode');
+    } else {
+      document.documentElement.classList.remove('light-mode');
+    }
+    localStorage.setItem('theme', theme);
+  }, [theme]);
+
+  // Login State
+  const [loginForm, setLoginForm] = useState({ username: '', password: '' });
+  const [loginError, setLoginError] = useState('');
+
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [properties, setProperties] = useState<Property[]>([]);
+  const [propertyDocs, setPropertyDocs] = useState<any[]>([]);
+  const [propertyDebts, setPropertyDebts] = useState<any[]>([]);
+  const [allAnalyses, setAllAnalyses] = useState<any[]>([]);
+  const [brainItems, setBrainItems] = useState<StrategicBrainItem[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  // Custom confirm and toast state
+  const [confirmDialog, setConfirmDialog] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => {}
+  });
+
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+  useEffect(() => {
+    (window as any).customConfirm = (title: string, message: string, onConfirmAction: () => void) => {
+      setConfirmDialog({
+        isOpen: true,
+        title,
+        message,
+        onConfirm: () => {
+          onConfirmAction();
+          setConfirmDialog(prev => ({ ...prev, isOpen: false }));
+        }
+      });
+    };
+
+    (window as any).customToast = (message: string, type: 'success' | 'error' = 'success') => {
+      setToast({ message, type });
+      setTimeout(() => {
+        setToast(null);
+      }, 4000);
+    };
+  }, []);
+
+  const updateState = useCallback((updates: any) => {
+    setAiAnalysisState(prev => {
+      const resolvedUpdates = typeof updates === 'function' ? updates(prev) : updates;
+      return { ...prev, ...resolvedUpdates };
+    });
+  }, []);
+
+  useEffect(() => {
+    const path = window.location.pathname;
+    if (path.startsWith('/share/')) {
+      const token = path.split('/share/')[1];
+      if (token) {
+        loadPublicReport(token);
+      }
+    }
+  }, []);
+
+  const loadPublicReport = async (token: string) => {
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/public/property/${token}`);
+      if (!res.ok) throw new Error("Relatório não encontrado.");
+      const data = await parseJsonResponse(res);
+      
+      updateState({
+        isPublicView: true,
+        shareToken: token,
+        report: data.analysis?.exec_summary || "Análise não disponível.",
+        anonymizeProperty: data.property.anonymize_property === 1,
+        simulationData: {
+          valuation: { value: data.property.valuation_value || 0, type: 'BRL' },
+          bid: { value: data.property.min_bid || 0, type: 'BRL' },
+          saleValue: { value: data.property.expected_sale_value || 0, type: 'BRL' },
+          holdingMonths: 12,
+          
+          // Assessoria
+          assessoria: { value: 0, type: 'PERCENT', base: 'bid' },
+          entrada: { value: 0, type: 'BRL' },
+          
+          // Desocupação
+          desocupacaoAcordo: { value: 0, type: 'BRL' },
+          desocupacaoDespesas: { value: 0, type: 'BRL' },
+          desocupacaoHonorarios: { value: 0, type: 'PERCENT', base: 'bid' },
+          desocupacaoCustas: { value: 0, type: 'PERCENT', base: 'bid' },
+          
+          // Pré-Arrematação
+          preAnaliseImobiliaria: { value: 0, type: 'BRL' },
+          preAnaliseJuridica: { value: 0, type: 'BRL' },
+          preCopiaProcessos: { value: 0, type: 'BRL' },
+          preConsultas: { value: 0, type: 'BRL' },
+          preMatricula: { value: 0, type: 'BRL' },
+          
+          // Reforma
+          reforma: { value: 0, type: 'BRL', base: 'bid' },
+          
+          // Arrematação
+          comissaoLeiloeiro: { value: data.property.modality === 'Venda Direta' ? 0 : 5, type: 'PERCENT', base: 'bid' },
+          modality: data.property.modality || 'Judicial',
+          
+          // Realização
+          despesasVenda: { value: 0, type: 'BRL' },
+          
+          // Despesas Mensais
+          mensalCondominio: { value: (data.debts || []).filter((d: any) => d.type?.toLowerCase().includes('condo')).reduce((acc: number, d: any) => acc + (d.value || 0), 0) / 12, type: 'BRL' },
+          mensalIPTU: { value: (data.debts || []).filter((d: any) => d.type?.toLowerCase().includes('iptu')).reduce((acc: number, d: any) => acc + (d.value || 0), 0) / 12, type: 'BRL' },
+          mensalOutros: { value: 0, type: 'BRL' },
+          
+          // Despesas Pós-Operacionais
+          posTaxaPerformance: { value: 0, type: 'PERCENT', base: 'profit' },
+          posComissaoCorretor: { value: 5, type: 'PERCENT', base: 'saleValue' },
+          posIR: { value: 15, type: 'PERCENT', base: 'capitalGain' },
+          
+          // Transferência
+          transfEscritura: { value: 0, type: 'PERCENT', base: 'bid' },
+          transfITBI: { value: 3, type: 'PERCENT', base: 'bid' },
+          transfRegistro: { value: 0, type: 'PERCENT', base: 'bid' },
+          transfCartorio: { value: 0, type: 'BRL' },
+          transfAverbacoes: { value: 0, type: 'BRL' },
+          transfLaudemio: { value: 0, type: 'BRL' },
+          transfForo: { value: 0, type: 'BRL' },
+
+          // Financing
+          downPaymentPercent: 25,
+          installments: 30,
+          interestRate: 0,
+          auctionType: 'judicial',
+          strategy: data.simulation_data?.strategy || 'venda',
+          expectedReturn: data.simulation_data?.expectedReturn || 15,
+          customExpenses: data.simulation_data?.customExpenses || [],
+          comparisonData: data.simulation_data?.comparisonData || {
+            tesouro: { tir: 11.5, roi: 11.5 },
+            cdb: { tir: 12.0, roi: 12.0 },
+            poupanca: { tir: 6.5, roi: 6.5 }
+          }
+        }
+      });
+      setIsLoggedIn(true); // Bypass login for public view
+      setActiveTab('ai-analysis');
+      setAiAnalysisState(prev => ({ ...prev, activeSubTab: 'report' }));
+    } catch (err: any) {
+      if (!(err instanceof SessionException)) alert(formatErrorMessage(err));
+      window.location.href = '/';
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // AI Analysis Persistent State
+  const [aiAnalysisState, setAiAnalysisState] = useState<{
+    activeSubTab: 'report' | 'processos' | 'documents' | 'debts' | 'simulations' | 'cnj' | 'investors' | 'costs';
+    selectedPropertyId: string;
+    report: string | null;
+    adHocDocs: any[];
+    cnjNumber: string;
+    cnjResult: any;
+    selectedModel: AIModel;
+    chatMessages: ChatMessage[];
+    simulationData: any;
+    isPublicView: boolean;
+    shareToken: string | null;
+    showInlineEditor: boolean;
+    anonymizeProperty: boolean;
+    analysisId: string | null;
+    isEditingReport: boolean;
+    aiConfig: AIConfig | null;
+    manualAuctionType: 'auto' | 'judicial' | 'extrajudicial';
+    auctionUrls: string[];
+    sessionId: string;
+    processStory: any | null;
+    processAnalysis: any | null;
+    isGeneratingStory: boolean;
+    isEditingStory: boolean;
+  }>({
+    activeSubTab: 'report',
+    selectedPropertyId: '',
+    report: null,
+    adHocDocs: [],
+    cnjNumber: '',
+    cnjResult: null,
+    selectedModel: 'gemini-2.5-flash',
+    chatMessages: [],
+    simulationData: {
+      valuation: { value: 0, type: 'BRL' },
+      bid: { value: 0, type: 'BRL' },
+      saleValue: { value: 0, type: 'BRL' },
+      holdingMonths: 12,
+      strategy: 'venda',
+      expectedReturn: 15,
+      customExpenses: [],
+      
+      // Assessoramento
+      assessoria: { value: 6, type: 'PERCENT', base: 'bid' },
+      entrada: { value: 1500, type: 'BRL' },
+      
+      // Desocupação
+      desocupacaoAcordo: { value: 0, type: 'BRL' },
+      desocupacaoDespesas: { value: 0, type: 'BRL' },
+      desocupacaoHonorarios: { value: 0, type: 'PERCENT', base: 'bid' },
+      desocupacaoCustas: { value: 0, type: 'PERCENT', base: 'bid' },
+      
+      // Pré-Arrematação
+      preAnaliseImobiliaria: { value: 0, type: 'BRL' },
+      preAnaliseJuridica: { value: 0, type: 'BRL' },
+      preCopiaProcessos: { value: 0, type: 'BRL' },
+      preConsultas: { value: 0, type: 'BRL' },
+      preMatricula: { value: 0, type: 'BRL' },
+      
+      // Reforma
+      reforma: { value: 0, type: 'BRL', base: 'bid' },
+      
+      // Arrematação
+      comissaoLeiloeiro: { value: 5, type: 'PERCENT', base: 'bid' },
+      
+      // Realização
+      despesasVenda: { value: 0, type: 'BRL' },
+      
+      // Despesas Mensais (per month)
+      mensalCondominio: { value: 0, type: 'BRL' },
+      mensalIPTU: { value: 0, type: 'BRL' },
+      mensalOutros: { value: 0, type: 'BRL' },
+      
+      // Despesas Pós-Operacionais
+      posTaxaPerformance: { value: 0, type: 'PERCENT', base: 'profit' },
+      posComissaoCorretor: { value: 5, type: 'PERCENT', base: 'saleValue' },
+      posIR: { value: 15, type: 'PERCENT', base: 'capitalGain' },
+      
+      // Transferência
+      transfEscritura: { value: 1.5, type: 'PERCENT', base: 'bid' },
+      transfITBI: { value: 3, type: 'PERCENT', base: 'bid' },
+      transfRegistro: { value: 1.5, type: 'PERCENT', base: 'bid' },
+      transfCartorio: { value: 0, type: 'BRL' },
+      transfAverbacoes: { value: 0, type: 'BRL' },
+      transfLaudemio: { value: 0, type: 'BRL' },
+      transfForo: { value: 0, type: 'BRL' },
+
+      // Financing
+      downPaymentPercent: 100,
+      installments: 1,
+      interestRate: 0,
+      auctionType: 'judicial',
+      comparisonData: {
+        tesouro: { tir: 11.5, roi: 11.5 },
+        cdb: { tir: 12.0, roi: 12.0 },
+        poupanca: { tir: 6.5, roi: 6.5 }
+      }
+    },
+    isPublicView: false,
+    shareToken: null,
+    showInlineEditor: false,
+    anonymizeProperty: false,
+    analysisId: null,
+    isEditingReport: false,
+    aiConfig: null,
+    manualAuctionType: 'auto',
+    auctionUrls: [''],
+    sessionId: Math.random().toString(36).substring(7),
+    processStory: null,
+    processAnalysis: null,
+    isGeneratingStory: false,
+    isEditingStory: false,
+  });
+
+  useEffect(() => {
+    if (token) {
+      // Validate token or fetch user info
+      setIsLoggedIn(true);
+      fetchProperties();
+      fetchBrainItems();
+      fetchAllAnalyses();
+    }
+  }, [token]);
+
+  const currentDocs = useMemo(() => aiAnalysisState.selectedPropertyId ? propertyDocs : aiAnalysisState.adHocDocs, [aiAnalysisState.selectedPropertyId, propertyDocs, aiAnalysisState.adHocDocs]);
+  const currentDebts = useMemo(() => aiAnalysisState.selectedPropertyId ? propertyDebts : [], [aiAnalysisState.selectedPropertyId, propertyDebts]);
+
+  const fetchAllAnalyses = async () => {
+    try {
+      const res = await fetch('/api/ai-analyses', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await parseJsonResponse(res);
+        setAllAnalyses(data);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const fetchBrainItems = async () => {
+    try {
+      const res = await fetch('/api/strategic-brain', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await parseJsonResponse(res);
+        setBrainItems(data);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const fetchProperties = async () => {
+    try {
+      const res = await fetch('/api/properties', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await parseJsonResponse(res);
+        setProperties(data);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setLoginError('');
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(loginForm)
+      });
+      
+      if (!res.ok) {
+        const errorText = await res.text();
+        try {
+          const trimmed = errorText.trim().toLowerCase();
+          if (trimmed.includes('<!doctype') || trimmed.includes('<html') || trimmed.includes('<body')) {
+            throw new Error("Resposta do servidor é HTML");
+          }
+          const errorData = JSON.parse(errorText);
+          setLoginError(errorData.error || 'Erro ao entrar');
+        } catch (e) {
+          setLoginError('Erro no servidor (Resposta inválida)');
+        }
+        return;
+      }
+      
+      const data = await parseJsonResponse(res);
+      localStorage.setItem('token', data.token);
+      setToken(data.token);
+      setUser(data.user);
+      setIsLoggedIn(true);
+    } catch (err) {
+      console.error("Erro de login:", err);
+      if (!(err instanceof SessionException)) {
+        setLoginError('Erro de conexão: ' + formatErrorMessage(err));
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isLoggedIn && token) {
+      fetch('/api/ai-config', { headers: { 'Authorization': `Bearer ${token}` } })
+        .then(res => res.ok ? parseJsonResponse(res) : null)
+        .then(data => {
+          if (data) {
+            setAiAnalysisState(prev => ({ ...prev, aiConfig: data }));
+          }
+        })
+        .catch(err => console.error("Erro ao carregar config inicial:", err));
+    }
+  }, [isLoggedIn, token]);
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    setToken(null);
+    setIsLoggedIn(false);
+    setUser(null);
+  };
+
+  if (loading && !isLoggedIn && window.location.pathname.startsWith('/share/')) {
+    return (
+      <div className="min-h-screen bg-brand-secondary flex flex-col items-center justify-center p-6">
+        <div className="w-24 h-24 bg-brand-primary rounded-[2.5rem] flex items-center justify-center text-black mb-8 animate-pulse shadow-2xl shadow-brand-primary/20">
+          <Gavel size={48} />
+        </div>
+        <h2 className="font-serif text-2xl font-bold text-brand-primary mb-2">Carregando Relatório</h2>
+        <p className="text-brand-ink/40 text-sm animate-pulse">Preparando análise estratégica...</p>
+      </div>
+    );
+  }
+
+  if (!isLoggedIn && !window.location.pathname.startsWith('/share/')) {
+    return (
+      <div className="min-h-screen bg-brand-secondary flex items-center justify-center p-6 relative overflow-hidden">
+        <div className="absolute top-8 right-8 z-50">
+          <button 
+            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+            className="p-4 bg-brand-paper/50 backdrop-blur-md border border-brand-primary/10 rounded-2xl text-brand-primary hover:bg-brand-primary/10 transition-all flex items-center gap-3"
+          >
+            {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
+            <span className="text-[10px] font-bold uppercase tracking-widest">{theme === 'dark' ? 'Modo Claro' : 'Modo Escuro'}</span>
+          </button>
+        </div>
+        <div className="absolute inset-0 bg-gradient-to-br from-brand-primary/20 via-brand-secondary to-brand-secondary" />
+        <div className="absolute -top-24 -left-24 w-96 h-96 bg-brand-primary/10 rounded-full blur-3xl" />
+        <div className="absolute -bottom-24 -right-24 w-96 h-96 bg-brand-primary/10 rounded-full blur-3xl" />
+        
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-brand-paper w-full max-w-md rounded-[3rem] p-12 shadow-[0_20px_60px_rgba(0,0,0,0.5)] border border-brand-primary/10 relative z-10"
+        >
+          <div className="text-center mb-12">
+            <div className="w-24 h-24 bg-brand-primary rounded-[2.5rem] flex items-center justify-center text-black mx-auto mb-8 shadow-2xl shadow-brand-primary/20">
+              <Gavel size={48} />
+            </div>
+            <h1 className="text-4xl font-serif font-bold tracking-tight text-brand-primary">Leilões Pro</h1>
+            <p className="text-brand-ink/40 font-medium mt-3 text-lg">Sistema Profissional de Análise</p>
+          </div>
+
+          <form onSubmit={handleLogin} className="space-y-8">
+            <div>
+              <label className="block text-[10px] font-bold uppercase tracking-[0.2em] text-brand-ink/30 mb-3 ml-1">Usuário</label>
+              <input 
+                type="text" 
+                required
+                className="w-full bg-brand-bg border-none rounded-2xl py-5 px-8 focus:ring-2 focus:ring-brand-primary transition-all font-medium text-lg"
+                value={loginForm.username}
+                onChange={e => setLoginForm({...loginForm, username: e.target.value})}
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] font-bold uppercase tracking-[0.2em] text-brand-ink/30 mb-3 ml-1">Senha</label>
+              <input 
+                type="password" 
+                required
+                className="w-full bg-brand-bg border-none rounded-2xl py-5 px-8 focus:ring-2 focus:ring-brand-primary transition-all font-medium text-lg"
+                value={loginForm.password}
+                onChange={e => setLoginForm({...loginForm, password: e.target.value})}
+              />
+            </div>
+            {loginError && <p className="text-red-500 text-sm font-medium text-center">{loginError}</p>}
+            <button 
+              type="submit"
+              disabled={loading}
+              className="w-full bg-brand-primary text-black py-5 rounded-2xl font-bold text-sm uppercase tracking-widest hover:scale-[1.02] transition-all shadow-xl shadow-brand-primary/40 flex items-center justify-center gap-3"
+            >
+              {loading ? <Loader2 className="animate-spin" size={20} /> : "Entrar no Sistema"}
+            </button>
+          </form>
+        </motion.div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-brand-bg flex text-brand-ink selection:bg-brand-primary/20">
+      {/* Sidebar */}
+      {!aiAnalysisState.isPublicView && (
+        <Sidebar 
+          activeTab={activeTab} 
+          setActiveTab={setActiveTab} 
+          isSidebarOpen={isSidebarOpen} 
+          setIsSidebarOpen={setIsSidebarOpen} 
+        />
+      )}
+
+      {/* Main Content */}
+      <main className={cn("flex-1 flex flex-col min-w-0 transition-all duration-300", isSidebarOpen && !aiAnalysisState.isPublicView && "lg:pl-64")}>
+        {!aiAnalysisState.isPublicView && (
+          <header className="h-24 bg-brand-bg/80 backdrop-blur-xl border-b border-brand-primary/10 flex items-center justify-between px-10 sticky top-0 z-40">
+            <div className="flex items-center gap-6">
+              <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-3 hover:bg-brand-primary/10 rounded-2xl transition-all text-brand-primary">
+                {isSidebarOpen ? <Menu size={22} /> : <ChevronRight size={22} />}
+              </button>
+              <button 
+                onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+                className="p-3 hover:bg-brand-primary/10 rounded-2xl transition-all text-brand-primary flex items-center gap-3"
+              >
+                {theme === 'dark' ? <Sun size={22} /> : <Moon size={22} />}
+                <span className="text-[10px] font-bold uppercase tracking-widest hidden sm:inline">
+                  {theme === 'dark' ? 'Modo Claro' : 'Modo Escuro'}
+                </span>
+              </button>
+            </div>
+
+            <div className="flex items-center gap-8">
+              <div className="text-right hidden sm:block">
+                <p className="text-sm font-bold tracking-tight">{user?.name || 'Administrador'}</p>
+                <p className="text-[10px] text-brand-ink/30 uppercase tracking-[0.15em] font-bold">{user?.role || 'Admin'}</p>
+              </div>
+              <div className="w-12 h-12 bg-brand-primary/10 rounded-2xl flex items-center justify-center text-brand-primary font-bold text-lg border border-brand-primary/10">
+                {user?.name?.[0] || 'A'}
+              </div>
+            </div>
+          </header>
+        )}
+
+        <div className={cn("p-10 w-full mx-auto", aiAnalysisState.isPublicView && "p-4 sm:p-10")}>
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={activeTab}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.2 }}
+            >
+              {activeTab === 'dashboard' && (
+                <DashboardView 
+                  properties={properties} 
+                  allAnalyses={allAnalyses}
+                  brainItems={brainItems} 
+                  onSelectProperty={(id) => {
+                    setAiAnalysisState(prev => ({ ...prev, selectedPropertyId: id }));
+                    setActiveTab('ai-analysis');
+                  }}
+                  onViewAll={() => setActiveTab('properties')}
+                />
+              )}
+              {activeTab === 'properties' && (
+                <PropertiesView 
+                  properties={properties} 
+                  onRefresh={fetchProperties} 
+                  token={token!} 
+                  onSelectProperty={(id) => {
+                    setAiAnalysisState(prev => ({ ...prev, selectedPropertyId: id }));
+                    setActiveTab('ai-analysis');
+                  }}
+                />
+              )}
+              {activeTab === 'documents' && (
+                <DocumentsView 
+                  token={token!} 
+                  properties={properties} 
+                  onSelectProperty={(id) => {
+                    setAiAnalysisState(prev => ({ ...prev, selectedPropertyId: id }));
+                    setActiveTab('ai-analysis');
+                  }} 
+                />
+              )}
+              {activeTab === 'brain' && <BrainView token={token!} onRefresh={fetchBrainItems} />}
+              {activeTab === 'ai-config' && (
+                <AIConfigView 
+                  token={token!} 
+                  aiConfig={aiAnalysisState.aiConfig} 
+                  onConfigUpdate={(config) => setAiAnalysisState(prev => ({ ...prev, aiConfig: config }))} 
+                />
+              )}
+              {activeTab === 'ai-analysis' && (
+                <AIAnalysisView 
+                  token={token!} 
+                  properties={properties} 
+                  onPropertyCreated={fetchProperties}
+                  state={aiAnalysisState}
+                  setState={setAiAnalysisState}
+                  setIsShareModalOpen={setIsShareModalOpen}
+                  propertyDocs={propertyDocs}
+                  propertyDebts={currentDebts}
+                  setPropertyDocs={setPropertyDocs}
+                  setPropertyDebts={setPropertyDebts}
+                />
+              )}
+              {activeTab === 'users' && <UsersView token={token!} />}
+              {activeTab === 'settings' && <SettingsView token={token!} />}
+            </motion.div>
+          </AnimatePresence>
+        </div>
+      </main>
+
+      {/* Share Modal */}
+      {isShareModalOpen && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[110] flex items-center justify-center p-6">
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-brand-paper w-full max-w-md rounded-[2.5rem] p-10 shadow-2xl border border-brand-primary/10"
+          >
+            <div className="flex items-center justify-between mb-8">
+              <h3 className="text-2xl font-bold">Compartilhar Relatório</h3>
+              <button onClick={() => setIsShareModalOpen(false)} className="p-2 hover:bg-black/5 rounded-full"><X size={24} /></button>
+            </div>
+            
+            <div className="space-y-8">
+              <div className="p-6 bg-brand-primary/5 rounded-2xl border border-brand-primary/10">
+                <p className="text-xs font-medium text-brand-ink/60 leading-relaxed">
+                  Este link permite que investidores acessem a análise e a simulação financeira sem precisar de login.
+                </p>
+              </div>
+
+              <div className="flex items-center justify-between p-6 bg-brand-bg/50 rounded-2xl border border-brand-primary/5">
+                <div>
+                  <p className="font-bold text-brand-primary">Ocultar Dados do Imóvel</p>
+                  <p className="text-[10px] text-brand-ink/40 font-medium">Anonimiza endereço e título para o investidor.</p>
+                </div>
+                <div 
+                  onClick={async () => {
+                    const newValue = !aiAnalysisState.anonymizeProperty;
+                    updateState({ anonymizeProperty: newValue });
+                    if (aiAnalysisState.selectedPropertyId) {
+                      await fetch(`/api/properties/${aiAnalysisState.selectedPropertyId}/share`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                        body: JSON.stringify({ is_public: true, anonymize_property: newValue })
+                      });
+                    }
+                  }}
+                  className={cn(
+                    "w-14 h-7 rounded-full relative cursor-pointer transition-all",
+                    aiAnalysisState.anonymizeProperty ? "bg-brand-primary" : "bg-black/10"
+                  )}
+                >
+                  <div className={cn(
+                    "absolute top-1 w-5 h-5 bg-brand-primary rounded-full shadow-sm transition-all",
+                    aiAnalysisState.anonymizeProperty ? "right-1" : "left-1"
+                  )} />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-widest text-black/40 mb-3">Link de Compartilhamento</label>
+                <div className="flex gap-2">
+                  <input 
+                    readOnly
+                    type="text" 
+                    className="flex-1 bg-brand-bg border border-brand-primary/10 rounded-xl py-4 px-6 text-xs font-mono text-brand-primary"
+                    value={`${window.location.origin}/share/${aiAnalysisState.shareToken}`}
+                  />
+                  <button 
+                    onClick={() => {
+                      navigator.clipboard.writeText(`${window.location.origin}/share/${aiAnalysisState.shareToken}`);
+                      alert("Link copiado!");
+                    }}
+                    className="p-4 bg-brand-primary text-black rounded-xl hover:bg-brand-primary/90 transition-all"
+                  >
+                    <Clipboard size={20} />
+                  </button>
+                </div>
+              </div>
+
+              <button 
+                onClick={() => setIsShareModalOpen(false)}
+                className="w-full py-5 bg-brand-primary text-black rounded-2xl font-bold hover:bg-brand-primary/90 transition-all"
+              >
+                Concluído
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* Custom Confirm Dialog Modal */}
+      {confirmDialog.isOpen && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[250] p-4">
+          <div className="bg-brand-paper border border-brand-primary/20 p-8 rounded-3xl max-w-md w-full space-y-6 shadow-2xl">
+            <h3 className="text-xl font-serif font-bold text-brand-primary">
+              {confirmDialog.title}
+            </h3>
+            <p className="text-sm font-medium text-brand-ink/70">
+              {confirmDialog.message}
+            </p>
+            <div className="flex gap-4 justify-end col-span-2">
+              <button 
+                onClick={() => setConfirmDialog(prev => ({ ...prev, isOpen: false }))}
+                className="px-5 py-3 bg-brand-bg hover:bg-brand-ink/5 border border-brand-primary/10 rounded-xl text-xs font-bold uppercase tracking-widest text-brand-ink cursor-pointer transition-all"
+              >
+                Cancelar
+              </button>
+              <button 
+                onClick={confirmDialog.onConfirm}
+                className="px-5 py-3 bg-red-600 hover:bg-red-700 rounded-xl text-xs font-bold uppercase tracking-widest text-white cursor-pointer transition-all shadow-lg shadow-red-900/30"
+              >
+                Confirmar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Custom Toast Notification */}
+      {toast && (
+        <div className="fixed bottom-6 right-6 z-[250] max-w-sm w-full p-4 bg-brand-paper border border-brand-primary/20 rounded-2xl shadow-2xl flex items-center gap-4">
+          <div className={cn(
+            "w-8 h-8 rounded-xl flex items-center justify-center font-bold text-lg",
+            toast.type === 'success' ? "bg-emerald-500/10 text-emerald-500" : "bg-red-500/10 text-red-500"
+          )}>
+            {toast.type === 'success' ? '✓' : '✗'}
+          </div>
+          <div className="flex-1 text-xs font-medium text-brand-ink">
+            {toast.message}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Sidebar replaced by ./components/layout/Sidebar.tsx
+import { DashboardView } from './components/views/DashboardView';
+import { DocumentsView } from './components/views/DocumentsView';
+import { DashboardCharts } from './components/DashboardCharts';
+import { NewsFeed } from './components/NewsFeed';
+import { DocumentManager } from './components/DocumentManager';
+
+// ... (existing imports)
+
+
+// DashboardView moved to ./components/views/DashboardView.tsx
+
+function PropertiesView({ properties, onRefresh, token, onSelectProperty }: { properties: Property[], onRefresh: () => void, token: string, onSelectProperty: (id: string) => void }) {
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [form, setForm] = useState({ title: '', type: 'Apartamento', modality: 'Judicial', address: '', city: '', state: '', valuation_value: 0, min_bid: 0 });
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const res = await fetch('/api/properties', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify(form)
+      });
+      if (res.ok) {
+        setIsModalOpen(false);
+        onRefresh();
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleDeleteProperty = async (id: string) => {
+    const action = async () => {
+      try {
+        const res = await fetch(`/api/properties/${id}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.ok) {
+          onRefresh();
+          if ((window as any).customToast) (window as any).customToast("Imóvel excluído com sucesso.");
+          else alert("Imóvel excluído com sucesso.");
+        } else {
+          const errText = await res.text();
+          let errData;
+          try {
+            const trimmed = errText.trim().toLowerCase();
+            if (trimmed.includes('<!doctype') || trimmed.includes('<html') || trimmed.includes('<body')) {
+              throw new Error("Resposta do servidor é HTML");
+            }
+            errData = JSON.parse(errText);
+          } catch (e) {
+            errData = { error: errText || res.statusText };
+          }
+          const msg = `Erro ao excluir imóvel: ${errData.error || errText || res.statusText}`;
+          if ((window as any).customToast) (window as any).customToast(msg, 'error');
+          else alert(msg);
+        }
+      } catch (err) {
+        console.error(err);
+        if ((window as any).customToast) (window as any).customToast("Erro ao excluir imóvel.", 'error');
+        else alert("Erro ao excluir imóvel.");
+      }
+    };
+
+    if ((window as any).customConfirm) {
+      (window as any).customConfirm(
+        "Excluir Imóvel",
+        "Tem certeza que deseja excluir este imóvel e todos os seus dados relacionados? Esta ação não pode ser desfeita.",
+        action
+      );
+    } else {
+      if (confirm("Tem certeza que deseja excluir este imóvel e todos os seus dados relacionados? Esta ação não pode ser desfeita.")) {
+        action();
+      }
+    }
+  };
+
+  return (
+    <div className="space-y-12">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-4xl font-serif font-medium tracking-tight text-brand-primary">Gestão de Imóveis</h2>
+          <p className="text-brand-ink/40 font-medium text-lg">Gerencie todos os ativos em análise ou arrematados.</p>
+        </div>
+        <button 
+          onClick={() => setIsModalOpen(true)}
+          className="bg-brand-primary text-black px-10 py-5 rounded-2xl font-bold flex items-center gap-3 hover:bg-brand-primary/90 transition-all shadow-xl shadow-brand-primary/20 group"
+        >
+          <Plus size={22} className="group-hover:rotate-90 transition-transform duration-300" /> Novo Imóvel
+        </button>
+      </div>
+
+      <div className="premium-card overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-brand-primary/5 text-brand-primary/60 text-[10px] font-bold uppercase tracking-[0.2em]">
+                <th className="px-4 md:px-10 py-8">Imóvel</th>
+                <th className="px-4 md:px-10 py-8 hidden md:table-cell">Tipo / Modalidade</th>
+                <th className="px-4 md:px-10 py-8 hidden sm:table-cell">Localização</th>
+                <th className="px-4 md:px-10 py-8">Valores</th>
+                <th className="px-4 md:px-10 py-8 hidden lg:table-cell">Status</th>
+                <th className="px-4 md:px-10 py-8 text-right">Ações</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-brand-primary/5">
+              {properties.map(p => (
+                <tr key={p.id} className="hover:bg-brand-primary/[0.02] transition-all group">
+                  <td className="px-4 md:px-10 py-8">
+                    <p className="font-bold text-lg tracking-tight text-brand-ink">{p.title}</p>
+                    <p className="text-[10px] text-brand-ink/30 font-bold uppercase tracking-widest mt-1.5">ID: {p.id}</p>
+                  </td>
+                  <td className="px-4 md:px-10 py-8 hidden md:table-cell">
+                    <div className="flex flex-col gap-1.5">
+                      <span className="text-base font-medium text-brand-ink/80">{p.type}</span>
+                      <span className="text-[10px] font-bold text-brand-primary uppercase tracking-widest">{p.modality}</span>
+                    </div>
+                  </td>
+                  <td className="px-4 md:px-10 py-8 hidden sm:table-cell">
+                    <p className="text-base font-medium text-brand-ink/70">{p.city}, {p.state}</p>
+                  </td>
+                  <td className="px-4 md:px-10 py-8">
+                    <div className="flex flex-col gap-1.5">
+                      <p className="text-xs text-brand-ink/40 font-medium">Avaliação: R$ {p.valuation_value?.toLocaleString()}</p>
+                      <p className="text-lg font-serif font-bold text-emerald-700">Mínimo: R$ {p.min_bid?.toLocaleString()}</p>
+                    </div>
+                  </td>
+                  <td className="px-4 md:px-10 py-8 hidden lg:table-cell">
+                    <span className="px-4 py-1.5 bg-brand-primary/10 text-brand-primary rounded-full text-[10px] font-bold uppercase tracking-widest">
+                      {p.status}
+                    </span>
+                  </td>
+                  <td className="px-4 md:px-10 py-8 text-right">
+                    <div className="flex items-center justify-end gap-3 opacity-100 md:opacity-0 group-hover:opacity-100 transition-all duration-300">
+                      <button 
+                        onClick={() => onSelectProperty(p.id)}
+                        className="flex items-center gap-2 px-4 py-2 bg-brand-primary/10 text-brand-primary rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-brand-primary hover:text-black transition-all"
+                      >
+                        <Search size={14} /> <span className="hidden md:inline">Ver Análise</span>
+                      </button>
+                      <button className="p-3 hover:bg-brand-primary/10 rounded-xl text-brand-ink/30 hover:text-brand-primary transition-all"><Edit size={18} /></button>
+                      <button onClick={() => handleDeleteProperty(p.id)} className="p-3 hover:bg-red-500/10 rounded-xl text-brand-ink/30 hover:text-red-500 transition-all"><Trash2 size={18} /></button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        {properties.length === 0 && (
+          <div className="py-20 text-center text-black/30 font-medium">Nenhum imóvel cadastrado.</div>
+        )}
+      </div>
+
+      {/* Modal placeholder */}
+      {isModalOpen && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-6">
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-brand-paper w-full max-w-2xl rounded-[2.5rem] p-12 shadow-2xl border border-brand-primary/10"
+          >
+            <div className="flex items-center justify-between mb-10">
+              <h3 className="text-2xl font-bold text-brand-primary">Cadastrar Novo Imóvel</h3>
+              <button onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-brand-primary/10 rounded-full text-brand-primary transition-all"><X size={24} /></button>
+            </div>
+            <form onSubmit={handleSubmit} className="grid grid-cols-2 gap-6">
+              <div className="col-span-2">
+                <label className="block text-xs font-bold uppercase tracking-widest text-brand-ink/40 mb-2">Título do Imóvel</label>
+                <input type="text" required className="w-full bg-brand-bg border-none rounded-2xl py-4 px-6 focus:ring-2 focus:ring-brand-primary text-brand-ink" value={form.title} onChange={e => setForm({...form, title: e.target.value})} />
+              </div>
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-widest text-brand-ink/40 mb-2">Tipo</label>
+                <select className="w-full bg-brand-bg border-none rounded-2xl py-4 px-6 focus:ring-2 focus:ring-brand-primary text-brand-ink" value={form.type || ''} onChange={e => setForm({...form, type: e.target.value})}>
+                  <option>Apartamento</option>
+                  <option>Casa</option>
+                  <option>Lote</option>
+                  <option>Comercial</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-widest text-brand-ink/40 mb-2">Modalidade</label>
+                <select className="w-full bg-brand-bg border-none rounded-2xl py-4 px-6 focus:ring-2 focus:ring-brand-primary text-brand-ink" value={form.modality || ''} onChange={e => setForm({...form, modality: e.target.value})}>
+                  <option>Judicial</option>
+                  <option>Extrajudicial</option>
+                  <option>Venda Direta</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-widest text-brand-ink/40 mb-2">Cidade</label>
+                <input type="text" className="w-full bg-brand-bg border-none rounded-2xl py-4 px-6 focus:ring-2 focus:ring-brand-primary text-brand-ink" value={form.city} onChange={e => setForm({...form, city: e.target.value})} />
+              </div>
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-widest text-brand-ink/40 mb-2">Estado</label>
+                <input type="text" className="w-full bg-brand-bg border-none rounded-2xl py-4 px-6 focus:ring-2 focus:ring-brand-primary text-brand-ink" value={form.state} onChange={e => setForm({...form, state: e.target.value})} />
+              </div>
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-widest text-brand-ink/40 mb-2">Valor Avaliação</label>
+                <input type="number" className="w-full bg-brand-bg border-none rounded-2xl py-4 px-6 focus:ring-2 focus:ring-brand-primary text-brand-ink" value={form.valuation_value} onChange={e => setForm({...form, valuation_value: Number(e.target.value)})} />
+              </div>
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-widest text-brand-ink/40 mb-2">Lance Mínimo</label>
+                <input type="number" className="w-full bg-brand-bg border-none rounded-2xl py-4 px-6 focus:ring-2 focus:ring-brand-primary text-brand-ink" value={form.min_bid} onChange={e => setForm({...form, min_bid: Number(e.target.value)})} />
+              </div>
+              <div className="col-span-2 pt-6">
+                <button type="submit" className="w-full bg-brand-primary text-black py-4 rounded-2xl font-bold hover:bg-brand-primary/90 transition-all">Salvar Imóvel</button>
+              </div>
+            </form>
+          </motion.div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+function BrainView({ token, onRefresh }: { token: string, onRefresh: () => void }) {
+  const [items, setItems] = useState<StrategicBrainItem[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [form, setForm] = useState({ 
+    title: '', 
+    category: 'Estratégia', 
+    source: '', 
+    data: '',
+    url: '',
+    username: '',
+    password: '',
+    is_automated: false,
+    module: '',
+    lesson: ''
+  });
+
+  useEffect(() => {
+    fetchBrain();
+  }, []);
+
+  const fetchBrain = async () => {
+    const res = await fetch('/api/strategic-brain', { headers: { 'Authorization': `Bearer ${token}` } });
+    if (res.ok) {
+      const data = await parseJsonResponse(res);
+      setItems(data);
+    }
+  };
+
+  const handleStrategicBrainFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      setForm({ ...form, data: reader.result as string, title: file.name });
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const res = await fetch('/api/strategic-brain', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify(form)
+      });
+      if (res.ok) {
+        setIsModalOpen(false);
+        fetchBrain();
+        onRefresh();
+        setForm({ 
+          title: '', 
+          category: 'Leis', 
+          source: '', 
+          data: '',
+          url: '',
+          username: '',
+          password: '',
+          is_automated: false,
+          module: '',
+          lesson: ''
+        });
+      } else {
+        const errText = await res.text();
+        let errData;
+        try {
+          const trimmed = errText.trim().toLowerCase();
+          if (trimmed.includes('<!doctype') || trimmed.includes('<html') || trimmed.includes('<body')) {
+            throw new Error("Resposta do servidor é HTML");
+          }
+          errData = JSON.parse(errText);
+        } catch (e) {
+          errData = { error: errText || res.statusText };
+        }
+        alert(`Erro ao salvar: ${errData.error || errText || res.statusText}`);
+      }
+    } catch (err: any) {
+      console.error(err);
+      alert(`Erro de conexão: ${err.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSync = async (id: string) => {
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/strategic-brain/${id}/sync`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        fetchBrain();
+      } else {
+        const errText = await res.text();
+        let errData;
+        try {
+          const trimmed = errText.trim().toLowerCase();
+          if (trimmed.includes('<!doctype') || trimmed.includes('<html') || trimmed.includes('<body')) {
+            throw new Error("Resposta do servidor é HTML");
+          }
+          errData = JSON.parse(errText);
+        } catch (e) {
+          errData = { error: errText || res.statusText };
+        }
+        alert(errData.error || "Erro ao sincronizar");
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="space-y-12">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-4xl font-serif font-medium tracking-tight text-brand-primary">Cérebro Estratégico</h2>
+          <p className="text-brand-ink/40 font-medium text-lg">Sua base de conhecimento proprietária para decisões de investimento.</p>
+        </div>
+        <button 
+          onClick={() => setIsModalOpen(true)}
+          className="bg-brand-primary text-black px-8 py-4 rounded-2xl font-bold text-xs uppercase tracking-widest flex items-center gap-3 hover:bg-brand-primary/90 transition-all shadow-xl shadow-brand-primary/20"
+        >
+          <Plus size={20} /> Adicionar Conhecimento
+        </button>
+      </div>
+
+      <div className="space-y-12">
+        {Object.entries(items.reduce((acc, item) => {
+          if (!acc[item.category]) acc[item.category] = [];
+          acc[item.category].push(item);
+          return acc;
+        }, {} as Record<string, any[]>)).map(([category, categoryItems]) => (
+          <div key={category}>
+            <h3 className="text-2xl font-serif font-medium mb-8 text-brand-primary">{category} ({categoryItems.length})</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {categoryItems.map(item => (
+                  <div key={item.id} className="relative premium-card p-8 group cursor-pointer bg-brand-paper border-brand-primary/10"
+                    onClick={() => { if (item.data) window.open(item.data, '_blank'); }}
+                  >
+                    <button
+                      onClick={async (e) => {
+                          e.stopPropagation();
+                          if (confirm('Tem certeza que deseja excluir este documento?')) {
+                              await fetch(`/api/strategic-brain/${item.id}`, {
+                                  method: 'DELETE',
+                                  headers: { 'Authorization': `Bearer ${token}` }
+                              });
+                              fetchBrain();
+                          }
+                      }}
+                      className="absolute top-4 right-4 text-red-400 hover:text-red-600 p-2 z-20"
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                  <div className="w-14 h-14 bg-brand-bg rounded-2xl flex items-center justify-center text-brand-primary mb-8 group-hover:bg-brand-primary group-hover:text-black transition-all duration-500">
+                    {item.category === 'Links Relevantes' ? <Globe size={28} /> : 
+                     item.category === 'Planilhas' ? <Database size={28} /> :
+                     item.category === 'Leis' ? <Scale size={28} /> :
+                     item.data ? <FileDown size={28} /> : <FileText size={28} />}
+                  </div>
+                  <span className="px-3 py-1 bg-brand-primary/10 text-brand-primary rounded-lg text-[10px] font-bold uppercase tracking-widest mb-5 inline-block">
+                    {item.category} {item.data && '• 📎 Anexo'}
+                  </span>
+                  {item.is_automated && (
+                    <span className="ml-2 px-3 py-1 bg-emerald-500/10 text-emerald-500 rounded-lg text-[10px] font-bold uppercase tracking-widest mb-5 inline-block">
+                      Auto-Sync
+                    </span>
+                  )}
+                  <h4 className="text-xl font-serif font-bold mb-3 group-hover:text-brand-primary transition-colors">{item.title}</h4>
+                  {item.category === 'Cursos' && (item.module || item.lesson) && (
+                    <p className="text-[10px] font-bold text-brand-primary/60 uppercase tracking-widest mb-2">
+                      {item.module} {item.lesson ? `• ${item.lesson}` : ''}
+                    </p>
+                  )}
+                  <p className="text-sm text-brand-ink/40 line-clamp-3 leading-relaxed">{item.source || (item.url ? item.url : 'Documento indexado para análise estratégica.')}</p>
+                  {item.is_automated && (
+                    <div className="mt-6 pt-6 border-t border-brand-primary/5 flex items-center justify-between">
+                      <span className="text-[10px] text-brand-ink/30 font-bold uppercase tracking-widest">
+                        Último Sync: {item.last_sync ? new Date(item.last_sync).toLocaleDateString() : 'Nunca'}
+                      </span>
+                      <button 
+                        onClick={() => handleSync(item.id)}
+                        disabled={loading}
+                        className={cn("text-brand-primary hover:scale-110 transition-transform", loading && "animate-spin")}
+                      >
+                        <RefreshCw size={16} />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+        {items.length === 0 && (
+          <div className="py-20 text-center border-2 border-dashed border-brand-primary/10 rounded-[40px]">
+            <Brain size={48} className="mx-auto text-brand-primary/20 mb-6" />
+            <p className="text-brand-ink/20 font-serif italic text-xl">Sua base de conhecimento está vazia.</p>
+          </div>
+        )}
+      </div>
+
+      {isModalOpen && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex items-center justify-center p-6">
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-brand-paper w-full max-w-2xl rounded-[2.5rem] p-12 shadow-2xl border border-brand-primary/10"
+          >
+            <div className="flex items-center justify-between mb-10">
+              <h3 className="text-3xl font-serif font-medium text-brand-primary">Novo Conhecimento</h3>
+              <button onClick={() => setIsModalOpen(false)} className="p-3 hover:bg-brand-primary/10 rounded-full text-brand-primary transition-all">
+                <X size={24} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmit} className="space-y-8">
+              <div className="grid grid-cols-2 gap-8">
+                <div>
+                  <label className="block text-[10px] font-bold uppercase tracking-[0.2em] text-brand-ink/30 mb-3 ml-1">Título</label>
+                  <input 
+                    type="text" 
+                    required
+                    className="w-full bg-brand-bg border-brand-primary/10 rounded-2xl py-5 px-8 focus:ring-2 focus:ring-brand-primary transition-all font-medium text-lg"
+                    value={form.title}
+                    onChange={e => setForm({...form, title: e.target.value})}
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold uppercase tracking-[0.2em] text-brand-ink/30 mb-3 ml-1">Categoria</label>
+                  <select 
+                    className="w-full bg-brand-bg border-brand-primary/10 rounded-2xl py-5 px-8 focus:ring-2 focus:ring-brand-primary transition-all font-medium text-lg appearance-none"
+                    value={form.category}
+                    onChange={e => setForm({...form, category: e.target.value})}
+                  >
+                    <option>Leis</option>
+                    <option>Cursos</option>
+                    <option>Planilhas</option>
+                    <option>Documentos</option>
+                    <option>Jurisprudência</option>
+                    <option>Links Relevantes</option>
+                    <option>Estratégia</option>
+                  </select>
+                </div>
+                {form.category === 'Cursos' && (
+                  <>
+                    <div>
+                      <label className="block text-[10px] font-bold uppercase tracking-[0.2em] text-brand-ink/30 mb-3 ml-1">Módulo</label>
+                      <input type="text" className="w-full bg-brand-bg border-brand-primary/10 rounded-2xl py-5 px-8 focus:ring-2 focus:ring-brand-primary transition-all font-medium text-lg" value={form.module} onChange={e => setForm({...form, module: e.target.value})} />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold uppercase tracking-[0.2em] text-brand-ink/30 mb-3 ml-1">Aula</label>
+                      <input type="text" className="w-full bg-brand-bg border-brand-primary/10 rounded-2xl py-5 px-8 focus:ring-2 focus:ring-brand-primary transition-all font-medium text-lg" value={form.lesson} onChange={e => setForm({...form, lesson: e.target.value})} />
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {form.category === 'Links Relevantes' && (
+                <div className="animate-in fade-in slide-in-from-top-4 duration-500">
+                  <label className="block text-[10px] font-bold uppercase tracking-[0.2em] text-brand-ink/30 mb-3 ml-1">URL do Site</label>
+                  <input 
+                    type="url" 
+                    placeholder="https://exemplo.com.br"
+                    className="w-full bg-brand-bg border-brand-primary/10 rounded-2xl py-5 px-8 focus:ring-2 focus:ring-brand-primary transition-all font-medium text-lg"
+                    value={form.url}
+                    onChange={e => setForm({...form, url: e.target.value})}
+                  />
+                </div>
+              )}
+
+              <div className="flex items-center gap-4 p-6 bg-brand-bg rounded-2xl border border-brand-primary/10">
+                <div 
+                  onClick={() => setForm({...form, is_automated: !form.is_automated})}
+                  className={cn(
+                    "w-12 h-6 rounded-full relative cursor-pointer transition-all",
+                    form.is_automated ? "bg-brand-primary" : "bg-brand-ink/10"
+                  )}
+                >
+                  <div className={cn(
+                    "absolute top-1 w-4 h-4 bg-white rounded-full transition-all",
+                    form.is_automated ? "left-7" : "left-1"
+                  )} />
+                </div>
+                <div>
+                  <p className="text-sm font-bold uppercase tracking-widest">Sincronização Automática</p>
+                  <p className="text-[10px] text-brand-ink/40">Ative para ler sites, aulas e arquivos automaticamente.</p>
+                </div>
+              </div>
+
+              {form.is_automated ? (
+                <div className="space-y-6 animate-in fade-in slide-in-from-top-4 duration-500">
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-[0.2em] text-brand-ink/30 mb-3 ml-1">URL do Site / Área de Membros</label>
+                    <input 
+                      type="url" 
+                      placeholder="https://exemplo.com/login"
+                      className="w-full bg-brand-bg border-brand-primary/10 rounded-2xl py-5 px-8 focus:ring-2 focus:ring-brand-primary transition-all font-medium text-lg"
+                      value={form.url}
+                      onChange={e => setForm({...form, url: e.target.value})}
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-8">
+                    <div>
+                      <label className="block text-[10px] font-bold uppercase tracking-[0.2em] text-brand-ink/30 mb-3 ml-1">Usuário / Email</label>
+                      <input 
+                        type="text" 
+                        className="w-full bg-brand-bg border-brand-primary/10 rounded-2xl py-5 px-8 focus:ring-2 focus:ring-brand-primary transition-all font-medium text-lg"
+                        value={form.username}
+                        onChange={e => setForm({...form, username: e.target.value})}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold uppercase tracking-[0.2em] text-brand-ink/30 mb-3 ml-1">Senha</label>
+                      <input 
+                        type="password" 
+                        className="w-full bg-brand-bg border-brand-primary/10 rounded-2xl py-5 px-8 focus:ring-2 focus:ring-brand-primary transition-all font-medium text-lg"
+                        value={form.password}
+                        onChange={e => setForm({...form, password: e.target.value})}
+                      />
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-[0.2em] text-brand-ink/30 mb-3 ml-1">Fonte / Origem</label>
+                    <input 
+                      type="text" 
+                      className="w-full bg-brand-bg border-brand-primary/10 rounded-2xl py-5 px-8 focus:ring-2 focus:ring-brand-primary transition-all font-medium text-lg"
+                      value={form.source}
+                      onChange={e => setForm({...form, source: e.target.value})}
+                    />
+                  </div>
+
+                  <div className="border-2 border-dashed border-brand-primary/10 rounded-3xl p-12 text-center hover:bg-brand-primary/5 transition-all cursor-pointer relative group">
+                    <input 
+                      type="file" 
+                      onChange={handleStrategicBrainFileUpload}
+                      accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png,.gif"
+                      className="absolute inset-0 opacity-0 cursor-pointer"
+                    />
+                    <div className="w-16 h-16 bg-brand-primary/10 rounded-2xl flex items-center justify-center text-brand-primary mx-auto mb-6 group-hover:scale-110 transition-transform">
+                      <Download size={32} />
+                    </div>
+                    <p className="text-xl font-serif font-medium mb-2">{form.data ? form.title : 'Arraste ou clique para upload'}</p>
+                    <p className="text-sm text-brand-ink/30">PDF, DOC, TXT ou Imagens (Máx 50MB)</p>
+                  </div>
+                </>
+              )}
+
+              <div className="flex gap-6 pt-6">
+                <button 
+                  type="button"
+                  onClick={() => setIsModalOpen(false)}
+                  className="flex-1 py-5 border border-brand-primary/10 rounded-2xl font-bold text-sm uppercase tracking-widest hover:bg-brand-primary/5 transition-all"
+                >
+                  Cancelar
+                </button>
+                <button 
+                  type="submit"
+                  disabled={loading}
+                  className="flex-1 py-5 bg-brand-primary text-black rounded-2xl font-bold text-sm uppercase tracking-widest hover:scale-[1.02] transition-all shadow-xl shadow-brand-primary/20 flex items-center justify-center gap-3"
+                >
+                  {loading ? <Loader2 className="animate-spin" size={20} /> : "Salvar Conhecimento"}
+                </button>
+              </div>
+            </form>
+          </motion.div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AIConfigView({ token, aiConfig, onConfigUpdate }: { token: string, aiConfig: AIConfig | null, onConfigUpdate: (config: AIConfig) => void }) {
+  const [localConfig, setLocalConfig] = useState<AIConfig>(aiConfig || {
+    primary_ia: 'Gemini',
+    secondary_ia: '',
+    gemini_key: '',
+    openai_key: '',
+    claude_key: '',
+    deepseek_key: '',
+    datajud_key: ''
+  });
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (aiConfig) {
+      setLocalConfig(aiConfig);
+    } else {
+      fetch('/api/ai-config', { headers: { 'Authorization': `Bearer ${token}` } })
+        .then(async res => {
+          if (!res.ok) throw new Error("Erro ao carregar configurações");
+          return await parseJsonResponse(res);
+        })
+        .then(data => {
+          setLocalConfig(data);
+          onConfigUpdate(data);
+        })
+        .catch(err => console.error(err));
+    }
+  }, [aiConfig, token]);
+
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState<{success: boolean, message: string} | null>(null);
+
+  const handleTestKey = async (provider: 'gemini' | 'openai' | 'claude' | 'deepseek', rawKey: string) => {
+    if (!rawKey) {
+      setTestResult({ success: false, message: "Por favor, insira uma chave antes de testar." });
+      return;
+    }
+
+    let keyToTest = rawKey.trim();
+
+    // Handle AI Studio's display format "Label • Key" if the user accidentally copied it
+    if (keyToTest.includes(' • ')) {
+      keyToTest = keyToTest.split(' • ')[1].trim();
+    }
+
+    if (provider === 'gemini' && !keyToTest.startsWith('AIza')) {
+      setTestResult({ success: false, message: "A chave parece inválida. Uma chave Gemini válida deve começar com 'AIza'." });
+      return;
+    }
+
+    setTesting(true);
+    setTestResult(null);
+    try {
+      if (provider === 'gemini') {
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1/models?key=${keyToTest}`);
+        const data = await parseJsonResponse(response);
+        if (!response.ok) throw new Error(data.error?.message || "Erro ao validar chave Gemini");
+        setTestResult({ success: true, message: "Conexão Gemini estabelecida com sucesso!" });
+      } else if (provider === 'openai') {
+        const response = await fetch('https://api.openai.com/v1/models', {
+          headers: { 'Authorization': `Bearer ${keyToTest}` }
+        });
+        const data = await parseJsonResponse(response);
+        if (!response.ok) throw new Error(data.error?.message || "Erro ao validar chave OpenAI");
+        setTestResult({ success: true, message: "Conexão OpenAI estabelecida com sucesso!" });
+      } else if (provider === 'claude') {
+        if (!keyToTest.startsWith('sk-ant-')) throw new Error("Chave Claude inválida. Deve começar com 'sk-ant-'");
+        setTestResult({ success: true, message: "Formato de chave Claude parece correto (sk-ant-...)" });
+      } else if (provider === 'deepseek') {
+        const response = await fetch('https://api.deepseek.com/models', {
+          headers: { 'Authorization': `Bearer ${keyToTest}` }
+        });
+        const data = await parseJsonResponse(response);
+        if (!response.ok) throw new Error(data.error?.message || "Erro ao validar chave DeepSeek");
+        setTestResult({ success: true, message: "Conexão DeepSeek estabelecida com sucesso!" });
+      }
+    } catch (err: any) {
+      setTestResult({ success: false, message: `Erro: ${err.message}` });
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    let geminiKey = localConfig.gemini_key?.trim();
+    
+    // Handle AI Studio's display format "Label • Key"
+    if (geminiKey && geminiKey.includes(' • ')) {
+      geminiKey = geminiKey.split(' • ')[1].trim();
+    }
+
+    const trimmedConfig = {
+      ...localConfig,
+      gemini_key: geminiKey,
+      openai_key: localConfig.openai_key?.trim(),
+      claude_key: localConfig.claude_key?.trim(),
+      deepseek_key: localConfig.deepseek_key?.trim(),
+      datajud_key: localConfig.datajud_key?.trim()
+    };
+    try {
+      await fetch('/api/ai-config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify(trimmedConfig)
+      });
+      setLocalConfig(trimmedConfig);
+      onConfigUpdate(trimmedConfig);
+      setTestResult({ success: true, message: "Configurações salvas com sucesso!" });
+    } catch (err) {
+      setTestResult({ success: false, message: "Erro ao salvar configurações." });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="max-w-4xl mx-auto space-y-12">
+      <div className="text-center space-y-6 mb-16">
+        <div className="w-24 h-24 bg-brand-primary rounded-[2.5rem] flex items-center justify-center text-black mx-auto shadow-2xl shadow-brand-primary/20">
+          <Database size={48} />
+        </div>
+        <h2 className="text-4xl font-serif font-medium tracking-tight text-brand-primary">Configuração de IA</h2>
+        <p className="text-brand-ink/40 max-w-lg mx-auto text-lg">Configure os motores de inteligência artificial que alimentarão suas análises.</p>
+      </div>
+
+      {window.location.hostname.includes('run.app') && (
+        <div className="bg-brand-primary/5 border border-brand-primary/20 p-8 rounded-[2rem] space-y-4">
+          <div className="flex items-center gap-3 text-brand-primary">
+            <Info size={20} />
+            <h4 className="font-bold uppercase tracking-widest text-xs">Diagnóstico de Erro 403</h4>
+          </div>
+          <p className="text-sm text-brand-ink/60 leading-relaxed">
+            Vimos que sua chave não tem restrições de site (conforme seu print). Isso confirma que o problema é a <strong>API Desativada</strong>.
+          </p>
+          <div className="p-6 bg-brand-paper rounded-2xl border border-brand-primary/10 space-y-4">
+            <p className="text-sm font-bold text-brand-primary">Passo Final para Corrigir:</p>
+            <p className="text-xs text-brand-ink/60">
+              Clique no link abaixo e verifique se o botão azul diz <strong>"ATIVAR"</strong>. Se disser, clique nele.
+            </p>
+            <a 
+              href="https://console.cloud.google.com/apis/library/generativelanguage.googleapis.com" 
+              target="_blank"
+              className="inline-flex items-center gap-2 bg-brand-primary text-black px-6 py-3 rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-brand-primary/90 transition-all"
+            >
+              Ativar Generative Language API <ExternalLink size={14} />
+            </a>
+          </div>
+        </div>
+      )}
+
+      <div className="premium-card p-12 space-y-12">
+        <div className="grid grid-cols-2 gap-10">
+          <div>
+            <label className="block text-[10px] font-bold uppercase tracking-[0.2em] text-brand-ink/30 mb-4 ml-1">IA Principal</label>
+            <select 
+              className="w-full bg-brand-bg border-none rounded-2xl py-5 px-8 focus:ring-2 focus:ring-brand-primary font-bold text-brand-primary text-lg"
+              value={localConfig.primary_ia || ''}
+              onChange={e => setLocalConfig({...localConfig, primary_ia: e.target.value})}
+            >
+              <option>Gemini</option>
+              <option>ChatGPT</option>
+              <option>Claude</option>
+              <option>DeepSeek</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-[10px] font-bold uppercase tracking-[0.2em] text-brand-ink/30 mb-4 ml-1">IA Secundária (Fallback)</label>
+            <select 
+              className="w-full bg-brand-bg border-none rounded-2xl py-5 px-8 focus:ring-2 focus:ring-brand-primary font-bold text-brand-primary text-lg"
+              value={localConfig.secondary_ia || ''}
+              onChange={e => setLocalConfig({...localConfig, secondary_ia: e.target.value})}
+            >
+              <option value="">Nenhuma</option>
+              <option>Gemini</option>
+              <option>ChatGPT</option>
+              <option>Claude</option>
+              <option>DeepSeek</option>
+            </select>
+          </div>
+        </div>
+
+        <div className="space-y-8 pt-10 border-t border-brand-primary/5">
+          <div className="flex items-end gap-4">
+            <div className="flex-1">
+              <AIKeyInput label="Chave de API do Gemini" value={localConfig.gemini_key} onChange={val => setLocalConfig({...localConfig, gemini_key: val})} />
+            </div>
+            <button 
+              onClick={() => handleTestKey('gemini', localConfig.gemini_key)}
+              disabled={testing}
+              className="mb-1 bg-brand-bg border border-brand-primary/20 text-brand-primary px-6 py-4 rounded-2xl font-bold text-xs uppercase tracking-widest hover:bg-brand-primary/5 transition-all disabled:opacity-50"
+            >
+              {testing ? <Loader2 className="animate-spin" size={16} /> : "Testar"}
+            </button>
+          </div>
+          
+          {testResult && (
+            <div className={cn(
+              "p-4 rounded-xl text-xs font-bold flex items-center gap-3",
+              testResult.success ? "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20" : "bg-red-500/10 text-red-500 border border-red-500/20"
+            )}>
+              {testResult.success ? <Check size={16} /> : <AlertTriangle size={16} />}
+              {testResult.message}
+            </div>
+          )}
+
+          <div className="flex items-end gap-4">
+            <div className="flex-1">
+              <AIKeyInput label="Chave de API da OpenAI" value={localConfig.openai_key} onChange={val => setLocalConfig({...localConfig, openai_key: val})} />
+            </div>
+            <button 
+              onClick={() => handleTestKey('openai', localConfig.openai_key)}
+              disabled={testing}
+              className="mb-1 bg-brand-bg border border-brand-primary/20 text-brand-primary px-6 py-4 rounded-2xl font-bold text-xs uppercase tracking-widest hover:bg-brand-primary/5 transition-all disabled:opacity-50"
+            >
+              {testing ? <Loader2 className="animate-spin" size={16} /> : "Testar"}
+            </button>
+          </div>
+
+          <div className="flex items-end gap-4">
+            <div className="flex-1">
+              <AIKeyInput label="Chave de API do Claude" value={localConfig.claude_key} onChange={val => setLocalConfig({...localConfig, claude_key: val})} />
+            </div>
+            <button 
+              onClick={() => handleTestKey('claude', localConfig.claude_key)}
+              disabled={testing}
+              className="mb-1 bg-brand-bg border border-brand-primary/20 text-brand-primary px-6 py-4 rounded-2xl font-bold text-xs uppercase tracking-widest hover:bg-brand-primary/5 transition-all disabled:opacity-50"
+            >
+              {testing ? <Loader2 className="animate-spin" size={16} /> : "Testar"}
+            </button>
+          </div>
+
+          <div className="flex items-end gap-4">
+            <div className="flex-1">
+              <AIKeyInput label="Chave de API do DeepSeek" value={localConfig.deepseek_key} onChange={val => setLocalConfig({...localConfig, deepseek_key: val})} />
+            </div>
+            <button 
+              onClick={() => handleTestKey('deepseek', localConfig.deepseek_key)}
+              disabled={testing}
+              className="mb-1 bg-brand-bg border border-brand-primary/20 text-brand-primary px-6 py-4 rounded-2xl font-bold text-xs uppercase tracking-widest hover:bg-brand-primary/5 transition-all disabled:opacity-50"
+            >
+              {testing ? <Loader2 className="animate-spin" size={16} /> : "Testar"}
+            </button>
+          </div>
+
+          <AIKeyInput label="Chave de API DataJud (CNJ)" value={localConfig.datajud_key || ''} onChange={val => setLocalConfig({...localConfig, datajud_key: val})} />
+        </div>
+
+        <div className="flex gap-4">
+          <button 
+            onClick={handleSave}
+            disabled={saving}
+            className="flex-1 bg-brand-primary text-black py-6 rounded-2xl font-bold text-sm uppercase tracking-widest hover:bg-brand-primary/90 transition-all shadow-xl shadow-brand-primary/20 flex items-center justify-center gap-3"
+          >
+            {saving ? <Loader2 className="animate-spin" size={20} /> : <RefreshCw size={20} />}
+            Salvar Configurações de IA
+          </button>
+          <button 
+            onClick={() => {
+              if (window.confirm("Isso removerá todas as suas chaves customizadas e usará o padrão do sistema. Continuar?")) {
+                const defaultConfig = {
+                  primary_ia: 'Gemini',
+                  secondary_ia: '',
+                  gemini_key: '',
+                  openai_key: '',
+                  claude_key: '',
+                  deepseek_key: '',
+                  datajud_key: ''
+                };
+                setLocalConfig(defaultConfig);
+                onConfigUpdate(defaultConfig);
+                handleSave();
+              }
+            }}
+            className="px-8 bg-brand-paper border border-red-500/20 text-red-500 rounded-2xl font-bold text-xs uppercase tracking-widest hover:bg-red-500/10 transition-all"
+          >
+            Resetar para Padrão
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Card({ title, children, className }: { title: string, children: React.ReactNode, className?: string }) {
+  return (
+    <div className={cn("premium-card p-10", className)}>
+      <h3 className="text-2xl font-serif font-medium text-brand-primary mb-10">{title}</h3>
+      {children}
+    </div>
+  );
+}
+
+function DataJudField({ label, value }: { label: string, value: string }) {
+  return (
+    <div className="group">
+      <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-brand-ink/30 mb-2 group-hover:text-brand-primary transition-colors">{label}</p>
+      <p className="font-serif text-xl font-bold text-brand-primary">{value}</p>
+    </div>
+  );
+}
+
+function SimulationEditor() {
+  const { simulationData, updateState } = React.useContext(SimulationContext);
+  if (!simulationData) return null;
+
+  const getVal = (field: any) => {
+    if (!field || !field.type) return 0;
+    if (field.type === 'BRL') return field.value;
+    // All percentages (ITBI, Commission, Assessoria) are calculated over the Arrematação (bid)
+    return (simulationData.bid?.value || 0) * ((field.value || 0) / 100);
+  };
+
+  const totalInvestment = 
+    (simulationData.bid?.value || 0) + 
+    getVal(simulationData.desocupacaoAcordo) + 
+    getVal(simulationData.transfRegistro) + 
+    getVal(simulationData.reforma) + 
+    getVal(simulationData.comissaoLeiloeiro) + 
+    getVal(simulationData.transfITBI) +
+    getVal(simulationData.assessoria) +
+    getVal(simulationData.entrada) +
+    getVal(simulationData.desocupacaoHonorarios) +
+    getVal(simulationData.despesasVenda) +
+    getVal(simulationData.holdingCosts);
+
+  const finalTotal = totalInvestment;
+  const initialCash = 
+    getVal(simulationData.entrada) + 
+    getVal(simulationData.desocupacaoAcordo) + 
+    getVal(simulationData.transfRegistro) + 
+    getVal(simulationData.reforma) + 
+    getVal(simulationData.comissaoLeiloeiro) + 
+    getVal(simulationData.transfITBI) +
+    getVal(simulationData.assessoria) +
+    getVal(simulationData.desocupacaoHonorarios) +
+    getVal(simulationData.despesasVenda) +
+    getVal(simulationData.holdingCosts);
+
+  const grossProfit = (simulationData.saleValue?.value || 0) - finalTotal;
+  const roi = finalTotal > 0 ? (grossProfit / finalTotal) * 100 : 0;
+
+  const handleUpdateField = React.useCallback((key: string, field: string, value: any) => {
+    updateState((prev: any) => {
+      const newData = {
+        ...prev.simulationData,
+        [key]: {
+          ...(prev.simulationData[key] || {}),
+          [field]: value
+        }
+      };
+
+      // If updating IPTU or Condo, update the total debts
+      if (key === 'debtsIPTU' || key === 'debtsCondo') {
+        const iptu = key === 'debtsIPTU' ? value : (newData.debtsIPTU?.value || 0);
+        const condo = key === 'debtsCondo' ? value : (newData.debtsCondo?.value || 0);
+        newData.desocupacaoAcordo = {
+          ...newData.desocupacaoAcordo,
+          value: iptu + condo
+        };
+      }
+
+      return { simulationData: newData };
+    });
+  }, [updateState]);
+
+  return (
+    <div className="space-y-10">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <SimulationInput 
+          label="Valor de Avaliação" 
+          value={simulationData.valuation?.value || 0} 
+          type={simulationData.valuation?.type || 'BRL'}
+          onTypeChange={t => handleUpdateField('valuation', 'type', t)}
+          onChange={v => handleUpdateField('valuation', 'value', v)} 
+        />
+        <SimulationInput 
+          label="Valor da Arrematação" 
+          value={simulationData.bid?.value || 0} 
+          type={simulationData.bid?.type || 'BRL'}
+          onTypeChange={t => handleUpdateField('bid', 'type', t)}
+          onChange={v => handleUpdateField('bid', 'value', v)} 
+        />
+        <SimulationInput 
+          label="Débitos (Total)" 
+          value={simulationData.desocupacaoAcordo?.value || 0} 
+          type={simulationData.desocupacaoAcordo?.type || 'BRL'}
+          onTypeChange={t => handleUpdateField('desocupacaoAcordo', 'type', t)}
+          onChange={v => handleUpdateField('desocupacaoAcordo', 'value', v)} 
+        />
+        <div className="grid grid-cols-2 gap-4 md:col-span-2 bg-brand-bg/20 p-6 rounded-3xl border border-brand-primary/5">
+          <SimulationInput 
+            label="IPTU Acumulado" 
+            value={simulationData.debtsIPTU?.value || 0} 
+            type={simulationData.debtsIPTU?.type || 'BRL'}
+            onTypeChange={t => handleUpdateField('debtsIPTU', 'type', t)}
+            onChange={v => handleUpdateField('debtsIPTU', 'value', v)} 
+          />
+          <SimulationInput 
+            label="Condomínio" 
+            value={simulationData.debtsCondo?.value || 0} 
+            type={simulationData.debtsCondo?.type || 'BRL'}
+            onTypeChange={t => handleUpdateField('debtsCondo', 'type', t)}
+            onChange={v => handleUpdateField('debtsCondo', 'value', v)} 
+          />
+        </div>
+        <SimulationInput 
+          label="Custos Registro" 
+          value={simulationData.transfRegistro?.value || 0} 
+          type={simulationData.transfRegistro?.type || 'BRL'}
+          onTypeChange={t => handleUpdateField('transfRegistro', 'type', t)}
+          onChange={v => handleUpdateField('transfRegistro', 'value', v)} 
+        />
+        <SimulationInput 
+          label="Custos Jurídicos / Advogado" 
+          value={simulationData.desocupacaoHonorarios?.value || 0} 
+          type={simulationData.desocupacaoHonorarios?.type || 'BRL'}
+          onTypeChange={t => handleUpdateField('desocupacaoHonorarios', 'type', t)}
+          onChange={v => handleUpdateField('desocupacaoHonorarios', 'value', v)} 
+        />
+        <SimulationInput 
+          label="Reforma/Desocupação" 
+          value={simulationData.reforma?.value || 0} 
+          type={simulationData.reforma?.type || 'BRL'}
+          onTypeChange={t => handleUpdateField('reforma', 'type', t)}
+          onChange={v => handleUpdateField('reforma', 'value', v)} 
+        />
+        <SimulationInput 
+          label="Condomínio/IPTU (Desocupação)" 
+          value={simulationData.holdingCosts?.value || 0} 
+          type={simulationData.holdingCosts?.type || 'BRL'}
+          onTypeChange={t => handleUpdateField('holdingCosts', 'type', t)}
+          onChange={v => handleUpdateField('holdingCosts', 'value', v)} 
+        />
+        <SimulationInput 
+          label="Valor de Venda Estimado" 
+          value={simulationData.saleValue?.value || 0} 
+          type={simulationData.saleValue?.type || 'BRL'}
+          onTypeChange={t => handleUpdateField('saleValue', 'type', t)}
+          onChange={v => handleUpdateField('saleValue', 'value', v)} 
+        />
+        <SimulationInput 
+          label="Assessoria TJ INVEST" 
+          value={simulationData.assessoria?.value || 0} 
+          type={simulationData.assessoria?.type || 'PERCENT'}
+          onTypeChange={t => handleUpdateField('assessoria', 'type', t)}
+          onChange={v => handleUpdateField('assessoria', 'value', v)} 
+        />
+        <SimulationInput 
+          label="Entrada TJ INVEST" 
+          value={simulationData.entrada?.value || 0} 
+          type={simulationData.entrada?.type || 'BRL'}
+          onTypeChange={t => handleUpdateField('entrada', 'type', t)}
+          onChange={v => handleUpdateField('entrada', 'value', v)} 
+        />
+        <SimulationInput 
+          label="Outras Taxas / Extras" 
+          value={simulationData.despesasVenda?.value || 0} 
+          type={simulationData.despesasVenda?.type || 'BRL'}
+          onTypeChange={t => handleUpdateField('despesasVenda', 'type', t)}
+          onChange={v => handleUpdateField('despesasVenda', 'value', v)} 
+        />
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="p-8 bg-brand-primary/5 rounded-[32px] border border-brand-primary/10">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-brand-ink/40 mb-2">Custo Total de Aquisição</p>
+          <p className="text-3xl font-serif font-bold text-brand-primary">
+            {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(finalTotal)}
+          </p>
+          <p className="text-[10px] text-brand-ink/30 mt-2 italic">Lance + Todas as taxas e custos</p>
+        </div>
+        <div className="p-8 bg-brand-primary/5 rounded-[32px] border border-brand-primary/10">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-brand-ink/40 mb-2">Aporte Inicial (Cash)</p>
+          <p className="text-3xl font-serif font-bold text-brand-primary">
+            {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(initialCash)}
+          </p>
+          <p className="text-[10px] text-brand-ink/30 mt-2 italic">Entrada + Taxas e Reformas</p>
+        </div>
+        <div className="p-8 bg-emerald-500/10 rounded-[32px] border border-emerald-500/20">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-600 mb-2">Lucro Líquido Estimado</p>
+          <p className="text-3xl font-serif font-bold text-emerald-600">
+            {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(grossProfit)}
+          </p>
+          <p className="text-[10px] font-bold text-emerald-600/60 mt-2 tracking-widest uppercase">ROI: {roi.toFixed(1)}%</p>
+        </div>
+      </div>
+
+      <div className="p-8 bg-[#5A5A40]/5 rounded-[2rem] border border-[#5A5A40]/10 space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div className="text-center">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-brand-ink/40 mb-2">Custo Total</p>
+            <p className="text-2xl font-serif font-bold text-brand-primary">
+              {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(finalTotal)}
+            </p>
+          </div>
+          <div className="text-center border-x border-brand-primary/10">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-brand-ink/40 mb-2">Aporte Inicial</p>
+            <p className="text-2xl font-serif font-bold text-brand-primary">
+              {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(initialCash)}
+            </p>
+          </div>
+          <div className="text-center">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-brand-ink/40 mb-2">ROI Estimado</p>
+            <p className="text-2xl font-serif font-bold text-emerald-600">
+              {roi.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div className="p-8 bg-[#5A5A40]/5 rounded-[2rem] border border-[#5A5A40]/10 space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <div>
+            <label className="text-[10px] font-bold uppercase tracking-widest text-black/40 mb-3 block">Comissão Leiloeiro (%)</label>
+            <input 
+              type="range" min="0" max="10" step="0.5"
+              value={simulationData.commission?.value || 0}
+              onChange={e => updateState({ simulationData: { ...simulationData, commission: { ...(simulationData.commission || {}), value: parseFloat(e.target.value) } } })}
+              className="w-full h-1 bg-black/10 rounded-lg appearance-none cursor-pointer accent-[#5A5A40]"
+            />
+            <div className="flex justify-between mt-2 text-[10px] font-bold text-[#5A5A40]">
+              <span>0%</span>
+              <span>{(simulationData.commission?.value || 0).toLocaleString('pt-BR')}%</span>
+              <span>10%</span>
+            </div>
+          </div>
+          <div>
+            <label className="text-[10px] font-bold uppercase tracking-widest text-black/40 mb-3 block">ITBI (%)</label>
+            <input 
+              type="range" min="0" max="5" step="0.1"
+              value={simulationData.itbi?.value || 0}
+              onChange={e => updateState({ simulationData: { ...simulationData, itbi: { ...(simulationData.itbi || {}), value: parseFloat(e.target.value) } } })}
+              className="w-full h-1 bg-black/10 rounded-lg appearance-none cursor-pointer accent-[#5A5A40]"
+            />
+            <div className="flex justify-between mt-2 text-[10px] font-bold text-[#5A5A40]">
+              <span>0%</span>
+              <span>{(simulationData.itbi?.value || 0).toLocaleString('pt-BR')}%</span>
+              <span>5%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-[#5A5A40] text-white p-10 rounded-[2.5rem] shadow-xl shadow-[#5A5A40]/20 space-y-8">
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-widest opacity-60 mb-2">Investimento Total</p>
+          <p className="text-4xl font-bold">
+            {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(finalTotal)}
+          </p>
+        </div>
+
+        <div className="space-y-4 pt-8 border-t border-white/10">
+          <div className="flex justify-between items-center">
+            <span className="text-xs font-medium opacity-60">Lucro Bruto Estimado</span>
+            <span className="font-bold text-emerald-400">
+              {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(grossProfit)}
+            </span>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-xs font-medium opacity-60">ROI (%)</span>
+            <span className="text-2xl font-bold">
+              {roi.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%
+            </span>
+          </div>
+        </div>
+
+        <div className="pt-4">
+          <div className={cn(
+            "py-3 px-4 rounded-xl text-center text-[10px] font-bold uppercase tracking-widest",
+            roi > 30 
+              ? "bg-emerald-500/20 text-emerald-400" 
+              : "bg-amber-500/20 text-amber-400"
+          )}>
+            {roi > 30 
+              ? "Alta Viabilidade" 
+              : "Viabilidade Moderada"}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SimulationInput({ 
+  label, 
+  value, 
+  type, 
+  onChange, 
+  onTypeChange,
+  base,
+  onBaseChange,
+  showBase = false
+}: { 
+  label: string, 
+  value: number, 
+  type: 'BRL' | 'PERCENT',
+  onChange: (v: number) => void,
+  onTypeChange: (t: 'BRL' | 'PERCENT') => void,
+  base?: string,
+  onBaseChange?: (b: string) => void,
+  showBase?: boolean
+}) {
+  const [isFocused, setIsFocused] = React.useState(false);
+  const [localValue, setLocalValue] = React.useState('');
+
+  // Sync local value with prop when not focused
+  React.useEffect(() => {
+    if (!isFocused) {
+      setLocalValue(value.toLocaleString('pt-BR', { 
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      }));
+    }
+  }, [value, type, isFocused]);
+
+  const parseNumeric = (val: string): number => {
+    const cleanVal = val.replace(/[^\d,.]/g, '');
+    if (cleanVal.includes(',')) {
+      return parseFloat(cleanVal.replace(/\./g, '').replace(',', '.')) || 0;
+    } else if (cleanVal.includes('.')) {
+      const parts = cleanVal.split('.');
+      if (parts[parts.length - 1].length === 3 && parts.length > 1) {
+        return parseFloat(cleanVal.replace(/\./g, '')) || 0;
+      } else {
+        return parseFloat(cleanVal) || 0;
+      }
+    }
+    return parseFloat(cleanVal) || 0;
+  };
+
+  // Debounced update to parent state
+  React.useEffect(() => {
+    if (!isFocused) return;
+
+    const timer = setTimeout(() => {
+      const numeric = parseNumeric(localValue);
+      if (numeric !== value) {
+        onChange(numeric);
+      }
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [localValue, isFocused, onChange, value]);
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setLocalValue(e.target.value);
+  };
+
+  const handleBlur = () => {
+    setIsFocused(false);
+    const numeric = parseNumeric(localValue);
+    if (numeric !== value) {
+      onChange(numeric);
+    }
+  };
+
+  return (
+    <div className="flex flex-col space-y-2">
+      <div className="flex items-center justify-between">
+        <label className="text-[10px] font-bold text-brand-ink/60 uppercase tracking-wider">{label}</label>
+        <div className="flex gap-1 bg-brand-bg p-0.5 rounded-lg border border-brand-border">
+          <button 
+            onClick={() => onTypeChange('BRL')}
+            className={cn("px-2 py-0.5 text-[8px] font-bold rounded-md transition-all", type === 'BRL' ? "bg-brand-primary text-black shadow-sm" : "text-brand-ink/40 hover:text-brand-ink")}
+          >$</button>
+          <button 
+            onClick={() => onTypeChange('PERCENT')}
+            className={cn("px-2 py-0.5 text-[8px] font-bold rounded-md transition-all", type === 'PERCENT' ? "bg-brand-primary text-black shadow-sm" : "text-brand-ink/40 hover:text-brand-ink")}
+          >%</button>
+        </div>
+      </div>
+      <div className="relative group">
+        <input
+          type="text"
+          value={localValue}
+          onFocus={() => { setIsFocused(true); setLocalValue(value.toString().replace('.', ',')); }}
+          onBlur={handleBlur}
+          onChange={handleInputChange}
+          className="w-full bg-white border border-brand-border rounded-xl px-4 py-2 text-sm font-medium text-brand-ink focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-all text-right"
+        />
+        <div className="absolute left-4 top-1/2 -translate-y-1/2 text-[10px] font-bold text-brand-ink/20">
+          {type === 'BRL' ? 'R$' : '%'}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const GLOSSARY: Record<string, string> = {
+  'Edital': 'Documento oficial que contém todas as regras, condições e prazos do leilão.',
+  'Matrícula': 'Documento que registra todo o histórico de um imóvel, incluindo proprietários e ônus.',
+  'Ônus': 'Encargos, dívidas ou restrições que recaem sobre o imóvel (ex: hipoteca, penhora).',
+  'Arrematação': 'Ato de comprar o bem em leilão pelo maior lance.',
+  'Comitente': 'Pessoa ou empresa que coloca o bem à venda no leilão.',
+  'Lance': 'Oferta de valor feita por um participante para adquirir o bem.',
+  'DataJud': 'Plataforma do CNJ que centraliza dados processuais de todos os tribunais do Brasil.',
+  'Citação': 'Ato pelo qual se dá ciência ao réu de que contra ele corre uma ação judicial.',
+  'Penhora': 'Apreensão judicial de bens do devedor para garantir o pagamento da dívida.',
+  'Imissão na Posse': 'Ato judicial que transfere a posse efetiva do imóvel ao arrematante.',
+  'Agravo de Instrumento': 'Recurso contra decisões urgentes tomadas pelo juiz durante o processo.',
+  'Embargos à Arrematação': 'Ação judicial para contestar a validade do leilão após a compra.',
+  'Carta de Arrematação': 'Documento oficial que serve como título de propriedade para registrar o imóvel no cartório.',
+  'Auto de Arrematação': 'Documento assinado logo após o leilão que formaliza quem comprou o bem.',
+  'Propter Rem': 'Dívidas que acompanham o imóvel, independentemente de quem seja o dono (ex: IPTU e Condomínio).',
+  'Evicção': 'Perda do bem por uma decisão judicial que reconhece o direito de um terceiro anterior à compra.'
+};
+
+const FINANCIAL_TERMS: Record<string, string> = {
+  'ROI': 'Retorno sobre o Investimento',
+  'Custo Total': 'Soma de todos os gastos envolvidos na arrematação',
+  'Lucro Líquido': 'Diferença entre o valor de venda e o custo total',
+  'TIR': 'Taxa Interna de Retorno',
+  'Lance': 'Valor da oferta',
+  'IPTU': 'Imposto Predial e Territorial Urbano',
+  'Condomínio': 'Despesa mensal de condomínio'
+};
+
+function CompactSimulationInput({ 
+  label, 
+  value, 
+  type, 
+  onChange, 
+  onTypeChange,
+  highlight = false,
+  base,
+  onBaseChange,
+  showBase = false
+}: { 
+  label?: string, 
+  value: number, 
+  type: 'BRL' | 'PERCENT' | 'NUMBER',
+  onChange: (v: number) => void,
+  onTypeChange?: (t: 'BRL' | 'PERCENT' | 'NUMBER') => void,
+  highlight?: boolean,
+  base?: string,
+  onBaseChange?: (b: string) => void,
+  showBase?: boolean
+}) {
+  const [isFocused, setIsFocused] = React.useState(false);
+  const [localValue, setLocalValue] = React.useState('');
+  const [isHighlighted, setIsHighlighted] = React.useState(false);
+
+  React.useEffect(() => {
+    const highlightField = localStorage.getItem('highlightField');
+    if (highlightField && label === highlightField) {
+      setIsHighlighted(true);
+      const timer = setTimeout(() => {
+        setIsHighlighted(false);
+        localStorage.removeItem('highlightField');
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [label]);
+
+  const parseNumeric = (val: string): number => {
+    const cleanVal = val.replace(/[^\d,.]/g, '');
+    if (cleanVal.includes(',')) {
+      return parseFloat(cleanVal.replace(/\./g, '').replace(',', '.')) || 0;
+    } else if (cleanVal.includes('.')) {
+      const parts = cleanVal.split('.');
+      if (parts[parts.length - 1].length === 3 && parts.length > 1) {
+        return parseFloat(cleanVal.replace(/\./g, '')) || 0;
+      } else {
+        return parseFloat(cleanVal) || 0;
+      }
+    }
+    return parseFloat(cleanVal) || 0;
+  };
+
+  // Sync local value with prop when not focused
+  React.useEffect(() => {
+    if (!isFocused) {
+      if (type === 'NUMBER') {
+        setLocalValue(value.toString());
+      } else {
+        setLocalValue(value.toLocaleString('pt-BR', { 
+          minimumFractionDigits: type === 'PERCENT' ? 1 : 2,
+          maximumFractionDigits: type === 'PERCENT' ? 1 : 2
+        }));
+      }
+    }
+  }, [value, type, isFocused]);
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setLocalValue(e.target.value);
+  };
+
+  const handleBlur = () => {
+    setIsFocused(false);
+    const numeric = parseNumeric(localValue);
+    if (numeric !== value) {
+      onChange(numeric);
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-1">
+      <div className="flex items-center justify-between gap-2 group/input">
+        <label className="text-[9px] font-bold text-brand-ink/40 uppercase tracking-tight">{label}</label>
+        <div className="flex items-center gap-2">
+          <div className="flex bg-brand-bg/50 rounded-lg p-0.5 border border-brand-primary/5">
+            <button 
+              type="button"
+              onClick={() => onTypeChange('BRL')}
+              className={cn(
+                "px-1.5 py-0.5 text-[7px] font-bold uppercase tracking-widest rounded transition-all",
+                type === 'BRL' ? "bg-brand-primary text-black shadow-sm" : "text-brand-ink/30 hover:text-brand-primary"
+              )}
+            >
+              R$
+            </button>
+            <button 
+              type="button"
+              onClick={() => onTypeChange('PERCENT')}
+              className={cn(
+                "px-1.5 py-0.5 text-[7px] font-bold uppercase tracking-widest rounded transition-all",
+                type === 'PERCENT' ? "bg-brand-primary text-black shadow-sm" : "text-brand-ink/30 hover:text-brand-primary"
+              )}
+            >
+              %
+            </button>
+          </div>
+          <div className="relative min-w-[100px] group/field">
+            {type === 'BRL' && <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[9px] font-bold text-brand-ink/30">R$</span>}
+            <input 
+              type="text" 
+              value={localValue} 
+              onFocus={() => { setIsFocused(true); setLocalValue(value.toString().replace('.', ',')); }}
+              onBlur={handleBlur}
+              onChange={handleInputChange}
+              className={cn(
+                "w-full bg-transparent border-b border-transparent hover:border-brand-primary/20 focus:border-brand-primary focus:ring-0 text-right text-xs font-bold p-1 transition-all",
+                (highlight || isHighlighted) ? "text-emerald-600 bg-emerald-50 border-emerald-500" : (highlight ? "text-brand-primary" : "text-brand-ink"),
+                type === 'BRL' ? "pl-6" : "pr-4"
+              )}
+              placeholder="0,00"
+            />
+            {type === 'PERCENT' && <span className="absolute right-1 top-1/2 -translate-y-1/2 text-[9px] font-bold text-brand-ink/30">%</span>}
+          </div>
+        </div>
+      </div>
+      {type === 'PERCENT' && showBase && onBaseChange && (
+        <div className="flex items-center justify-end gap-1">
+          <select 
+            value={base}
+            onChange={(e) => onBaseChange(e.target.value)}
+            className="bg-transparent border-none p-0 text-[8px] font-bold text-brand-ink/30 uppercase focus:ring-0 cursor-pointer hover:text-brand-primary transition-colors text-right"
+          >
+            <option value="bid">Lance Máximo</option>
+            <option value="valuation">Valor Avaliação</option>
+            <option value="saleValue">Valor de Venda</option>
+            <option value="profit">Lucro Líquido</option>
+            <option value="capitalGain">Ganho Capital</option>
+          </select>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Financial calculation engine
+const calculateSimulationMetrics = (data: any, customBid?: number) => {
+  const bid = customBid ?? (data.bid?.value || 0);
+  const saleValue = data.saleValue?.value || 0;
+  
+  const getVal = (field: any) => {
+    if (!field || !field.type) return 0;
+    if (field.type === 'BRL') return field.value;
+    
+    const base = field.base || 'bid';
+    let baseValue = 0;
+    
+    switch (base) {
+      case 'valuation': baseValue = data.valuation?.value || 0; break;
+      case 'bid': baseValue = bid; break;
+      case 'saleValue': baseValue = saleValue; break;
+      case 'profit': 
+        baseValue = Math.max(0, saleValue - bid); 
+        break;
+      case 'capitalGain':
+        baseValue = Math.max(0, saleValue - bid); 
+        break;
+      default: baseValue = bid;
+    }
+    
+    return baseValue * ((field.value || 0) / 100);
+  };
+
+  // Sum categories
+  const assessoria = getVal(data.assessoria) + (data.entrada?.value || 0);
+  
+  const desocupacao = 
+    (data.desocupacaoAcordo?.value || 0) + 
+    (data.desocupacaoDespesas?.value || 0) + 
+    getVal(data.desocupacaoHonorarios) + 
+    getVal(data.desocupacaoCustas);
+    
+  const preArrematacao = 
+    (data.preAnaliseImobiliaria?.value || 0) + 
+    (data.preAnaliseJuridica?.value || 0) + 
+    (data.preCopiaProcessos?.value || 0) + 
+    (data.preConsultas?.value || 0) + 
+    (data.preMatricula?.value || 0);
+    
+  const reforma = (data.reforma?.value || 0) + getVal(data.reforma);
+  const comissaoLeiloeiro = getVal(data.commission || data.comissaoLeiloeiro);
+  const despesasVenda = (data.despesasVenda?.value || 0) + (data.extraFees?.value || 0);
+  
+  const mensalTotal = 
+    (data.mensalCondominio?.value || 0) + 
+    (data.mensalIPTU?.value || 0) + 
+    (data.mensalOutros?.value || 0);
+    
+  const holdingCosts = (data.holdingCosts?.value || 0) > 0 ? data.holdingCosts.value : (mensalTotal * (data.holdingMonths || 12));
+  
+  const transferencia = 
+    getVal(data.transfEscritura) + 
+    (data.itbi?.value || 0) + 
+    getVal(data.transfITBI) + 
+    (data.custosRegistro?.value || 0) + 
+    getVal(data.transfRegistro) + 
+    (data.transfCartorio?.value || 0) + 
+    (data.transfAverbacoes?.value || 0) + 
+    (data.transfLaudemio?.value || 0) + 
+    (data.transfForo?.value || 0) +
+    (data.impostos?.value || 0);
+
+  const customExpensesTotal = (data.customExpenses || []).reduce((acc: number, exp: any) => acc + getVal(exp), 0);
+
+  const totalUpfrontExpenses = assessoria + desocupacao + preArrematacao + reforma + comissaoLeiloeiro + transferencia + holdingCosts + customExpensesTotal;
+  const assetCost = bid + totalUpfrontExpenses;
+  
+  const profitBeforePostOp = saleValue - assetCost - despesasVenda;
+  
+  const performanceFee = data.posTaxaPerformance?.type === 'PERCENT' ? Math.max(0, profitBeforePostOp) * (data.posTaxaPerformance.value / 100) : (data.posTaxaPerformance?.value || 0);
+  const brokerFee = data.posComissaoCorretor?.type === 'PERCENT' ? saleValue * (data.posComissaoCorretor.value / 100) : (data.posComissaoCorretor?.value || 0);
+  
+  const capitalGain = Math.max(0, saleValue - assetCost);
+  const incomeTax = data.posIR?.type === 'PERCENT' ? capitalGain * (data.posIR.value / 100) : (data.posIR?.value || 0);
+  
+  const totalPostOpExpenses = performanceFee + brokerFee + incomeTax + despesasVenda;
+  
+  const finalTotalExpenses = totalUpfrontExpenses + totalPostOpExpenses;
+  const finalTotalCost = bid + finalTotalExpenses;
+  
+  const netProfit = saleValue - finalTotalCost;
+  
+  // Financing
+  const downPaymentPercent = data.downPaymentPercent?.value ?? 100;
+  const installments = data.installments?.value ?? 1;
+  const interestRate = data.interestRate?.value ?? 0;
+  const holdingMonths = data.holdingMonths?.value ?? 12;
+  
+  const downPaymentAmount = bid * (downPaymentPercent / 100);
+  const financedAmount = bid - downPaymentAmount;
+  const monthlyRate = interestRate / 100 / 12;
+
+  let installment = 0;
+  if (monthlyRate > 0 && installments > 0) {
+    installment = (financedAmount * monthlyRate) / (1 - Math.pow(1 + monthlyRate, -installments));
+  } else if (installments > 0) {
+    installment = financedAmount / installments;
+  }
+
+  let remainingDebt = 0;
+  if (holdingMonths < installments) {
+    if (monthlyRate > 0) {
+      remainingDebt = financedAmount * Math.pow(1 + monthlyRate, holdingMonths) - 
+                      (installment * (Math.pow(1 + monthlyRate, holdingMonths) - 1)) / monthlyRate;
+    } else {
+      remainingDebt = financedAmount - (installment * holdingMonths);
+    }
+  }
+
+  const totalPaidDuringHolding = installment * Math.min(holdingMonths, installments);
+  const principalPaidDuringHolding = financedAmount - remainingDebt;
+  const interestDuringHolding = Math.max(0, totalPaidDuringHolding - principalPaidDuringHolding);
+
+  const totalCashInvested = downPaymentAmount + totalUpfrontExpenses + totalPaidDuringHolding;
+  const roi = totalCashInvested > 0 ? (netProfit / totalCashInvested) * 100 : 0;
+
+  return {
+    bid,
+    saleValue,
+    assessoria,
+    desocupacao,
+    preArrematacao,
+    reforma,
+    comissaoLeiloeiro,
+    transferencia,
+    holdingCosts,
+    mensalTotal,
+    despesasVenda,
+    performanceFee,
+    brokerFee,
+    incomeTax,
+    totalUpfrontExpenses,
+    totalPostOpExpenses,
+    totalExpenses: totalUpfrontExpenses + totalPostOpExpenses,
+    assetCost,
+    finalTotalCost,
+    netProfit,
+    interestDuringHolding,
+    totalCashInvested,
+    totalInvestment: totalCashInvested,
+    roi,
+    installment,
+    remainingDebt,
+    totalPaidDuringHolding,
+    capitalGain,
+    profitBeforePostOp,
+    downPaymentAmount
+  };
+};
+
+// Utility for IRR calculation using Newton-Raphson
+function calculateIRR(cashFlows: number[], estimate = 0.1): number | null {
+  const maxIter = 100;
+  const precision = 1e-7;
+  let irr = estimate;
+
+  for (let i = 0; i < maxIter; i++) {
+    let npv = 0;
+    let dNpv = 0;
+    for (let t = 0; t < cashFlows.length; t++) {
+      const factor = Math.pow(1 + irr, t);
+      npv += cashFlows[t] / factor;
+      dNpv -= (t * cashFlows[t]) / (factor * (1 + irr));
+    }
+    
+    if (Math.abs(dNpv) < 1e-10) return null;
+    
+    const nextIrr = irr - npv / dNpv;
+    if (Math.abs(nextIrr - irr) < precision) return nextIrr;
+    irr = nextIrr;
+  }
+  return null;
+}
+
+function calculateTIR(
+  bidValOrMetrics: number | any, 
+  saleVal?: number, 
+  expenses?: number, 
+  downPaymentPercent?: number, 
+  installments?: number, 
+  interestRate?: number, 
+  holdingMonths?: number,
+  simulationData?: any
+): number {
+  let metrics: any;
+  let hm = holdingMonths;
+  let inst = installments;
+
+  if (typeof bidValOrMetrics === 'object' && bidValOrMetrics !== null) {
+    metrics = bidValOrMetrics;
+    hm = hm ?? metrics.holdingMonths ?? 12;
+    inst = inst ?? metrics.installments ?? 1;
+  } else {
+    const bidVal = bidValOrMetrics as number;
+    if (simulationData) {
+      metrics = calculateSimulationMetrics(simulationData, bidVal);
+      hm = hm ?? metrics.holdingMonths ?? 12;
+      inst = inst ?? metrics.installments ?? 1;
+    } else {
+      const dp = downPaymentPercent ?? 100;
+      const instVal = installments ?? 1;
+      const ir = interestRate ?? 0;
+      const hmVal = holdingMonths ?? 12;
+      const sv = saleVal ?? 0;
+      const ex = expenses ?? 0;
+
+      const downPayment = bidVal * (dp / 100);
+      const financed = bidVal - downPayment;
+      const monthlyRate = ir / 100 / 12;
+      
+      let installment = 0;
+      if (monthlyRate > 0 && instVal > 0) {
+        installment = (financed * monthlyRate) / (1 - Math.pow(1 + monthlyRate, -instVal));
+      } else if (instVal > 0) {
+        installment = financed / instVal;
+      }
+
+      let remainingDebt = 0;
+      if (hmVal < instVal) {
+        if (monthlyRate > 0) {
+          remainingDebt = financed * Math.pow(1 + monthlyRate, hmVal) - 
+                          (installment * (Math.pow(1 + monthlyRate, hmVal) - 1)) / monthlyRate;
+        } else {
+          remainingDebt = financed - (installment * hmVal);
+        }
+      }
+      metrics = {
+        bid: bidVal,
+        saleValue: sv,
+        totalUpfrontExpenses: ex,
+        totalPostOpExpenses: 0,
+        installment,
+        remainingDebt,
+        downPaymentAmount: downPayment,
+        holdingMonths: hmVal,
+        installments: instVal
+      };
+      hm = hmVal;
+      inst = instVal;
+    }
+  }
+
+  const initialInvestment = metrics.downPaymentAmount + metrics.totalUpfrontExpenses;
+  if (initialInvestment <= 0) return 0;
+
+  const cashFlows: number[] = [];
+  // Month 0: Down payment + initial expenses
+  cashFlows.push(-initialInvestment);
+  
+  // Months 1 to holdingMonths - 1: Installments
+  for (let i = 1; i < hm; i++) {
+    cashFlows.push(-metrics.installment);
+  }
+  
+  // Month holdingMonths: Sale - Last Installment - Remaining Debt - Post Op
+  const finalCashFlow = metrics.saleValue - (hm <= inst ? metrics.installment : 0) - Math.max(0, metrics.remainingDebt) - (metrics.totalPostOpExpenses || 0);
+  cashFlows.push(finalCashFlow);
+
+  const irrMonthly = calculateIRR(cashFlows);
+  if (irrMonthly === null) return 0;
+  
+  return (Math.pow(1 + irrMonthly, 12) - 1) * 100;
+}
+
+function BidMap({ simulationData }: { simulationData: any }) {
+  const baseBid = simulationData.bid?.value || 0;
+  const bidSteps = [0.8, 0.9, 1, 1.1, 1.2]; // Multipliers for base bid
+  const monthSteps = [3, 6, 9, 12, 18, 24];
+
+  return (
+    <div className="mt-12 space-y-6">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-bold uppercase tracking-widest text-brand-ink flex items-center gap-2">
+          <TrendingUp size={16} className="text-brand-primary" />
+          Mapa de Lances x Prazo de Venda
+        </h3>
+        <div className="flex items-center gap-4 text-[10px] uppercase font-bold text-brand-ink/40">
+          <div className="flex items-center gap-1">
+            <div className="w-2 h-2 rounded-full bg-emerald-500/20"></div>
+            <span>Excelente</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <div className="w-2 h-2 rounded-full bg-amber-500/20"></div>
+            <span>Moderado</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <div className="w-2 h-2 rounded-full bg-red-500/20"></div>
+            <span>Baixo</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="overflow-x-auto rounded-3xl border border-brand-border bg-brand-paper shadow-sm">
+        <table className="w-full border-collapse">
+          <thead>
+            <tr className="bg-brand-bg border-b border-brand-border">
+              <th className="py-4 px-6 text-left text-[10px] font-bold uppercase tracking-widest text-brand-ink/40 border-r border-brand-border">Valor do Lance</th>
+              {monthSteps.map(m => (
+                <th key={m} className="py-4 px-6 text-center text-[10px] font-bold uppercase tracking-widest text-brand-ink/40">
+                  {m} Meses
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {bidSteps.map(step => {
+              const currentBid = baseBid * step;
+              return (
+                <tr key={step} className="border-b border-brand-border last:border-0 hover:bg-brand-bg/50 transition-colors">
+                  <td className="py-4 px-6 text-sm font-bold text-brand-ink border-r border-brand-border">
+                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(currentBid)}
+                    <span className="block text-[9px] text-brand-ink/30 font-normal">({(step * 100).toFixed(0)}% do mín.)</span>
+                  </td>
+                  {monthSteps.map(m => {
+                    const metrics = calculateSimulationMetrics({ ...simulationData, holdingMonths: m }, currentBid);
+                    const tir = calculateTIR(currentBid, metrics.saleValue, 0, simulationData.downPaymentPercent, simulationData.installments, simulationData.interestRate, m, { ...simulationData, holdingMonths: m });
+                    
+                    let bgColor = "bg-red-500/5";
+                    let textColor = "text-red-600";
+                    if (tir > 30) { bgColor = "bg-emerald-500/10"; textColor = "text-emerald-600"; }
+                    else if (tir > 15) { bgColor = "bg-amber-500/10"; textColor = "text-amber-600"; }
+
+                    return (
+                      <td key={m} className={cn("py-4 px-6 text-center transition-colors", bgColor)}>
+                        <div className={cn("text-xs font-bold", textColor)}>{tir.toFixed(1)}% <span className="text-[8px] opacity-60">a.a.</span></div>
+                        <div className="text-[9px] text-brand-ink/40 mt-1">
+                          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', notation: 'compact' }).format(metrics.netProfit)}
+                        </div>
+                      </td>
+                    );
+                  })}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <p className="text-[9px] text-brand-ink/40 italic text-center">
+        * A TIR (Taxa Interna de Retorno) considera o fluxo de caixa mensal, incluindo entrada, parcelas e quitação na venda.
+      </p>
+    </div>
+  );
+}
+
+function InteractiveSimulationTable() {
+  const { simulationData, updateState } = React.useContext(SimulationContext);
+  const [showBreakdown, setShowBreakdown] = React.useState(false);
+  const [showDebtsBreakdown, setShowDebtsBreakdown] = React.useState(false);
+  const [showComparison, setShowComparison] = React.useState(false);
+  const [showUpfrontExpenses, setShowUpfrontExpenses] = React.useState(false);
+  const [showInstallmentCashOut, setShowInstallmentCashOut] = React.useState(false);
+
+  if (!simulationData) return null;
+
+  const metrics = calculateSimulationMetrics(simulationData);
+  const tir = calculateTIR(metrics);
+  const totalInvestment = metrics.assetCost;
+  const tableInitialCash = metrics.totalCashInvested;
+  const grossProfit = metrics.netProfit;
+  const roi = metrics.roi;
+  const finalTotal = metrics.finalTotalCost;
+
+  const handleUpdateField = React.useCallback((key: string, field: string, value: any) => {
+    updateState((prev: any) => {
+      const isDirect = key === 'saleValue' || key === 'bid';
+      const newData = {
+        ...prev.simulationData,
+        [key]: isDirect ? value : {
+          ...(prev.simulationData[key] || {}),
+          [field]: value
+        }
+      };
+
+      // If updating IPTU or Condo, update the total debts
+      if (key === 'debtsIPTU' || key === 'debtsCondo') {
+        const iptu = key === 'debtsIPTU' ? value : (newData.debtsIPTU?.value || 0);
+        const condo = key === 'debtsCondo' ? value : (newData.debtsCondo?.value || 0);
+        newData.desocupacaoAcordo = {
+          ...newData.desocupacaoAcordo,
+          value: iptu + condo
+        };
+      }
+
+      // If updating paymentType, update downPaymentPercent
+      if (key === 'paymentType') {
+        newData.downPaymentPercent = value === 'vista' ? 100 : 25;
+      }
+
+      return { simulationData: newData };
+    });
+  }, [updateState]);
+
+  const handleUpdateDirect = (key: string, value: any) => {
+    updateState((prev: any) => ({
+      simulationData: {
+        ...prev.simulationData,
+        [key]: value
+      }
+    }));
+  };
+
+  const handleUpdateModality = (modality: string) => {
+    updateState((prev: any) => {
+      const newData = {
+        ...prev.simulationData,
+        modality: modality,
+        comissaoLeiloeiro: {
+          ...prev.simulationData.comissaoLeiloeiro,
+          value: modality === 'Venda Direta' ? 0 : 5
+        }
+      };
+      return { simulationData: newData };
+    });
+  };
+
+  const handleAddCustomExpense = () => {
+    handleUpdateDirect('customExpenses', [
+      ...(simulationData.customExpenses || []),
+      { label: 'Nova Despesa', value: 0, type: 'BRL', base: 'bid' }
+    ]);
+  };
+
+  const handleUpdateCustomExpense = (index: number, field: string, value: any) => {
+    const newExpenses = [...(simulationData.customExpenses || [])];
+    newExpenses[index] = { ...newExpenses[index], [field]: value };
+    handleUpdateDirect('customExpenses', newExpenses);
+  };
+
+  const handleRemoveCustomExpense = (index: number) => {
+    const newExpenses = (simulationData.customExpenses || []).filter((_: any, i: number) => i !== index);
+    handleUpdateDirect('customExpenses', newExpenses);
+  };
+
+  const groups = [
+    {
+      title: 'Resumo de Investimento (Master)',
+      rows: [
+        { label: 'Valor de Venda do Imóvel', key: 'saleValue' },
+        { label: 'Custos da Arrematação (Lance)', key: 'bid', highlight: true },
+        { label: 'Total de Custos de Aquisição', key: 'totalInvestment', isComputed: true },
+        { label: 'Lucro Estimado', key: 'netProfit', isComputed: true, color: 'text-emerald-600 font-bold' },
+        { label: 'ROI (%)', key: 'roi', isComputed: true, color: 'text-brand-primary font-bold' },
+        { label: 'TIR (%)', key: 'tir', isComputed: true, color: 'text-brand-primary font-bold' },
+      ]
+    },
+    {
+      title: 'Forma de Pagamento',
+      rows: [
+        { label: 'Entrada (%)', key: 'downPaymentPercent' },
+        { label: 'Parcelas', key: 'installments' },
+        { label: 'Taxa de Juros (%)', key: 'interestRate' },
+      ]
+    },
+    {
+      title: 'Custos de Aquisição (Transferência)',
+      rows: [
+        { label: 'Comissão Leiloeiro', key: 'comissaoLeiloeiro' },
+        { label: 'ITBI Estimado', key: 'transfITBI' },
+        { label: 'Custos de Registro/Escritura', key: 'transfRegistro' },
+        { label: 'Escritura Pública', key: 'transfEscritura' },
+      ]
+    },
+    {
+      title: 'Regularização e Operação',
+      rows: [
+        { label: 'Débitos Acumulados', key: 'desocupacaoAcordo', color: 'text-red-600' },
+        { label: 'Reformas/Desocupação', key: 'reforma' },
+        { label: 'Custos Jurídicos / Advogado', key: 'desocupacaoHonorarios' },
+        { label: 'Condomínio/IPTU (Desocupação)', key: 'mensalCondominio' },
+        { label: 'Outras Taxas / Extras', key: 'despesasVenda' },
+      ]
+    },
+    {
+      title: 'TJ INVEST (Assessoramento)',
+      rows: [
+        { label: 'Assessoria TJ INVEST', key: 'assessoria' },
+        { label: 'Entrada TJ INVEST', key: 'entrada' },
+      ]
+    }
+  ];
+
+  const format = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
+
+  const getVal = (field: any) => field?.value || 0;
+  const bid = simulationData.bid?.value || 0;
+  const otherExpenses = metrics.totalUpfrontExpenses - (simulationData.commission?.value || 0) / 100 * bid;
+  const downPaymentPercent = simulationData.downPaymentPercent || 100;
+  const installments = simulationData.installments || 1;
+  const interestRate = simulationData.interestRate || 0;
+  const holdingMonths = simulationData.holdingMonths || 12;
+  const downPaymentAmount = metrics.downPaymentAmount;
+  const totalFinancingCostFullTerm = (metrics.installment * installments) + downPaymentAmount;
+  const assetCost = metrics.totalInvestment;
+  const interestDuringHolding = metrics.installment * Math.min(holdingMonths, installments) - (bid - downPaymentAmount) * (Math.min(holdingMonths, installments) / installments); // Simplified interest calc for display
+
+  const calculateScenario = (dpPercent: number) => {
+    const scenarioData = { ...simulationData, downPaymentPercent: dpPercent };
+    const scenarioMetrics = calculateSimulationMetrics(scenarioData);
+    return {
+      roi: scenarioMetrics.roi,
+      grossProfit: scenarioMetrics.netProfit,
+      totalInvestment: scenarioMetrics.assetCost,
+      finalTotal: scenarioMetrics.finalTotalCost
+    };
+  };
+
+  return (
+    <div className="my-8 space-y-6">
+      {/* <FinancialSummaryCard simulationData={simulationData} /> */}
+
+      {/* Strategy and Expected Return */}
+      <div className="bg-brand-paper rounded-3xl border border-brand-border p-6 shadow-sm">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="space-y-2">
+            <label className="text-[10px] font-bold uppercase tracking-widest text-brand-ink/40">Modalidade</label>
+            <div className="flex bg-brand-bg rounded-xl p-1 border border-brand-border/50">
+              {['Judicial', 'Extrajudicial', 'Venda Direta'].map((m) => (
+                <button 
+                  key={m}
+                  type="button"
+                  onClick={() => handleUpdateModality(m)}
+                  className={cn(
+                    "flex-1 px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest rounded-lg transition-all",
+                    (simulationData.modality || 'Judicial') === m ? "bg-brand-primary text-black shadow-sm" : "text-brand-ink/40 hover:text-brand-primary"
+                  )}
+                >
+                  {m}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="space-y-2">
+            <label className="text-[10px] font-bold uppercase tracking-widest text-brand-ink/40">Tese / Estratégia</label>
+            <div className="flex bg-brand-bg rounded-xl p-1 border border-brand-border/50">
+              {['venda', 'aluguel'].map((s) => (
+                <button 
+                  key={s}
+                  type="button"
+                  onClick={() => handleUpdateDirect('strategy', s)}
+                  className={cn(
+                    "flex-1 px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest rounded-lg transition-all",
+                    (simulationData.strategy || 'venda') === s ? "bg-brand-primary text-black shadow-sm" : "text-brand-ink/40 hover:text-brand-primary"
+                  )}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="space-y-2">
+            <label className="text-[10px] font-bold uppercase tracking-widest text-brand-ink/40">Retorno Esperado (a.a. %)</label>
+            <div className="flex items-center gap-2 bg-brand-bg/30 rounded-xl px-3 py-2 border border-brand-border/30">
+              <input 
+                type="number" 
+                value={simulationData.expectedReturn || 15}
+                onChange={(e) => handleUpdateDirect('expectedReturn', parseFloat(e.target.value) || 0)}
+                className="w-full bg-transparent border-none focus:ring-0 text-sm font-bold p-0"
+              />
+              <span className="text-xs font-bold text-brand-ink/30">%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Financing Configuration */}
+      <div className="bg-brand-paper rounded-3xl border border-brand-border p-6 shadow-sm">
+        <div className="flex items-center justify-between mb-6">
+          <h4 className="text-xs font-bold uppercase tracking-widest text-brand-ink/40 flex items-center gap-2">
+            <Calculator size={14} className="text-brand-primary" />
+            Configuração de Pagamento
+          </h4>
+          <div className="flex gap-2">
+            <div className="flex bg-brand-bg rounded-xl p-1 border border-brand-border/50">
+              <button 
+                type="button"
+                onClick={() => handleUpdateDirect('downPaymentPercent', 100)}
+                className={cn(
+                  "px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest rounded-lg transition-all",
+                  downPaymentPercent === 100 ? "bg-brand-primary text-black shadow-sm" : "text-brand-ink/40 hover:text-brand-primary"
+                )}
+              >
+                À Vista
+              </button>
+              <button 
+                type="button"
+                onClick={() => handleUpdateDirect('downPaymentPercent', 25)}
+                className={cn(
+                  "px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest rounded-lg transition-all",
+                  downPaymentPercent !== 100 ? "bg-brand-primary text-black shadow-sm" : "text-brand-ink/40 hover:text-brand-primary"
+                )}
+              >
+                Parcelado
+              </button>
+            </div>
+            <button 
+              type="button"
+              className="px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest rounded-lg bg-brand-primary text-black shadow-sm transition-all hover:bg-brand-primary/80"
+            >
+              Comparar Cenários
+            </button>
+          </div>
+        </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+            <div className="space-y-2">
+              <label className="text-[10px] font-bold uppercase tracking-widest text-brand-ink/40">Entrada (%)</label>
+              <div className="flex items-center gap-2 bg-brand-bg/30 rounded-xl px-3 py-2 border border-brand-border/30">
+                <input 
+                  type="number" 
+                  value={downPaymentPercent}
+                  onChange={(e) => handleUpdateDirect('downPaymentPercent', parseFloat(e.target.value) || 0)}
+                  className="w-full bg-transparent border-none focus:ring-0 text-sm font-bold p-0"
+                />
+                <span className="text-xs font-bold text-brand-ink/30">%</span>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <label className="text-[10px] font-bold uppercase tracking-widest text-brand-ink/40">Parcelas</label>
+              <div className="flex items-center gap-2 bg-brand-bg/30 rounded-xl px-3 py-2 border border-brand-border/30">
+                <input 
+                  type="number" 
+                  value={installments}
+                  onChange={(e) => handleUpdateDirect('installments', parseInt(e.target.value) || 1)}
+                  className="w-full bg-transparent border-none focus:ring-0 text-sm font-bold p-0"
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <label className="text-[10px] font-bold uppercase tracking-widest text-brand-ink/40">Juros Anual (%)</label>
+              <div className="flex items-center gap-2 bg-brand-bg/30 rounded-xl px-3 py-2 border border-brand-border/30">
+                <input 
+                  type="number" 
+                  value={interestRate}
+                  onChange={(e) => handleUpdateDirect('interestRate', parseFloat(e.target.value) || 0)}
+                  className="w-full bg-transparent border-none focus:ring-0 text-sm font-bold p-0"
+                />
+                <span className="text-xs font-bold text-brand-ink/30">%</span>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <label className="text-[10px] font-bold uppercase tracking-widest text-brand-ink/40">Tempo Revenda (Meses)</label>
+              <div className="flex items-center gap-2 bg-brand-bg/30 rounded-xl px-3 py-2 border border-brand-border/30">
+                <input 
+                  type="number" 
+                  value={holdingMonths}
+                  onChange={(e) => handleUpdateDirect('holdingMonths', parseInt(e.target.value) || 1)}
+                  className="w-full bg-transparent border-none focus:ring-0 text-sm font-bold p-0"
+                />
+              </div>
+            </div>
+          </div>
+      </div>
+
+      {/* Comparison: Upfront vs Installments */}
+      <button 
+        type="button"
+        onClick={() => setShowComparison(!showComparison)}
+        className="w-full text-center text-xs font-bold uppercase tracking-widest text-brand-primary hover:text-brand-primary/80 transition-all"
+      >
+        {showComparison ? 'Ocultar Comparativo' : 'Comparar Cenários (À Vista vs Parcelado)'}
+      </button>
+
+      {showComparison && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6 bg-brand-bg rounded-3xl border border-brand-border">
+          {['À Vista', 'Parcelado'].map((type, i) => {
+            const scenario = calculateScenario(type === 'À Vista' ? 100 : 25);
+            return (
+              <div key={type} className="space-y-2">
+                <h5 className="text-sm font-bold text-brand-ink">{type}</h5>
+                <div className="text-xs text-brand-ink/60">ROI: {scenario.roi.toFixed(2)}%</div>
+                <div className="text-xs text-brand-ink/60">Lucro: {format(scenario.grossProfit)}</div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className={cn(
+          "p-6 rounded-3xl border transition-all",
+          downPaymentPercent >= 100 ? "bg-brand-primary/10 border-brand-primary shadow-md" : "bg-brand-paper border-brand-border"
+        )}>
+          <div className="flex items-center justify-between mb-4">
+            <h5 className="text-[10px] font-bold uppercase tracking-widest text-brand-ink/60">Pagamento à Vista</h5>
+            {downPaymentPercent >= 100 && <CheckCircle2 size={16} className="text-brand-primary" />}
+          </div>
+          <div className="space-y-3">
+            <div className="flex justify-between items-end">
+              <span className="text-[9px] uppercase text-brand-ink/40">Lance à Vista</span>
+              <span className="text-lg font-bold text-brand-ink">{format(bid)}</span>
+            </div>
+            <div className="flex justify-between items-end">
+              <button 
+                onClick={() => setShowUpfrontExpenses(!showUpfrontExpenses)}
+                className="flex items-center gap-1 text-[9px] uppercase text-brand-ink/40 hover:text-brand-primary transition-colors"
+              >
+                Outras Despesas
+                <ChevronDown size={10} className={cn("transition-transform", showUpfrontExpenses && "rotate-180")} />
+              </button>
+              <span className="text-sm font-bold text-brand-ink/60">{format(otherExpenses)}</span>
+            </div>
+            
+            <AnimatePresence>
+              {showUpfrontExpenses && (
+                <motion.div 
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  className="overflow-hidden"
+                >
+                  <div className="mt-2 p-4 bg-brand-bg rounded-2xl space-y-2 border border-brand-border">
+                    <div className="text-[10px] font-bold uppercase tracking-widest text-brand-ink/40 mb-2">Detalhamento de Custos</div>
+                    {[
+                      { label: 'Comissão Leiloeiro', val: getVal(simulationData.commission) },
+                      { label: 'ITBI', val: getVal(simulationData.itbi) },
+                      { label: 'Custos Registro', val: getVal(simulationData.costs) },
+                      { label: 'Custos Jurídicos', val: getVal(simulationData.legalFees) },
+                      { label: 'Débitos Acumulados', val: getVal(simulationData.debts) },
+                      { label: 'Reformas/Desocupação', val: getVal(simulationData.renovation) },
+                      { label: 'Condomínio/IPTU', val: getVal(simulationData.holdingCosts) },
+                      { label: 'Assessoria TJ INVEST', val: getVal(simulationData.assessoria) },
+                      { label: 'Entrada TJ INVEST', val: getVal(simulationData.entrada) },
+                      { label: 'Custos Extras', val: getVal(simulationData.extraFees) },
+                    ].filter(item => item.val > 0).map((item, i) => (
+                      <div key={i} className="flex justify-between text-xs text-brand-ink/70">
+                        <span>{item.label}</span>
+                        <span className="font-bold">{format(item.val)}</span>
+                      </div>
+                    ))}
+                    <div className="flex justify-between text-xs font-bold text-brand-ink border-t border-brand-border pt-2 mt-2">
+                      <span>Total de Despesas</span>
+                      <span>{format(otherExpenses)}</span>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            <div className="flex justify-between items-end">
+              <span className="text-[9px] uppercase text-brand-ink/40">Investimento Total</span>
+              <span className="text-sm font-bold text-brand-ink/80">{format(bid + otherExpenses)}</span>
+            </div>
+            <div className="pt-2 border-t border-brand-border/50 flex justify-between items-center">
+              <span className="text-[9px] font-bold uppercase text-brand-primary flex items-center gap-1">
+                ROI
+                <span title="Retorno Sobre o Investimento. Mostra o lucro total em relação ao valor investido. Ex: Um ROI de 20% significa que para cada R$ 100 investidos, você ganhou R$ 20 de lucro líquido. Nota: Em investimentos alavancados (com financiamento), o ROI pode parecer muito alto devido ao baixo capital próprio investido inicialmente.">
+                  <Info size={10} />
+                </span>
+              </span>
+              <span className="text-xl font-bold text-brand-primary">
+                {(((simulationData.saleValue?.value || 0) - (bid + otherExpenses)) / (bid + otherExpenses) * 100).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%
+              </span>
+            </div>
+          </div>
+          <button 
+            type="button"
+            onClick={() => handleUpdateDirect('downPaymentPercent', 100)}
+            className="w-full mt-4 py-2 text-[10px] font-bold uppercase tracking-widest border border-brand-primary/20 rounded-xl hover:bg-brand-primary hover:text-black transition-all"
+          >
+            Selecionar à Vista
+          </button>
+        </div>
+
+        <div className={cn(
+          "p-6 rounded-3xl border transition-all",
+          downPaymentPercent < 100 ? "bg-brand-primary/10 border-brand-primary shadow-md" : "bg-brand-paper border-brand-border"
+        )}>
+          <div className="flex items-center justify-between mb-4">
+            <h5 className="text-[10px] font-bold uppercase tracking-widest text-brand-ink/60">Pagamento Parcelado</h5>
+            {downPaymentPercent < 100 && <CheckCircle2 size={16} className="text-brand-primary" />}
+          </div>
+          <div className="space-y-3">
+            <div className="flex justify-between items-end">
+              <span className="text-[9px] uppercase text-brand-ink/40">Valor da Arrematação</span>
+              <span className="text-sm font-bold text-brand-ink/60">{format(bid)}</span>
+            </div>
+            <div className="flex justify-between items-end">
+              <span className="text-[9px] uppercase text-brand-ink/40">Entrada ({downPaymentPercent}%)</span>
+              <span className="text-lg font-bold text-brand-ink">{format(downPaymentAmount)}</span>
+            </div>
+            <div className="flex justify-between items-end">
+              <span className="text-[9px] uppercase text-brand-ink/40">Saldo Remanescente</span>
+              <span className="text-sm font-bold text-brand-ink/60">{format(bid - downPaymentAmount)}</span>
+            </div>
+            <div className="flex justify-between items-end">
+              <span className="text-[9px] uppercase text-brand-ink/40">Parcelamento</span>
+              <span className="text-sm font-bold text-brand-ink/60">
+                {installments}x {format(totalFinancingCostFullTerm / installments)}
+              </span>
+            </div>
+            <div className="flex justify-between items-end">
+              <button 
+                onClick={() => setShowInstallmentCashOut(!showInstallmentCashOut)}
+                className="flex items-center gap-1 text-[9px] uppercase text-brand-ink/40 hover:text-brand-primary transition-colors"
+              >
+                Aporte Inicial (Cash Out)
+                <ChevronDown size={10} className={cn("transition-transform", showInstallmentCashOut && "rotate-180")} />
+              </button>
+              <span className="text-sm font-bold text-brand-primary">{format(tableInitialCash)}</span>
+            </div>
+
+            <AnimatePresence>
+              {showInstallmentCashOut && (
+                <motion.div 
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  className="overflow-hidden"
+                >
+                  <div className="mt-2 p-4 bg-black/5 rounded-2xl space-y-1">
+                    <div className="text-[10px] font-bold uppercase tracking-widest text-brand-ink/40 mb-2">Detalhamento do Aporte</div>
+                    <div className="flex justify-between text-xs font-bold text-brand-ink border-b border-brand-border pb-2 mb-2">
+                      <span>Entrada ({downPaymentPercent}%)</span>
+                      <span>{format(downPaymentAmount)}</span>
+                    </div>
+                    {[
+                      { label: 'Comissão Leiloeiro', val: getVal(simulationData.commission) },
+                      { label: 'ITBI', val: getVal(simulationData.itbi) },
+                      { label: 'Custos Registro', val: getVal(simulationData.costs) },
+                      { label: 'Custos Jurídicos', val: getVal(simulationData.legalFees) },
+                      { label: 'Débitos Acumulados', val: getVal(simulationData.debts) },
+                      { label: 'Reformas/Desocupação', val: getVal(simulationData.renovation) },
+                      { label: 'Condomínio/IPTU', val: getVal(simulationData.holdingCosts) },
+                      { label: 'Assessoria TJ INVEST', val: getVal(simulationData.assessoria) },
+                      { label: 'Entrada TJ INVEST', val: getVal(simulationData.entrada) },
+                      { label: 'Custos Extras', val: getVal(simulationData.extraFees) },
+                    ].filter(item => item.val > 0).map((item, i) => (
+                      <div key={i} className="flex justify-between text-xs text-brand-ink/70">
+                        <span>{item.label}</span>
+                        <span className="font-bold">{format(item.val)}</span>
+                      </div>
+                    ))}
+                    <div className="flex justify-between text-xs font-bold text-brand-ink border-t border-brand-border pt-2 mt-2">
+                      <span>Total do Aporte</span>
+                      <span>{format(tableInitialCash)}</span>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            <div className="pt-2 border-t border-brand-border/50 flex justify-between items-center">
+              <span className="text-[9px] font-bold uppercase text-brand-primary flex items-center gap-1">
+                ROI s/ Investimento
+                <span title="Retorno Sobre o Investimento considerando apenas o capital próprio investido (entrada + parcelas pagas até a venda).">
+                  <Info size={10} />
+                </span>
+              </span>
+              <span className="text-xl font-bold text-brand-primary">
+                {metrics.roi.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%
+              </span>
+            </div>
+          </div>
+          <button 
+            type="button"
+            onClick={() => handleUpdateDirect('downPaymentPercent', simulationData.auctionType === 'judicial' ? 25 : 20)}
+            className="w-full mt-4 py-2 text-[10px] font-bold uppercase tracking-widest border border-brand-primary/20 rounded-xl hover:bg-brand-primary hover:text-black transition-all"
+          >
+            Configurar Parcelamento
+          </button>
+        </div>
+      </div>
+
+        <table className="w-full border-collapse">
+          <tbody className="divide-y divide-brand-border/50">
+            {groups.map((group, groupIndex) => (
+              <React.Fragment key={groupIndex}>
+                <tr className="bg-brand-bg">
+                  <td colSpan={3} className="py-4 px-6 text-xs font-bold uppercase tracking-widest text-brand-ink/60">
+                    {group.title}
+                  </td>
+                </tr>
+                {group.rows.map((row, i) => (
+                  <React.Fragment key={i}>
+                    <tr className="border-b border-brand-primary/5 hover:bg-brand-bg/10 transition-colors group">
+                      <td className={cn(
+                        "py-4 px-6 text-sm font-medium flex items-center gap-2", 
+                        row.highlight ? "text-brand-primary font-bold" : (row.color || "text-brand-ink/60")
+                      )}>
+                        {row.key === 'desocupacaoAcordo' && (
+                          <button 
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); setShowDebtsBreakdown(!showDebtsBreakdown); }}
+                            className="p-1 hover:bg-brand-primary/10 rounded-full transition-colors"
+                          >
+                            <ChevronDown size={14} className={cn("transition-transform", showDebtsBreakdown && "rotate-180")} />
+                          </button>
+                        )}
+                        {row.label}
+                      </td>
+                      <td className="py-2 px-6 text-right">
+                        {row.isComputed ? (
+                          <div className={cn("text-sm font-bold", row.color)}>
+                            {row.key === 'roi' || row.key === 'tir' 
+                              ? `${(row.key === 'roi' ? metrics.roi : tir).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%`
+                              : format(metrics[row.key] || 0)}
+                          </div>
+                        ) : (
+                          <CompactSimulationInput 
+                            label={row.label}
+                            value={simulationData[row.key]?.value ?? (typeof simulationData[row.key] === 'number' ? simulationData[row.key] : 0)}
+                            type={simulationData[row.key]?.type || (row.key === 'downPaymentPercent' || row.key === 'installments' || row.key === 'interestRate' || row.key === 'saleValue' || row.key === 'bid' ? 'NUMBER' : 'BRL')}
+                            highlight={row.highlight}
+                            onTypeChange={row.key === 'saleValue' || row.key === 'bid' ? undefined : t => handleUpdateField(row.key, 'type', t)}
+                            onChange={v => handleUpdateField(row.key, 'value', v)}
+                          />
+                        )}
+                      </td>
+                      <td className="py-4 px-6 text-xs text-black/40 italic">
+                        {row.key === 'bid' ? 'Mínimo aceitável' : row.key === 'transfITBI' ? 'Sobre o valor do lance' : 'Estimado'}
+                      </td>
+                    </tr>
+                    {row.key === 'desocupacaoAcordo' && showDebtsBreakdown && (
+                      <tr className="bg-brand-bg/10">
+                        <td colSpan={3} className="px-12 py-6">
+                          <div className="space-y-4">
+                            <div className="flex items-center justify-between">
+                              <label className="text-xs font-bold text-brand-ink/60">IPTU</label>
+{/*
+                              <CompactSimulationInput 
+                                label="IPTU"
+                                value={simulationData.debtsIPTU?.value || 0}
+                                type="BRL"
+                                onTypeChange={t => handleUpdateField('debtsIPTU', 'type', t)}
+                                onChange={v => handleUpdateField('debtsIPTU', 'value', v)}
+                              /> 
+                              */}
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <label className="text-xs font-bold text-brand-ink/60">Condomínio</label>
+                              <CompactSimulationInput 
+                                label="Condomínio"
+                                value={simulationData.debtsCondo?.value || 0}
+                                type="BRL"
+                                onTypeChange={t => handleUpdateField('debtsCondo', 'type', t)}
+                                onChange={v => handleUpdateField('debtsCondo', 'value', v)}
+                              />
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
+                ))}
+              </React.Fragment>
+            ))}
+
+            {/* Custom Expenses Section */}
+            <tr className="bg-brand-bg">
+              <td colSpan={3} className="py-4 px-6 text-xs font-bold uppercase tracking-widest text-brand-ink/60 flex items-center justify-between">
+                Outras Despesas Personalizadas
+                <button 
+                  type="button"
+                  onClick={handleAddCustomExpense}
+                  className="flex items-center gap-1 text-[10px] text-brand-primary hover:underline"
+                >
+                  <Plus size={12} /> Adicionar Despesa
+                </button>
+              </td>
+            </tr>
+            {(simulationData.customExpenses || []).map((exp: any, index: number) => (
+              <tr key={index} className="border-b border-brand-primary/5 hover:bg-brand-bg/10 transition-colors group">
+                <td className="py-4 px-6 text-sm font-medium text-brand-ink/60 flex items-center gap-2">
+                  <button 
+                    type="button"
+                    onClick={() => handleRemoveCustomExpense(index)}
+                    className="p-1 text-red-400 hover:bg-red-50 rounded-full transition-colors opacity-0 group-hover:opacity-100"
+                  >
+                    <Trash2 size={12} />
+                  </button>
+                  <input 
+                    type="text"
+                    value={exp.label}
+                    onChange={(e) => handleUpdateCustomExpense(index, 'label', e.target.value)}
+                    className="bg-transparent border-none focus:ring-0 p-0 text-sm font-medium w-full"
+                  />
+                </td>
+                <td className="py-2 px-6 text-right">
+                  <CompactSimulationInput 
+                    label={exp.label}
+                    value={exp.value}
+                    type={exp.type}
+                    onTypeChange={t => handleUpdateCustomExpense(index, 'type', t)}
+                    onChange={v => handleUpdateCustomExpense(index, 'value', v)}
+                  />
+                </td>
+                <td className="py-4 px-6 text-xs text-black/40 italic">Personalizado</td>
+              </tr>
+            ))}
+          <tr 
+            className="bg-brand-primary/5 cursor-pointer hover:bg-brand-primary/10 transition-colors"
+            onClick={() => setShowBreakdown(!showBreakdown)}
+          >
+            <td className="py-6 px-6 text-sm font-bold text-brand-primary flex items-center gap-2">
+              {showBreakdown ? <ChevronDown size={16} className="rotate-180 transition-transform" /> : <ChevronDown size={16} className="transition-transform" />}
+              Custo Total de Aquisição
+            </td>
+            <td className="py-6 px-6 text-right text-lg font-bold text-brand-primary">{format(assetCost)}</td>
+            <td className="py-6 px-6 text-[10px] text-brand-primary/60 italic flex items-center gap-1">
+              Lance + Despesas
+              <span title="O valor total que o imóvel custará ao final do processo (Lance + todas as taxas e reformas).">
+                <Info size={10} />
+              </span>
+            </td>
+          </tr>
+          {interestDuringHolding > 0 && (
+            <tr className="border-b border-brand-primary/5 bg-red-500/10">
+              <td className="py-3 px-6 text-[10px] font-bold uppercase tracking-widest text-red-600">
+                Custo Financeiro ({holdingMonths} meses)
+              </td>
+              <td className="py-3 px-6 text-right text-sm font-bold text-red-600">{format(interestDuringHolding)}</td>
+              <td className="py-3 px-6 text-[10px] text-red-600/90 italic">
+                Juros do período
+              </td>
+            </tr>
+          )}
+
+          <AnimatePresence>
+            {showBreakdown && (
+              <tr>
+                <td colSpan={3} className="p-0">
+                  <motion.div 
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    className="overflow-hidden bg-brand-bg/20"
+                  >
+                    <div className="p-6 space-y-4 border-t border-brand-primary/10">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4">
+                        <div className="space-y-2">
+                          <h5 className="text-[9px] font-bold uppercase tracking-widest text-brand-primary/60 mb-2">Aquisição e Impostos</h5>
+                          <div className="flex justify-between text-[10px] uppercase tracking-wider text-brand-ink/40">
+                            <span>Valor da Arrematação</span>
+                            <span className="font-bold text-brand-ink/80">{format(simulationData.bid?.value || 0)}</span>
+                          </div>
+                          <div className="flex justify-between text-[10px] uppercase tracking-wider text-brand-ink/40">
+                            <span>Comissão Leiloeiro ({simulationData.commission?.value || 0}%)</span>
+                            <span className="font-bold text-brand-ink/80">{format(getVal(simulationData.commission))}</span>
+                          </div>
+                          <div className="flex justify-between text-[10px] uppercase tracking-wider text-brand-ink/40">
+                            <span>ITBI ({simulationData.itbi?.value || 0}%)</span>
+                            <span className="font-bold text-brand-ink/80">{format(getVal(simulationData.itbi))}</span>
+                          </div>
+                          <div className="flex justify-between text-[10px] uppercase tracking-wider text-brand-ink/40">
+                            <span>Custos Registro</span>
+                            <span className="font-bold text-brand-ink/80">{format(getVal(simulationData.costs))}</span>
+                          </div>
+                          <div className="flex justify-between text-[10px] uppercase tracking-wider text-brand-ink/40">
+                            <span>Custos Jurídicos</span>
+                            <span className="font-bold text-brand-ink/80">{format(getVal(simulationData.legalFees))}</span>
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <h5 className="text-[9px] font-bold uppercase tracking-widest text-brand-primary/60 mb-2">Manutenção e Serviços</h5>
+                          <div className="flex justify-between text-[10px] uppercase tracking-wider text-brand-ink/40">
+                            <span>Débitos Acumulados</span>
+                            <span className="font-bold text-brand-ink/80">{format(getVal(simulationData.debts))}</span>
+                          </div>
+                          <div className="flex justify-between text-[10px] uppercase tracking-wider text-brand-ink/40">
+                            <span>Reformas/Desocupação</span>
+                            <span className="font-bold text-brand-ink/80">{format(getVal(simulationData.renovation))}</span>
+                          </div>
+                          <div className="flex justify-between text-[10px] uppercase tracking-wider text-brand-ink/40">
+                            <span>Condomínio/IPTU (Desocupação)</span>
+                            <span className="font-bold text-brand-ink/80">{format(getVal(simulationData.holdingCosts))}</span>
+                          </div>
+                          <div className="flex justify-between text-[10px] uppercase tracking-wider text-brand-ink/40">
+                            <span>Assessoria TJ INVEST ({simulationData.assessoria?.value || 0}%)</span>
+                            <span className="font-bold text-brand-primary">{format(getVal(simulationData.assessoria))}</span>
+                          </div>
+                          <div className="flex justify-between text-[10px] uppercase tracking-wider text-brand-ink/40">
+                            <span>Entrada TJ INVEST</span>
+                            <span className="font-bold text-brand-primary">{format(getVal(simulationData.entrada))}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                </td>
+              </tr>
+            )}
+          </AnimatePresence>
+
+          <tr className="bg-brand-bg border-t border-brand-border">
+            <td className="py-4 px-6 text-sm font-bold text-brand-ink/60">Custo Total da Operação</td>
+            <td className="py-4 px-6 text-right text-sm font-bold text-brand-ink/80">{format(totalInvestment)}</td>
+            <td className="py-4 px-6 text-[10px] text-brand-ink/40 italic">Lance + Juros + Despesas</td>
+          </tr>
+
+          <tr className="bg-brand-primary/10">
+            <td className="py-6 px-6 text-sm font-bold text-brand-primary">Aporte Inicial Necessário (Cash Out)</td>
+            <td className="py-6 px-6 text-right text-lg font-bold text-brand-primary">{format(tableInitialCash)}</td>
+            <td className="py-6 px-6 text-[10px] text-brand-primary/60 italic flex items-center gap-1">
+              Entrada + Despesas
+              <span title="O dinheiro que você precisa desembolsar agora (Entrada + todas as taxas e reformas).">
+                <Info size={10} />
+              </span>
+            </td>
+          </tr>
+          <tr className="bg-emerald-500/10 border-t border-emerald-500/20">
+            <td className="py-6 px-6 text-sm font-bold text-emerald-600">Lucro Líquido Estimado</td>
+            <td className="py-6 px-6 text-right text-lg font-bold text-emerald-600">{format(grossProfit)}</td>
+            <td className="py-6 px-6 text-xs font-bold text-emerald-600 uppercase tracking-widest">
+              <div className="flex flex-col items-end">
+                <span>ROI ESTIMADO</span>
+                <span className="text-xl">{roi.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%</span>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      {/* Scenario Comparison Section */}
+      <div className="bg-brand-bg/30 p-8 border-t border-brand-border">
+        <div className="flex items-center justify-between mb-6">
+          <h4 className="text-xs font-bold uppercase tracking-widest text-brand-ink/40 flex items-center gap-2">
+            <TrendingUp size={14} className="text-brand-primary" />
+            Comparativo de Cenários (Venda)
+          </h4>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* Conservador */}
+          <div className="p-6 rounded-2xl border border-brand-border/30 bg-brand-bg/20">
+            <div className="text-[10px] font-bold text-brand-ink/40 uppercase tracking-widest mb-4">Cenário Conservador</div>
+            <div className="space-y-3">
+              <div className="flex justify-between text-xs">
+                <span className="text-brand-ink/60">Venda (-10%)</span>
+                <span className="font-bold text-brand-ink/80">{format((simulationData.saleValue?.value || 0) * 0.9)}</span>
+              </div>
+              <div className="flex justify-between text-xs">
+                <span className="text-brand-ink/60">Prazo (+6 meses)</span>
+                <span className="font-bold text-brand-ink/80">{holdingMonths + 6} meses</span>
+              </div>
+              <div className="pt-3 border-t border-brand-border/30 flex justify-between items-end">
+                <div className="text-[9px] font-bold text-brand-ink/30 uppercase">ROI Est.</div>
+                <div className="text-lg font-bold text-brand-ink/80">
+                  {(((((simulationData.saleValue?.value || 0) * 0.9) - finalTotal) / totalInvestment) * 100).toFixed(1)}%
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Atual (Base) */}
+          <div className="p-6 rounded-2xl border-2 border-brand-primary/20 bg-brand-primary/5 shadow-sm">
+            <div className="text-[10px] font-bold text-brand-primary uppercase tracking-widest mb-4">Cenário Base (Atual)</div>
+            <div className="space-y-3">
+              <div className="flex justify-between text-xs">
+                <span className="text-brand-ink/60">Venda</span>
+                <span className="font-bold text-brand-ink/80">{format(simulationData.saleValue?.value || 0)}</span>
+              </div>
+              <div className="flex justify-between text-xs">
+                <span className="text-brand-ink/60">Prazo</span>
+                <span className="font-bold text-brand-ink/80">{holdingMonths} meses</span>
+              </div>
+              <div className="pt-3 border-t border-brand-primary/20 flex justify-between items-end">
+                <div className="text-[9px] font-bold text-brand-primary uppercase">ROI Est.</div>
+                <div className="text-lg font-bold text-brand-primary">
+                  {roi.toFixed(1)}%
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Otimista */}
+          <div className="p-6 rounded-2xl border border-brand-border/30 bg-brand-bg/20">
+            <div className="text-[10px] font-bold text-brand-ink/40 uppercase tracking-widest mb-4">Cenário Otimista</div>
+            <div className="space-y-3">
+              <div className="flex justify-between text-xs">
+                <span className="text-brand-ink/60">Venda (+10%)</span>
+                <span className="font-bold text-brand-ink/80">{format((simulationData.saleValue?.value || 0) * 1.1)}</span>
+              </div>
+              <div className="flex justify-between text-xs">
+                <span className="text-brand-ink/60">Prazo (-4 meses)</span>
+                <span className="font-bold text-brand-ink/80">{Math.max(1, holdingMonths - 4)} meses</span>
+              </div>
+              <div className="pt-3 border-t border-brand-border/30 flex justify-between items-end">
+                <div className="text-[9px] font-bold text-brand-ink/30 uppercase">ROI Est.</div>
+                <div className="text-lg font-bold text-brand-ink/80">
+                  {(((((simulationData.saleValue?.value || 0) * 1.1) - finalTotal) / totalInvestment) * 100).toFixed(1)}%
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Payment Strategy Comparison Section */}
+      <div className="bg-brand-bg/30 p-8 border-t border-brand-border">
+        <div className="flex items-center justify-between mb-6">
+          <h4 className="text-xs font-bold uppercase tracking-widest text-brand-ink/40 flex items-center gap-2">
+            <TrendingUp size={14} className="text-brand-primary" />
+            Estratégia de Pagamento (À Vista vs Parcelado)
+          </h4>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* À Vista */}
+          {(() => {
+            const scenario = calculateScenario(100);
+            return (
+              <div className={cn(
+                "p-6 rounded-2xl border transition-all",
+                downPaymentPercent >= 100 ? "border-brand-primary/20 bg-brand-primary/5 shadow-sm" : "border-brand-border/30 bg-brand-bg/20"
+              )}>
+                <div className="flex justify-between items-start mb-4">
+                  <div className="text-[10px] font-bold text-brand-ink/40 uppercase tracking-widest">Pagamento À Vista</div>
+                  {downPaymentPercent >= 100 && <span className="text-[9px] font-bold text-brand-primary bg-brand-primary/10 px-2 py-0.5 rounded uppercase">Selecionado</span>}
+                </div>
+                <div className="space-y-3">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-brand-ink/60">Investimento Inicial</span>
+                    <span className="font-bold text-brand-ink/80">{format(scenario.totalInvestment)}</span>
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-brand-ink/60">Custo Total</span>
+                    <span className="font-bold text-brand-ink/80">{format(scenario.finalTotal)}</span>
+                  </div>
+                  <div className="pt-3 border-t border-brand-border/30 flex justify-between items-end">
+                    <div className="text-[9px] font-bold text-brand-ink/30 uppercase">ROI Est.</div>
+                    <div className="text-lg font-bold text-brand-ink/80">
+                      {scenario.roi.toFixed(1)}%
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* Parcelado */}
+          {(() => {
+            const scenario = calculateScenario(25);
+            return (
+              <div className={cn(
+                "p-6 rounded-2xl border transition-all",
+                downPaymentPercent < 100 ? "border-brand-primary/20 bg-brand-primary/5 shadow-sm" : "border-brand-border/30 bg-brand-bg/20"
+              )}>
+                <div className="flex justify-between items-start mb-4">
+                  <div className="text-[10px] font-bold text-brand-ink/40 uppercase tracking-widest">Pagamento Parcelado (25% Entrada)</div>
+                  {downPaymentPercent < 100 && <span className="text-[9px] font-bold text-brand-primary bg-brand-primary/10 px-2 py-0.5 rounded uppercase">Selecionado</span>}
+                </div>
+                <div className="space-y-3">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-brand-ink/60">Investimento Inicial</span>
+                    <span className="font-bold text-brand-ink/80">{format(scenario.totalInvestment)}</span>
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-brand-ink/60">Custo Total</span>
+                    <span className="font-bold text-brand-ink/80">{format(scenario.finalTotal)}</span>
+                  </div>
+                  <div className="pt-3 border-t border-brand-border/30 flex justify-between items-end">
+                    <div className="text-[9px] font-bold text-brand-ink/30 uppercase">ROI Est. (Alavancado)</div>
+                    <div className="text-lg font-bold text-brand-ink/80">
+                      {scenario.roi.toFixed(1)}%
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+        </div>
+      </div>
+
+      {/* Market Comparison Section */}
+      <div className="bg-brand-bg/30 p-8 border-t border-brand-border">
+        <div className="flex items-center justify-between mb-6">
+          <h4 className="text-xs font-bold uppercase tracking-widest text-brand-ink/40 flex items-center gap-2">
+            <TrendingUp size={14} className="text-brand-primary" />
+            Comparativo de Mercado (Anualizado)
+          </h4>
+        </div>
+        <div className="space-y-4">
+          <div className="grid grid-cols-5 gap-4 pb-2 border-b border-brand-border/30">
+            <div className="text-[9px] font-bold uppercase tracking-widest text-brand-ink/30">Investimento</div>
+            <div className="text-[9px] font-bold uppercase tracking-widest text-brand-ink/30 text-right">Lucro (R$)</div>
+            <div className="text-[9px] font-bold uppercase tracking-widest text-brand-ink/30 text-right">TIR (a.a.)</div>
+            <div className="text-[9px] font-bold uppercase tracking-widest text-brand-ink/30 text-right">ROI (Total)</div>
+            <div className="text-[9px] font-bold uppercase tracking-widest text-brand-ink/30 text-right">Prêmio</div>
+          </div>
+          
+          {[
+            { label: 'Este Imóvel (TJ INVEST)', profit: grossProfit, tir: calculateTIR(metrics), roi: roi, isPrimary: true },
+            { label: 'Tesouro Direto (SELIC)', profit: (totalInvestment * (simulationData.comparisonData?.tesouro?.roi || 11.5) / 100), tir: simulationData.comparisonData?.tesouro?.tir || 11.5, roi: simulationData.comparisonData?.tesouro?.roi || 11.5 },
+            { label: 'CDB (100% CDI)', profit: (totalInvestment * (simulationData.comparisonData?.cdb?.roi || 12.0) / 100), tir: simulationData.comparisonData?.cdb?.tir || 12.0, roi: simulationData.comparisonData?.cdb?.roi || 12.0 },
+            { label: 'Poupança', profit: (totalInvestment * (simulationData.comparisonData?.poupanca?.roi || 6.5) / 100), tir: simulationData.comparisonData?.poupanca?.tir || 6.5, roi: simulationData.comparisonData?.poupanca?.roi || 6.5 },
+            { label: 'Investimento em Aluguel', profit: (totalInvestment * (simulationData.comparisonData?.aluguel?.roi || 8.5) / 100), tir: simulationData.comparisonData?.aluguel?.tir || 8.5, roi: simulationData.comparisonData?.aluguel?.roi || 8.5 },
+          ].map((row, idx) => (
+            <div key={idx} className={cn(
+              "grid grid-cols-5 gap-4 py-2 items-center transition-all",
+              row.isPrimary ? "bg-brand-primary/10 rounded-xl px-4 -mx-4" : ""
+            )}>
+              <div className={cn("text-xs", row.isPrimary ? "font-bold text-brand-ink" : "text-brand-ink/60")}>{row.label}</div>
+              <div className={cn("text-xs font-mono text-right", row.isPrimary ? "font-bold text-brand-primary" : "text-brand-ink/60")}>{format(row.profit)}</div>
+              <div className={cn("text-xs font-mono text-right", row.isPrimary ? "font-bold text-brand-primary" : "text-brand-ink/60")}>{row.tir.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%</div>
+              <div className={cn("text-xs font-mono text-right", row.isPrimary ? "font-bold text-brand-primary" : "text-brand-ink/60")}>{row.roi.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%</div>
+              <div className="text-right">
+                {!row.isPrimary ? (
+                  <span className="text-[10px] font-bold text-emerald-500">
+                    +{ Math.max(0, calculateTIR(metrics) - row.tir).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) }%
+                  </span>
+                ) : (
+                  <span className="text-[10px] font-bold text-brand-primary uppercase tracking-tighter">Target</span>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+        <p className="mt-6 text-[9px] text-brand-ink/30 italic leading-relaxed">
+          * O prêmio de risco representa o ganho adicional anualizado deste imóvel em relação aos ativos de renda fixa tradicionais.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function FinancialSummaryCard({ simulationData }: { simulationData: any }) {
+  const metrics = calculateSimulationMetrics(simulationData);
+  const format = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
+
+  return (
+    <div className="bg-brand-paper rounded-3xl border border-brand-border p-6 shadow-sm mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h4 className="text-[10px] font-bold uppercase tracking-widest text-brand-ink/40">Resumo Financeiro</h4>
+            <div className="flex gap-4">
+              <div className="text-right">
+                <div className="text-[9px] uppercase text-brand-ink/40">ROI</div>
+                <div className="text-sm font-bold text-brand-primary">{metrics.roi.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%</div>
+              </div>
+              <div className="text-right">
+                <div className="text-[9px] uppercase text-brand-ink/40">TIR</div>
+                <div className="text-sm font-bold text-brand-primary">{calculateTIR(metrics).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%</div>
+              </div>
+            </div>
+          </div>
+          
+          <div className="space-y-2">
+            <div className="flex justify-between text-xs">
+              <span className="text-brand-ink/60">Receitas (+)</span>
+              <span className="font-bold text-emerald-600">{format(metrics.saleValue)}</span>
+            </div>
+            <div className="flex justify-between text-xs">
+              <span className="text-brand-ink/60">Despesas Operacionais (-)</span>
+              <span className="font-bold text-red-500">{format(metrics.totalUpfrontExpenses)}</span>
+            </div>
+            <div className="flex justify-between text-xs border-t border-brand-border pt-2">
+              <span className="font-bold text-brand-ink">Resultado Operacional (=)</span>
+              <span className="font-bold text-brand-ink">{format(metrics.saleValue - metrics.totalUpfrontExpenses)}</span>
+            </div>
+            <div className="flex justify-between text-xs">
+              <span className="text-brand-ink/60">Despesas Pós-operacionais (-)</span>
+              <span className="font-bold text-red-500">{format(metrics.totalPostOpExpenses)}</span>
+            </div>
+            <div className="flex justify-between text-xs border-t border-brand-border pt-2">
+              <span className="font-bold text-brand-primary">Resultado Líquido (=)</span>
+              <span className="font-bold text-brand-primary">{format(metrics.netProfit)}</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-4 border-l border-brand-border pl-8">
+          <h4 className="text-[10px] font-bold uppercase tracking-widest text-brand-ink/40">Configuração da Tese</h4>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <label className="text-[9px] uppercase text-brand-ink/40">Estratégia</label>
+              <div className="text-sm font-bold text-brand-ink capitalize">{simulationData.strategy || 'Venda'}</div>
+            </div>
+            <div className="space-y-1">
+              <label className="text-[9px] uppercase text-brand-ink/40">Retorno Esperado (a.a.)</label>
+              <div className="text-sm font-bold text-brand-ink">{simulationData.expectedReturn || 15}%</div>
+            </div>
+            <div className="space-y-1">
+              <label className="text-[9px] uppercase text-brand-ink/40">Prazo Estimado</label>
+              <div className="text-sm font-bold text-brand-ink">{simulationData.holdingMonths || 12} meses</div>
+            </div>
+            <div className="space-y-1">
+              <label className="text-[9px] uppercase text-brand-ink/40">Forma de Pagamento</label>
+              <div className="text-sm font-bold text-brand-ink">{simulationData.downPaymentPercent >= 100 ? 'À Vista' : 'Parcelado'}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function GlossaryMarkdown({ content, onJumpToSimulation, simulationData, updateState, children }: { 
+  content: string, 
+  onJumpToSimulation?: () => void,
+  simulationData?: any,
+  updateState?: (s: any) => void,
+  children?: React.ReactNode
+}) {
+  const processedContent = React.useMemo(() => {
+    let text = content;
+
+    // Dynamic Value Replacement Logic
+    if (simulationData) {
+      const format = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
+      const getVal = (field: any) => (field && field.type === 'BRL') ? (field.value || 0) : (field ? (simulationData.bid?.value || 0) * ((field.value || 0) / 100) : 0);
+      
+      const bid = simulationData.bid?.value || 0;
+      const downPaymentPercent = simulationData.downPaymentPercent ?? 100;
+      const interestRate = simulationData.interestRate ?? 0;
+      const holdingMonths = simulationData.holdingMonths ?? 12;
+      const installments = simulationData.installments ?? 1;
+      
+      const downPaymentAmount = bid * (downPaymentPercent / 100);
+      const financedAmount = bid - downPaymentAmount;
+      const monthlyRate = interestRate / 100 / 12;
+
+      let installment = 0;
+      if (monthlyRate > 0 && installments > 0) {
+        installment = (financedAmount * monthlyRate) / (1 - Math.pow(1 + monthlyRate, -installments));
+      } else if (installments > 0) {
+        installment = financedAmount / installments;
+      }
+
+      let remainingDebt = 0;
+      if (holdingMonths < installments) {
+        if (monthlyRate > 0) {
+          remainingDebt = financedAmount * Math.pow(1 + monthlyRate, holdingMonths) - 
+                          (installment * (Math.pow(1 + monthlyRate, holdingMonths) - 1)) / monthlyRate;
+        } else {
+          remainingDebt = financedAmount - (installment * holdingMonths);
+        }
+      }
+
+      const totalPaidDuringHolding = installment * Math.min(holdingMonths, installments);
+      const principalPaidDuringHolding = financedAmount - remainingDebt;
+      const interestDuringHolding = Math.max(0, totalPaidDuringHolding - principalPaidDuringHolding);
+
+      const otherExpenses = 
+        getVal(simulationData.desocupacaoAcordo) + 
+        getVal(simulationData.transfRegistro) + 
+        getVal(simulationData.reforma) + 
+        getVal(simulationData.comissaoLeiloeiro) + 
+        getVal(simulationData.transfITBI) + 
+        getVal(simulationData.assessoria) + 
+        getVal(simulationData.entrada) +
+        getVal(simulationData.desocupacaoHonorarios) +
+        getVal(simulationData.despesasVenda) +
+        getVal(simulationData.holdingCosts);
+
+      const assetCost = bid + otherExpenses;
+      const totalInvestment = downPaymentAmount + otherExpenses + totalPaidDuringHolding;
+      const finalTotal = assetCost + interestDuringHolding;
+      const profit = (simulationData.saleValue?.value || 0) - finalTotal;
+      const roi = totalInvestment > 0 ? (profit / totalInvestment) * 100 : 0;
+      const tir = calculateTIR(bid, simulationData.saleValue?.value || 0, otherExpenses, downPaymentPercent, installments, interestRate, holdingMonths);
+
+      const mappings = [
+        { labels: ['avaliação', 'avaliado', 'valor de avaliação', 'valor avaliado'], value: simulationData.valuation?.value || 0 },
+        { labels: ['arrematação', 'arrematado', 'lance', 'lance mínimo', 'valor de arrematação'], value: simulationData.bid?.value || 0 },
+        { labels: ['venda', 'mercado', 'comercial', 'valor de venda', 'preço de venda'], value: simulationData.saleValue?.value || 0 },
+        { labels: ['débitos', 'dívidas', 'total de débitos', 'pendências'], value: getVal(simulationData.desocupacaoAcordo) },
+        { labels: ['reformas', 'reforma', 'custo de reforma'], value: getVal(simulationData.reforma) },
+        { labels: ['custos', 'despesas', 'outros custos'], value: getVal(simulationData.transfRegistro) },
+        { labels: ['lucro', 'resultado', 'lucro estimado', 'lucro líquido'], value: profit },
+        { labels: ['itbi'], value: getVal(simulationData.transfITBI) },
+        { labels: ['comissão', 'leiloeiro'], value: getVal(simulationData.comissaoLeiloeiro) },
+        { labels: ['assessoria'], value: getVal(simulationData.assessoria) },
+        { labels: ['jurídico', 'advogado', 'custos jurídicos'], value: getVal(simulationData.desocupacaoHonorarios) },
+        { labels: ['extras', 'taxas extras'], value: getVal(simulationData.despesasVenda) },
+        { labels: ['condomínio desocupação', 'iptu desocupação'], value: getVal(simulationData.holdingCosts) },
+        { labels: ['custo total', 'investimento total'], value: assetCost },
+      ];
+
+      mappings.forEach(m => {
+        m.labels.forEach(label => {
+          // Match label followed by optional characters, then R$, then a number
+          const regex = new RegExp(`(${label}[^R$]{0,50}R\\$\\s?)([\\d.,]+)`, 'gi');
+          text = text.replace(regex, (match, p1) => {
+            return p1 + format(m.value).replace('R$', '').trim();
+          });
+        });
+      });
+
+      // ROI Replacement
+      const roiRegex = new RegExp(`(ROI[^\\d]*)([\\d.,]+)%`, 'gi');
+      text = text.replace(roiRegex, (match, p1) => {
+        return p1 + roi.toFixed(2).replace('.', ',') + '%';
+      });
+
+      // TIR Replacement
+      const tirRegex = new RegExp(`(TIR[^\\d]*)([\\d.,]+)%`, 'gi');
+      text = text.replace(tirRegex, (match, p1) => {
+        return p1 + tir.toFixed(2).replace('.', ',') + '%';
+      });
+    }
+
+    const sortedTerms = Object.keys(GLOSSARY).sort((a, b) => b.length - a.length);
+    
+    sortedTerms.forEach(term => {
+      const escapedTerm = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const regex = new RegExp(`(?<!<[^>]*)\\b${escapedTerm}\\b(?![^<]*>)`, 'gi');
+      text = text.replace(regex, match => `<span data-glossary="${term}">${match}</span>`);
+    });
+
+    const sortedFinancialTerms = Object.keys(FINANCIAL_TERMS).sort((a, b) => b.length - a.length);
+    
+    sortedFinancialTerms.forEach(term => {
+      const escapedTerm = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const regex = new RegExp(`(?<!<[^>]*)\\b${escapedTerm}\\b(?![^<]*>)`, 'gi');
+      text = text.replace(regex, match => `<span data-financial="${term}">${match}</span>`);
+    });
+    return text;
+  }, [content, simulationData]);
+
+  const components = React.useMemo(() => ({
+    span: ({ node, children, ...props }: any) => {
+      const termKey = props['data-glossary'] as string;
+      const financialKey = props['data-financial'] as string;
+      
+      if (termKey) {
+        return (
+          <span 
+            className="cursor-help border-b border-dotted border-brand-primary text-brand-primary font-semibold inline-block"
+            title={GLOSSARY[termKey] || ''}
+          >
+            {children}
+          </span>
+        );
+      }
+      
+      if (financialKey) {
+        return (
+          <span 
+            className="cursor-pointer border-b border-dotted border-emerald-600 text-emerald-600 font-semibold inline-block hover:bg-emerald-50"
+            onClick={() => {
+              if (onJumpToSimulation) onJumpToSimulation();
+              if (updateState) updateState({ highlightField: financialKey });
+            }}
+          >
+            {children}
+          </span>
+        );
+      }
+      return <span {...props}>{children}</span>;
+    },
+    table: ({ children }: any) => {
+      const getText = (node: any): string => {
+        if (typeof node === 'string') return node;
+        if (Array.isArray(node)) return node.map(getText).join(' ');
+        if (node?.props?.children) return getText(node.props.children);
+        return '';
+      };
+      
+      const tableText = getText(children);
+      
+      // Keywords that indicate a simulation/investment table
+      const simulationKeywords = [
+        "Valor (R$)", "Valor Estimado", "Custo Total", "QUADRO RESUMO", 
+        "RECEITA", "AQUISIÇÃO", "Lance Sugerido", "Comissão Leiloeiro", 
+        "ITBI Estimado", "Valor de Mercado", "Valor de Avaliação", 
+        "Débitos Acumulados", "Assessoria TJ INVEST", "Entrada TJ INVEST", 
+        "Lucro Líquido", "ROI", "Investimento", "Custo de Aquisição",
+        "Resumo de Investimento", "Quadro de Investimento", "Item", "Observação",
+        "MASTER", "CATEGORIA", "DETALHAMENTO"
+      ];
+      
+      const matchCount = simulationKeywords.filter(kw => {
+        const regex = new RegExp(kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+        return regex.test(tableText);
+      }).length;
+      
+      // If it looks like any financial analysis table, we use the Master Table logic
+      const isFinancialTable = matchCount >= 2 || 
+        tableText.includes("TJ INVEST") || 
+        tableText.includes("MASTER") ||
+        (tableText.includes("COMPARATIVO") && (tableText.includes("MERCADO") || tableText.includes("INVESTIMENTOS") || tableText.includes("CENÁRIOS"))) ||
+        (tableText.includes("Cenário") && (tableText.includes("Disputa") || tableText.includes("Lance") || tableText.includes("ROI")));
+
+      if (isFinancialTable) {
+        return null; // Remove financial tables from markdown as they are now rendered explicitly as the Master Table
+      }
+
+      return (
+        <div className="my-8 overflow-hidden rounded-2xl border border-brand-primary/10 shadow-sm">
+          <table className="w-full text-left border-collapse bg-brand-bg/20">
+            {children}
+          </table>
+        </div>
+      );
+    },
+    thead: ({ children }: any) => <thead className="bg-brand-primary/5 text-brand-primary uppercase text-[10px] font-bold tracking-widest">{children}</thead>,
+    th: ({ children }: any) => <th className="px-6 py-4 border-b border-brand-primary/10">{children}</th>,
+    td: ({ children }: any) => <td className="px-6 py-4 border-b border-brand-primary/5 text-sm">{children}</td>,
+    h1: ({ children }: any) => <h1 className="text-3xl font-serif font-bold text-brand-primary mt-12 mb-6 border-b border-brand-primary/10 pb-4">{children}</h1>,
+    h2: ({ children }: any) => <h2 className="text-2xl font-serif font-bold text-brand-primary mt-10 mb-5">{children}</h2>,
+    h3: ({ children }: any) => <h3 className="text-xl font-bold text-brand-primary mt-8 mb-4">{children}</h3>,
+    p: ({ children }: any) => <p className="mb-6 leading-relaxed text-brand-ink/80">{children}</p>,
+    ul: ({ children }: any) => <ul className="mb-8 space-y-3 list-none">{children}</ul>,
+    li: ({ children }: any) => (
+      <li className="flex items-start gap-3">
+        <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-brand-primary shrink-0" />
+        <span className="text-brand-ink/80">{children}</span>
+      </li>
+    ),
+  }), [simulationData, onJumpToSimulation]);
+
+  // Reset the master table rendered flag before each render
+  if (typeof window !== 'undefined') {
+    (window as any)._masterTableRendered = false;
+  }
+
+  return (
+    <SimulationContext.Provider value={{ simulationData, updateState: updateState || (() => {}), onJumpToSimulation: onJumpToSimulation || (() => {}) }}>
+      {children}
+    </SimulationContext.Provider>
+  );
+}
+
+function MarketComparisonTable({ metrics, roi, simulationData, format }: { metrics: any, roi: number, simulationData: any, format: (val: number) => string }) {
+  if (!metrics) return null;
+  const grossProfit = metrics.netProfit || 0;
+  const totalInvestment = metrics.totalInvestment || 0;
+  
+  return (
+    <div className="bg-brand-paper rounded-3xl border border-brand-border p-6 shadow-sm">
+      <div className="flex items-center justify-between mb-6">
+        <h4 className="text-xs font-bold uppercase tracking-widest text-brand-ink/40 flex items-center gap-2">
+          <TrendingUp size={14} className="text-brand-primary" />
+          Comparativo de Mercado (Anualizado)
+        </h4>
+      </div>
+      <div className="space-y-4">
+        <div className="grid grid-cols-5 gap-4 pb-2 border-b border-brand-border/30">
+          <div className="text-[9px] font-bold uppercase tracking-widest text-brand-ink/30">Investimento</div>
+          <div className="text-[9px] font-bold uppercase tracking-widest text-brand-ink/30 text-right">Lucro (R$)</div>
+          <div className="text-[9px] font-bold uppercase tracking-widest text-brand-ink/30 text-right">TIR (a.a.)</div>
+          <div className="text-[9px] font-bold uppercase tracking-widest text-brand-ink/30 text-right">ROI (Total)</div>
+          <div className="text-[9px] font-bold uppercase tracking-widest text-brand-ink/30 text-right">Prêmio</div>
+        </div>
+        
+        {[
+          { label: 'Este Imóvel (TJ INVEST)', profit: grossProfit, tir: calculateTIR(metrics), roi: roi, isPrimary: true },
+          { label: 'Tesouro Direto (SELIC)', profit: (totalInvestment * (simulationData.comparisonData?.tesouro?.roi || 11.5) / 100), tir: simulationData.comparisonData?.tesouro?.tir || 11.5, roi: simulationData.comparisonData?.tesouro?.roi || 11.5 },
+          { label: 'CDB (100% CDI)', profit: (totalInvestment * (simulationData.comparisonData?.cdb?.roi || 12.0) / 100), tir: simulationData.comparisonData?.cdb?.tir || 12.0, roi: simulationData.comparisonData?.cdb?.roi || 12.0 },
+          { label: 'Poupança', profit: (totalInvestment * (simulationData.comparisonData?.poupanca?.roi || 6.5) / 100), tir: simulationData.comparisonData?.poupanca?.tir || 6.5, roi: simulationData.comparisonData?.poupanca?.roi || 6.5 },
+          { label: 'Investimento em Aluguel', profit: (totalInvestment * (simulationData.comparisonData?.aluguel?.roi || 8.5) / 100), tir: simulationData.comparisonData?.aluguel?.tir || 8.5, roi: simulationData.comparisonData?.aluguel?.roi || 8.5 },
+        ].map((row, idx) => (
+          <div key={idx} className={cn(
+            "grid grid-cols-5 gap-4 py-2 items-center transition-all",
+            row.isPrimary ? "bg-brand-primary/10 rounded-xl px-4 -mx-4" : ""
+          )}>
+            <div className={cn("text-xs", row.isPrimary ? "font-bold text-brand-ink" : "text-brand-ink/60")}>{row.label}</div>
+            <div className={cn("text-xs font-mono text-right", row.isPrimary ? "font-bold text-brand-primary" : "text-brand-ink/60")}>{format(row.profit)}</div>
+            <div className={cn("text-xs font-mono text-right", row.isPrimary ? "font-bold text-brand-primary" : "text-brand-ink/60")}>{row.tir.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%</div>
+            <div className={cn("text-xs font-mono text-right", row.isPrimary ? "font-bold text-brand-primary" : "text-brand-ink/60")}>{row.roi.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%</div>
+            <div className="text-right">
+              {!row.isPrimary ? (
+                <span className="text-[10px] font-bold text-emerald-500">
+                  +{ Math.max(0, calculateTIR(metrics) - row.tir).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) }%
+                </span>
+              ) : (
+                <span className="text-[10px] font-bold text-brand-primary uppercase tracking-tighter">Target</span>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+      <p className="mt-6 text-[9px] text-brand-ink/30 italic leading-relaxed">
+        * O prêmio de risco representa o ganho adicional anualizado deste imóvel em relação aos ativos de renda fixa tradicionais.
+      </p>
+    </div>
+  );
+}
+
+function InvestorsTabContent({ simulationData, report }: { simulationData: any, report: string }) {
+  const { updateState } = React.useContext(SimulationContext);
+  const [localData, setLocalData] = React.useState(simulationData);
+  
+  React.useEffect(() => {
+    setLocalData(simulationData);
+  }, [simulationData]);
+
+  const handleSave = () => {
+    updateState({ simulationData: localData });
+  };
+
+  if (!localData) return <div>Dados de simulação não disponíveis.</div>;
+  
+  let metrics;
+  try {
+    metrics = calculateSimulationMetrics(localData);
+  } catch (e) {
+    return <div>Erro ao calcular métricas.</div>;
+  }
+  
+  const format = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val || 0);
+  
+  const tir = React.useMemo(() => {
+    try {
+      return calculateTIR(metrics);
+    } catch (e) {
+      console.error("Erro ao calcular TIR:", e);
+      return 0;
+    }
+  }, [metrics]);
+  const roi = metrics.roi || 0;
+
+  // Extract a summary from the report if possible
+  const summary = React.useMemo(() => {
+    if (!report || report.trim() === '') return null;
+    const sections = report.split(/#+\s+/);
+    const summarySection = sections.find(s => 
+      s.toLowerCase().includes('resumo') || 
+      s.toLowerCase().includes('conclusão') || 
+      s.toLowerCase().includes('veredito')
+    );
+    if (summarySection) {
+      const content = summarySection.split('\n').slice(1).join('\n').trim();
+      if (content) return content;
+    }
+    const fallback = report.split('\n').slice(0, 10).join('\n').trim();
+    return fallback || null;
+  }, [report]);
+
+  const handleUpdate = (key: string, value: number) => {
+    setLocalData((prev: any) => ({
+      ...prev,
+      [key]: { ...prev[key], value: isNaN(value) ? 0 : value }
+    }));
+  };
+
+  const costFields = [
+    { key: 'saleValue', label: 'Valor de Venda' },
+    { key: 'bid', label: 'Valor da Arrematação' },
+    { key: 'comissaoLeiloeiro', label: 'Comissão Leiloeiro (%)' },
+    { key: 'transfITBI', label: 'ITBI (%)' },
+    { key: 'transfRegistro', label: 'Registro/Escritura (%)' },
+    { key: 'assessoria', label: 'Assessoria (%)' },
+    { key: 'entrada', label: 'Entrada Assessoria (R$)' },
+    { key: 'posIR', label: 'Imposto de Renda (%)' },
+  ];
+
+  return (
+    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+      <div className="bg-brand-paper p-8 rounded-3xl border border-brand-border shadow-sm">
+        <div className="flex justify-between items-center mb-8">
+          <div>
+            <h4 className="text-sm font-bold uppercase tracking-widest text-brand-ink">Editar Custos e Valores</h4>
+            <p className="text-xs text-brand-ink/50 mt-1">Ajuste os parâmetros para recalcular a simulação.</p>
+          </div>
+          <button 
+            onClick={handleSave}
+            className="px-6 py-3 bg-brand-primary text-black text-xs font-bold rounded-xl hover:bg-brand-primary/80 transition-all shadow-lg shadow-brand-primary/20"
+          >
+            Salvar Alterações
+          </button>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {costFields.map(field => (
+            <div key={field.key} className="flex flex-col gap-2">
+              <label className="text-[10px] font-bold text-brand-ink/40 uppercase">{field.label}</label>
+              <input 
+                type="number" 
+                value={localData[field.key]?.value ?? 0} 
+                onChange={e => handleUpdate(field.key, parseFloat(e.target.value))} 
+                className="p-4 border border-brand-border rounded-xl bg-brand-bg focus:ring-2 focus:ring-brand-primary outline-none text-sm font-medium" 
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+      
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="bg-brand-primary/5 border border-brand-primary/20 rounded-3xl p-6 shadow-sm">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="p-2 bg-brand-primary/20 rounded-xl text-brand-primary">
+              <TrendingUp size={20} />
+            </div>
+            <h4 className="text-[10px] font-bold uppercase tracking-widest text-brand-ink/60">Retorno Estimado</h4>
+          </div>
+          <div className="space-y-1">
+            <div className="text-3xl font-bold text-brand-primary">{format(metrics.netProfit)}</div>
+            <div className="text-[10px] text-brand-ink/40 uppercase font-medium">Lucro Líquido Projetado</div>
+          </div>
+        </div>
+
+        <div className="bg-brand-paper border border-brand-border rounded-3xl p-6 shadow-sm">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="p-2 bg-emerald-100 rounded-xl text-emerald-600">
+              <Percent size={20} />
+            </div>
+            <h4 className="text-[10px] font-bold uppercase tracking-widest text-brand-ink/60">Rentabilidade (ROI)</h4>
+          </div>
+          <div className="space-y-1">
+            <div className="text-3xl font-bold text-emerald-600">{roi.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%</div>
+            <div className="text-[10px] text-brand-ink/40 uppercase font-medium">Retorno sobre Investimento</div>
+          </div>
+        </div>
+
+        <div className="bg-brand-paper border border-brand-border rounded-3xl p-6 shadow-sm">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="p-2 bg-indigo-100 rounded-xl text-indigo-600">
+              <Clock size={20} />
+            </div>
+            <h4 className="text-[10px] font-bold uppercase tracking-widest text-brand-ink/60">Taxa Interna (TIR)</h4>
+          </div>
+          <div className="space-y-1">
+            <div className="text-3xl font-bold text-indigo-600">{tir.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%</div>
+            <div className="text-[10px] text-brand-ink/40 uppercase font-medium">Taxa Interna de Retorno (a.a.)</div>
+          </div>
+        </div>
+      </div>
+
+      <MarketComparisonTable metrics={metrics} roi={roi} simulationData={simulationData} format={format} />
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div className="bg-brand-paper rounded-3xl border border-brand-border overflow-hidden shadow-sm">
+          <div className="p-6 border-b border-brand-border bg-brand-bg/30">
+            <h4 className="text-[10px] font-bold uppercase tracking-widest text-brand-ink/60">Estrutura de Investimento</h4>
+          </div>
+          <div className="p-6 space-y-4">
+            <div className="flex justify-between items-center py-2 border-b border-brand-border/50">
+              <span className="text-sm text-brand-ink/60">Valor de Venda Estimado</span>
+              <span className="text-sm font-bold text-brand-ink">{format(metrics.saleValue)}</span>
+            </div>
+            <div className="flex justify-between items-center py-2 border-b border-brand-border/50">
+              <span className="text-sm text-brand-ink/60">Custo de Arrematação</span>
+              <span className="text-sm font-bold text-brand-ink">{format(metrics.bid)}</span>
+            </div>
+            <div className="flex justify-between items-center py-2 border-b border-brand-border/50">
+              <span className="text-sm text-brand-ink/60">Total de Custos e Despesas</span>
+              <span className="text-sm font-bold text-red-600">{format(metrics.totalExpenses)}</span>
+            </div>
+            <div className="flex justify-between items-center py-4 bg-brand-primary/5 px-4 -mx-4 mt-4">
+              <span className="text-sm font-bold text-brand-primary uppercase tracking-wider">Investimento Total</span>
+              <span className="text-lg font-bold text-brand-primary">{format(metrics.totalInvestment)}</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-brand-paper rounded-3xl border border-brand-border overflow-hidden shadow-sm">
+          <div className="p-6 border-b border-brand-border bg-brand-bg/30">
+            <h4 className="text-[10px] font-bold uppercase tracking-widest text-brand-ink/60">Detalhamento de Custos</h4>
+          </div>
+          <div className="p-6 space-y-3">
+            {[
+              { label: 'Comissão do Leiloeiro', value: metrics.comissaoLeiloeiro },
+              { label: 'ITBI e Registro', value: metrics.transferencia },
+              { label: 'Débitos do Imóvel', value: metrics.desocupacao },
+              { label: 'Reforma e Desocupação', value: metrics.reforma },
+              { label: 'Custos de Carregamento', value: metrics.holdingCosts },
+              { label: 'Assessoria TJ INVEST', value: metrics.assessoria },
+            ].filter(c => c.value > 0).map((cost, idx) => (
+              <div key={idx} className="flex justify-between items-center text-xs">
+                <span className="text-brand-ink/60">{cost.label}</span>
+                <span className="font-medium text-brand-ink/80">{format(cost.value)}</span>
+              </div>
+            ))}
+            <div className="pt-4 mt-4 border-t border-brand-border flex justify-between items-center">
+              <span className="text-sm font-bold text-brand-ink">Total de Despesas</span>
+              <span className="text-sm font-bold text-brand-ink">{format(metrics.totalExpenses)}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-brand-paper text-brand-ink rounded-3xl p-8 shadow-xl relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-brand-primary/10 rounded-full -mr-32 -mt-32 blur-3xl" />
+        <div className="relative z-10">
+          <h4 className="text-[10px] font-bold uppercase tracking-widest text-brand-primary mb-6">Resumo Executivo para Investidor</h4>
+          <div className="prose prose-invert max-w-none">
+            {summary ? (
+              <div className="text-lg leading-relaxed text-white/80 markdown-body !text-white/80">
+                <ReactMarkdown>{summary}</ReactMarkdown>
+              </div>
+            ) : (
+              <p className="text-lg leading-relaxed text-white/80">
+                O investimento projetado para este ativo é de <span className="text-brand-primary font-bold">{format(metrics?.totalInvestment || 0)}</span>, 
+                com uma expectativa de lucro líquido de <span className="text-brand-primary font-bold">{format(metrics?.netProfit || 0)}</span> após todos os custos e impostos.
+              </p>
+            )}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-8">
+              <div className="space-y-2">
+                <div className="text-[10px] font-bold uppercase tracking-widest text-white/40">Ponto de Equilíbrio (Break-even)</div>
+                <div className="text-xl font-bold">{format(metrics.totalInvestment)}</div>
+                <p className="text-xs text-white/60">Valor mínimo de venda para não haver prejuízo.</p>
+              </div>
+              <div className="space-y-2">
+                <div className="text-[10px] font-bold uppercase tracking-widest text-white/40">Margem de Segurança</div>
+                <div className="text-xl font-bold">{((metrics.saleValue - metrics.totalInvestment) / metrics.saleValue * 100).toFixed(1)}%</div>
+                <p className="text-xs text-white/60">Percentual que o valor de venda pode cair antes de atingir o break-even.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+const reportComponents = {
+  h1: ({node, ...props}: any) => <h1 className="text-3xl font-bold text-brand-primary mb-6 mt-8" {...props} />,
+  h2: ({node, ...props}: any) => <h2 className="text-2xl font-bold text-brand-primary mb-4 mt-6" {...props} />,
+  h3: ({node, ...props}: any) => <h3 className="text-xl font-bold text-brand-primary mb-3 mt-4" {...props} />,
+  p: ({node, ...props}: any) => <p className="text-brand-ink/80 leading-relaxed mb-4" {...props} />,
+  table: ({node, ...props}: any) => <div className="overflow-x-auto my-6"><table className="min-w-full divide-y divide-brand-border border border-brand-border rounded-lg" {...props} /></div>,
+  th: ({node, ...props}: any) => <th className="px-4 py-3 bg-brand-bg/50 text-left text-xs font-bold text-brand-primary uppercase tracking-wider" {...props} />,
+  td: ({node, ...props}: any) => <td className="px-4 py-3 text-sm text-brand-ink/90 border-t border-brand-border" {...props} />,
+  strong: ({node, ...props}: any) => <strong className="font-bold text-brand-primary" {...props} />,
+  ul: ({node, ...props}: any) => <ul className="list-disc list-inside mb-4 space-y-2 text-brand-ink/80" {...props} />,
+  li: ({node, ...props}: any) => <li className="ml-4" {...props} />,
+};
+
+function MasterReportView({ 
+  state, 
+  setState, 
+  property, 
+  metrics, 
+  tir, 
+  roi,
+  token
+}: { 
+  state: any, 
+  setState: React.Dispatch<React.SetStateAction<any>>,
+  property?: Property,
+  metrics: any,
+  tir: number,
+  roi: number,
+  token: string
+}) {
+  const { processStory, isGeneratingStory, isEditingStory } = state;
+
+  const handleSaveStory = async () => {
+    if (!property?.id || !processStory) return;
+    try {
+      const res = await fetch(`/api/process-stories/${property.id}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      let existing = null;
+      if (res.ok) {
+        existing = await parseJsonResponse(res);
+      }
+      
+      if (existing) {
+        await fetch(`/api/process-stories/${existing.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({
+            full_story: processStory.full_story,
+            legal_glossary: processStory.legal_glossary,
+            timeline_json: JSON.stringify(processStory.timeline)
+          })
+        });
+      } else {
+        await fetch('/api/process-stories', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({
+            property_id: property.id,
+            full_story: processStory.full_story,
+            legal_glossary: processStory.legal_glossary,
+            timeline_json: JSON.stringify(processStory.timeline)
+          })
+        });
+      }
+      setState((prev: any) => ({ ...prev, isEditingStory: false }));
+      alert("Relatório Master salvo com sucesso!");
+    } catch (err) {
+      console.error(err);
+      alert("Erro ao salvar relatório.");
+    }
+  };
+
+  if (isGeneratingStory) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 space-y-6">
+        <div className="w-16 h-16 border-4 border-brand-primary border-t-transparent rounded-full animate-spin" />
+        <div className="text-center">
+          <h3 className="text-xl font-bold text-brand-primary mb-2">Construindo a História do Processo</h3>
+          <p className="text-brand-ink/40 text-sm">Lendo documentos, identificando marcos e traduzindo termos jurídicos...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!processStory) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-center space-y-6">
+        <div className="w-20 h-20 bg-brand-primary/10 rounded-3xl flex items-center justify-center text-brand-primary">
+          <BookOpen size={40} />
+        </div>
+        <div className="max-w-md">
+          <h3 className="text-xl font-bold text-brand-primary mb-2">Relatório Master não gerado</h3>
+          <p className="text-brand-ink/40 text-sm mb-8">Execute a análise IA para gerar a história completa do processo e o relatório detalhado.</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      {/* Header / Opportunity */}
+      <section className="bg-brand-paper p-8 rounded-[2.5rem] border border-brand-primary/10 shadow-sm">
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-brand-primary rounded-2xl flex items-center justify-center text-black">
+              <Star size={24} />
+            </div>
+            <div>
+              <h2 className="text-2xl font-bold text-brand-primary">Oportunidade</h2>
+              <p className="text-sm text-brand-ink/40">{property?.title || "Imóvel em Análise"}</p>
+            </div>
+          </div>
+          <div className="flex gap-4">
+            <div className="text-center px-6 py-3 bg-green-500/10 border border-green-500/20 rounded-2xl">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-green-500/60 mb-1">ROI</p>
+              <p className="text-xl font-bold text-green-500">{roi.toFixed(2)}%</p>
+            </div>
+            <div className="text-center px-6 py-3 bg-blue-500/10 border border-blue-500/20 rounded-2xl">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-blue-500/60 mb-1">TIR</p>
+              <p className="text-xl font-bold text-blue-500">{tir.toFixed(2)}%</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="overflow-hidden rounded-3xl border border-brand-border bg-brand-paper shadow-sm">
+          <table className="w-full text-left text-sm">
+            <thead className="bg-brand-bg/50">
+              <tr>
+                <th className="px-6 py-4 font-bold text-brand-ink/60 uppercase text-[10px] tracking-widest">Métrica</th>
+                <th className="px-6 py-4 font-bold text-brand-ink/60 uppercase text-[10px] tracking-widest text-right">Valor</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-brand-border">
+              <tr>
+                <td className="px-6 py-4 font-bold text-brand-ink/60 uppercase text-[10px] tracking-widest">Valor de Venda</td>
+                <td className="px-6 py-4 font-bold text-right">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(metrics.saleValue || 0)}</td>
+              </tr>
+              <tr>
+                <td className="px-6 py-4 font-bold text-brand-ink/60 uppercase text-[10px] tracking-widest text-brand-primary">Lance Máximo</td>
+                <td className="px-6 py-4 font-bold text-right text-brand-primary">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(metrics.bid || 0)}</td>
+              </tr>
+              <tr>
+                <td className="px-6 py-4 font-bold text-brand-ink/60 uppercase text-[10px] tracking-widest">Prazo do Projeto</td>
+                <td className="px-6 py-4 font-bold text-right">{state.simulationData?.holdingMonths || 12} meses</td>
+              </tr>
+              <tr>
+                <td className="px-6 py-4 font-bold text-brand-ink/60 uppercase text-[10px] tracking-widest">Resultado Líquido</td>
+                <td className="px-6 py-4 font-bold text-right text-green-500">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(metrics.netProfit || 0)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      {/* The Story */}
+      <section className="grid grid-cols-1 lg:grid-cols-3 gap-12">
+        <div className="lg:col-span-2 space-y-8">
+          <div className="flex items-center justify-between">
+            <h3 className="text-2xl font-serif font-bold text-brand-primary flex items-center gap-3">
+              <BookOpen size={24} />
+              História do Processo
+            </h3>
+            <button 
+              onClick={() => isEditingStory ? handleSaveStory() : setState((prev: any) => ({ ...prev, isEditingStory: true }))}
+              className="p-2 hover:bg-brand-primary/10 rounded-xl text-brand-primary transition-all"
+            >
+              {isEditingStory ? <Save size={20} /> : <Edit size={20} />}
+            </button>
+          </div>
+          
+          {isEditingStory ? (
+            <textarea 
+              className="w-full bg-brand-paper border border-brand-primary/20 rounded-3xl p-8 min-h-[400px] focus:ring-2 focus:ring-brand-primary outline-none text-brand-ink"
+              value={processStory.full_story}
+              onChange={(e) => setState((prev: any) => ({ 
+                ...prev, 
+                processStory: { ...prev.processStory, full_story: e.target.value } 
+              }))}
+            />
+          ) : (
+            <div className="prose prose-brand max-w-none bg-brand-paper/30 p-8 rounded-3xl border border-brand-primary/5">
+              <ReactMarkdown>{processStory.full_story}</ReactMarkdown>
+            </div>
+          )}
+        </div>
+
+        <div className="space-y-8">
+          <h3 className="text-xl font-bold text-brand-primary flex items-center gap-3">
+            <Scale size={20} />
+            Glossário Jurídico
+          </h3>
+          {isEditingStory ? (
+            <textarea 
+              className="w-full bg-brand-paper border border-brand-primary/20 rounded-3xl p-6 min-h-[300px] focus:ring-2 focus:ring-brand-primary outline-none text-brand-ink text-sm"
+              value={processStory.legal_glossary}
+              onChange={(e) => setState((prev: any) => ({ 
+                ...prev, 
+                processStory: { ...prev.processStory, legal_glossary: e.target.value } 
+              }))}
+            />
+          ) : (
+            <div className="bg-brand-primary/5 p-6 rounded-3xl border border-brand-primary/10 text-sm">
+              <ReactMarkdown>{processStory.legal_glossary}</ReactMarkdown>
+            </div>
+          )}
+
+          <h3 className="text-xl font-bold text-brand-primary flex items-center gap-3 mt-12">
+            <Clock size={20} />
+            Linha do Tempo
+          </h3>
+          <div className="space-y-4">
+            {processStory.timeline?.map((event: any, idx: number) => (
+              <div key={idx} className="flex gap-4 items-start group">
+                <div className="flex flex-col items-center">
+                  <div className="w-3 h-3 rounded-full bg-brand-primary mt-1.5" />
+                  {idx < processStory.timeline.length - 1 && <div className="w-0.5 h-12 bg-brand-primary/20" />}
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold text-brand-primary uppercase tracking-widest">{event.date}</p>
+                  <p className="text-sm text-brand-ink/70 group-hover:text-brand-ink transition-colors">{event.event}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Financial Analysis - Quick View */}
+      <section className="bg-brand-paper/50 p-8 rounded-[2.5rem] border border-brand-primary/10">
+        <h3 className="text-xl font-bold text-brand-primary mb-8 flex items-center gap-3">
+          <TrendingUp size={20} />
+          Fluxo de Caixa Estimado
+        </h3>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="border-b border-brand-primary/10">
+                <th className="py-4 text-[10px] font-bold uppercase tracking-widest text-brand-ink/30">Item</th>
+                <th className="py-4 text-[10px] font-bold uppercase tracking-widest text-brand-ink/30 text-right">Valor</th>
+                <th className="py-4 text-[10px] font-bold uppercase tracking-widest text-brand-ink/30 text-right">Base</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-brand-primary/5">
+              <tr>
+                <td className="py-4 text-sm">Valor de Venda</td>
+                <td className="py-4 text-sm font-bold text-right text-green-500">
+                  {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(metrics.saleValue || 0)}
+                </td>
+                <td className="py-4 text-xs text-brand-ink/40 text-right">Mercado</td>
+              </tr>
+              <tr>
+                <td className="py-4 text-sm">Lance (Investimento)</td>
+                <td className="py-4 text-sm font-bold text-right text-red-500">
+                  -{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(metrics.bid || 0)}
+                </td>
+                <td className="py-4 text-xs text-brand-ink/40 text-right">Arrematação</td>
+              </tr>
+              <tr>
+                <td className="py-4 text-sm">Custos Totais (Reforma, ITBI, etc)</td>
+                <td className="py-4 text-sm font-bold text-right text-red-500">
+                  -{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(metrics.totalUpfrontExpenses - metrics.bid || 0)}
+                </td>
+                <td className="py-4 text-xs text-brand-ink/40 text-right">Operacional</td>
+              </tr>
+              <tr className="bg-brand-primary/5">
+                <td className="py-4 px-4 text-sm font-bold">Lucro Líquido Estimado</td>
+                <td className="py-4 px-4 text-sm font-bold text-right text-green-500">
+                  {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(metrics.netProfit || 0)}
+                </td>
+                <td className="py-4 px-4 text-xs text-brand-ink/40 text-right">Final</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function AIAnalysisView({ token, properties, onPropertyCreated, state, setState, setIsShareModalOpen, propertyDocs, propertyDebts, setPropertyDocs, setPropertyDebts }: { 
+  token: string, 
+  properties: Property[], 
+  onPropertyCreated: () => void,
+  state: any,
+  setState: React.Dispatch<React.SetStateAction<any>>,
+  setIsShareModalOpen: (open: boolean) => void,
+  propertyDocs: any[],
+  propertyDebts: any[],
+  setPropertyDocs: React.Dispatch<React.SetStateAction<any[]>>,
+  setPropertyDebts: React.Dispatch<React.SetStateAction<any[]>>
+}) {
+  const [analyzing, setAnalyzing] = useState(false);
+  const [searchingCNJ, setSearchingCNJ] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgressText, setUploadProgressText] = useState("");
+  const [sendingChat, setSendingChat] = useState(false);
+  const [chatInput, setChatInput] = useState('');
+  const [isPasteModalOpen, setIsPasteModalOpen] = useState(false);
+  const [pasteText, setPasteText] = useState('');
+  const { 
+    activeSubTab, 
+    selectedPropertyId, 
+  } = state;
+  const analysisDocs = selectedPropertyId ? propertyDocs : state.adHocDocs; // Use the passed props
+  const currentDebts = selectedPropertyId ? propertyDebts : [];
+
+  const handleAnalyzeEdital = async () => {
+    const docs = analysisDocs.filter(d => d.doc_type === 'Edital');
+    if (docs.length === 0) { alert("Nenhum Edital encontrado."); return; }
+    setAnalyzing(true);
+    try {
+      const { analyzeAuctionDocuments } = await import('./services/aiService');
+      const fileParts = docs.map(doc => ({ id: doc.id, filename: doc.filename, data: doc.data, mimeType: 'application/pdf', extractedText: doc.extracted_text }));
+      const analysis = await analyzeAuctionDocuments(fileParts, "Analise o Edital", state.selectedModel || 'gemini-2.5-flash', undefined, [], 'edital');
+      setState(prev => ({ ...prev, editalAnalysis: analysis }));
+    } catch (err) { console.error(err); alert("Erro ao analisar Edital."); } finally { setAnalyzing(false); }
+  };
+
+  const handleAnalyzeMatricula = async () => {
+    const docs = analysisDocs.filter(d => d.doc_type === 'Matrícula');
+    if (docs.length === 0) { alert("Nenhuma Matrícula encontrada."); return; }
+    setAnalyzing(true);
+    try {
+      const { analyzeAuctionDocuments } = await import('./services/aiService');
+      const fileParts = docs.map(doc => ({ id: doc.id, filename: doc.filename, data: doc.data, mimeType: 'application/pdf', extractedText: doc.extracted_text }));
+      const analysis = await analyzeAuctionDocuments(fileParts, "Analise a Matrícula", state.selectedModel || 'gemini-2.5-flash', undefined, [], 'matricula');
+      setState(prev => ({ ...prev, matriculaAnalysis: analysis }));
+    } catch (err) { console.error(err); alert("Erro ao analisar Matrícula."); } finally { setAnalyzing(false); }
+  };
+
+  const handleAnalyzeProcesses = async () => {
+    const processDocs = analysisDocs.filter(d => d.doc_type === 'Processo Judicial');
+    if (processDocs.length === 0) {
+      alert("Nenhum processo judicial encontrado.");
+      return;
+    }
+    
+    setAnalyzing(true);
+    try {
+      const { analyzeAuctionDocuments } = await import('./services/aiService');
+      const fileParts = processDocs.map(doc => ({
+        id: doc.id,
+        filename: doc.filename,
+        data: doc.data,
+        mimeType: 'application/pdf',
+        extractedText: doc.extracted_text
+      }));
+      
+      const selectedProperty = properties.find(p => p.id === selectedPropertyId);
+      const propertyContext = selectedProperty ? `\n\nIMÓVEL EM LEILÃO: ${selectedProperty.title}` : "\n\nIMÓVEL EM LEILÃO: Não especificado.";
+      const prompt = `Analise cada documento de processo judicial anexado individualmente e determine se ele tem relação direta com o imóvel em leilão. 
+
+      ${propertyContext}
+
+      Para CADA documento/processo, forneça:
+      1. NOME DO DOCUMENTO/PROCESSO.
+      2. RESUMO do objeto do processo.
+      3. RELAÇÃO com o imóvel (Direta, Indireta ou Nenhuma).
+      4. IMPACTO potencial no leilão ou na aquisição do imóvel.
+
+      Ao final, forneça um PARECER FINAL consolidado:
+      - Existe risco de arrematação? (Sim/Não)
+      - Qual o nível de risco (Baixo, Médio, Alto)?
+      - Recomendação final.
+
+      Formate a resposta de forma clara e estruturada usando Markdown.`;
+      
+      const analysis = await analyzeAuctionDocuments(fileParts, prompt, state.selectedModel || 'gemini-2.5-flash', undefined, [], 'processo');
+      setState(prev => ({ ...prev, processAnalysis: analysis }));
+    } catch (err) {
+      console.error(err);
+      alert("Erro ao analisar processos.");
+    } finally {
+      setAnalyzing(false);
+    }
+  };
+
+  const [pasteTitle, setPasteTitle] = useState('');
+
+  // Local state for property-specific data (still fetched on mount/change)
+  const [propertyAnalyses, setPropertyAnalyses] = useState<any[]>([]);
+
+  const { 
+    report, 
+    adHocDocs, 
+    cnjNumber, 
+    cnjResult, 
+    selectedModel, 
+    chatMessages, 
+    simulationData,
+    isPublicView,
+    shareToken,
+    anonymizeProperty
+  } = state;
+
+  const { onJumpToSimulation } = React.useContext(SimulationContext);
+
+  const currentMetrics = React.useMemo(() => {
+    if (!simulationData) return { metrics: { totalUpfrontExpenses: 0, netProfit: 0 }, tir: 0, roi: 0 };
+    const bid = (simulationData as any).bid?.value || 0;
+    const saleValue = (simulationData as any).saleValue?.value || 0;
+    const holdingMonths = (simulationData as any).holdingMonths || 12;
+    const downPaymentPercent = (simulationData as any).downPaymentPercent || 100;
+    const installments = (simulationData as any).installments || 1;
+    const interestRate = (simulationData as any).interestRate || 0;
+
+    const metrics = calculateSimulationMetrics(simulationData, bid) as any;
+    const tir = calculateTIR(bid, saleValue, 0, downPaymentPercent, installments, interestRate, holdingMonths, simulationData);
+    
+    const roi = metrics.roi;
+    const totalInvestment = metrics.totalInvestment;
+
+    return { metrics, tir, roi };
+  }, [simulationData]);
+
+  const { metrics, tir, roi } = currentMetrics;
+
+  const handlePrint = () => {
+    window.print();
+  };
+
+  const generateShareLink = async (propertyId: string) => {
+    try {
+      const res = await fetch(`/api/properties/${propertyId}/share`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}` 
+        },
+        body: JSON.stringify({ is_public: true, anonymize_property: anonymizeProperty })
+      });
+      if (!res.ok) throw new Error("Erro ao gerar link de compartilhamento");
+      const data = await parseJsonResponse(res);
+      updateState({ shareToken: data.share_token });
+      return data.share_token;
+    } catch (err) {
+      console.error(err);
+      throw err;
+    }
+  };
+
+  const handleShare = async () => {
+    let propertyId = selectedPropertyId;
+    
+    // If not saved yet, save it first
+    if (!propertyId) {
+      try {
+        const title = cnjResult ? `Leilão: ${cnjResult.cnj_number}` : `Análise IA: ${new Date().toLocaleDateString()}`;
+        const res = await fetch('/api/properties', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({
+            title: title,
+            type: 'Apartamento',
+            modality: 'Judicial',
+            address: 'Endereço extraído do processo...',
+            city: 'Cidade extraída',
+            state: 'Estado',
+            valuation_value: simulationData.valuation?.value || 0,
+            min_bid: simulationData.bid?.value || 0
+          })
+        });
+        if (res.ok) {
+          const data = await parseJsonResponse(res);
+          propertyId = data.id;
+          updateState({ selectedPropertyId: propertyId });
+          // Link documents if any
+          if (adHocDocs.length > 0) {
+            await fetch('/api/documents/link', {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+              body: JSON.stringify({
+                temp_property_id: `temp_${state.sessionId}`,
+                property_id: propertyId
+              })
+            });
+          }
+        } else {
+          throw new Error("Falha ao salvar imóvel para compartilhar");
+        }
+      } catch (err) {
+        console.error(err);
+        alert("Erro ao preparar compartilhamento: " + (err as Error).message);
+        return;
+      }
+    }
+
+    try {
+      await generateShareLink(propertyId!);
+      setIsShareModalOpen(true);
+    } catch (err) {
+      alert("Erro ao gerar link de compartilhamento: " + (err as Error).message);
+    }
+  };
+
+  const updateState = React.useCallback((updates: any) => {
+    setState((prev: any) => {
+      const resolvedUpdates = typeof updates === 'function' ? updates(prev) : updates;
+      return { ...prev, ...resolvedUpdates };
+    });
+  }, [setState]);
+
+  const selectedProperty = properties.find(p => p.id === selectedPropertyId);
+
+  useEffect(() => {
+    if (selectedPropertyId) {
+      fetchPropertyData(selectedPropertyId);
+    }
+  }, [selectedPropertyId]);
+
+  const fetchPropertyData = async (id: string) => {
+    try {
+      const [docsRes, debtsRes, analysisRes, storyRes] = await Promise.all([
+        fetch(`/api/documents/${id}`, { headers: { 'Authorization': `Bearer ${token}` } }),
+        fetch(`/api/debts/${id}`, { headers: { 'Authorization': `Bearer ${token}` } }),
+        fetch(`/api/ai-analyses/${id}`, { headers: { 'Authorization': `Bearer ${token}` } }),
+        fetch(`/api/process-stories/${id}`, { headers: { 'Authorization': `Bearer ${token}` } })
+      ]);
+      if (docsRes.ok) {
+        const data = await parseJsonResponse(docsRes);
+        setPropertyDocs(data);
+      }
+      if (debtsRes.ok) {
+        const data = await parseJsonResponse(debtsRes);
+        setPropertyDebts(data);
+      }
+      if (analysisRes.ok) {
+        const analyses = await parseJsonResponse(analysisRes);
+        setPropertyAnalyses(analyses);
+        if (analyses && analyses.length > 0) {
+          const latest = analyses[0];
+          updateState({ 
+            report: latest.exec_summary, 
+            selectedModel: latest.ia_used,
+            analysisId: latest.id
+          });
+        } else {
+          updateState({ analysisId: null, report: null });
+        }
+      }
+      if (storyRes.ok) {
+        const story = await parseJsonResponse(storyRes);
+        if (story) {
+          updateState({ 
+            processStory: {
+              ...story,
+              timeline: typeof story.timeline_json === 'string' ? (() => {
+                try {
+                  return JSON.parse(story.timeline_json);
+                } catch (e) {
+                  console.error("Erro ao parsear timeline_json:", e);
+                  return [];
+                }
+              })() : story.timeline_json
+            }
+          });
+        } else {
+          updateState({ processStory: null });
+        }
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleCnjSearch = async () => {
+    setSearchingCNJ(true);
+    try {
+      const res = await fetch('/api/datajud/search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ cnj_number: cnjNumber })
+      });
+      if (!res.ok) throw new Error("Erro na consulta CNJ");
+      const data = await parseJsonResponse(res);
+      updateState({ cnjResult: data, activeSubTab: 'cnj' });
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setSearchingCNJ(false);
+    }
+  };
+
+  const handleSaveAsProperty = async () => {
+    try {
+      const title = cnjResult ? `Leilão: ${cnjResult.cnj_number}` : `Análise IA: ${new Date().toLocaleDateString()}`;
+      
+      const res = await fetch('/api/properties', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({
+          title: title,
+          type: 'Apartamento',
+          modality: 'Judicial',
+          address: 'Endereço extraído do processo...',
+          city: 'Cidade extraída',
+          state: 'Estado',
+          valuation_value: simulationData.valuation?.value || 0,
+          min_bid: simulationData.bid?.value || 0
+        })
+      });
+      if (res.ok) {
+        const { id } = await parseJsonResponse(res);
+        
+        // Link documents
+        await fetch('/api/documents/link', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({
+              temp_property_id: `temp_${state.sessionId}`,
+              property_id: id
+            })
+        });
+
+        // Save AI Analysis if exists
+        if (state.report) {
+          await fetch('/api/ai-analyses', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({
+              property_id: id,
+              exec_summary: state.report,
+              ia_used: selectedModel,
+              recommended_bid: simulationData.bid?.value || 0,
+              estimated_profit: (() => {
+                const metrics = calculateSimulationMetrics(simulationData);
+                return metrics.netProfit;
+              })()
+            })
+          });
+        }
+
+        if (cnjResult) {
+          const res = await fetch('/api/processes', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({
+              cnj_number: cnjResult.cnj_number,
+              court: cnjResult.court,
+              chamber: cnjResult.chamber,
+              action_type: cnjResult.class,
+              debt_value: simulationData.debts?.value || 0,
+              parties: cnjResult.parties,
+              property_id: id
+            })
+          });
+
+          if (!res.ok) {
+            let errorMsg = 'Erro ao criar processo';
+            const errorText = await res.text();
+            try {
+              const trimmed = errorText.trim().toLowerCase();
+              if (trimmed.includes('<!doctype') || trimmed.includes('<html') || trimmed.includes('<body')) {
+                throw new Error("Resposta do servidor é HTML");
+              }
+              const errorData = JSON.parse(errorText);
+              errorMsg = errorData.error || errorMsg;
+            } catch (e) {
+              // Ignore JSON parse error if response is not JSON
+            }
+            throw new Error(errorMsg);
+          }
+        }
+
+        if (state.processStory) {
+          await fetch('/api/process-stories', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({
+              property_id: id,
+              full_story: state.processStory.full_story,
+              legal_glossary: state.processStory.legal_glossary,
+              timeline_json: JSON.stringify(state.processStory.timeline)
+            })
+          });
+        }
+
+        updateState({ selectedPropertyId: id, adHocDocs: [] });
+        onPropertyCreated();
+        alert("Imóvel cadastrado com sucesso! Todos os documentos, análises e relatórios master foram vinculados.");
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = error => reject(error);
+    });
+  };
+
+  const handleAnalysisFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, docType: string) => {
+    if (!e.target.files?.length) return;
+    setUploading(true);
+    const files = Array.from(e.target.files);
+    
+    try {
+        setUploading(true);
+        const propertyId = selectedPropertyId || `temp_${state.sessionId}`;
+        
+        if (!token) {
+          throw new Error("Sessão expirada. Por favor, faça o login novamente.");
+        }
+        
+        const newDocs = await uploadDocuments(files, docType, propertyId, token, (status) => {
+          setUploadProgressText(status);
+        });
+        const newAdHocDocs = await Promise.all(
+          newDocs.map(async (doc: any, index: number) => {
+            const file = files[index];
+            let dataChunk = "";
+            if (file.size <= 30 * 1024 * 1024) {
+              const base64Data = await fileToBase64(file);
+              dataChunk = base64Data.split(',')[1];
+            }
+            return {
+              id: doc.id,
+              filename: file.name,
+              doc_type: docType,
+              data: dataChunk,
+              extracted_text: doc.extracted_text,
+              created_at: new Date().toISOString()
+            };
+          })
+        );
+      
+      if (!selectedPropertyId) {
+        setState((prev: any) => ({
+          ...prev,
+          adHocDocs: [...prev.adHocDocs, ...newAdHocDocs]
+        }));
+      } else {
+        // Direct state update for propertyDocs instead of just re-fetching
+        setPropertyDocs(prev => [...prev, ...newAdHocDocs]);
+        // Also fetchPropertyData to ensure consistency (background)
+        fetchPropertyData(selectedPropertyId);
+      }
+      
+      // Specifically handle Judicial Process document matching
+      if (docType === 'Processo Judicial') {
+        const cnjPattern = /\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4}/;
+        for (const file of files) {
+          const match = file.name.match(cnjPattern);
+          if (match) {
+            updateState({ cnjNumber: match[0] });
+            await performCnjSearch(match[0]);
+            break; // Just use the first one found
+          }
+        }
+      }
+    } catch (err) {
+      console.error(err);
+      alert(`Erro ao enviar arquivos: ${formatErrorMessage(err)}`);
+    } finally {
+      setUploading(false);
+      setUploadProgressText("");
+      e.target.value = '';
+    }
+  };
+
+  const handlePasteText = () => {
+    if (!pasteText.trim()) return;
+    const newDoc = {
+      id: `temp-${Date.now()}`,
+      filename: pasteTitle || `Texto Copiado - ${new Date().toLocaleTimeString()}`,
+      doc_type: 'Texto Copiado',
+      data: `data:text/plain;base64,${btoa(pasteText)}`,
+      created_at: new Date().toISOString()
+    };
+    updateState({ adHocDocs: [...adHocDocs, newDoc] });
+    setIsPasteModalOpen(false);
+    setPasteText('');
+    setPasteTitle('');
+  };
+
+  const performCnjSearch = async (number: string) => {
+    setSearchingCNJ(true);
+    try {
+      const res = await fetch('/api/datajud/search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ cnj_number: number })
+      });
+      if (!res.ok) throw new Error("Erro na consulta CNJ");
+      const data = await parseJsonResponse(res);
+      updateState({ cnjResult: data, activeSubTab: 'cnj' });
+      return data;
+    } catch (err) {
+      console.error(err);
+      return null;
+    } finally {
+      setSearchingCNJ(false);
+    }
+  };
+
+  const handleDeleteAnalysis = async () => {
+    if (!state.analysisId) return;
+    if (!confirm("Tem certeza que deseja excluir esta análise? Esta ação não pode ser desfeita.")) return;
+    
+    try {
+      const res = await fetch(`/api/ai-analyses/${state.analysisId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        updateState({ report: null, analysisId: null });
+        alert("Análise excluída com sucesso.");
+      } else {
+        const errText = await res.text();
+        let errData;
+        try {
+          const trimmed = errText.trim().toLowerCase();
+          if (trimmed.includes('<!doctype') || trimmed.includes('<html') || trimmed.includes('<body')) {
+            throw new Error("Resposta do servidor é HTML");
+          }
+          errData = JSON.parse(errText);
+        } catch (e) {
+          errData = { error: errText || res.statusText };
+        }
+        alert(`Erro ao excluir análise: ${errData.error || errText || res.statusText}`);
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Erro ao excluir análise.");
+    }
+  };
+
+  const handleSaveAnalysisEdit = async () => {
+    if (!state.analysisId) return;
+    
+    try {
+      const res = await fetch(`/api/ai-analyses/${state.analysisId}`, {
+        method: 'PUT',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}` 
+        },
+        body: JSON.stringify({ exec_summary: state.report })
+      });
+      if (res.ok) {
+        updateState({ isEditingReport: false });
+        alert("Análise atualizada com sucesso.");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Erro ao atualizar análise.");
+    }
+  };
+
+  const handleDeleteDocument = async (id: string) => {
+    console.log("DEBUG: Excluindo documento no frontend e backend:", id);
+    try {
+      // Enforce optimistic update on both states immediately
+      setPropertyDocs((prev: any) => prev.filter((d: any) => d.id !== id));
+      setState((prev: any) => ({
+        ...prev,
+        adHocDocs: prev.adHocDocs.filter((d: any) => d.id !== id)
+      }));
+
+      const res = await fetch(`/api/documents/${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        console.log("DEBUG: Exclusão concluída no backend com sucesso.");
+        if (selectedPropertyId) {
+          const docsRes = await fetch(`/api/documents/${selectedPropertyId}`, { headers: { 'Authorization': `Bearer ${token}` } });
+          if (docsRes.ok) {
+            const data = await parseJsonResponse(docsRes);
+            setPropertyDocs(data);
+          }
+        }
+        if ((window as any).customToast) {
+          (window as any).customToast("Documento excluído com sucesso.");
+        } else {
+          alert("Documento excluído com sucesso.");
+        }
+      } else {
+        const errText = await res.text();
+        let errData;
+        try {
+          const trimmed = errText.trim().toLowerCase();
+          if (trimmed.includes('<!doctype') || trimmed.includes('<html') || trimmed.includes('<body')) {
+            throw new Error("Resposta do servidor é HTML");
+          }
+          errData = JSON.parse(errText);
+        } catch (e) {
+          errData = { error: errText || res.statusText };
+        }
+        const msg = `Erro ao excluir documento: ${errData.error || errText || res.statusText}`;
+        if ((window as any).customToast) {
+          (window as any).customToast(msg, 'error');
+        } else {
+          alert(msg);
+        }
+      }
+    } catch (err) {
+      console.error(err);
+      if ((window as any).customToast) {
+        (window as any).customToast("Erro ao excluir documento.", 'error');
+      } else {
+        alert("Erro ao excluir documento.");
+      }
+    }
+  };
+
+  const handleClearCustomKey = async () => {
+    try {
+      await fetch('/api/ai-config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ gemini_key: '' })
+      });
+      if (state.aiConfig) {
+        setState((prev: any) => ({ ...prev, aiConfig: { ...prev.aiConfig, gemini_key: '' } }));
+      }
+      alert("Chave customizada removida. O sistema agora usará a chave padrão. Reiniciando análise...");
+      handleAnalyze();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleAnalyze = async () => {
+    setAnalyzing(true);
+    updateState({ 
+      report: "### 🔄 Iniciando Análise Estratégica...\n\nO sistema está processando seus documentos e consultando o **Cérebro Estratégico** para gerar um parecer completo.\n\n**Isso pode levar de 30 a 60 segundos.** Por favor, não feche esta aba ou mude de aba para garantir a conclusão.", 
+      activeSubTab: 'report' 
+    });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    
+    let userApiKey = "";
+    
+    try {
+      console.log("DEBUG: Iniciando handleAnalyze");
+      
+      let userApiKey = "";
+      
+      // Force fetch the latest config to ensure we have the user's keys
+      console.log("DEBUG: Buscando aiConfig atualizado antes da análise...");
+      const configRes = await fetch('/api/ai-config', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      let currentAiConfig = state.aiConfig;
+      
+      if (configRes.ok) {
+        currentAiConfig = await parseJsonResponse(configRes);
+        setState(prev => ({ ...prev, aiConfig: currentAiConfig }));
+        console.log("DEBUG: aiConfig carregado com sucesso para análise.");
+      }
+
+      if (currentAiConfig) {
+        if (selectedModel.startsWith('gemini')) userApiKey = currentAiConfig.gemini_key?.trim() || "";
+        else if (selectedModel.startsWith('claude')) userApiKey = currentAiConfig.claude_key?.trim() || "";
+        else if (selectedModel.startsWith('gpt') || selectedModel.startsWith('o1')) userApiKey = currentAiConfig.openai_key?.trim() || "";
+        else if (selectedModel.startsWith('deepseek')) userApiKey = currentAiConfig.deepseek_key?.trim() || "";
+      }
+      
+      // Handle AI Studio's display format "Label • Key" if it's in the DB
+      if (userApiKey && userApiKey.includes(' • ')) {
+        userApiKey = userApiKey.split(' • ')[1].trim();
+      }
+
+      // If user explicitly wants to use system key, we can pass null to the service
+      const finalApiKey = userApiKey || null;
+      const isUsingCustomKey = !!userApiKey;
+
+      console.log(`DEBUG FRONTEND (ANALYZE): Modelo ${selectedModel}. Chave (tamanho): ${userApiKey?.length || 0}. Usando customizada: ${isUsingCustomKey}`);
+
+      let docs = [];
+      if (selectedPropertyId) {
+        const docsRes = await fetch(`/api/documents/${selectedPropertyId}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!docsRes.ok) {
+          const text = await docsRes.text();
+          console.error("Erro ao buscar documentos:", text);
+          throw new Error(`Erro ao carregar documentos (${docsRes.status}).`);
+        }
+        docs = await docsRes.json();
+      } else {
+        docs = adHocDocs;
+      }
+      
+      if (docs.length === 0) {
+        throw new Error("Nenhum documento encontrado para análise. Por favor, faça o upload de pelo menos um documento.");
+      }
+      
+      const brainRes = await fetch('/api/strategic-brain', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      let brainItems = [];
+      if (brainRes.ok) {
+        brainItems = await parseJsonResponse(brainRes);
+      } else {
+        console.warn(`Aviso: Falha ao carregar Cérebro Estratégico (${brainRes.status}). Continuando sem contexto.`);
+      }
+      
+      const brainContextText = Array.isArray(brainItems) 
+        ? brainItems.map((item: any) => `[${item.category}] ${item.title}: ${item.extracted_text}`).join('\n\n')
+        : "";
+
+      const { analyzeAuctionDocuments, generateProcessStory } = await import('./services/aiService');
+      const { SYSTEM_PROMPT } = await import('./constants');
+      
+      let promptWithBrain = `${SYSTEM_PROMPT}\n\nCONTEXTO ESTRATÉGICO DO USUÁRIO (CÉREBRO ESTRATÉGICO):\n${brainContextText}\n\nUse o contexto acima para guiar sua análise e recomendações.`;
+      
+      if (state.manualAuctionType !== 'auto') {
+        promptWithBrain += `\n\nATENÇÃO: Este leilão foi identificado manualmente pelo usuário como sendo do tipo: ${state.manualAuctionType.toUpperCase()}. Por favor, foque sua análise e cálculos financeiros especificamente nas regras deste tipo de leilão.`;
+      }
+
+      const fileParts = docs.filter(d => d.data || d.extracted_text).map(doc => {
+        let mimeType = 'application/pdf';
+        if (doc.filename.toLowerCase().endsWith('.jpg') || doc.filename.toLowerCase().endsWith('.jpeg')) mimeType = 'image/jpeg';
+        else if (doc.filename.toLowerCase().endsWith('.png')) mimeType = 'image/png';
+        else if (doc.filename.toLowerCase().endsWith('.webp')) mimeType = 'image/webp';
+
+        return {
+          id: doc.id,
+          filename: doc.filename,
+          data: doc.data ? (doc.data.startsWith('data:') ? doc.data : `data:${mimeType};base64,${doc.data}`) : "",
+          mimeType: mimeType,
+          extractedText: doc.extracted_text
+        };
+      });
+
+      if (fileParts.length === 0) {
+        throw new Error("Os documentos selecionados não possuem conteúdo válido para análise.");
+      }
+
+      // Run analysis (unified)
+      setState(prev => ({ ...prev, isGeneratingStory: true }));
+      
+      const analysis = await analyzeAuctionDocuments(fileParts, promptWithBrain, selectedModel, finalApiKey || undefined, state.auctionUrls);
+      
+      let finalReport = analysis || "Falha ao gerar relatório.";
+      
+      let extractedData = {
+        valuation: { value: 0, type: 'BRL' },
+        bid: { value: 0, type: 'BRL' },
+        desocupacaoAcordo: { value: 0, type: 'BRL' },
+        debtsIPTU: { value: 0, type: 'BRL' },
+        debtsCondo: { value: 0, type: 'BRL' },
+        costs: { value: 0, type: 'BRL' },
+        comissaoLeiloeiro: { value: 5, type: 'PERCENT' },
+        transfITBI: { value: 3, type: 'PERCENT' },
+        reforma: { value: 0, type: 'BRL' },
+        saleValue: { value: 0, type: 'BRL' },
+        assessoria: { value: 6, type: 'PERCENT' },
+        entrada: { value: 1500, type: 'BRL' },
+        desocupacaoHonorarios: { value: 0, type: 'BRL' },
+        extraFees: { value: 0, type: 'BRL' },
+        holdingCosts: { value: 0, type: 'BRL' },
+        holdingMonths: 12,
+        auctionType: 'judicial',
+        modality: '',
+        downPaymentPercent: 100,
+        installments: 1,
+        interestRate: 0,
+        transfEscritura: { value: 1.5, type: 'PERCENT' },
+        transfRegistro: { value: 1.5, type: 'PERCENT' },
+        comparisonData: {
+          tesouro: { tir: 11.5, roi: 11.5 },
+          cdb: { tir: 12.0, roi: 12.0 },
+          poupanca: { tir: 6.5, roi: 6.5 },
+          aluguel: { tir: 8.5, roi: 8.5 }
+        }
+      };
+
+      try {
+        // Try to find the first '{' and last '}'
+        const firstBrace = analysis?.indexOf('{');
+        const lastBrace = analysis?.lastIndexOf('}');
+        
+        if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+          const jsonStr = analysis!.substring(firstBrace!, lastBrace! + 1);
+          const trimmed = jsonStr.toLowerCase();
+          if (trimmed.includes('<!doctype') || trimmed.includes('<html') || trimmed.includes('<body')) {
+            console.error("AI retornou HTML em vez de JSON:", jsonStr);
+            throw new Error("Resposta da IA inválida (HTML retornado)");
+          }
+          try {
+            const parsed = JSON.parse(jsonStr);
+            // Extract process story if present in the unified JSON
+            if (parsed.process_story) {
+              setState(prev => ({ 
+                ...prev, 
+                processStory: parsed.process_story,
+                isGeneratingStory: false 
+              }));
+            } else {
+              setState(prev => ({ ...prev, isGeneratingStory: false }));
+            }
+
+            // Map parsed values to our structure
+            const mappedData: any = { ...extractedData };
+            Object.keys(parsed).forEach(key => {
+              if (key === 'comparisonData') {
+                mappedData.comparisonData = { ...mappedData.comparisonData, ...parsed[key] };
+              } else if (mappedData[key] && typeof mappedData[key] === 'object' && 'value' in mappedData[key]) {
+                // Ensure we only take numeric values
+                const val = parseFloat(parsed[key]);
+                if (!isNaN(val)) {
+                  mappedData[key].value = val;
+                }
+              } else {
+                // Handle non-object fields (auctionType, modality, etc)
+                mappedData[key] = parsed[key];
+              }
+            });
+            extractedData = mappedData;
+          } catch (e) {
+            console.warn("Falha ao parsear JSON estruturado da análise:", e);
+          }
+        }
+      } catch (e) {
+        console.warn("Falha ao extrair dados estruturados da análise:", e);
+      }
+
+      // Save analysis to database if property is selected
+      if (selectedPropertyId) {
+        try {
+          const saveRes = await fetch('/api/ai-analyses', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({
+              property_id: selectedPropertyId,
+              exec_summary: finalReport,
+              ia_used: selectedModel,
+              recommended_bid: extractedData.bid.value,
+              estimated_profit: (() => {
+                const getV = (f: any) => (f?.type === 'BRL') ? (f.value || 0) : (extractedData.bid.value * ((f?.value || 0) / 100));
+                return (extractedData.saleValue.value || 0) - (
+                  (extractedData.bid.value || 0) + 
+                  getV(extractedData.debtsIPTU) + getV(extractedData.debtsCondo) +
+                  getV(extractedData.costs)
+                );
+              })()
+            })
+          });
+          if (saveRes.ok) {
+            const saveData = await parseJsonResponse(saveRes);
+            updateState({ analysisId: saveData.id });
+            fetchPropertyData(selectedPropertyId); // Refresh history
+            await generateShareLink(selectedPropertyId);
+          }
+        } catch (err) {
+          console.error("Erro ao salvar análise:", err);
+        }
+      }
+
+      updateState({ 
+        report: finalReport,
+        chatMessages: [{ role: 'assistant', content: "Análise concluída. Como posso ajudar a aprofundar algum ponto?" }],
+        simulationData: extractedData
+      });
+      
+    } catch (err: any) {
+      console.error("Erro detalhado da análise:", err);
+      let errorMessage = err.message || "Ocorreu um erro inesperado.";
+      
+      if (err.message?.includes('503') || err.message?.includes('UNAVAILABLE')) {
+        errorMessage = "O servidor de IA está temporariamente sobrecarregado. Por favor, aguarde 30 segundos e tente novamente.";
+      } else if (err.message?.includes('429')) {
+        errorMessage = "Limite de requisições (Quota) atingido. Por favor, aguarde um minuto.";
+      } else if (err.message?.includes('404') || err.message?.includes('not_found')) {
+        const providerName = selectedModel.startsWith('claude') ? 'Anthropic' : 
+                             selectedModel.startsWith('gpt') ? 'OpenAI' : 'Google';
+        errorMessage = `Modelo não encontrado (404). O modelo '${selectedModel}' não está disponível para sua chave de API no provedor ${providerName}.`;
+        
+        const keyPreview = userApiKey ? `CHAVE CUSTOMIZADA (${userApiKey.substring(0, 4)}...${userApiKey.substring(userApiKey.length - 4)})` : "CHAVE PADRÃO DO SISTEMA";
+        
+        updateState({ 
+          report: `### ERRO NA ANÁLISE (404)\n\n${errorMessage}\n\n**Chave em uso:** \`${keyPreview}\`\n\n**Log Técnico:** \`${err.message}\`\n\n---\n\n### Como resolver:\n\n1. **Verifique o Tier da Conta:** Algumas chaves de API novas (Tier 0) não têm acesso a modelos avançados até que o primeiro depósito de créditos seja feito.\n2. **Use o Gemini:** Os modelos Gemini Flash estão disponíveis gratuitamente no sistema e são excelentes para esta tarefa.\n3. **Limpe a Chave:** Clique no botão abaixo para usar a chave padrão do sistema.` 
+        });
+        return;
+      } else if (err.message?.includes('403') || err.message?.includes('PERMISSION_DENIED')) {
+        const rawError = err.message || "";
+        
+        if (rawError.includes("configurações de IA")) {
+          errorMessage = `Erro de Autenticação Interna (403). Não foi possível carregar suas configurações. Tente sair e entrar novamente no sistema.`;
+        } else {
+          const providerName = selectedModel.startsWith('claude') ? 'Anthropic' : 
+                               selectedModel.startsWith('gpt') ? 'OpenAI' : 'Google';
+          errorMessage = `Acesso negado (403). O modelo '${selectedModel}' foi rejeitado pelo provedor ${providerName}.`;
+        }
+        
+        const keyPreview = userApiKey ? `CHAVE CUSTOMIZADA (${userApiKey.substring(0, 4)}...${userApiKey.substring(userApiKey.length - 4)})` : "CHAVE PADRÃO DO SISTEMA";
+        let detailedError = "";
+        
+        if (rawError.includes("unregistered callers") || rawError.includes("authentication")) {
+          detailedError = `\n\n**ERRO DE IDENTIDADE (CHAVE AUSENTE):** O provedor não recebeu sua chave de API. Isso acontece se a chave estiver vazia ou se o sistema não conseguiu carregar a chave padrão.\n\n**Chave em uso:** \`${keyPreview}\``;
+        } else if (rawError.includes("API_KEY_INVALID") || rawError.includes("invalid-api-key")) {
+          detailedError = `\n\n**CHAVE INVÁLIDA:** A chave fornecida não é reconhecida. Verifique se você copiou a chave completa.\n\n**Chave em uso:** \`${keyPreview}\``;
+        } else {
+          detailedError = `\n\n**ERRO DE PERMISSÃO:** O acesso foi rejeitado. Verifique se sua chave está ativa e se você possui créditos/saldo na sua conta do provedor.\n\n**Chave em uso:** \`${keyPreview}\``;
+        }
+        
+        const keyPrefix = selectedModel.startsWith('claude') ? 'sk-ant-...' : 
+                          selectedModel.startsWith('gemini') ? 'AIza...' : 'sk-...';
+
+        updateState({ 
+          report: `### ERRO NA ANÁLISE (403)\n\n${errorMessage}${detailedError}\n\n**Log Técnico:** \`${rawError}\`\n\n---\n\n### Como resolver definitivamente:\n\n1. **Verifique sua Chave:** Vá em Configuração IA e confirme se sua chave começa com '${keyPrefix}'.\n2. **Saldo/Créditos:** Verifique no console do provedor se você possui saldo disponível.\n3. **Use o Padrão:** Clique no botão laranja abaixo para limpar sua chave e usar o motor padrão do sistema.` 
+        });
+        return;
+      } else if (err.message?.includes('API_KEY_INVALID')) {
+        errorMessage = "Chave de API inválida. Verifique se a chave foi copiada corretamente nas configurações de IA.";
+      } else if ((err.message?.includes('limit') || err.message?.includes('too large')) && !err.message?.includes('excede o limite')) {
+        errorMessage = "O volume de dados é muito grande para uma única análise. Tente reduzir o número de páginas ou arquivos.";
+      }
+      
+      updateState({ report: `### Erro na Análise\n${errorMessage}\n\n*Dica: Se o erro persistir, tente mudar o modelo para 'Flash' nas configurações laterais.*` });
+    } finally {
+      setAnalyzing(false);
+    }
+  };
+
+  const handleSendChat = async () => {
+    if (!chatInput.trim() || !report) return;
+    const userMsg: ChatMessage = { role: 'user', content: chatInput };
+    const newMessages = [...chatMessages, userMsg];
+    updateState({ chatMessages: newMessages });
+    setChatInput('');
+    setSendingChat(true);
+    try {
+      let userApiKey = "";
+      const aiConfig = state.aiConfig;
+      
+      if (aiConfig) {
+        if (selectedModel.startsWith('gemini')) userApiKey = aiConfig.gemini_key?.trim() || "";
+        else if (selectedModel.startsWith('claude')) userApiKey = aiConfig.claude_key?.trim() || "";
+        else if (selectedModel.startsWith('gpt') || selectedModel.startsWith('o1')) userApiKey = aiConfig.openai_key?.trim() || "";
+        else if (selectedModel.startsWith('deepseek')) userApiKey = aiConfig.deepseek_key?.trim() || "";
+      } else {
+        const configRes = await fetch('/api/ai-config', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (configRes.ok) {
+          const fetchedConfig = await parseJsonResponse(configRes);
+          setState((prev: any) => ({ ...prev, aiConfig: fetchedConfig }));
+          if (selectedModel.startsWith('gemini')) userApiKey = fetchedConfig?.gemini_key?.trim() || "";
+          else if (selectedModel.startsWith('claude')) userApiKey = fetchedConfig?.claude_key?.trim() || "";
+          else if (selectedModel.startsWith('gpt') || selectedModel.startsWith('o1')) userApiKey = fetchedConfig?.openai_key?.trim() || "";
+          else if (selectedModel.startsWith('deepseek')) userApiKey = fetchedConfig?.deepseek_key?.trim() || "";
+        }
+      }
+      
+      // Handle AI Studio's display format "Label • Key" if it's in the DB
+      if (userApiKey && userApiKey.includes(' • ')) {
+        userApiKey = userApiKey.split(' • ')[1].trim();
+      }
+
+      console.log(`DEBUG FRONTEND (CHAT): Modelo ${selectedModel}. Chave (tamanho): ${userApiKey?.length || 0}`);
+
+      const { sendChatMessage } = await import('./services/aiService');
+      const { SYSTEM_PROMPT } = await import('./constants');
+      const response = await sendChatMessage(newMessages, `Relatório Original:\n${report}\n\n${SYSTEM_PROMPT}\n\nResponda sempre em português do Brasil.`, selectedModel, userApiKey || undefined);
+      
+      const updatedReport = `${report}\n\n---\n\n### Adendo do Chat\n\n**Pergunta:** ${userMsg.content}\n\n**Resposta:**\n${response}`;
+      
+      updateState({ 
+        chatMessages: [...newMessages, { role: 'assistant', content: response || 'Sem resposta.' }],
+        report: updatedReport
+      });
+    } catch (err: any) {
+      console.error(err);
+      let errorMessage = "Erro ao processar sua pergunta. Tente novamente.";
+      if (err.message?.includes('503') || err.message?.includes('UNAVAILABLE')) {
+        errorMessage = "O servidor de IA está temporariamente sobrecarregado. Por favor, tente novamente em alguns segundos.";
+      }
+      updateState({ chatMessages: [...newMessages, { role: 'assistant', content: `❌ ${errorMessage}` }] });
+    } finally {
+      setSendingChat(false);
+    }
+  };
+
+
+
+  return (
+    <div className="space-y-12">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-4xl font-serif font-medium tracking-tight text-brand-primary">Central de Inteligência</h2>
+          <p className="text-brand-ink/40 font-medium text-lg">Fluxo completo: Consulta CNJ, Documentos e Análise de IA.</p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-10">
+        {/* Sidebar: Configuration */}
+        {!isPublicView && (
+          <div className="lg:col-span-1 space-y-8">
+            <Card title="Contexto da Análise">
+            <div className="space-y-6">
+              <select 
+                className="w-full bg-brand-bg border-none rounded-2xl py-4 px-6 focus:ring-2 focus:ring-brand-primary font-bold text-sm text-brand-primary"
+                value={selectedPropertyId || ''}
+                onChange={e => {
+                  updateState({ 
+                    selectedPropertyId: e.target.value,
+                    report: null,
+                    chatMessages: [],
+                    adHocDocs: e.target.value ? adHocDocs : []
+                  });
+                }}
+              >
+                <option value="">Análise Avulsa (Sem Imóvel)</option>
+                {properties.map(p => <option key={p.id} value={p.id}>{p.title}</option>)}
+              </select>
+              
+              
+              <div className="pt-2">
+                <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-brand-ink/30 mb-4 block">Cérebro de IA</label>
+                <select 
+                  className="w-full bg-brand-bg border-none rounded-2xl py-4 px-6 focus:ring-2 focus:ring-brand-primary font-bold text-sm text-brand-primary"
+                  value={selectedModel}
+                  onChange={e => updateState({ selectedModel: e.target.value as AIModel })}
+                >
+                  <optgroup label="Google Gemini">
+                    <option value="gemini-3.1-pro-preview">Gemini 3.1 Pro (Preview)</option>
+                    <option value="gemini-3.1-flash-preview">Gemini 3.1 Flash (Preview)</option>
+                    <option value="gemini-2.5-pro">Gemini 2.5 Pro (Preciso - Pago)</option>
+                    <option value="gemini-2.5-flash">Gemini 2.5 Flash (Rápido - Pago)</option>
+                    <option value="gemini-3-flash-preview">Gemini 3 Flash (Rápido/Eficiente)</option>
+                    <option value="gemini-flash-latest">Gemini 1.5 Flash (Legado)</option>
+                  </optgroup>
+                  <optgroup label="Anthropic Claude">
+                    <option value="claude-4-6-opus">Claude 4.6 Opus (Topo de Linha)</option>
+                    <option value="claude-4-6-sonnet">Claude 4.6 Sonnet (Mais Eficiente)</option>
+                    <option value="claude-4-5-haiku">Claude 4.5 Haiku (Ultra Rápido)</option>
+                    <option value="claude-4-5-opus">Claude 4.5 Opus</option>
+                    <option value="claude-4-5-sonnet">Claude 4.5 Sonnet</option>
+                  </optgroup>
+                  <optgroup label="OpenAI GPT">
+                    <option value="gpt-5">GPT-5 (Nova Geração)</option>
+                    <option value="gpt-4o">GPT-4o (Omni)</option>
+                    <option value="o1-preview">OpenAI o1 (Raciocínio)</option>
+                  </optgroup>
+                  <optgroup label="DeepSeek">
+                    <option value="deepseek-v3">DeepSeek V3</option>
+                    <option value="deepseek-r1">DeepSeek R1 (Raciocínio)</option>
+                  </optgroup>
+                </select>
+              </div>
+
+              <div className="pt-2">
+                <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-brand-ink/30 mb-4 block">Tipo de Leilão (Precisão)</label>
+                <div className="flex bg-brand-bg rounded-xl p-1 border border-brand-border/50">
+                  <button 
+                    onClick={() => updateState({ manualAuctionType: 'auto' })}
+                    className={cn(
+                      "flex-1 py-2 text-[9px] font-bold uppercase tracking-widest rounded-lg transition-all",
+                      state.manualAuctionType === 'auto' ? "bg-brand-primary text-black shadow-sm" : "text-brand-ink/40 hover:text-brand-primary"
+                    )}
+                  >
+                    Auto
+                  </button>
+                  <button 
+                    onClick={() => updateState({ manualAuctionType: 'judicial' })}
+                    className={cn(
+                      "flex-1 py-2 text-[9px] font-bold uppercase tracking-widest rounded-lg transition-all",
+                      state.manualAuctionType === 'judicial' ? "bg-brand-primary text-black shadow-sm" : "text-brand-ink/40 hover:text-brand-primary"
+                    )}
+                  >
+                    Judicial
+                  </button>
+                  <button 
+                    onClick={() => updateState({ manualAuctionType: 'extrajudicial' })}
+                    className={cn(
+                      "flex-1 py-2 text-[9px] font-bold uppercase tracking-widest rounded-lg transition-all",
+                      state.manualAuctionType === 'extrajudicial' ? "bg-brand-primary text-black shadow-sm" : "text-brand-ink/40 hover:text-brand-primary"
+                    )}
+                  >
+                    Extra
+                  </button>
+                </div>
+                <p className="text-[9px] text-brand-ink/30 italic mt-2 px-1">
+                  {state.manualAuctionType === 'auto' ? 'A IA detectará o tipo automaticamente.' : 
+                   state.manualAuctionType === 'judicial' ? 'Força análise para leilão judicial.' : 
+                   'Força análise para leilão extrajudicial (Caixa/Bancos).'}
+                </p>
+              </div>
+
+              {!selectedPropertyId && (
+                <div className="p-5 bg-brand-primary/5 rounded-2xl border border-brand-primary/10">
+                  <p className="text-[10px] font-bold text-brand-primary uppercase tracking-widest leading-relaxed">
+                    Você está em modo de análise avulsa. Suba os documentos abaixo para analisar sem cadastrar um imóvel.
+                  </p>
+                </div>
+              )}
+            </div>
+          </Card>
+
+
+          <button 
+            onClick={handleAnalyze}
+            disabled={analyzing}
+            className="w-full bg-brand-primary text-black py-5 rounded-2xl font-bold hover:bg-brand-primary/90 transition-all shadow-lg shadow-brand-primary/20 flex items-center justify-center gap-3 disabled:opacity-50"
+          >
+            {analyzing ? <Loader2 className="animate-spin" size={20} /> : <Cpu size={20} />}
+            Executar Análise IA
+          </button>
+        </div>
+        )}
+
+        {/* Main Area: Results & Tabs */}
+        <div className={cn("space-y-6", isPublicView ? "lg:col-span-4" : "lg:col-span-3")}>
+          <div className="bg-brand-paper rounded-[2.5rem] border border-brand-primary/10 shadow-sm overflow-hidden flex flex-col min-h-[600px]">
+            {/* Tabs Header */}
+            <div className="flex border-b border-brand-primary/10 bg-brand-bg/30 overflow-x-auto">
+              <AnalysisTab active={activeSubTab === 'report'} onClick={() => updateState({ activeSubTab: 'report' })} icon={<Brain size={16} />} label="Relatório" />
+              <AnalysisTab active={activeSubTab === 'edital'} onClick={() => updateState({ activeSubTab: 'edital' })} icon={<FileText size={16} />} label="Edital" />
+              <AnalysisTab active={activeSubTab === 'matricula'} onClick={() => updateState({ activeSubTab: 'matricula' })} icon={<BookOpen size={16} />} label="Matrícula" />
+              <AnalysisTab active={activeSubTab === 'processos'} onClick={() => updateState({ activeSubTab: 'processos' })} icon={<Search size={16} />} label="Processos" />
+              <AnalysisTab active={activeSubTab === 'documents'} onClick={() => updateState({ activeSubTab: 'documents' })} icon={<Files size={16} />} label="Documentos" />
+              <AnalysisTab active={activeSubTab === 'debts'} onClick={() => updateState({ activeSubTab: 'debts' })} icon={<DollarSign size={16} />} label="Débitos" />
+              <AnalysisTab active={activeSubTab === 'simulations'} onClick={() => updateState({ activeSubTab: 'simulations' })} icon={<TrendingUp size={16} />} label="Simulação" />
+              <AnalysisTab active={activeSubTab === 'investors'} onClick={() => updateState({ activeSubTab: 'investors' })} icon={<Users size={16} />} label="Investidores" />
+              <AnalysisTab active={activeSubTab === 'costs'} onClick={() => updateState({ activeSubTab: 'costs' })} icon={<Calculator size={16} />} label="Custos" />
+            </div>
+
+            {/* Tab Content */}
+            <div className="flex-1 p-4 sm:p-6 md:p-10">
+              {activeSubTab === 'report' && (
+                <MasterReportView 
+                  state={state} 
+                  setState={setState} 
+                  property={selectedProperty} 
+                  metrics={metrics} 
+                  tir={tir} 
+                  roi={roi}
+                  token={token}
+                />
+              )}
+              {activeSubTab === 'edital' && (
+                <div className="space-y-6">
+                  <h3 className="text-2xl font-bold text-brand-primary">Análise de Edital</h3>
+                  <div className="grid grid-cols-1 gap-6">
+                    <Card title="Edital">
+                      <button onClick={handleAnalyzeEdital} disabled={analyzing} className="w-full bg-brand-primary text-black py-3 rounded-xl font-bold hover:bg-brand-primary/90 transition-all disabled:opacity-50">
+                        {analyzing ? 'Analisando...' : 'Executar Análise de Edital'}
+                      </button>
+                    </Card>
+                    {state.editalAnalysis && (
+                      <Card title="Resultado da Análise de Edital">
+                        <div className="prose prose-sm max-w-none text-brand-ink p-8 bg-white rounded-3xl border border-brand-primary/10 shadow-lg">
+                          <ReactMarkdown remarkPlugins={[remarkGfm]}>{state.editalAnalysis}</ReactMarkdown>
+                        </div>
+                      </Card>
+                    )}
+                  </div>
+                </div>
+              )}
+              {activeSubTab === 'matricula' && (
+                <div className="space-y-6">
+                  <h3 className="text-2xl font-bold text-brand-primary">Análise de Matrícula</h3>
+                  <div className="grid grid-cols-1 gap-6">
+                    <Card title="Matrícula">
+                      <button onClick={handleAnalyzeMatricula} disabled={analyzing} className="w-full bg-brand-primary text-black py-3 rounded-xl font-bold hover:bg-brand-primary/90 transition-all disabled:opacity-50">
+                        {analyzing ? 'Analisando...' : 'Executar Análise de Matrícula'}
+                      </button>
+                    </Card>
+                    {state.matriculaAnalysis && (
+                      <Card title="Resultado da Análise de Matrícula">
+                        <div className="prose prose-sm max-w-none text-brand-ink p-8 bg-white rounded-3xl border border-brand-primary/10 shadow-lg">
+                          <ReactMarkdown remarkPlugins={[remarkGfm]}>{state.matriculaAnalysis}</ReactMarkdown>
+                        </div>
+                      </Card>
+                    )}
+                  </div>
+                </div>
+              )}
+              {activeSubTab === 'processos' && (
+                <div className="space-y-6">
+                  <h3 className="text-2xl font-bold text-brand-primary">Análise de Processos</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <Card title="Upload de Processos">
+                      <p className="text-brand-ink/60 mb-4">Gerencie os processos judiciais vinculados a este imóvel.</p>
+                      <button 
+                        onClick={handleAnalyzeProcesses}
+                        disabled={analyzing}
+                        className="w-full bg-brand-primary text-black py-3 rounded-xl font-bold hover:bg-brand-primary/90 transition-all disabled:opacity-50"
+                      >
+                        {analyzing ? 'Analisando...' : 'Executar Análise de Processos'}
+                      </button>
+                    </Card>
+                  </div>
+                  {state.processAnalysis && (
+                    <Card title="Resultado da Análise de Processos">
+                      <div className="prose prose-sm max-w-none text-brand-ink p-8 bg-white rounded-3xl border border-brand-primary/10 shadow-lg">
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{state.processAnalysis}</ReactMarkdown>
+                      </div>
+                    </Card>
+                  )}
+                </div>
+              )}
+              {isPasteModalOpen && (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-6">
+                  <motion.div 
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="bg-brand-paper w-full max-w-2xl rounded-[2.5rem] p-12 shadow-2xl border border-brand-primary/10"
+                  >
+                    <div className="flex items-center justify-between mb-8">
+                      <h3 className="text-2xl font-bold text-brand-primary">Colar Texto para Análise</h3>
+                      <button onClick={() => setIsPasteModalOpen(false)} className="p-2 hover:bg-brand-primary/10 rounded-full text-brand-primary"><X size={24} /></button>
+                    </div>
+                    <div className="space-y-6">
+                      <div>
+                        <label className="block text-xs font-bold uppercase tracking-widest text-brand-ink/40 mb-2">Título da Nota</label>
+                        <input 
+                          type="text" 
+                          placeholder="Ex: Notas sobre a vistoria"
+                          className="w-full bg-brand-bg border-none rounded-2xl py-4 px-6 focus:ring-2 focus:ring-brand-primary text-brand-ink" 
+                          value={pasteTitle}
+                          onChange={e => setPasteTitle(e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold uppercase tracking-widest text-brand-ink/40 mb-2">Conteúdo</label>
+                        <textarea 
+                          rows={8}
+                          className="w-full bg-brand-bg border-none rounded-2xl py-4 px-6 focus:ring-2 focus:ring-brand-primary resize-none text-brand-ink"
+                          placeholder="Cole aqui o texto, links ou observações..."
+                          value={pasteText}
+                          onChange={e => setPasteText(e.target.value)}
+                        />
+                      </div>
+                      <button 
+                        onClick={handlePasteText}
+                        className="w-full bg-brand-primary text-black py-4 rounded-2xl font-bold hover:bg-brand-primary/90 transition-all"
+                      >
+                        Adicionar ao Dossiê
+                      </button>
+                    </div>
+                  </motion.div>
+                </div>
+              )}
+
+              {activeSubTab === 'report' && (
+                <div className="space-y-10">
+                  {report ? (
+                    <div className="space-y-10">
+                      <div className="flex flex-col md:flex-row md:items-center justify-between border-b border-brand-border pb-8 gap-6">
+                        <div className="space-y-2">
+                          <h4 className="text-3xl font-serif font-bold text-brand-primary">
+                            {anonymizeProperty ? "Análise Estratégica de Oportunidade" : (selectedPropertyId ? properties.find(p => p.id === selectedPropertyId)?.title : "Relatório Estratégico")}
+                          </h4>
+                          {!anonymizeProperty && selectedPropertyId && (
+                            <div className="flex items-center gap-2 text-brand-ink/40 text-sm font-medium">
+                              <Search size={14} />
+                              <span>{properties.find(p => p.id === selectedPropertyId)?.address}, {properties.find(p => p.id === selectedPropertyId)?.city} - {properties.find(p => p.id === selectedPropertyId)?.state}</span>
+                            </div>
+                          )}
+                          
+                          {propertyAnalyses.length > 0 && (
+                            <div className="flex items-center gap-3 mt-4">
+                              <span className="text-[10px] font-bold uppercase tracking-widest text-brand-ink/30">Versão:</span>
+                              <select 
+                                className="bg-brand-bg border border-brand-primary/10 rounded-lg px-3 py-1 text-xs font-bold text-brand-primary outline-none"
+                                value={state.analysisId || ''}
+                                onChange={(e) => {
+                                  const selected = propertyAnalyses.find(a => a.id === e.target.value);
+                                  if (selected) {
+                                    updateState({ 
+                                      report: selected.exec_summary, 
+                                      selectedModel: selected.ia_used,
+                                      analysisId: selected.id
+                                    });
+                                  }
+                                }}
+                              >
+                                {propertyAnalyses.map((a, idx) => (
+                                  <option key={a.id} value={a.id}>
+                                    {idx === 0 ? 'Última Análise' : `Análise #${propertyAnalyses.length - idx}`} ({a.ia_used}) - {new Date(a.created_at).toLocaleDateString()}
+                                  </option>
+                                ))}
+                              </select>
+                              <div className="px-3 py-1 bg-brand-primary/10 border border-brand-primary/20 rounded-lg text-[10px] font-bold text-brand-primary uppercase tracking-wider">
+                                IA: {selectedModel}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex flex-wrap gap-3">
+                          <div className="flex bg-brand-bg rounded-xl p-1">
+                            <button 
+                              className={cn("px-4 py-2 rounded-lg text-xs font-bold transition-all", simulationData.paymentType === 'vista' ? "bg-brand-primary text-black" : "text-brand-ink/40")}
+                              onClick={() => updateState({ simulationData: { ...simulationData, paymentType: 'vista' } })}
+                            >
+                              À Vista
+                            </button>
+                            <button 
+                              className={cn("px-4 py-2 rounded-lg text-xs font-bold transition-all", simulationData.paymentType === 'parcelado' ? "bg-brand-primary text-black" : "text-brand-ink/40")}
+                              onClick={() => updateState({ simulationData: { ...simulationData, paymentType: 'parcelado' } })}
+                            >
+                              Parcelado
+                            </button>
+                          </div>
+                          <button 
+                            onClick={() => updateState({ activeSubTab: 'documents' })}
+                            className="flex items-center gap-2 px-6 py-3 rounded-xl text-xs font-bold bg-brand-bg text-brand-ink hover:bg-brand-bg/80 transition-all"
+                          >
+                            <Files size={16} />
+                            Adicionar Documentos
+                          </button>
+                          <button 
+                            onClick={() => updateState({ activeSubTab: 'simulations' })}
+                            className="flex items-center gap-2 px-6 py-3 rounded-xl text-xs font-bold bg-brand-primary text-black hover:bg-brand-primary/90 transition-all shadow-lg shadow-brand-primary/20"
+                          >
+                            <TrendingUp size={16} />
+                            Editar Simulação
+                          </button>
+                          {!isPublicView && (
+                            <>
+                              {!selectedPropertyId && (
+                                <button 
+                                  onClick={handleSaveAsProperty}
+                                  className="flex items-center gap-2 bg-brand-primary text-black px-6 py-3 rounded-xl text-xs font-bold hover:bg-brand-primary/90 transition-all shadow-lg shadow-brand-primary/20"
+                                >
+                                  <Save size={16} /> Salvar
+                                </button>
+                              )}
+                              <button 
+                                onClick={handleShare}
+                                className="flex items-center gap-2 bg-brand-primary text-black px-6 py-3 rounded-xl text-xs font-bold hover:bg-brand-primary/90 transition-all shadow-lg shadow-brand-primary/20"
+                              >
+                                <Plus size={16} /> Compartilhar
+                              </button>
+                            </>
+                          )}
+                          <button 
+                            type="button"
+                            onClick={handlePrint}
+                            className="flex items-center gap-2 bg-brand-paper border border-brand-border text-brand-ink/60 px-6 py-3 rounded-xl text-xs font-bold hover:text-brand-primary hover:border-brand-primary/30 transition-all"
+                          >
+                            <Printer size={16} /> Imprimir
+                          </button>
+                          {state.analysisId && !isPublicView && (
+                            <div className="flex gap-2">
+                              <button 
+                                type="button"
+                                onClick={() => updateState({ isEditingReport: !state.isEditingReport })}
+                                className={cn(
+                                  "flex items-center gap-2 px-6 py-3 rounded-xl text-xs font-bold transition-all",
+                                  state.isEditingReport ? "bg-brand-primary text-black" : "bg-brand-paper border border-brand-border text-brand-ink/60 hover:text-brand-primary"
+                                )}
+                              >
+                                <Edit size={16} /> {state.isEditingReport ? "Visualizar" : "Editar"}
+                              </button>
+                              <button 
+                                type="button"
+                                onClick={handleDeleteAnalysis}
+                                className="flex items-center gap-2 bg-red-500/10 text-red-500 border border-red-500/20 px-6 py-3 rounded-xl text-xs font-bold hover:bg-red-500 hover:text-white transition-all"
+                              >
+                                <Trash2 size={16} /> Excluir
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Property Summary Cards */}
+                      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                        <div className="bg-brand-paper/50 p-5 rounded-3xl border border-brand-border">
+                          <p className="text-[10px] font-bold uppercase tracking-widest text-brand-ink/30 mb-2">Valor de Venda</p>
+                          <p className="text-lg font-bold text-brand-ink">
+                            {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(metrics.saleValue || 0)}
+                          </p>
+                        </div>
+                        <div className="bg-brand-paper/50 p-5 rounded-3xl border border-brand-border">
+                          <p className="text-[10px] font-bold uppercase tracking-widest text-brand-ink/30 mb-2">Custos da Arrematação</p>
+                          <p className="text-lg font-bold text-brand-primary">
+                            {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(metrics.totalInvestment || 0)}
+                          </p>
+                        </div>
+                        <div className="bg-brand-paper/50 p-5 rounded-3xl border border-brand-border">
+                          <p className="text-[10px] font-bold uppercase tracking-widest text-brand-ink/30 mb-2">Lucro Estimado</p>
+                          <p className="text-lg font-bold text-emerald-500">
+                            {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(metrics.netProfit)}
+                          </p>
+                        </div>
+                        <div className="bg-brand-paper/50 p-5 rounded-3xl border border-brand-border">
+                          <p className="text-[10px] font-bold uppercase tracking-widest text-brand-ink/30 mb-2">ROI (Total)</p>
+                          <p className="text-lg font-bold text-brand-primary">
+                            {metrics.roi.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%
+                          </p>
+                        </div>
+                        <div className="bg-brand-paper/50 p-5 rounded-3xl border border-brand-border">
+                          <p className="text-[10px] font-bold uppercase tracking-widest text-brand-ink/30 mb-2">TIR (Anual)</p>
+                          <p className="text-lg font-bold text-brand-primary">
+                            {tir.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="bg-brand-paper rounded-[2.5rem] border border-brand-border shadow-inner overflow-hidden">
+                        <div className="p-6 md:p-10 border-b border-brand-border bg-brand-bg/20">
+                          <div className="flex items-center justify-between mb-6">
+                            <h4 className="text-[10px] font-bold uppercase tracking-widest text-brand-ink/60">Quadro de Investimento (Master)</h4>
+                            <button 
+                              type="button"
+                              onClick={() => updateState({ activeSubTab: 'simulations' })}
+                              className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-black rounded-xl text-[10px] font-bold uppercase tracking-widest shadow-lg hover:bg-brand-primary/90 transition-all"
+                            >
+                              <Edit size={12} /> Editar Simulação
+                            </button>
+                          </div>
+                          <InteractiveSimulationTable />
+                        </div>
+                        
+                        <div className="p-6 md:p-10 prose prose-invert max-w-none">
+                          {report ? (
+                            <ReactMarkdown remarkPlugins={[remarkGfm]} components={reportComponents}>{report}</ReactMarkdown>
+                          ) : (
+                            <div className="p-8 bg-brand-primary/5 rounded-2xl border border-brand-primary/10 text-center">
+                              <p className="text-brand-primary font-bold">Análise concluída, mas o relatório textual não foi gerado.</p>
+                              <p className="text-brand-ink/60 mt-2">Os dados da simulação foram extraídos com sucesso e estão disponíveis no dashboard.</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Chat with AI */}
+                      <div className="space-y-6 pt-10 border-t border-black/5">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-brand-primary rounded-xl flex items-center justify-center text-black">
+                            <MessageSquare size={20} />
+                          </div>
+                          <h5 className="text-lg font-bold text-brand-primary">Enriquecer Análise</h5>
+                        </div>
+
+                        <div className="bg-brand-bg rounded-[2rem] p-8 space-y-6 max-h-[400px] overflow-y-auto border border-brand-primary/10">
+                          {chatMessages.map((msg, idx) => (
+                            <div key={idx} className={cn(
+                              "flex gap-4 max-w-[85%]",
+                              msg.role === 'user' ? "ml-auto flex-row-reverse" : ""
+                            )}>
+                              <div className={cn(
+                                "w-8 h-8 rounded-lg flex items-center justify-center shrink-0",
+                                msg.role === 'assistant' ? "bg-brand-primary text-black" : "bg-brand-ink/10 text-brand-ink/40"
+                              )}>
+                                {msg.role === 'assistant' ? <Cpu size={14} /> : <Users size={14} />}
+                              </div>
+                              <div className={cn(
+                                "p-4 rounded-2xl text-sm font-medium leading-relaxed",
+                                msg.role === 'assistant' ? "bg-brand-paper shadow-sm markdown-body !text-sm" : "bg-brand-primary text-black"
+                              )}>
+                                {msg.role === 'assistant' ? (
+                                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
+                                ) : (
+                                  msg.content
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                          {sendingChat && (
+                            <div className="flex gap-4 max-w-[85%]">
+                              <div className="w-8 h-8 bg-brand-primary rounded-lg flex items-center justify-center text-black shrink-0">
+                                <Loader2 size={14} className="animate-spin" />
+                              </div>
+                              <div className="p-4 rounded-2xl bg-brand-paper shadow-sm text-sm font-medium text-brand-ink/20 italic">
+                                IA está pensando...
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="relative flex gap-3">
+                          <div className="relative flex-1">
+                            <input 
+                              type="text" 
+                              value={chatInput}
+                              onChange={e => setChatInput(e.target.value)}
+                              onKeyDown={e => e.key === 'Enter' && handleSendChat()}
+                              placeholder="Pergunte algo sobre o edital, riscos ou cálculos..."
+                              className="w-full bg-brand-bg border border-brand-primary/10 rounded-2xl py-5 px-6 pr-16 focus:ring-2 focus:ring-brand-primary outline-none font-medium text-brand-ink"
+                            />
+                            <button 
+                              onClick={handleSendChat}
+                              disabled={sendingChat || !chatInput.trim()}
+                              className="absolute right-3 top-1/2 -translate-y-1/2 w-12 h-12 bg-brand-primary text-black rounded-xl flex items-center justify-center hover:bg-brand-primary/90 transition-all disabled:opacity-50"
+                            >
+                              <Send size={20} />
+                            </button>
+                          </div>
+                          <label className="w-14 h-14 bg-brand-bg border border-brand-primary/20 text-brand-primary rounded-2xl flex items-center justify-center cursor-pointer hover:bg-brand-primary/5 transition-all shrink-0">
+                            <Plus size={24} />
+                            <input 
+                              type="file" 
+                              className="hidden" 
+                              multiple 
+                              onChange={(e) => handleAnalysisFileUpload(e, 'Anexo Chat')} 
+                            />
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-10">
+                      <div className="text-center max-w-2xl mx-auto">
+                        <div className="w-16 h-16 bg-brand-primary/10 rounded-2xl flex items-center justify-center text-brand-primary mx-auto mb-6">
+                          <Files size={32} />
+                        </div>
+                        <h3 className="text-2xl font-bold mb-2 text-brand-primary">
+                          {selectedPropertyId ? "Dossiê Digital do Imóvel" : "Dossiê de Análise Avulsa"}
+                        </h3>
+                        <p className="text-brand-ink/40 font-medium">
+                          {selectedPropertyId 
+                            ? "Complete as informações essenciais para uma análise de IA precisa." 
+                            : "Suba os documentos abaixo para realizar uma análise rápida sem cadastrar o imóvel."}
+                        </p>
+                      </div>
+
+                      
+                      <div className="flex flex-col items-center pt-8 border-t border-black/5">
+                        <button 
+                          onClick={handleAnalyze}
+                          disabled={analyzing}
+                          className="bg-[#5A5A40] text-white px-12 py-5 rounded-2xl font-bold hover:bg-[#4A4A30] transition-all shadow-xl shadow-[#5A5A40]/20 flex items-center gap-3 disabled:opacity-50 disabled:shadow-none"
+                        >
+                          {analyzing ? <Loader2 className="animate-spin" size={20} /> : <Cpu size={20} />}
+                          Iniciar Análise Estratégica
+                        </button>
+                        <p className="mt-4 text-[10px] font-bold uppercase tracking-widest text-black/30">
+                          {analysisDocs.length > 0 ? "Pronto para analisar os documentos enviados." : "Suba ao menos um documento para iniciar."}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {activeSubTab === 'investors' && (
+                <InvestorsTabContent simulationData={simulationData} report={report} />
+              )}
+
+              {activeSubTab === 'costs' && (
+                <CostsEditor 
+                  simulationData={simulationData} 
+                  updateSimulationData={(data) => updateState({ simulationData: data })} 
+                />
+              )}
+
+              {activeSubTab === 'cnj' && (
+                <div className="space-y-10">
+                  {cnjResult ? (
+                    <div className="space-y-12">
+                      <div className="flex items-center justify-between border-b border-brand-primary/5 pb-8">
+                        <div className="flex items-center gap-6">
+                          <div className="w-16 h-16 bg-brand-primary/10 rounded-2xl flex items-center justify-center text-brand-primary border border-brand-primary/10">
+                            <Gavel size={32} />
+                          </div>
+                          <div>
+                            <h4 className="text-3xl font-serif font-medium text-brand-primary">Processo {cnjResult.cnj_number}</h4>
+                            <p className="text-[10px] font-bold text-brand-ink/30 uppercase tracking-[0.2em] mt-1">Consulta DataJud em tempo real</p>
+                          </div>
+                        </div>
+                        <button 
+                          onClick={handleSaveAsProperty}
+                          className="flex items-center gap-3 bg-brand-primary text-black px-8 py-4 rounded-2xl text-xs font-bold uppercase tracking-widest hover:bg-brand-primary/90 transition-all shadow-xl shadow-brand-primary/20"
+                        >
+                          <Save size={18} /> Salvar como Novo Imóvel
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
+                        <DataJudField label="Tribunal" value={cnjResult.court} />
+                        <DataJudField label="Classe" value={cnjResult.class} />
+                        <DataJudField label="Órgão Julgador" value={cnjResult.chamber} />
+                        <DataJudField label="Partes" value={cnjResult.parties} />
+                        <DataJudField label="Data de Distribuição" value="12/04/2023" />
+                        <DataJudField label="Última Movimentação" value={cnjResult.last_movement} />
+                      </div>
+
+                      <div className="space-y-8 pt-12 border-t border-brand-primary/5">
+                        <h5 className="text-xl font-serif font-medium flex items-center gap-3 text-brand-primary">
+                          <Files size={24} className="text-brand-primary/40" />
+                          Documentos Relevantes do Processo
+                        </h5>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          {[
+                            { name: 'Planilha de Débitos Atualizada.pdf', type: 'Débitos', date: 'Há 2 dias' },
+                            { name: 'Certidão de Citação.pdf', type: 'Citação', date: 'Há 15 dias' },
+                            { name: 'Auto de Avaliação.pdf', type: 'Avaliação', date: 'Há 1 mês' },
+                            { name: 'Edital de Leilão.pdf', type: 'Edital', date: 'Há 5 dias' }
+                          ].map((file, i) => (
+                            <div key={i} className="flex items-center justify-between p-6 bg-brand-bg/30 rounded-3xl border border-brand-primary/5 hover:border-brand-primary/30 transition-all group cursor-pointer">
+                              <div className="flex items-center gap-5">
+                                <div className="w-12 h-12 bg-brand-bg rounded-2xl flex items-center justify-center text-brand-primary shadow-sm group-hover:bg-brand-primary group-hover:text-black transition-all duration-500 border border-brand-primary/10">
+                                  <FileText size={24} />
+                                </div>
+                                <div>
+                                  <p className="font-bold text-base tracking-tight">{file.name}</p>
+                                  <div className="flex gap-3 mt-2">
+                                    <span className="text-[10px] font-bold uppercase tracking-widest text-brand-primary bg-brand-primary/10 px-2.5 py-1 rounded-lg">{file.type}</span>
+                                    <span className="text-[10px] text-brand-ink/30 font-medium uppercase tracking-widest">{file.date}</span>
+                                  </div>
+                                </div>
+                              </div>
+                              <button className="p-3 hover:bg-brand-primary/10 rounded-xl text-brand-ink/20 hover:text-brand-primary transition-all">
+                                <Download size={20} />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center h-[400px] text-black/10 space-y-4">
+                      <Search size={64} />
+                      <p className="font-bold uppercase tracking-widest text-xs">Realize uma consulta CNJ na barra lateral</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {activeSubTab === 'documents' && (
+                <div className="space-y-12">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-2xl font-serif font-medium text-brand-primary">Repositório Organizado</h4>
+                  </div>
+                  
+                  {['Edital', 'Matrícula', 'Processo Judicial', 'Outros'].map(category => (
+                    <DocumentManager 
+                      key={category} 
+                      label={category} 
+                      docs={analysisDocs} 
+                      onUpload={(e, type) => handleAnalysisFileUpload(e, type)}
+                      onDelete={handleDeleteDocument}
+                      uploading={uploading}
+                    />
+                  ))}
+                  
+                  {analysisDocs.length === 0 && (
+                    <div className="py-20 text-center text-black/20 font-bold uppercase tracking-widest text-xs">
+                      Nenhum documento vinculado.
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {activeSubTab === 'debts' && (
+                <div className="space-y-6">
+                  <h4 className="text-xl font-bold text-brand-primary">Levantamento de Débitos</h4>
+                  <div className="bg-brand-bg rounded-3xl p-8 border border-brand-primary/10">
+                    <div className="space-y-4">
+                      {currentDebts.map(debt => (
+                        <div key={debt.id} className="flex items-center justify-between p-4 bg-brand-paper rounded-2xl shadow-sm border border-brand-primary/5">
+                          <div>
+                            <p className="font-bold text-brand-ink">{debt.type}</p>
+                            <p className="text-xs text-brand-ink/40">Responsável: {debt.responsible}</p>
+                          </div>
+                          <p className="font-bold text-brand-primary">
+                            {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(debt.value)}
+                          </p>
+                        </div>
+                      ))}
+                      {currentDebts.length === 0 && (
+                        <p className="text-center text-brand-ink/30 font-medium py-10">
+                          {selectedPropertyId 
+                            ? "Nenhum débito registrado para este imóvel." 
+                            : "Débitos só podem ser visualizados para imóveis cadastrados."}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {activeSubTab === 'simulations' && (
+                <div className="space-y-12">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-3xl font-serif font-medium text-brand-primary">Simulação de Viabilidade</h4>
+                    <div className="flex gap-2 bg-brand-bg p-1.5 rounded-2xl border border-brand-primary/5">
+                      <button className="px-6 py-2.5 bg-brand-primary rounded-xl text-[10px] font-bold uppercase tracking-widest shadow-sm text-black">Cenário Conservador</button>
+                      <button className="px-6 py-2.5 text-[10px] font-bold uppercase tracking-widest text-brand-ink/30 hover:text-brand-primary transition-colors">Cenário Otimista</button>
+                    </div>
+                  </div>
+
+                  <SimulationContext.Provider value={{ simulationData, updateState, onJumpToSimulation: onJumpToSimulation || (() => {}) }}>
+                    <InteractiveSimulationTable />
+                    <BidMap simulationData={simulationData} />
+                    <TIRCalculator />
+                    <CashFlowChart simulationData={simulationData} />
+                  </SimulationContext.Provider>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {uploadProgressText && (
+        <div className="fixed bottom-8 right-8 z-[9999] bg-brand-paper border border-brand-primary/20 p-6 rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.3)] flex items-center gap-4 max-w-sm">
+          <Loader2 className="animate-spin text-brand-primary shrink-0" size={24} />
+          <div>
+            <h5 className="text-sm font-bold text-brand-primary">Processando Documento</h5>
+            <p className="text-xs font-semibold text-brand-ink/60 mt-1">{uploadProgressText}</p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AnalysisTab({ active, onClick, icon, label }: { active: boolean, onClick: () => void, icon: React.ReactNode, label: string }) {
+  return (
+    <button 
+      onClick={onClick}
+      className={cn(
+        "flex items-center gap-3 px-10 py-6 text-[10px] font-bold uppercase tracking-[0.2em] transition-all border-b-2",
+        active ? "bg-brand-paper border-brand-primary text-brand-primary" : "border-transparent text-brand-ink/30 hover:text-brand-primary/60"
+      )}
+    >
+      {icon}
+      {label}
+    </button>
+  );
+}
+
+
+function DossierCard({ title, description, icon, hasFile, onUpload, uploading }: { title: string, description: string, icon: React.ReactNode, hasFile: boolean, onUpload: (e: React.ChangeEvent<HTMLInputElement>) => void, uploading: boolean }) {
+  const id = `dossier-${title.toLowerCase().replace(/\s+/g, '-')}`;
+  return (
+    <div className={cn(
+      "bg-brand-paper p-8 rounded-[2rem] border transition-all flex flex-col h-full",
+      hasFile ? "border-emerald-500/20 shadow-lg shadow-emerald-500/5" : "border-brand-primary/10 hover:border-brand-primary/30"
+    )}>
+      <div className={cn(
+        "w-12 h-12 rounded-2xl flex items-center justify-center mb-6",
+        hasFile ? "bg-emerald-500 text-white" : "bg-brand-bg text-brand-ink/40"
+      )}>
+        {hasFile ? <CheckCircle2 size={24} /> : icon}
+      </div>
+      <h4 className="text-lg font-bold mb-2 text-brand-primary">{title}</h4>
+      <p className="text-sm text-brand-ink/40 font-medium mb-8 flex-1">{description}</p>
+      
+      <div className="relative mt-auto">
+        <input 
+          type="file" 
+          id={id}
+          className="hidden" 
+          onChange={onUpload}
+          disabled={uploading}
+        />
+        <label 
+          htmlFor={id}
+          className={cn(
+            "w-full py-4 px-6 rounded-2xl font-bold text-xs uppercase tracking-widest flex items-center justify-center gap-2 cursor-pointer transition-all",
+            hasFile 
+              ? "bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20" 
+              : "bg-brand-primary text-black hover:bg-brand-primary/90 shadow-lg shadow-brand-primary/10"
+          )}
+        >
+          {uploading ? <Loader2 className="animate-spin" size={14} /> : (hasFile ? <RefreshCw size={14} /> : <Plus size={14} />)}
+          {hasFile ? "Substituir" : "Subir Documento"}
+        </label>
+      </div>
+    </div>
+  );
+}
+
+function AIKeyInput({ label, value, onChange }: { label: string, value: string, onChange: (val: string) => void }) {
+  return (
+    <div>
+      <label className="block text-[10px] font-bold uppercase tracking-[0.2em] text-brand-ink/30 mb-3 ml-1">{label}</label>
+      <input 
+        type="password" 
+        className={cn(
+          "w-full bg-brand-bg border-none rounded-2xl py-5 px-8 focus:ring-2 focus:ring-brand-primary font-mono text-sm text-brand-primary",
+          value && label.includes("Gemini") && !value.trim().startsWith("AIza") && "ring-2 ring-red-200"
+        )}
+        value={value || ''}
+        onChange={e => onChange(e.target.value)}
+        placeholder={label.includes("Gemini") ? "Insira a chave AIza..." : "Insira a chave sk-..."}
+      />
+      {value && label.includes("Gemini") && !value.trim().startsWith("AIza") && (
+        <p className="text-[10px] text-red-500 mt-2 ml-1 font-bold">Atenção: Chaves Gemini devem começar com 'AIza'</p>
+      )}
+    </div>
+  );
+}
+
+function UsersView({ token }: { token: string }) {
+  const [users, setUsers] = useState<User[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    fetchUsers();
+  }, []);
+
+  const fetchUsers = () => {
+    fetch('/api/users', { headers: { 'Authorization': `Bearer ${token}` } })
+      .then(res => {
+        if (!res.ok) throw new Error("Erro ao carregar usuários");
+        return res.json();
+      })
+      .then(data => setUsers(data))
+      .catch(err => console.error(err));
+  };
+
+  const handleDeleteUser = async (id: string) => {
+    if (!confirm("Tem certeza que deseja excluir este usuário?")) return;
+    
+    try {
+      const res = await fetch(`/api/users/${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        fetchUsers();
+        alert("Usuário excluído com sucesso.");
+      } else {
+        const errText = await res.text();
+        let errData;
+        try {
+          const trimmed = errText.trim().toLowerCase();
+          if (trimmed.includes('<!doctype') || trimmed.includes('<html') || trimmed.includes('<body')) {
+            throw new Error("Resposta do servidor é HTML");
+          }
+          errData = JSON.parse(errText);
+        } catch (e) {
+          errData = { error: errText || res.statusText };
+        }
+        alert(`Erro ao excluir usuário: ${errData.error || errText || res.statusText}`);
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Erro ao excluir usuário.");
+    }
+  };
+
+  return (
+    <div className="space-y-12">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-4xl font-serif font-medium tracking-tight text-brand-primary">Gestão de Usuários</h2>
+          <p className="text-brand-ink/40 font-medium text-lg">Administre os acessos ao sistema profissional.</p>
+        </div>
+        <button className="bg-brand-primary text-black px-8 py-4 rounded-2xl font-bold text-xs uppercase tracking-widest flex items-center gap-3 shadow-xl shadow-brand-primary/20 hover:bg-brand-primary/90 transition-all">
+          <Plus size={20} /> Novo Usuário
+        </button>
+      </div>
+
+      <div className="premium-card overflow-hidden">
+        <table className="w-full text-left border-collapse">
+          <thead>
+            <tr className="bg-brand-bg text-brand-ink/30 text-[10px] font-bold uppercase tracking-[0.2em]">
+              <th className="px-10 py-8">Nome</th>
+              <th className="px-10 py-8">Usuário / Email</th>
+              <th className="px-10 py-8">Cargo</th>
+              <th className="px-10 py-8">Status</th>
+              <th className="px-10 py-8 text-right">Ações</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-brand-primary/5">
+            {users.map(u => (
+              <tr key={u.id} className="hover:bg-brand-bg/30 transition-all group">
+                <td className="px-10 py-8 font-serif text-xl font-bold text-brand-primary">{u.name}</td>
+                <td className="px-10 py-8">
+                  <p className="text-base font-bold tracking-tight">{u.username}</p>
+                  <p className="text-xs text-brand-ink/40 font-medium">{u.email}</p>
+                </td>
+                <td className="px-10 py-8">
+                  <span className="px-3 py-1 bg-brand-primary/10 text-brand-primary rounded-lg text-[10px] font-bold uppercase tracking-widest">
+                    {u.role}
+                  </span>
+                </td>
+                <td className="px-10 py-8">
+                  <span className="px-3 py-1 bg-emerald-50 text-emerald-600 rounded-lg text-[10px] font-bold uppercase tracking-widest">
+                    {u.status}
+                  </span>
+                </td>
+                <td className="px-10 py-8 text-right">
+                  <div className="flex items-center justify-end gap-3 opacity-0 group-hover:opacity-100 transition-all">
+                    <button className="p-3 hover:bg-brand-paper rounded-xl text-brand-ink/20 hover:text-brand-primary transition-all shadow-sm"><Edit size={18} /></button>
+                    <button onClick={() => handleDeleteUser(u.id)} className="p-3 hover:bg-red-500/10 rounded-xl text-brand-ink/20 hover:text-red-500 transition-all shadow-sm"><Trash2 size={18} /></button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function SettingsView({ token }: { token: string }) {
+  return (
+    <div className="space-y-12">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-4xl font-serif font-medium tracking-tight text-brand-primary">Configurações do Sistema</h2>
+          <p className="text-brand-ink/40 font-medium text-lg">Ajuste as preferências globais e parâmetros de análise.</p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+        <Card title="Preferências de Notificação">
+          <div className="space-y-6">
+            <div className="flex items-center justify-between p-6 bg-brand-bg/50 rounded-3xl border border-brand-primary/5">
+              <span className="font-bold text-brand-primary">Alertas de Novos Leilões</span>
+              <div className="w-14 h-7 bg-brand-primary rounded-full relative cursor-pointer">
+                <div className="absolute right-1 top-1 w-5 h-5 bg-white rounded-full shadow-sm" />
+              </div>
+            </div>
+            <div className="flex items-center justify-between p-6 bg-brand-bg/50 rounded-3xl border border-brand-primary/5">
+              <span className="font-bold text-brand-primary">Relatórios de IA por Email</span>
+              <div className="w-14 h-7 bg-brand-ink/10 rounded-full relative cursor-pointer">
+                <div className="absolute left-1 top-1 w-5 h-5 bg-white rounded-full shadow-sm" />
+              </div>
+            </div>
+          </div>
+        </Card>
+
+        <Card title="Parâmetros de Cálculo">
+          <div className="space-y-6">
+            <div>
+              <label className="block text-[10px] font-bold uppercase tracking-[0.2em] text-brand-ink/30 mb-3 ml-1">ITBI Padrão (%)</label>
+              <input type="number" defaultValue={2} className="w-full bg-brand-bg border-none rounded-2xl py-5 px-8 focus:ring-2 focus:ring-brand-primary font-serif text-xl font-bold text-brand-primary" />
+            </div>
+            <div>
+              <label className="block text-[10px] font-bold uppercase tracking-[0.2em] text-brand-ink/30 mb-3 ml-1">Comissão Leiloeiro (%)</label>
+              <input type="number" defaultValue={5} className="w-full bg-brand-bg border-none rounded-2xl py-5 px-8 focus:ring-2 focus:ring-brand-primary font-serif text-xl font-bold text-brand-primary" />
+            </div>
+          </div>
+        </Card>
+      </div>
+    </div>
+  );
+}

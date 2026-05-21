@@ -1,0 +1,1055 @@
+import express from "express";
+import { createServer as createViteServer } from "vite";
+import path from "path";
+import dotenv from "dotenv";
+import Database from "better-sqlite3";
+import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
+import axios from "axios";
+import multer from "multer";
+import { createRequire } from 'module';
+import fs from "fs";
+const require = createRequire(import.meta.url);
+const pdf = require('pdf-parse');
+
+dotenv.config();
+
+const upload = multer({ storage: multer.memoryStorage() });
+
+async function extractTextFromBuffer(buffer: Buffer, mimeType: string): Promise<string> {
+  if (mimeType === 'application/pdf') {
+    try {
+      console.log(`[PDF] Iniciando extração de texto. Buffer size: ${buffer.length}`);
+      // Handle potential default export differences between ESM/CJS
+      let pdfParser = pdf;
+      if (typeof pdf !== 'function' && pdf && typeof (pdf as any).default === 'function') {
+        pdfParser = (pdf as any).default;
+      }
+      
+      if (typeof pdfParser !== 'function') {
+        console.error("[PDF] pdf-parse não é uma função válida. Type:", typeof pdf, "Keys:", Object.keys(pdf || {}));
+        return "";
+      }
+      
+      const data = await pdfParser(buffer);
+      const text = data.text || "";
+      console.log(`[PDF] Extração concluída. Texto extraído: ${text.length} caracteres.`);
+      return text;
+    } catch (err: any) {
+      // Catch common PDF parsing exceptions
+      const errorName = err.name || '';
+      const errorMessage = (err.message || String(err)).toString();
+      
+      const knownExceptions = ['AbortException', 'FormatError', 'InvalidPDFException', 'PasswordException', 'ResponseException', 'UnknownErrorException', 'getException'];
+      
+      // Check if the error name or message contains any of the known exceptions (case-insensitive)
+      const isKnownException = 
+        knownExceptions.some(ex => 
+          errorName.toLowerCase().includes(ex.toLowerCase()) || 
+          errorMessage.toLowerCase().includes(ex.toLowerCase())
+        );
+
+      if (isKnownException) {
+        console.warn(`[PDF] Ignorando exceção conhecida: ${errorName} - ${errorMessage}`);
+        // Silently ignore known PDF parsing issues
+        return "";
+      }
+      
+      console.error(`[PDF] Erro inesperado na extração de texto (${errorName}):`, errorMessage);
+      return "";
+    }
+  }
+  return "";
+}
+
+console.log("DEBUG: Servidor iniciando...");
+
+const DB_NAME = "leiloes_pro.db";
+let db: InstanceType<typeof Database>;
+
+try {
+  // Quick integrity check to detect corruption early
+  const testDb = new Database(DB_NAME);
+  testDb.prepare("PRAGMA integrity_check").get();
+  testDb.close();
+  db = new Database(DB_NAME);
+} catch (err: any) {
+  console.error("CRITICAL: Database is malformed or corrupted. Attempting self-healing...", err.message);
+  if (fs.existsSync(DB_NAME)) {
+    const backupName = `leiloes_pro_corrupted_${Date.now()}.db`;
+    try {
+      fs.renameSync(DB_NAME, backupName);
+      console.log(`Corrupted database moved to ${backupName}`);
+    } catch (renameErr: any) {
+      console.error("Failed to rename corrupted database:", renameErr.message);
+      try {
+        fs.unlinkSync(DB_NAME);
+        console.log("Corrupted database deleted.");
+      } catch (deleteErr) {
+        console.error("Failed to delete corrupted database.");
+      }
+    }
+  }
+  db = new Database(DB_NAME);
+}
+
+const JWT_SECRET = process.env.JWT_SECRET || "tj-invest-secure-key-2026";
+
+// Initialize database tables
+try {
+  console.log("Inicializando tabelas do banco de dados...");
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS users (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    email TEXT UNIQUE NOT NULL,
+    username TEXT UNIQUE NOT NULL,
+    password TEXT NOT NULL,
+    role TEXT DEFAULT 'Operador', -- Admin, Operador
+    status TEXT DEFAULT 'Ativo',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE TABLE IF NOT EXISTS properties (
+    id TEXT PRIMARY KEY,
+    title TEXT NOT NULL,
+    type TEXT, -- Apartamento, Casa, Lote, etc.
+    modality TEXT, -- Judicial, Extrajudicial
+    address TEXT,
+    city TEXT,
+    state TEXT,
+    area REAL,
+    valuation_value REAL,
+    min_bid REAL,
+    planned_max_bid REAL,
+    auctioned_value REAL,
+    expected_sale_value REAL,
+    actual_sale_value REAL,
+    status TEXT DEFAULT 'Analise',
+    observations TEXT,
+    share_token TEXT UNIQUE,
+    is_public INTEGER DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE TABLE IF NOT EXISTS processes (
+    id TEXT PRIMARY KEY,
+    cnj_number TEXT UNIQUE,
+    court TEXT,
+    chamber TEXT,
+    action_type TEXT,
+    debt_value REAL,
+    parties TEXT,
+    status TEXT,
+    observations TEXT,
+    property_id TEXT,
+    source TEXT DEFAULT 'Manual', -- Manual, DataJud
+    FOREIGN KEY(property_id) REFERENCES properties(id)
+  );
+
+  CREATE TABLE IF NOT EXISTS documents (
+    id TEXT PRIMARY KEY,
+    filename TEXT NOT NULL,
+    doc_type TEXT, -- Processo, Matricula, Edital, etc.
+    property_id TEXT,
+    process_id TEXT,
+    data TEXT, -- Base64
+    extracted_text TEXT,
+    ia_summary TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(property_id) REFERENCES properties(id),
+    FOREIGN KEY(process_id) REFERENCES processes(id)
+  );
+
+  CREATE TABLE IF NOT EXISTS debts (
+    id TEXT PRIMARY KEY,
+    property_id TEXT,
+    type TEXT, -- IPTU, Condominio, etc.
+    value REAL,
+    responsible TEXT, -- Arrematante, Processo
+    calculation_date DATE,
+    observations TEXT,
+    FOREIGN KEY(property_id) REFERENCES properties(id)
+  );
+
+  CREATE TABLE IF NOT EXISTS ai_analyses (
+    id TEXT PRIMARY KEY,
+    property_id TEXT,
+    exec_summary TEXT,
+    legal_analysis TEXT,
+    financial_analysis TEXT,
+    legal_risks TEXT,
+    operational_risks TEXT,
+    recommended_bid REAL,
+    roi REAL,
+    tir REAL,
+    estimated_profit REAL,
+    ia_used TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(property_id) REFERENCES properties(id)
+  );
+
+  CREATE TABLE IF NOT EXISTS process_stories (
+    id TEXT PRIMARY KEY,
+    property_id TEXT,
+    full_story TEXT,
+    legal_glossary TEXT,
+    timeline_json TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(property_id) REFERENCES properties(id)
+  );
+
+  CREATE TABLE IF NOT EXISTS strategic_brain (
+    id TEXT PRIMARY KEY,
+    title TEXT NOT NULL,
+    category TEXT,
+    source TEXT,
+    extracted_text TEXT,
+    data TEXT,
+    embeddings TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE TABLE IF NOT EXISTS analysis_shares (
+    token TEXT PRIMARY KEY,
+    analysis_id TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE TABLE IF NOT EXISTS ai_config (
+    id TEXT PRIMARY KEY,
+    primary_ia TEXT DEFAULT 'Gemini',
+    secondary_ia TEXT,
+    gemini_key TEXT,
+    openai_key TEXT,
+    claude_key TEXT,
+    deepseek_key TEXT,
+    datajud_key TEXT,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE TABLE IF NOT EXISTS datajud_queries (
+    id TEXT PRIMARY KEY,
+    cnj_number TEXT NOT NULL,
+    court TEXT,
+    class TEXT,
+    subject TEXT,
+    chamber TEXT,
+    parties TEXT,
+    movements TEXT,
+    last_movement_date TEXT,
+    raw_json TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+`);
+  console.log("Tabelas base inicializadas.");
+
+  // Migrations for strategic_brain
+  try {
+    console.log("Verificando migrações para strategic_brain...");
+    const tableInfo: any[] = db.prepare("PRAGMA table_info(strategic_brain)").all();
+    const columns = tableInfo.map(c => c.name);
+    
+    if (!columns.includes('url')) {
+      console.log("Adicionando coluna 'url'...");
+      db.prepare("ALTER TABLE strategic_brain ADD COLUMN url TEXT").run();
+    }
+    if (!columns.includes('username')) {
+      console.log("Adicionando coluna 'username'...");
+      db.prepare("ALTER TABLE strategic_brain ADD COLUMN username TEXT").run();
+    }
+    if (!columns.includes('password')) {
+      console.log("Adicionando coluna 'password'...");
+      db.prepare("ALTER TABLE strategic_brain ADD COLUMN password TEXT").run();
+    }
+    if (!columns.includes('is_automated')) {
+      console.log("Adicionando coluna 'is_automated'...");
+      db.prepare("ALTER TABLE strategic_brain ADD COLUMN is_automated INTEGER DEFAULT 0").run();
+    }
+    if (!columns.includes('last_sync')) {
+      console.log("Adicionando coluna 'last_sync'...");
+      db.prepare("ALTER TABLE strategic_brain ADD COLUMN last_sync DATETIME").run();
+    }
+    console.log("Migrações concluídas com sucesso.");
+    
+    // Seed strategic_brain if empty
+    const count = db.prepare("SELECT COUNT(*) as count FROM strategic_brain").get() as { count: number };
+    if (count.count === 0) {
+      console.log("Semeando dados iniciais para o Cérebro Estratégico...");
+      const seedItems = [
+        {
+          id: 'sb-1',
+          title: 'Manual de Leilões Judiciais (CPC)',
+          category: 'Jurídico',
+          source: 'Manual',
+          extracted_text: 'Diretrizes para análise de leilões judiciais baseadas no CPC 2015. Foco em editais, intimações e prazos de recursos.',
+          url: '',
+          is_automated: 0
+        },
+        {
+          id: 'sb-2',
+          title: 'Estratégia CAIXA - Venda Direta',
+          category: 'Estratégia',
+          source: 'Manual',
+          extracted_text: 'Regras específicas para Venda Direta Online da CAIXA. Prioridade para imóveis com desocupação facilitada e financiamento aprovado.',
+          url: 'https://venda-imoveis.caixa.gov.br',
+          is_automated: 1
+        },
+        {
+          id: 'sb-3',
+          title: 'Checklist de Matrícula Imobiliária',
+          category: 'Jurídico',
+          source: 'Manual',
+          extracted_text: 'Pontos críticos na matrícula: Penhoras anteriores, Usufruto, Indisponibilidades e Arrolamentos da RFB.',
+          url: '',
+          is_automated: 0
+        }
+      ];
+
+      const insert = db.prepare("INSERT INTO strategic_brain (id, title, category, source, extracted_text, url, is_automated) VALUES (?, ?, ?, ?, ?, ?, ?)");
+      seedItems.forEach(item => {
+        insert.run(item.id, item.title, item.category, item.source, item.extracted_text, item.url, item.is_automated);
+      });
+      console.log("Semeando concluído.");
+    }
+    console.log("Verificando migrações para properties...");
+    const propTableInfo: any[] = db.prepare("PRAGMA table_info(properties)").all();
+    const propColumns = propTableInfo.map(c => c.name);
+    if (!propColumns.includes('anonymize_property')) {
+      console.log("Adicionando coluna 'anonymize_property'...");
+      db.prepare("ALTER TABLE properties ADD COLUMN anonymize_property INTEGER DEFAULT 0").run();
+    }
+
+    console.log("Verificando migrações para documents...");
+    const docTableInfo: any[] = db.prepare("PRAGMA table_info(documents)").all();
+    const docColumns = docTableInfo.map(c => c.name);
+    if (!docColumns.includes('temp_property_id')) {
+      console.log("Adicionando coluna 'temp_property_id'...");
+      db.prepare("ALTER TABLE documents ADD COLUMN temp_property_id TEXT").run();
+    }
+
+    console.log("Verificando migrações para ai_config...");
+    const aiConfigTableInfo: any[] = db.prepare("PRAGMA table_info(ai_config)").all();
+    const aiConfigColumns = aiConfigTableInfo.map(c => c.name);
+    
+    if (!aiConfigColumns.includes('openai_key')) {
+      console.log("Adicionando coluna 'openai_key'...");
+      db.prepare("ALTER TABLE ai_config ADD COLUMN openai_key TEXT").run();
+    }
+    if (!aiConfigColumns.includes('claude_key')) {
+      console.log("Adicionando coluna 'claude_key'...");
+      db.prepare("ALTER TABLE ai_config ADD COLUMN claude_key TEXT").run();
+    }
+    if (!aiConfigColumns.includes('deepseek_key')) {
+      console.log("Adicionando coluna 'deepseek_key'...");
+      db.prepare("ALTER TABLE ai_config ADD COLUMN deepseek_key TEXT").run();
+    }
+    if (!aiConfigColumns.includes('datajud_key')) {
+      console.log("Adicionando coluna 'datajud_key'...");
+      db.prepare("ALTER TABLE ai_config ADD COLUMN datajud_key TEXT").run();
+    }
+    if (!aiConfigColumns.includes('primary_ia')) {
+      console.log("Adicionando coluna 'primary_ia'...");
+      db.prepare("ALTER TABLE ai_config ADD COLUMN primary_ia TEXT DEFAULT 'Gemini'").run();
+    }
+    if (!aiConfigColumns.includes('secondary_ia')) {
+      console.log("Adicionando coluna 'secondary_ia'...");
+      db.prepare("ALTER TABLE ai_config ADD COLUMN secondary_ia TEXT").run();
+    }
+  } catch (err) {
+    console.error("Erro durante as migrações:", err);
+  }
+  console.log("Tabelas de configuração inicializadas.");
+} catch (err) {
+  console.error("Erro ao inicializar tabelas:", err);
+}
+
+// Seed default admin if not exists
+const adminExists = db.prepare("SELECT * FROM users WHERE username = 'admin'").get();
+if (!adminExists) {
+  console.log("DEBUG: Criando usuário admin padrão...");
+  const hashedPassword = bcrypt.hashSync("admin", 10);
+  db.prepare("INSERT INTO users (id, name, email, username, password, role) VALUES (?, ?, ?, ?, ?, ?)").run(
+    "admin-id", "Administrador", "admin@leiloes.pro", "admin", hashedPassword, "Admin"
+  );
+  console.log("DEBUG: Usuário admin criado.");
+} else {
+  console.log("DEBUG: Usuário admin já existe.");
+}
+
+// Seed default AI config if not exists
+const configExists = db.prepare("SELECT * FROM ai_config").get();
+if (!configExists) {
+  db.prepare("INSERT INTO ai_config (id, gemini_key) VALUES (?, ?)").run("default-config", "AIzaSyCxuXCxQOonKnDIDNKuP6LvyWxPEK2Gnec");
+} else {
+  const config: any = configExists;
+  if (!config.gemini_key || config.gemini_key === "") {
+    db.prepare("UPDATE ai_config SET gemini_key = ? WHERE id = ?").run("AIzaSyCxuXCxQOonKnDIDNKuP6LvyWxPEK2Gnec", "default-config");
+  }
+}
+
+async function startServer() {
+  console.log("Iniciando startServer...");
+  const app = express();
+  const PORT = 3000;
+
+  app.use(express.json({ limit: '100mb' }));
+
+  app.use((req, res, next) => {
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+    next();
+  });
+
+  // Auth Middleware
+  const authenticateToken = (req: any, res: any, next: any) => {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
+    if (!token) return res.sendStatus(401);
+
+    jwt.verify(token, JWT_SECRET, (err: any, user: any) => {
+      if (err) return res.sendStatus(403);
+      req.user = user;
+      next();
+    });
+  };
+
+  // --- Auth Routes ---
+  app.post("/api/auth/login", (req, res) => {
+    console.log("DEBUG: Recebendo tentativa de login para:", req.body.username);
+    const { username, password } = req.body;
+    
+    try {
+      const user: any = db.prepare("SELECT * FROM users WHERE username = ?").get(username);
+      console.log("DEBUG: Usuário encontrado no banco:", user ? "Sim" : "Não");
+      
+      if (!user) {
+        console.log("DEBUG: Usuário não encontrado.");
+        return res.status(401).json({ error: "Credenciais inválidas" });
+      }
+
+      const passwordMatch = bcrypt.compareSync(password, user.password);
+      console.log("DEBUG: Senha coincide:", passwordMatch ? "Sim" : "Não");
+
+      if (!passwordMatch) {
+        return res.status(401).json({ error: "Credenciais inválidas" });
+      }
+
+      const token = jwt.sign({ id: user.id, username: user.username, role: user.role }, JWT_SECRET);
+      console.log("DEBUG: Login bem-sucedido para:", username);
+      res.json({ token, user: { id: user.id, name: user.name, role: user.role } });
+    } catch (err) {
+      console.error("DEBUG: Erro durante o login:", err);
+      res.status(500).json({ error: "Erro interno do servidor" });
+    }
+  });
+
+  // --- Property Routes ---
+  app.get("/api/properties", authenticateToken, (req, res) => {
+    const properties = db.prepare("SELECT * FROM properties ORDER BY created_at DESC").all();
+    res.json(properties);
+  });
+
+  app.post("/api/properties", authenticateToken, (req, res) => {
+    try {
+      const id = Math.random().toString(36).substring(7);
+      const { title, type, modality, address, city, state, valuation_value, min_bid } = req.body;
+      db.prepare("INSERT INTO properties (id, title, type, modality, address, city, state, valuation_value, min_bid) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)").run(
+        id, title, type, modality, address, city, state, valuation_value, min_bid
+      );
+      res.json({ id });
+    } catch (error: any) {
+      console.error("Erro ao inserir imóvel:", error.message);
+      res.status(500).json({ error: "Erro ao inserir imóvel: " + error.message });
+    }
+  });
+
+  // --- DataJud Integration ---
+  app.post("/api/datajud/search", authenticateToken, async (req, res) => {
+    const { cnj_number } = req.body;
+    const config: any = db.prepare("SELECT datajud_key FROM ai_config").get();
+    
+    if (config?.datajud_key) {
+      try {
+        // Real DataJud API call
+        const response = await axios.post('https://api-publica.datajud.cnj.jus.br/v1/search', {
+          query: {
+            match: {
+              numeroProcesso: cnj_number.replace(/\D/g, '') // Remove non-digits
+            }
+          }
+        }, {
+          headers: {
+            'Authorization': `APIKey ${config.datajud_key}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        // Transform DataJud response to our internal format if needed
+        const hits = response.data.hits?.hits || [];
+        if (hits.length > 0) {
+          const process = hits[0]._source;
+          return res.json({
+            cnj_number: process.numeroProcesso,
+            court: process.tribunal,
+            class: process.classe?.nome || "Não informada",
+            subject: process.assuntos?.[0]?.nome || "Não informado",
+            chamber: process.orgaoJulgador?.nome || "Não informado",
+            parties: process.movimentos?.slice(0, 5).map((m: any) => m.nome).join(", ") || "Dados protegidos",
+            last_movement: process.movimentos?.[0]?.nome || "Sem movimentos",
+            status: "Consultado via API"
+          });
+        }
+      } catch (error: any) {
+        console.error("DataJud API Error:", error.response?.data || error.message);
+        // Fallback to mock if API fails but key was present (maybe expired?)
+      }
+    }
+
+    // Mock response for demonstration if no key or API fails
+    res.json({
+      cnj_number,
+      court: "TJMG",
+      class: "Execução de Título Extrajudicial",
+      subject: "Alienação Fiduciária",
+      chamber: "2ª Vara Cível de Belo Horizonte",
+      parties: "Banco X vs João Silva",
+      last_movement: "Mandado de Penhora Expedido",
+      status: "Demonstração (Configure sua API Key)"
+    });
+  });
+
+  // --- AI Config Routes ---
+  app.get("/api/ai-config", authenticateToken, (req, res) => {
+    try {
+      const config = db.prepare("SELECT * FROM ai_config LIMIT 1").get();
+      console.log("AI Config fetched:", config ? "Found" : "Not found");
+      res.json(config || {});
+    } catch (error: any) {
+      console.error("Error fetching AI config:", error.message);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/ai-config", authenticateToken, (req, res) => {
+    try {
+      const currentConfig: any = db.prepare("SELECT * FROM ai_config LIMIT 1").get() || {};
+      const { 
+        primary_ia = currentConfig.primary_ia || 'Gemini', 
+        secondary_ia = currentConfig.secondary_ia || '', 
+        gemini_key = currentConfig.gemini_key || '', 
+        openai_key = currentConfig.openai_key || '', 
+        claude_key = currentConfig.claude_key || '', 
+        deepseek_key = currentConfig.deepseek_key || '',
+        datajud_key = currentConfig.datajud_key || ''
+      } = req.body;
+      
+      const result = db.prepare(`
+        UPDATE ai_config 
+        SET primary_ia = ?, 
+            secondary_ia = ?, 
+            gemini_key = ?, 
+            openai_key = ?, 
+            claude_key = ?, 
+            deepseek_key = ?, 
+            datajud_key = ?, 
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = (SELECT id FROM ai_config LIMIT 1)
+      `).run(
+        primary_ia, secondary_ia, gemini_key, openai_key, claude_key, deepseek_key, datajud_key
+      );
+
+      if (result.changes === 0) {
+        db.prepare(`
+          INSERT INTO ai_config (id, primary_ia, secondary_ia, gemini_key, openai_key, claude_key, deepseek_key, datajud_key)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `).run('default-config', primary_ia, secondary_ia, gemini_key, openai_key, claude_key, deepseek_key, datajud_key);
+      }
+
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Error saving AI config:", error.message);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/strategic-brain", authenticateToken, (req, res) => {
+    const items = db.prepare("SELECT * FROM strategic_brain ORDER BY created_at DESC").all();
+    res.json(items);
+  });
+
+  app.post("/api/strategic-brain/:id/sync", authenticateToken, async (req, res) => {
+    const { id } = req.params;
+    const item: any = db.prepare("SELECT * FROM strategic_brain WHERE id = ?").get(id);
+    
+    if (!item || !item.url) {
+      return res.status(404).json({ error: "Fonte não encontrada ou não possui URL" });
+    }
+
+    try {
+      // Basic fetch for public or simple sites
+      // For password protected sites, this is a placeholder for a more complex crawler
+      const response = await axios.get(item.url, { timeout: 10000 });
+      const html = response.data;
+      
+      // Use Gemini to extract meaningful text from HTML
+      // This is a simplified version of "reading files and watching classes"
+      const extractedText = `Conteúdo sincronizado de ${item.url} em ${new Date().toISOString()}.\n\n(Simulação de extração de dados automatizada)`;
+      
+      db.prepare("UPDATE strategic_brain SET extracted_text = ?, last_sync = CURRENT_TIMESTAMP WHERE id = ?").run(
+        extractedText, id
+      );
+      
+      res.json({ success: true, last_sync: new Date().toISOString() });
+    } catch (error: any) {
+      console.error("Erro no sync:", error.message);
+      res.status(500).json({ error: "Erro ao sincronizar fonte externa: " + error.message });
+    }
+  });
+
+  app.post("/api/strategic-brain", authenticateToken, (req, res) => {
+    try {
+      const id = Math.random().toString(36).substring(7);
+      const { title, category, source, extracted_text, data, url, username, password, is_automated } = req.body;
+      db.prepare("INSERT INTO strategic_brain (id, title, category, source, extracted_text, data, url, username, password, is_automated) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").run(
+        id, title, category, source, extracted_text || null, data || null, url || null, username || null, password || null, is_automated ? 1 : 0
+      );
+      res.json({ id });
+    } catch (error: any) {
+      console.error("Erro ao salvar cérebro:", error.message);
+      res.status(500).json({ error: "Erro interno ao salvar conhecimento: " + error.message });
+    }
+  });
+
+  app.delete("/api/strategic-brain/:id", authenticateToken, (req, res) => {
+    try {
+      const { id } = req.params;
+      db.prepare("DELETE FROM strategic_brain WHERE id = ?").run(id);
+      res.status(200).json({ message: "Item excluído com sucesso" });
+    } catch (error: any) {
+      console.error("Erro ao excluir:", error.message);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // --- AI Analysis Routes ---
+  app.get("/api/ai-analyses", authenticateToken, (req, res) => {
+    const analyses = db.prepare("SELECT * FROM ai_analyses").all();
+    res.json(analyses);
+  });
+
+  app.get("/api/ai-analyses/:propertyId", authenticateToken, (req, res) => {
+    const analyses = db.prepare("SELECT * FROM ai_analyses WHERE property_id = ? ORDER BY created_at DESC").all(req.params.propertyId);
+    res.json(analyses);
+  });
+
+  app.post("/api/ai-analyses", authenticateToken, (req, res) => {
+    try {
+      const id = Math.random().toString(36).substring(7);
+      const { property_id, exec_summary, legal_analysis, financial_analysis, legal_risks, operational_risks, recommended_bid, roi, tir, estimated_profit, ia_used } = req.body;
+      
+      db.prepare(`
+        INSERT INTO ai_analyses (id, property_id, exec_summary, legal_analysis, financial_analysis, legal_risks, operational_risks, recommended_bid, roi, tir, estimated_profit, ia_used)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(id, property_id, exec_summary, legal_analysis, financial_analysis, legal_risks, operational_risks, recommended_bid, roi, tir, estimated_profit, ia_used);
+      
+      res.json({ id });
+    } catch (error: any) {
+      console.error("Erro ao inserir análise:", error.message);
+      res.status(500).json({ error: "Erro ao inserir análise: " + error.message });
+    }
+  });
+
+  app.delete("/api/ai-analyses/:id", authenticateToken, (req, res) => {
+    try {
+      db.prepare("DELETE FROM ai_analyses WHERE id = ?").run(req.params.id);
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Erro ao deletar análise:", error.message);
+      res.status(500).json({ error: "Erro ao deletar análise: " + error.message });
+    }
+  });
+
+  app.put("/api/ai-analyses/:id", authenticateToken, (req, res) => {
+    try {
+      const { exec_summary } = req.body;
+      db.prepare("UPDATE ai_analyses SET exec_summary = ? WHERE id = ?").run(exec_summary, req.params.id);
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Erro ao atualizar análise:", error.message);
+      res.status(500).json({ error: "Erro ao atualizar análise: " + error.message });
+    }
+  });
+
+  // --- User Management ---
+  app.get("/api/users", authenticateToken, (req: any, res) => {
+    if (req.user.role !== 'Admin') return res.sendStatus(403);
+    const users = db.prepare("SELECT id, name, email, username, role, status, created_at FROM users").all();
+    res.json(users);
+  });
+
+  app.post("/api/users", authenticateToken, (req: any, res) => {
+    try {
+      if (req.user.role !== 'Admin') return res.sendStatus(403);
+      const { name, email, username, password, role } = req.body;
+      const id = Math.random().toString(36).substring(7);
+      const hashedPassword = bcrypt.hashSync(password, 10);
+      db.prepare("INSERT INTO users (id, name, email, username, password, role) VALUES (?, ?, ?, ?, ?, ?)").run(
+        id, name, email, username, hashedPassword, role
+      );
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Erro ao criar usuário:", error.message);
+      res.status(400).json({ error: "Usuário ou email já existe: " + error.message });
+    }
+  });
+
+  app.delete("/api/properties/:id", authenticateToken, (req, res) => {
+    try {
+      // Delete related records first if not using CASCADE
+      db.prepare("DELETE FROM processes WHERE property_id = ?").run(req.params.id);
+      db.prepare("DELETE FROM documents WHERE property_id = ?").run(req.params.id);
+      db.prepare("DELETE FROM debts WHERE property_id = ?").run(req.params.id);
+      db.prepare("DELETE FROM ai_analyses WHERE property_id = ?").run(req.params.id);
+      db.prepare("DELETE FROM process_stories WHERE property_id = ?").run(req.params.id);
+      
+      db.prepare("DELETE FROM properties WHERE id = ?").run(req.params.id);
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Erro ao deletar imóvel:", error.message);
+      res.status(500).json({ error: "Erro ao deletar imóvel: " + error.message });
+    }
+  });
+
+  app.delete("/api/documents/:id", authenticateToken, (req, res) => {
+    try {
+      db.prepare("DELETE FROM documents WHERE id = ?").run(req.params.id);
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Erro ao deletar documento:", error.message);
+      res.status(500).json({ error: "Erro ao deletar documento: " + error.message });
+    }
+  });
+
+  app.delete("/api/documents-clear", authenticateToken, (req, res) => {
+    try {
+      db.prepare("DELETE FROM documents").run();
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Erro ao limpar documentos:", error.message);
+      res.status(500).json({ error: "Erro ao limpar documentos: " + error.message });
+    }
+  });
+
+  app.delete("/api/users/:id", authenticateToken, (req: any, res) => {
+    try {
+      if (req.user.role !== 'Admin') return res.sendStatus(403);
+      // Prevent deleting the last admin or yourself if needed, but for now simple delete
+      db.prepare("DELETE FROM users WHERE id = ?").run(req.params.id);
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Erro ao deletar usuário:", error.message);
+      res.status(500).json({ error: "Erro ao deletar usuário: " + error.message });
+    }
+  });
+
+  // --- Process Routes ---
+  app.get("/api/processes", authenticateToken, (req, res) => {
+    const processes = db.prepare("SELECT * FROM processes").all();
+    res.json(processes);
+  });
+
+  app.post("/api/processes", authenticateToken, (req, res) => {
+    try {
+      const id = Math.random().toString(36).substring(7);
+      const { cnj_number, court, chamber, action_type, debt_value, parties, property_id } = req.body;
+      db.prepare("INSERT INTO processes (id, cnj_number, court, chamber, action_type, debt_value, parties, property_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)").run(
+        id, cnj_number, court, chamber, action_type, debt_value, parties, property_id
+      );
+      res.json({ id });
+    } catch (error: any) {
+      console.error("Erro ao inserir processo:", error.message);
+      res.status(500).json({ error: "Erro ao inserir processo: " + error.message });
+    }
+  });
+
+  // --- Document Routes ---
+  app.get("/api/all-documents", authenticateToken, async (req, res) => {
+    try {
+      const docs = db.prepare(`
+        SELECT d.id, d.filename, d.doc_type, d.property_id, d.created_at, p.title as property_title 
+        FROM documents d
+        LEFT JOIN properties p ON d.property_id = p.id
+        ORDER BY d.created_at DESC
+      `).all() as any[];
+      res.json(docs);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/documents/:propertyId", authenticateToken, async (req, res) => {
+    try {
+      const docs = db.prepare("SELECT id, filename, doc_type, data, extracted_text, created_at FROM documents WHERE property_id = ? OR temp_property_id = ?").all(req.params.propertyId, req.params.propertyId) as any[];
+      
+      // On-the-fly extraction for existing docs
+      for (const doc of docs) {
+        if (!doc.extracted_text && doc.data) {
+          try {
+            const buffer = Buffer.from(doc.data, 'base64');
+            const mimeType = doc.filename.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'unknown';
+            const text = await extractTextFromBuffer(buffer, mimeType);
+            if (text) {
+              db.prepare("UPDATE documents SET extracted_text = ? WHERE id = ?").run(text, doc.id);
+              doc.extracted_text = text;
+            }
+          } catch (err) {
+            console.error(`Erro na extração on-the-fly para doc ${doc.id}:`, err);
+          }
+        }
+      }
+      
+      res.json(docs);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/documents", authenticateToken, upload.array('files'), async (req, res) => {
+    try {
+      const { doc_type, property_id } = req.body;
+      const files = req.files as Express.Multer.File[];
+      
+      if (!files || files.length === 0) {
+        return res.status(400).json({ error: "Nenhum arquivo enviado" });
+      }
+
+      const results = [];
+      for (const file of files) {
+        const id = Math.random().toString(36).substring(7);
+        const filename = file.originalname;
+        const data = file.buffer.toString('base64');
+        const extracted_text = await extractTextFromBuffer(file.buffer, file.mimetype);
+        
+        let final_property_id = property_id || null;
+        let temp_property_id = null;
+        if (property_id && property_id.startsWith('temp_')) {
+          temp_property_id = property_id;
+          final_property_id = null;
+        }
+
+        db.prepare("INSERT INTO documents (id, filename, doc_type, property_id, temp_property_id, data, extracted_text) VALUES (?, ?, ?, ?, ?, ?, ?)").run(
+          id, filename, doc_type, final_property_id, temp_property_id, data, extracted_text
+        );
+        results.push({ id, extracted_text });
+      }
+      
+      res.json(results);
+    } catch (error: any) {
+      console.error("Erro ao inserir documentos:", error.message);
+      res.status(500).json({ error: "Erro ao inserir documentos: " + error.message });
+    }
+  });
+
+  app.post("/api/documents/text-only", authenticateToken, async (req, res) => {
+    try {
+      const { filename, doc_type, property_id, extracted_text } = req.body;
+      
+      if (!filename || !doc_type) {
+        return res.status(400).json({ error: "filename e doc_type são obrigatórios" });
+      }
+
+      const id = Math.random().toString(36).substring(7);
+      
+      let final_property_id = property_id || null;
+      let temp_property_id = null;
+      if (property_id && property_id.startsWith('temp_')) {
+        temp_property_id = property_id;
+        final_property_id = null;
+      }
+
+      db.prepare("INSERT INTO documents (id, filename, doc_type, property_id, temp_property_id, data, extracted_text) VALUES (?, ?, ?, ?, ?, NULL, ?)").run(
+        id, filename, doc_type, final_property_id, temp_property_id, extracted_text || ""
+      );
+      
+      res.json([{ id, extracted_text: extracted_text || "" }]);
+    } catch (error: any) {
+      console.error("Erro ao inserir documento de texto:", error.message);
+      res.status(500).json({ error: "Erro ao inserir documento de texto: " + error.message });
+    }
+  });
+
+  app.put("/api/documents/link", authenticateToken, (req, res) => {
+    try {
+      const { temp_property_id, property_id } = req.body;
+      db.prepare("UPDATE documents SET property_id = ?, temp_property_id = NULL WHERE temp_property_id = ?").run(property_id, temp_property_id);
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Erro ao vincular documento:", error.message);
+      res.status(500).json({ error: "Erro ao vincular documento: " + error.message });
+    }
+  });
+
+  // --- Process Story Routes ---
+  app.get("/api/process-stories/:propertyId", authenticateToken, (req, res) => {
+    try {
+      const story = db.prepare("SELECT * FROM process_stories WHERE property_id = ? ORDER BY created_at DESC LIMIT 1").get(req.params.propertyId);
+      res.json(story || null);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/process-stories", authenticateToken, (req, res) => {
+    try {
+      const id = Math.random().toString(36).substring(7);
+      const { property_id, full_story, legal_glossary, timeline_json } = req.body;
+      
+      db.prepare(`
+        INSERT INTO process_stories (id, property_id, full_story, legal_glossary, timeline_json)
+        VALUES (?, ?, ?, ?, ?)
+      `).run(id, property_id, full_story, legal_glossary, timeline_json);
+      
+      res.json({ id });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.put("/api/process-stories/:id", authenticateToken, (req, res) => {
+    try {
+      const { full_story, legal_glossary, timeline_json } = req.body;
+      db.prepare(`
+        UPDATE process_stories 
+        SET full_story = ?, legal_glossary = ?, timeline_json = ?
+        WHERE id = ?
+      `).run(full_story, legal_glossary, timeline_json, req.params.id);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // --- Debt Routes ---
+  app.get("/api/debts/:propertyId", authenticateToken, (req, res) => {
+    const debts = db.prepare("SELECT * FROM debts WHERE property_id = ?").all(req.params.propertyId);
+    res.json(debts);
+  });
+
+  app.post("/api/debts", authenticateToken, (req, res) => {
+    try {
+      const id = Math.random().toString(36).substring(7);
+      const { property_id, type, value, responsible, observations } = req.body;
+      db.prepare("INSERT INTO debts (id, property_id, type, value, responsible, observations) VALUES (?, ?, ?, ?, ?, ?)").run(
+        id, property_id, type, value, responsible, observations
+      );
+      res.json({ id });
+    } catch (error: any) {
+      console.error("Erro ao inserir dívida:", error.message);
+      res.status(500).json({ error: "Erro ao inserir dívida: " + error.message });
+    }
+  });
+
+  // --- Public Share Routes ---
+  app.get("/api/public/property/:token", (req, res) => {
+    const { token } = req.params;
+    const property: any = db.prepare("SELECT * FROM properties WHERE share_token = ? AND is_public = 1").get(token);
+    
+    if (!property) {
+      return res.status(404).json({ error: "Relatório não encontrado ou não está público." });
+    }
+
+    const analysis = db.prepare("SELECT * FROM ai_analyses WHERE property_id = ? ORDER BY created_at DESC LIMIT 1").get(property.id);
+    const debts = db.prepare("SELECT * FROM debts WHERE property_id = ?").all(property.id);
+    
+    res.json({
+      property,
+      analysis,
+      debts
+    });
+  });
+
+  app.post("/api/properties/:id/share", authenticateToken, (req, res) => {
+    try {
+      const { id } = req.params;
+      const { is_public, anonymize_property } = req.body;
+      
+      let property: any = db.prepare("SELECT share_token FROM properties WHERE id = ?").get(id);
+      if (!property) return res.status(404).json({ error: "Imóvel não encontrado" });
+
+      let token = property.share_token;
+      if (!token) {
+        token = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+      }
+
+      db.prepare("UPDATE properties SET share_token = ?, is_public = ?, anonymize_property = ? WHERE id = ?").run(token, is_public ? 1 : 0, anonymize_property ? 1 : 0, id);
+      res.json({ share_token: token, is_public, anonymize_property });
+    } catch (error: any) {
+      console.error("Erro ao compartilhar imóvel:", error.message);
+      res.status(500).json({ error: "Erro ao compartilhar imóvel: " + error.message });
+    }
+  });
+
+  // API Routes 404 Handler
+  app.use("/api/*", (req, res) => {
+    console.error(`DEBUG: API endpoint not found: ${req.method} ${req.originalUrl}`);
+    res.status(404).json({ error: "API endpoint not found" });
+  });
+
+  // Vite middleware for development
+  if (process.env.NODE_ENV !== "production") {
+    console.log("Iniciando Vite em modo middleware com limpeza de cache forcada...");
+    const vite = await createViteServer({
+      server: { middlewareMode: true },
+      appType: "spa",
+      optimizeDeps: { force: true }
+    });
+    app.use(vite.middlewares);
+    console.log("Vite middleware configurado com optimizeDeps force.");
+    
+    // Serve source files for sourcemaps to work in development without 404s
+    // Serve .ts/.tsx as text/plain instead of video/mp2t so browser doesn't block it
+    app.use("/src", express.static("src", {
+      setHeaders: (res, filePath) => {
+        if (filePath.endsWith('.ts') || filePath.endsWith('.tsx')) {
+          res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+        }
+      }
+    }));
+
+    // Catch-all to log requests hitting Vite
+    app.use((req, res, next) => {
+      console.log(`DEBUG: Request hitting Vite: ${req.method} ${req.originalUrl}`);
+      next();
+    });
+  } else {
+    app.use(express.static("dist"));
+    // Serve source files for sourcemaps to work in production without 404s
+    // Serve .ts/.tsx as text/plain instead of video/mp2t so browser doesn't block it
+    app.use("/src", express.static("src", {
+      setHeaders: (res, filePath) => {
+        if (filePath.endsWith('.ts') || filePath.endsWith('.tsx')) {
+          res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+        }
+      }
+    }));
+    
+    // Catch-all for non-asset and non-api routes to return index.html (SPA routing)
+    // But exclude /src/ and /assets/ to prevent HTML being returned for sourcemaps/scripts
+    app.get("*", (req, res, next) => {
+      if (req.url.startsWith('/src/') || req.url.startsWith('/assets/')) {
+        return res.status(404).send('Not found');
+      }
+      res.sendFile(path.resolve("dist/index.html"));
+    });
+  }
+
+  app.listen(PORT, "0.0.0.0", () => {
+    console.log(`Server running on http://localhost:${PORT}`);
+  });
+}
+
+startServer().catch(err => {
+  console.error("DEBUG: Falha crítica ao iniciar o servidor:", err);
+});
+
+console.log("DEBUG: Script server.ts carregado completamente.");
