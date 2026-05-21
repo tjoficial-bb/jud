@@ -92,7 +92,7 @@ export const analyzeAuctionDocuments = async (
   } else if (analysisType === 'matricula') {
     specializedInstruction += "\n\nFOCO: Analise estritamente a MATRÍCULA. Identifique o proprietário, histórico de transmissões, ônus reais, hipotecas, penhoras e averbações.";
   } else if (analysisType === 'processo') {
-    specializedInstruction += "\n\nFOCO: Analise estritamente os PROCESSOS JUDICIAIS. Identifique o estado da execução, partes envolvidas, recursos pendentes, decisões relevantes e riscos processuais.";
+    specializedInstruction += "\n\nFOCO: Analise estritamente os PROCESSOS JUDICIAIS para identificar e resumir quaisquer riscos relacionados à arrematação do imóvel, incluindo discussões sobre nulidades, recursos pendentes e o impacto potencial na posse do arrematante. Detalhe os incidentes processuais, defesas do executado, se as intimações foram regulares, e se há qualquer outra ação conexa discutindo a execução.";
   }
 
   if (provider === 'gemini') {

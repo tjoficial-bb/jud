@@ -50,6 +50,7 @@ export interface AIConfig {
   claude_key: string;
   deepseek_key: string;
   datajud_key?: string;
+  custom_domain?: string;
   updated_at?: string;
 }
 

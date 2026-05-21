@@ -16,6 +16,8 @@ import {
   Edit, 
   Edit2,
   Gavel, 
+  Eye,
+  EyeOff, 
   AlertTriangle, 
   CheckCircle2, 
   Check,
@@ -124,6 +126,38 @@ const formatErrorMessage = (err: any) => {
   return err instanceof Error ? err.message : String(err);
 };
 
+const resolveApiKey = (
+  keySource: 'system_default' | 'openai_custom' | 'gemini_custom' | 'claude_custom' | 'deepseek_custom',
+  config: AIConfig | null,
+  model: AIModel
+): string | undefined => {
+  if (!config) return undefined;
+  
+  let key = "";
+  if (keySource === 'system_default') {
+    key = "";
+  } else if (keySource === 'openai_custom') {
+    key = config.openai_key?.trim() || "";
+  } else if (keySource === 'gemini_custom') {
+    key = config.gemini_key?.trim() || "";
+  } else if (keySource === 'claude_custom') {
+    key = config.claude_key?.trim() || "";
+  } else if (keySource === 'deepseek_custom') {
+    key = config.deepseek_key?.trim() || "";
+  } else {
+    // Fallback based on model name prefix
+    if (model.startsWith('gemini')) key = config.gemini_key?.trim() || "";
+    else if (model.startsWith('claude')) key = config.claude_key?.trim() || "";
+    else if (model.startsWith('gpt') || model.startsWith('o1')) key = config.openai_key?.trim() || "";
+    else if (model.startsWith('deepseek')) key = config.deepseek_key?.trim() || "";
+  }
+
+  if (key && key.includes(' • ')) {
+    key = key.split(' • ')[1].trim();
+  }
+  return key || undefined;
+};
+
 const CostsEditor = ({ simulationData, updateSimulationData }: { simulationData: any, updateSimulationData: (data: any) => void }) => {
   const [saving, setSaving] = React.useState(false);
   if (!simulationData) return <div>Dados de simulação não disponíveis.</div>;
@@ -204,6 +238,7 @@ export default function App() {
 
   // Login State
   const [loginForm, setLoginForm] = useState({ username: '', password: '' });
+  const [showPassword, setShowPassword] = useState(false);
   const [loginError, setLoginError] = useState('');
 
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
@@ -382,6 +417,7 @@ export default function App() {
     processAnalysis: any | null;
     isGeneratingStory: boolean;
     isEditingStory: boolean;
+    selectedKeySource: 'system_default' | 'openai_custom' | 'gemini_custom' | 'claude_custom' | 'deepseek_custom';
   }>({
     activeSubTab: 'report',
     selectedPropertyId: '',
@@ -470,6 +506,7 @@ export default function App() {
     processAnalysis: null,
     isGeneratingStory: false,
     isEditingStory: false,
+    selectedKeySource: 'system_default',
   });
 
   useEffect(() => {
@@ -642,13 +679,22 @@ export default function App() {
             </div>
             <div>
               <label className="block text-[10px] font-bold uppercase tracking-[0.2em] text-brand-ink/30 mb-3 ml-1">Senha</label>
-              <input 
-                type="password" 
-                required
-                className="w-full bg-brand-bg border-none rounded-2xl py-5 px-8 focus:ring-2 focus:ring-brand-primary transition-all font-medium text-lg"
-                value={loginForm.password}
-                onChange={e => setLoginForm({...loginForm, password: e.target.value})}
-              />
+              <div className="relative">
+                <input 
+                  type={showPassword ? "text" : "password"} 
+                  required
+                  className="w-full bg-brand-bg border-none rounded-2xl py-5 px-8 pr-16 focus:ring-2 focus:ring-brand-primary transition-all font-medium text-lg"
+                  value={loginForm.password}
+                  onChange={e => setLoginForm({...loginForm, password: e.target.value})}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-5 top-1/2 -translate-y-1/2 p-2 rounded-xl text-brand-ink/40 hover:bg-brand-primary/10 hover:text-brand-primary transition-all"
+                >
+                  {showPassword ? <EyeOff size={22} /> : <Eye size={22} />}
+                </button>
+              </div>
             </div>
             {loginError && <p className="text-red-500 text-sm font-medium text-center">{loginError}</p>}
             <button 
@@ -673,6 +719,7 @@ export default function App() {
           setActiveTab={setActiveTab} 
           isSidebarOpen={isSidebarOpen} 
           setIsSidebarOpen={setIsSidebarOpen} 
+          onLogout={handleLogout}
         />
       )}
 
@@ -834,11 +881,26 @@ export default function App() {
                     readOnly
                     type="text" 
                     className="flex-1 bg-brand-bg border border-brand-primary/10 rounded-xl py-4 px-6 text-xs font-mono text-brand-primary"
-                    value={`${window.location.origin}/share/${aiAnalysisState.shareToken}`}
+                    value={(() => {
+                      const customDomain = aiAnalysisState.aiConfig?.custom_domain?.trim();
+                      let base = window.location.origin;
+                      if (customDomain) {
+                        const cleanDomain = customDomain.replace(/^(https?:\/\/)?(www\.)?/, '');
+                        base = `https://${cleanDomain}`;
+                      }
+                      return `${base}/share/${aiAnalysisState.shareToken}`;
+                    })()}
                   />
                   <button 
                     onClick={() => {
-                      navigator.clipboard.writeText(`${window.location.origin}/share/${aiAnalysisState.shareToken}`);
+                      const customDomain = aiAnalysisState.aiConfig?.custom_domain?.trim();
+                      let base = window.location.origin;
+                      if (customDomain) {
+                        const cleanDomain = customDomain.replace(/^(https?:\/\/)?(www\.)?/, '');
+                        base = `https://${cleanDomain}`;
+                      }
+                      const finalUrl = `${base}/share/${aiAnalysisState.shareToken}`;
+                      navigator.clipboard.writeText(finalUrl);
                       alert("Link copiado!");
                     }}
                     className="p-4 bg-brand-primary text-black rounded-xl hover:bg-brand-primary/90 transition-all"
@@ -1510,7 +1572,8 @@ function AIConfigView({ token, aiConfig, onConfigUpdate }: { token: string, aiCo
     openai_key: '',
     claude_key: '',
     deepseek_key: '',
-    datajud_key: ''
+    datajud_key: '',
+    custom_domain: ''
   });
   const [saving, setSaving] = useState(false);
 
@@ -1600,7 +1663,8 @@ function AIConfigView({ token, aiConfig, onConfigUpdate }: { token: string, aiCo
       openai_key: localConfig.openai_key?.trim(),
       claude_key: localConfig.claude_key?.trim(),
       deepseek_key: localConfig.deepseek_key?.trim(),
-      datajud_key: localConfig.datajud_key?.trim()
+      datajud_key: localConfig.datajud_key?.trim(),
+      custom_domain: localConfig.custom_domain?.trim()
     };
     try {
       await fetch('/api/ai-config', {
@@ -1748,6 +1812,20 @@ function AIConfigView({ token, aiConfig, onConfigUpdate }: { token: string, aiCo
           </div>
 
           <AIKeyInput label="Chave de API DataJud (CNJ)" value={localConfig.datajud_key || ''} onChange={val => setLocalConfig({...localConfig, datajud_key: val})} />
+          
+          <div className="pt-6 border-t border-brand-primary/5">
+            <label className="block text-[10px] font-bold uppercase tracking-[0.2em] text-brand-ink/30 mb-3 ml-1">Domínio Customizado para Compartilhamento (Opcional)</label>
+            <input 
+              type="text"
+              placeholder="Ex: jud.tjinvest.com.br"
+              className="w-full bg-brand-bg border-none rounded-2xl py-5 px-8 focus:ring-2 focus:ring-brand-primary transition-all font-medium text-lg"
+              value={localConfig.custom_domain || ''}
+              onChange={e => setLocalConfig({...localConfig, custom_domain: e.target.value})}
+            />
+            <p className="text-[11px] text-brand-ink/40 mt-2 ml-1">
+              Insira o seu domínio customizado para garantir que os links gerados ao compartilhar relatórios utilizem o endereço correto (ex: <code>jud.tjinvest.com.br/share/xxx</code>).
+            </p>
+          </div>
         </div>
 
         <div className="flex gap-4">
@@ -1769,7 +1847,8 @@ function AIConfigView({ token, aiConfig, onConfigUpdate }: { token: string, aiCo
                   openai_key: '',
                   claude_key: '',
                   deepseek_key: '',
-                  datajud_key: ''
+                  datajud_key: '',
+                  custom_domain: ''
                 };
                 setLocalConfig(defaultConfig);
                 onConfigUpdate(defaultConfig);
@@ -4263,11 +4342,74 @@ function InvestorsTabContent({ simulationData, report }: { simulationData: any, 
 }
 
 
+const getPlainText = (children: any): string => {
+  if (!children) return '';
+  if (typeof children === 'string') return children;
+  if (Array.isArray(children)) return children.map(getPlainText).join(' ');
+  if (children.props && children.props.children) return getPlainText(children.props.children);
+  return '';
+};
+
+const isRiskOrWarning = (text: string): boolean => {
+  const lowercase = text.toLowerCase();
+  return (
+    lowercase.includes('risco') ||
+    lowercase.includes('nulidade') ||
+    lowercase.includes('irregularidade') ||
+    lowercase.includes('suspens') ||
+    lowercase.includes('perigo') ||
+    lowercase.includes('alerta') ||
+    lowercase.includes('atenção') ||
+    lowercase.includes('bloqueio') ||
+    lowercase.includes('cancelamento') ||
+    lowercase.includes('embargos') ||
+    lowercase.includes('impugna')
+  );
+};
+
 const reportComponents = {
   h1: ({node, ...props}: any) => <h1 className="text-3xl font-bold text-brand-primary mb-6 mt-8" {...props} />,
-  h2: ({node, ...props}: any) => <h2 className="text-2xl font-bold text-brand-primary mb-4 mt-6" {...props} />,
-  h3: ({node, ...props}: any) => <h3 className="text-xl font-bold text-brand-primary mb-3 mt-4" {...props} />,
-  p: ({node, ...props}: any) => <p className="text-brand-ink/80 leading-relaxed mb-4" {...props} />,
+  h2: ({node, ...props}: any) => {
+    const text = getPlainText(props.children);
+    if (isRiskOrWarning(text)) {
+      return (
+        <div className="my-6 p-6 bg-red-500/10 border-l-4 border-red-500 rounded-r-2xl flex items-start gap-4">
+          <AlertTriangle className="text-red-500 shrink-0 mt-1" size={24} />
+          <div className="flex-1">
+            <h2 className="text-2xl font-bold text-red-500 mb-0 mt-0" {...props} />
+          </div>
+        </div>
+      );
+    }
+    return <h2 className="text-2xl font-bold text-brand-primary mb-4 mt-6" {...props} />;
+  },
+  h3: ({node, ...props}: any) => {
+    const text = getPlainText(props.children);
+    if (isRiskOrWarning(text)) {
+      return (
+        <div className="my-5 p-5 bg-amber-500/10 border-l-4 border-amber-500 rounded-r-xl flex items-start gap-3">
+          <AlertTriangle className="text-amber-500 shrink-0 mt-0.5" size={20} />
+          <div className="flex-1">
+            <h3 className="text-xl font-bold text-amber-500 mb-0 mt-0" {...props} />
+          </div>
+        </div>
+      );
+    }
+    return <h3 className="text-xl font-bold text-brand-primary mb-3 mt-4" {...props} />;
+  },
+  p: ({node, ...props}: any) => {
+    const text = getPlainText(props.children);
+    const lowercase = text.toLowerCase();
+    if (lowercase.startsWith('alerta:') || lowercase.startsWith('risco:') || lowercase.startsWith('perigo:') || (isRiskOrWarning(text) && (lowercase.includes('alto risco') || lowercase.includes('risco alto') || lowercase.includes('anulação') || lowercase.includes('cancelamento')))) {
+      return (
+        <p className="p-4 bg-red-500/5 border border-red-500/20 text-red-400 font-medium leading-relaxed mb-4 rounded-xl flex items-start gap-2">
+          <AlertTriangle className="text-red-500 shrink-0 mt-0.5" size={16} />
+          <span>{props.children}</span>
+        </p>
+      );
+    }
+    return <p className="text-brand-ink/80 leading-relaxed mb-4" {...props} />;
+  },
   table: ({node, ...props}: any) => <div className="overflow-x-auto my-6"><table className="min-w-full divide-y divide-brand-border border border-brand-border rounded-lg" {...props} /></div>,
   th: ({node, ...props}: any) => <th className="px-4 py-3 bg-brand-bg/50 text-left text-xs font-bold text-brand-primary uppercase tracking-wider" {...props} />,
   td: ({node, ...props}: any) => <td className="px-4 py-3 text-sm text-brand-ink/90 border-t border-brand-border" {...props} />,
@@ -4363,7 +4505,60 @@ function MasterReportView({
   }
 
   return (
-    <div className="space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <div className="space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-500 relative">
+      {/* Repeating Watermark, Header and Footer for PDF/Print */}
+      <div className="print-watermark hidden">
+        TJ INVEST - Documento Confidencial
+      </div>
+      <div className="print-header hidden">
+        <span>TJ INVEST Assessoria em Leilões</span>
+        <span>Relatório de Análise Técnica</span>
+      </div>
+      <div className="print-footer hidden">
+        <span>Emitido em: {new Date().toLocaleDateString('pt-BR')}</span>
+        <span>Documento Confidencial - Uso Restrito</span>
+      </div>
+
+      {/* Executive Report Print Header */}
+      <div className="hidden print:block print-only border-b-2 border-brand-primary pb-8 mb-10">
+        <div className="flex justify-between items-start">
+          <div>
+            <h1 className="text-3xl font-serif font-bold text-brand-primary tracking-tight">TJ INVEST</h1>
+            <p className="text-[10px] uppercase tracking-[0.2em] text-black/60 font-bold">Relatório Consolidado de Análise e Leilão</p>
+          </div>
+          <div className="text-right">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-black/40">Data de Emissão</p>
+            <p className="text-sm font-mono font-medium">{new Date().toLocaleDateString('pt-BR')}</p>
+          </div>
+        </div>
+        <div className="mt-8 grid grid-cols-2 gap-8 text-sm">
+          <div>
+            <p className="text-[10px] uppercase font-bold text-black/40">Imóvel</p>
+            <p className="font-bold text-lg">{property?.title || "Imóvel Sem Nome"}</p>
+            <p className="text-black/60">{property?.address || ""}</p>
+            <p className="text-black/60">{property?.city || ""}{property?.state ? ` - ${property.state}` : ""}</p>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <p className="text-[10px] uppercase font-bold text-black/40">Modalidade</p>
+              <p className="font-mono font-bold text-black">{property?.modality || "Judicial"}</p>
+            </div>
+            <div>
+              <p className="text-[10px] uppercase font-bold text-black/40">Área Privativa</p>
+              <p className="font-mono font-bold text-black">{property?.area ? `${property.area} m²` : "N/A"}</p>
+            </div>
+            <div>
+              <p className="text-[10px] uppercase font-bold text-black/40">ROI Previsto</p>
+              <p className="font-bold text-green-600 font-mono">{roi.toFixed(2)}%</p>
+            </div>
+            <div>
+              <p className="text-[10px] uppercase font-bold text-black/40">TIR Estimada</p>
+              <p className="font-bold text-blue-600 font-mono">{tir.toFixed(2)}%</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Header / Opportunity */}
       <section className="bg-brand-paper p-8 rounded-[2.5rem] border border-brand-primary/10 shadow-sm">
         <div className="flex items-center justify-between mb-8">
@@ -4614,22 +4809,24 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
       
       const selectedProperty = properties.find(p => p.id === selectedPropertyId);
       const propertyContext = selectedProperty ? `\n\nIMÓVEL EM LEILÃO: ${selectedProperty.title}` : "\n\nIMÓVEL EM LEILÃO: Não especificado.";
-      const prompt = `Analise cada documento de processo judicial anexado individualmente e determine se ele tem relação direta com o imóvel em leilão. 
+      const prompt = `Analise detalhadamente cada documento ou peça do processo judicial anexado para identificar e resumir quaisquer riscos relacionados à arrematação do imóvel.
 
       ${propertyContext}
 
-      Para CADA documento/processo, forneça:
-      1. NOME DO DOCUMENTO/PROCESSO.
-      2. RESUMO do objeto do processo.
-      3. RELAÇÃO com o imóvel (Direta, Indireta ou Nenhuma).
-      4. IMPACTO potencial no leilão ou na aquisição do imóvel.
+      Para cada documento analisado, identifique os seguintes pontos de impacto:
+      1. NOME DETALHADO DO DOCUMENTO (Petição, Decisão, Recurso, Certidão, etc.).
+      2. OBJETIVO PRINCIPAL: Qual a pretensão da peça ou o teor da decisão?
+      3. DISCUSSÕES SOBRE NULIDADES: Há alguma alegação de falta de intimação regular (de cônjuge, coproprietário, credor hipotecário, etc.), preço vil ou irregularidade processual?
+      4. RECURSOS PENDENTES: Quais recursos estão tramitando ou podem ser interpostos? Há pedidos de suspensão do leilão em andamento?
+      5. IMPACTO POTENCIAL NA POSSE: Qual o efeito da peça na imissão/obtenção da posse pelo arrematante (ex: resistência ativa dos ocupantes, embargos à adjudicação ou à execução)?
 
-      Ao final, forneça um PARECER FINAL consolidado:
-      - Existe risco de arrematação? (Sim/Não)
-      - Qual o nível de risco (Baixo, Médio, Alto)?
-      - Recomendação final.
+      Ao final, apresente um PARECER CONSOLIDADO DE RISCO PROCESSUAL:
+      - Classificação Geral de Risco (Baixo, Médio ou Alto).
+      - Risco de Anulação do Leilão (Sim/Não - Justificado).
+      - Estimativa de Tempo de Desocupação / Ganho de Posse.
+      - Recomendação Estratégica Executiva (Se vale a pena arrematar e quais cautelas adotar).
 
-      Formate a resposta de forma clara e estruturada usando Markdown.`;
+      Formate toda a resposta em português do Brasil, utilizando uma estrutura visual rica e limpa em Markdown, destacando os alertas cruciais.`;
       
       const analysis = await analyzeAuctionDocuments(fileParts, prompt, state.selectedModel || 'gemini-2.5-flash', undefined, [], 'processo');
       setState(prev => ({ ...prev, processAnalysis: analysis }));
@@ -5220,17 +5417,7 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
         console.log("DEBUG: aiConfig carregado com sucesso para análise.");
       }
 
-      if (currentAiConfig) {
-        if (selectedModel.startsWith('gemini')) userApiKey = currentAiConfig.gemini_key?.trim() || "";
-        else if (selectedModel.startsWith('claude')) userApiKey = currentAiConfig.claude_key?.trim() || "";
-        else if (selectedModel.startsWith('gpt') || selectedModel.startsWith('o1')) userApiKey = currentAiConfig.openai_key?.trim() || "";
-        else if (selectedModel.startsWith('deepseek')) userApiKey = currentAiConfig.deepseek_key?.trim() || "";
-      }
-      
-      // Handle AI Studio's display format "Label • Key" if it's in the DB
-      if (userApiKey && userApiKey.includes(' • ')) {
-        userApiKey = userApiKey.split(' • ')[1].trim();
-      }
+      userApiKey = resolveApiKey(state.selectedKeySource, currentAiConfig, selectedModel) || "";
 
       // If user explicitly wants to use system key, we can pass null to the service
       const finalApiKey = userApiKey || null;
@@ -5499,10 +5686,7 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
       const aiConfig = state.aiConfig;
       
       if (aiConfig) {
-        if (selectedModel.startsWith('gemini')) userApiKey = aiConfig.gemini_key?.trim() || "";
-        else if (selectedModel.startsWith('claude')) userApiKey = aiConfig.claude_key?.trim() || "";
-        else if (selectedModel.startsWith('gpt') || selectedModel.startsWith('o1')) userApiKey = aiConfig.openai_key?.trim() || "";
-        else if (selectedModel.startsWith('deepseek')) userApiKey = aiConfig.deepseek_key?.trim() || "";
+        userApiKey = resolveApiKey(state.selectedKeySource, aiConfig, selectedModel) || "";
       } else {
         const configRes = await fetch('/api/ai-config', {
           headers: { 'Authorization': `Bearer ${token}` }
@@ -5510,16 +5694,8 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
         if (configRes.ok) {
           const fetchedConfig = await parseJsonResponse(configRes);
           setState((prev: any) => ({ ...prev, aiConfig: fetchedConfig }));
-          if (selectedModel.startsWith('gemini')) userApiKey = fetchedConfig?.gemini_key?.trim() || "";
-          else if (selectedModel.startsWith('claude')) userApiKey = fetchedConfig?.claude_key?.trim() || "";
-          else if (selectedModel.startsWith('gpt') || selectedModel.startsWith('o1')) userApiKey = fetchedConfig?.openai_key?.trim() || "";
-          else if (selectedModel.startsWith('deepseek')) userApiKey = fetchedConfig?.deepseek_key?.trim() || "";
+          userApiKey = resolveApiKey(state.selectedKeySource, fetchedConfig, selectedModel) || "";
         }
-      }
-      
-      // Handle AI Studio's display format "Label • Key" if it's in the DB
-      if (userApiKey && userApiKey.includes(' • ')) {
-        userApiKey = userApiKey.split(' • ')[1].trim();
       }
 
       console.log(`DEBUG FRONTEND (CHAT): Modelo ${selectedModel}. Chave (tamanho): ${userApiKey?.length || 0}`);
@@ -5550,7 +5726,7 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
 
   return (
     <div className="space-y-12">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between no-print">
         <div>
           <h2 className="text-4xl font-serif font-medium tracking-tight text-brand-primary">Central de Inteligência</h2>
           <p className="text-brand-ink/40 font-medium text-lg">Fluxo completo: Consulta CNJ, Documentos e Análise de IA.</p>
@@ -5560,7 +5736,7 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-10">
         {/* Sidebar: Configuration */}
         {!isPublicView && (
-          <div className="lg:col-span-1 space-y-8">
+          <div className="lg:col-span-1 space-y-8 no-print">
             <Card title="Contexto da Análise">
             <div className="space-y-6">
               <select 
@@ -5581,36 +5757,107 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
               
               
               <div className="pt-2">
-                <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-brand-ink/30 mb-4 block">Cérebro de IA</label>
+                <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-brand-ink/30 mb-2 block font-sans">1. Provedor / API Key</label>
                 <select 
-                  className="w-full bg-brand-bg border-none rounded-2xl py-4 px-6 focus:ring-2 focus:ring-brand-primary font-bold text-sm text-brand-primary"
+                  className="w-full bg-brand-bg border-none rounded-2xl py-4 px-6 focus:ring-2 focus:ring-brand-primary font-bold text-xs text-brand-primary"
+                  value={state.selectedKeySource}
+                  onChange={e => {
+                    const nextSource = e.target.value as any;
+                    let nextModel = state.selectedModel;
+                    if (nextSource === 'system_default' || nextSource === 'gemini_custom') {
+                      nextModel = 'gemini-2.5-flash';
+                    } else if (nextSource === 'openai_custom') {
+                      nextModel = 'gpt-4o';
+                    } else if (nextSource === 'claude_custom') {
+                      nextModel = 'claude-4-6-sonnet';
+                    } else if (nextSource === 'deepseek_custom') {
+                      nextModel = 'deepseek-v3';
+                    }
+                    updateState({ selectedKeySource: nextSource, selectedModel: nextModel });
+                  }}
+                >
+                  <option value="system_default">Padrão do Sistema (Google AI Studio - Gemini)</option>
+                  <option value="openai_custom">OpenAI / ChatGPT (Minha Chave)</option>
+                  <option value="gemini_custom">Google Gemini (Minha Chave)</option>
+                  <option value="claude_custom">Anthropic Claude (Minha Chave)</option>
+                  <option value="deepseek_custom">DeepSeek (Minha Chave)</option>
+                </select>
+                
+                {/* Status Indicator Badge */}
+                <div className="mt-2 ml-1 text-[10px] font-medium transition-all">
+                  {state.selectedKeySource === 'system_default' && (
+                    <span className="text-emerald-500 font-bold flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-500"></span> Chave Integrada Ativa</span>
+                  )}
+                  {state.selectedKeySource === 'openai_custom' && (
+                    state.aiConfig?.openai_key?.trim() ? (
+                      <span className="text-emerald-500 font-bold flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-500"></span> Chave OpenAI Cadastrada</span>
+                    ) : (
+                      <span className="text-amber-500 font-bold flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span> Chave não cadastrada (Configuração de IA)</span>
+                    )
+                  )}
+                  {state.selectedKeySource === 'gemini_custom' && (
+                    state.aiConfig?.gemini_key?.trim() ? (
+                      <span className="text-emerald-500 font-bold flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-500"></span> Chave Gemini Cadastrada</span>
+                    ) : (
+                      <span className="text-amber-500 font-bold flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span> Chave não cadastrada (Configuração de IA)</span>
+                    )
+                  )}
+                  {state.selectedKeySource === 'claude_custom' && (
+                    state.aiConfig?.claude_key?.trim() ? (
+                      <span className="text-emerald-500 font-bold flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-500"></span> Chave Claude Cadastrada</span>
+                    ) : (
+                      <span className="text-amber-500 font-bold flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span> Chave não cadastrada (Configuração de IA)</span>
+                    )
+                  )}
+                  {state.selectedKeySource === 'deepseek_custom' && (
+                    state.aiConfig?.deepseek_key?.trim() ? (
+                      <span className="text-emerald-500 font-bold flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-500"></span> Chave DeepSeek Cadastrada</span>
+                    ) : (
+                      <span className="text-amber-500 font-bold flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span> Chave não cadastrada (Configuração de IA)</span>
+                    )
+                  )}
+                </div>
+              </div>
+
+              <div className="pt-2">
+                <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-brand-ink/30 mb-2 block font-sans">2. Cérebro de IA (Modelo)</label>
+                <select 
+                  className="w-full bg-brand-bg border-none rounded-2xl py-4 px-6 focus:ring-2 focus:ring-brand-primary font-bold text-xs text-brand-primary"
                   value={selectedModel}
                   onChange={e => updateState({ selectedModel: e.target.value as AIModel })}
                 >
-                  <optgroup label="Google Gemini">
-                    <option value="gemini-3.1-pro-preview">Gemini 3.1 Pro (Preview)</option>
-                    <option value="gemini-3.1-flash-preview">Gemini 3.1 Flash (Preview)</option>
-                    <option value="gemini-2.5-pro">Gemini 2.5 Pro (Preciso - Pago)</option>
-                    <option value="gemini-2.5-flash">Gemini 2.5 Flash (Rápido - Pago)</option>
-                    <option value="gemini-3-flash-preview">Gemini 3 Flash (Rápido/Eficiente)</option>
-                    <option value="gemini-flash-latest">Gemini 1.5 Flash (Legado)</option>
-                  </optgroup>
-                  <optgroup label="Anthropic Claude">
-                    <option value="claude-4-6-opus">Claude 4.6 Opus (Topo de Linha)</option>
-                    <option value="claude-4-6-sonnet">Claude 4.6 Sonnet (Mais Eficiente)</option>
-                    <option value="claude-4-5-haiku">Claude 4.5 Haiku (Ultra Rápido)</option>
-                    <option value="claude-4-5-opus">Claude 4.5 Opus</option>
-                    <option value="claude-4-5-sonnet">Claude 4.5 Sonnet</option>
-                  </optgroup>
-                  <optgroup label="OpenAI GPT">
-                    <option value="gpt-5">GPT-5 (Nova Geração)</option>
-                    <option value="gpt-4o">GPT-4o (Omni)</option>
-                    <option value="o1-preview">OpenAI o1 (Raciocínio)</option>
-                  </optgroup>
-                  <optgroup label="DeepSeek">
-                    <option value="deepseek-v3">DeepSeek V3</option>
-                    <option value="deepseek-r1">DeepSeek R1 (Raciocínio)</option>
-                  </optgroup>
+                  {(state.selectedKeySource === 'system_default' || state.selectedKeySource === 'gemini_custom') && (
+                    <optgroup label="Google Gemini">
+                      <option value="gemini-3.1-pro-preview">Gemini 3.1 Pro (Preview)</option>
+                      <option value="gemini-3.1-flash-preview">Gemini 3.1 Flash (Preview)</option>
+                      <option value="gemini-2.5-pro">Gemini 2.5 Pro (Preciso - Pago)</option>
+                      <option value="gemini-2.5-flash">Gemini 2.5 Flash (Rápido - Pago)</option>
+                      <option value="gemini-3-flash-preview">Gemini 3 Flash (Rápido/Eficiente)</option>
+                      <option value="gemini-flash-latest">Gemini 1.5 Flash (Legado)</option>
+                    </optgroup>
+                  )}
+                  {state.selectedKeySource === 'openai_custom' && (
+                    <optgroup label="OpenAI GPT">
+                      <option value="gpt-5">GPT-5 (Nova Geração)</option>
+                      <option value="gpt-4o">GPT-4o (Omni)</option>
+                      <option value="o1-preview">OpenAI o1 (Raciocínio)</option>
+                    </optgroup>
+                  )}
+                  {state.selectedKeySource === 'claude_custom' && (
+                    <optgroup label="Anthropic Claude">
+                      <option value="claude-4-6-opus">Claude 4.6 Opus (Topo de Linha)</option>
+                      <option value="claude-4-6-sonnet">Claude 4.6 Sonnet (Mais Eficiente)</option>
+                      <option value="claude-4-5-haiku">Claude 4.5 Haiku (Ultra Rápido)</option>
+                      <option value="claude-4-5-opus">Claude 4.5 Opus</option>
+                      <option value="claude-4-5-sonnet">Claude 4.5 Sonnet</option>
+                    </optgroup>
+                  )}
+                  {state.selectedKeySource === 'deepseek_custom' && (
+                    <optgroup label="DeepSeek">
+                      <option value="deepseek-v3">DeepSeek V3</option>
+                      <option value="deepseek-r1">DeepSeek R1 (Raciocínio)</option>
+                    </optgroup>
+                  )}
                 </select>
               </div>
 
@@ -5678,7 +5925,7 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
         <div className={cn("space-y-6", isPublicView ? "lg:col-span-4" : "lg:col-span-3")}>
           <div className="bg-brand-paper rounded-[2.5rem] border border-brand-primary/10 shadow-sm overflow-hidden flex flex-col min-h-[600px]">
             {/* Tabs Header */}
-            <div className="flex border-b border-brand-primary/10 bg-brand-bg/30 overflow-x-auto">
+            <div className="flex border-b border-brand-primary/10 bg-brand-bg/30 overflow-x-auto no-print">
               <AnalysisTab active={activeSubTab === 'report'} onClick={() => updateState({ activeSubTab: 'report' })} icon={<Brain size={16} />} label="Relatório" />
               <AnalysisTab active={activeSubTab === 'edital'} onClick={() => updateState({ activeSubTab: 'edital' })} icon={<FileText size={16} />} label="Edital" />
               <AnalysisTab active={activeSubTab === 'matricula'} onClick={() => updateState({ activeSubTab: 'matricula' })} icon={<BookOpen size={16} />} label="Matrícula" />
@@ -5825,7 +6072,7 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
                           )}
                           
                           {propertyAnalyses.length > 0 && (
-                            <div className="flex items-center gap-3 mt-4">
+                            <div className="flex items-center gap-3 mt-4 no-print">
                               <span className="text-[10px] font-bold uppercase tracking-widest text-brand-ink/30">Versão:</span>
                               <select 
                                 className="bg-brand-bg border border-brand-primary/10 rounded-lg px-3 py-1 text-xs font-bold text-brand-primary outline-none"
@@ -5853,7 +6100,7 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
                             </div>
                           )}
                         </div>
-                        <div className="flex flex-wrap gap-3">
+                        <div className="flex flex-wrap gap-3 no-print">
                           <div className="flex bg-brand-bg rounded-xl p-1">
                             <button 
                               className={cn("px-4 py-2 rounded-lg text-xs font-bold transition-all", simulationData.paymentType === 'vista' ? "bg-brand-primary text-black" : "text-brand-ink/40")}
@@ -5905,7 +6152,7 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
                             onClick={handlePrint}
                             className="flex items-center gap-2 bg-brand-paper border border-brand-border text-brand-ink/60 px-6 py-3 rounded-xl text-xs font-bold hover:text-brand-primary hover:border-brand-primary/30 transition-all"
                           >
-                            <Printer size={16} /> Imprimir
+                            <Printer size={16} /> Imprimir Relatório
                           </button>
                           {state.analysisId && !isPublicView && (
                             <div className="flex gap-2">

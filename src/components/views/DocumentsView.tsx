@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Files, Search, Trash2, Calendar, HardDrive, CheckCircle2, 
-  ExternalLink, FileText, Upload, Filter, AlertCircle, Loader2, Plus 
+  ExternalLink, FileText, Upload, Filter, AlertCircle, Loader2, Plus,
+  Sparkles, ChevronDown, ChevronUp
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { Property } from '../../types';
@@ -14,6 +15,7 @@ interface Document {
   property_id: string | null;
   created_at: string;
   property_title: string | null;
+  ia_summary?: string;
 }
 
 interface DocumentsViewProps {
@@ -44,6 +46,15 @@ export function DocumentsView({ token, properties, onSelectProperty }: Documents
   // States for bulk deletion / clear repository
   const [showClearAllModal, setShowClearAllModal] = useState(false);
   const [isClearingAll, setIsClearingAll] = useState(false);
+
+  const [expandedSummaries, setExpandedSummaries] = useState<Record<string, boolean>>({});
+
+  const toggleSummary = (docId: string) => {
+    setExpandedSummaries(prev => ({
+      ...prev,
+      [docId]: !prev[docId]
+    }));
+  };
 
   const fetchDocuments = async () => {
     try {
@@ -338,6 +349,39 @@ export function DocumentsView({ token, properties, onSelectProperty }: Documents
                     <div className="flex items-center gap-2 text-xs text-brand-ink/30 italic mb-4">
                       <AlertCircle size={12} />
                       <span>Documento não vinculado</span>
+                    </div>
+                  )}
+
+                  {doc.ia_summary && (
+                    <div className="mt-3 pt-3 border-t border-brand-primary/5">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleSummary(doc.id);
+                        }}
+                        className="flex items-center justify-between w-full text-xs text-brand-primary font-bold hover:opacity-80 transition-all uppercase tracking-wider text-left py-1"
+                      >
+                        <span className="flex items-center gap-1.5">
+                          <Sparkles size={12} className="text-brand-primary animate-pulse" />
+                          <span>Resumo da IA</span>
+                        </span>
+                        {expandedSummaries[doc.id] ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                      </button>
+                      <AnimatePresence initial={false}>
+                        {expandedSummaries[doc.id] && (
+                          <motion.div
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: 'auto', opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            className="overflow-hidden mt-2"
+                          >
+                            <p className="text-xs text-brand-ink/75 leading-relaxed bg-brand-bg/50 border border-brand-primary/10 rounded-xl p-3.5 italic font-medium whitespace-pre-wrap">
+                              {doc.ia_summary}
+                            </p>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
                     </div>
                   )}
                 </div>

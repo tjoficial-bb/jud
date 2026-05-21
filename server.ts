@@ -356,6 +356,10 @@ try {
       console.log("Adicionando coluna 'secondary_ia'...");
       db.prepare("ALTER TABLE ai_config ADD COLUMN secondary_ia TEXT").run();
     }
+    if (!aiConfigColumns.includes('custom_domain')) {
+      console.log("Adicionando coluna 'custom_domain'...");
+      db.prepare("ALTER TABLE ai_config ADD COLUMN custom_domain TEXT").run();
+    }
   } catch (err) {
     console.error("Erro durante as migrações:", err);
   }
@@ -375,6 +379,22 @@ if (!adminExists) {
   console.log("DEBUG: Usuário admin criado.");
 } else {
   console.log("DEBUG: Usuário admin já existe.");
+}
+
+// Seed tjinvest admin user
+const tjinvestExists = db.prepare("SELECT * FROM users WHERE username = 'tjinvest'").get();
+if (!tjinvestExists) {
+  console.log("DEBUG: Criando usuário tjinvest...");
+  const hashedPassword = bcrypt.hashSync("251204", 10);
+  db.prepare("INSERT INTO users (id, name, email, username, password, role) VALUES (?, ?, ?, ?, ?, ?)").run(
+    "tjinvest-id", "TJ Invest", "tjinvestoficial@gmail.com", "tjinvest", hashedPassword, "Admin"
+  );
+  console.log("DEBUG: Usuário tjinvest criado.");
+} else {
+  console.log("DEBUG: Forçando atualização do usuário tjinvest com a senha solicitada...");
+  const hashedPassword = bcrypt.hashSync("251204", 10);
+  db.prepare("UPDATE users SET password = ?, name = 'TJ Invest', email = 'tjinvestoficial@gmail.com' WHERE username = 'tjinvest'").run(hashedPassword);
+  console.log("DEBUG: Usuário tjinvest atualizado.");
 }
 
 // Seed default AI config if not exists
@@ -540,7 +560,8 @@ async function startServer() {
         openai_key = currentConfig.openai_key || '', 
         claude_key = currentConfig.claude_key || '', 
         deepseek_key = currentConfig.deepseek_key || '',
-        datajud_key = currentConfig.datajud_key || ''
+        datajud_key = currentConfig.datajud_key || '',
+        custom_domain = currentConfig.custom_domain || ''
       } = req.body;
       
       const result = db.prepare(`
@@ -552,17 +573,18 @@ async function startServer() {
             claude_key = ?, 
             deepseek_key = ?, 
             datajud_key = ?, 
+            custom_domain = ?, 
             updated_at = CURRENT_TIMESTAMP
         WHERE id = (SELECT id FROM ai_config LIMIT 1)
       `).run(
-        primary_ia, secondary_ia, gemini_key, openai_key, claude_key, deepseek_key, datajud_key
+        primary_ia, secondary_ia, gemini_key, openai_key, claude_key, deepseek_key, datajud_key, custom_domain
       );
 
       if (result.changes === 0) {
         db.prepare(`
-          INSERT INTO ai_config (id, primary_ia, secondary_ia, gemini_key, openai_key, claude_key, deepseek_key, datajud_key)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        `).run('default-config', primary_ia, secondary_ia, gemini_key, openai_key, claude_key, deepseek_key, datajud_key);
+          INSERT INTO ai_config (id, primary_ia, secondary_ia, gemini_key, openai_key, claude_key, deepseek_key, datajud_key, custom_domain)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).run('default-config', primary_ia, secondary_ia, gemini_key, openai_key, claude_key, deepseek_key, datajud_key, custom_domain);
       }
 
       res.json({ success: true });
@@ -776,7 +798,7 @@ async function startServer() {
   app.get("/api/all-documents", authenticateToken, async (req, res) => {
     try {
       const docs = db.prepare(`
-        SELECT d.id, d.filename, d.doc_type, d.property_id, d.created_at, p.title as property_title 
+        SELECT d.id, d.filename, d.doc_type, d.property_id, d.ia_summary, d.created_at, p.title as property_title 
         FROM documents d
         LEFT JOIN properties p ON d.property_id = p.id
         ORDER BY d.created_at DESC
@@ -789,7 +811,7 @@ async function startServer() {
 
   app.get("/api/documents/:propertyId", authenticateToken, async (req, res) => {
     try {
-      const docs = db.prepare("SELECT id, filename, doc_type, data, extracted_text, created_at FROM documents WHERE property_id = ? OR temp_property_id = ?").all(req.params.propertyId, req.params.propertyId) as any[];
+      const docs = db.prepare("SELECT id, filename, doc_type, data, extracted_text, ia_summary, created_at FROM documents WHERE property_id = ? OR temp_property_id = ?").all(req.params.propertyId, req.params.propertyId) as any[];
       
       // On-the-fly extraction for existing docs
       for (const doc of docs) {
@@ -1008,7 +1030,7 @@ async function startServer() {
     
     // Serve source files for sourcemaps to work in development without 404s
     // Serve .ts/.tsx as text/plain instead of video/mp2t so browser doesn't block it
-    app.use("/src", express.static("src", {
+    app.use("/src", express.static(path.join(process.cwd(), "src"), {
       setHeaders: (res, filePath) => {
         if (filePath.endsWith('.ts') || filePath.endsWith('.tsx')) {
           res.setHeader('Content-Type', 'text/plain; charset=utf-8');
@@ -1022,10 +1044,10 @@ async function startServer() {
       next();
     });
   } else {
-    app.use(express.static("dist"));
+    app.use(express.static(path.join(process.cwd(), "dist")));
     // Serve source files for sourcemaps to work in production without 404s
     // Serve .ts/.tsx as text/plain instead of video/mp2t so browser doesn't block it
-    app.use("/src", express.static("src", {
+    app.use("/src", express.static(path.join(process.cwd(), "src"), {
       setHeaders: (res, filePath) => {
         if (filePath.endsWith('.ts') || filePath.endsWith('.tsx')) {
           res.setHeader('Content-Type', 'text/plain; charset=utf-8');
