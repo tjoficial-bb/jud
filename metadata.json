@@ -1,5 +1,6 @@
 {
   "name": "IA LEIILOES DE IMOVEIS",
   "description": "Sistema especialista em análise de leilões imobiliários judiciais e extrajudiciais no Brasil.",
-  "requestFramePermissions": []
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

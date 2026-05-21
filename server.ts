@@ -1031,24 +1031,33 @@ async function startServer() {
                        model.startsWith('claude') ? 'claude' : 
                        (model.startsWith('gpt') || model.startsWith('o1')) ? 'openai' : 'deepseek';
 
+      console.log(`[PROXY DIAGNOSTICS] analyze requested. Model: ${model}, Provider: ${provider}, incoming apiKey length: ${apiKey ? apiKey.length : 0}`);
+
       let resolvedKey = apiKey || "";
+      let foundInDb = false;
       if (!resolvedKey || resolvedKey.trim() === "") {
         const config: any = db.prepare("SELECT * FROM ai_config LIMIT 1").get() || {};
+        foundInDb = true;
         if (provider === 'gemini') resolvedKey = config.gemini_key || "";
         else if (provider === 'openai') resolvedKey = config.openai_key || "";
         else if (provider === 'claude') resolvedKey = config.claude_key || "";
         else if (provider === 'deepseek') resolvedKey = config.deepseek_key || "";
+        console.log(`[PROXY DIAGNOSTICS] Key resolved from DB config. Key length: ${resolvedKey ? resolvedKey.length : 0}`);
       }
 
       if (!resolvedKey || resolvedKey.trim() === "") {
         if (provider === 'gemini') {
           resolvedKey = process.env.GEMINI_API_KEY || process.env.API_KEY || "";
+          console.log(`[PROXY DIAGNOSTICS] Resolved from process.env (GEMINI_API_KEY / API_KEY). Length: ${resolvedKey ? resolvedKey.length : 0}`);
         } else if (provider === 'openai') {
           resolvedKey = process.env.OPENAI_API_KEY || "";
+          console.log(`[PROXY DIAGNOSTICS] Resolved from process.env (OPENAI_API_KEY). Length: ${resolvedKey ? resolvedKey.length : 0}`);
         } else if (provider === 'claude') {
           resolvedKey = process.env.CLAUDE_API_KEY || "";
+          console.log(`[PROXY DIAGNOSTICS] Resolved from process.env (CLAUDE_API_KEY). Length: ${resolvedKey ? resolvedKey.length : 0}`);
         } else if (provider === 'deepseek') {
           resolvedKey = process.env.DEEPSEEK_API_KEY || "";
+          console.log(`[PROXY DIAGNOSTICS] Resolved from process.env (DEEPSEEK_API_KEY). Length: ${resolvedKey ? resolvedKey.length : 0}`);
         }
       }
 
@@ -1057,6 +1066,7 @@ async function startServer() {
       }
 
       if (!resolvedKey || resolvedKey.trim().length < 5) {
+        console.error(`[PROXY ERROR] Key too short or empty for provider ${provider}: "${resolvedKey}" (length: ${resolvedKey ? resolvedKey.length : 0})`);
         return res.status(400).json({ error: `Configuração de IA incompleta: Nenhuma chave de API válida encontrada para o provedor ${provider.toUpperCase()}` });
       }
 
