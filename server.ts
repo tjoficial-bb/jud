@@ -402,12 +402,17 @@ if (!tjinvestExists) {
 // Seed default AI config if not exists
 const configExists = db.prepare("SELECT * FROM ai_config").get();
 if (!configExists) {
-  db.prepare("INSERT INTO ai_config (id, gemini_key) VALUES (?, ?)").run("default-config", "AIzaSyCxuXCxQOonKnDIDNKuP6LvyWxPEK2Gnec");
+  db.prepare("INSERT INTO ai_config (id, gemini_key) VALUES (?, ?)").run("default-config", "");
 } else {
   const config: any = configExists;
-  if (!config.gemini_key || config.gemini_key === "") {
-    db.prepare("UPDATE ai_config SET gemini_key = ? WHERE id = ?").run("AIzaSyCxuXCxQOonKnDIDNKuP6LvyWxPEK2Gnec", "default-config");
+  if (config.gemini_key === "AIzaSyCxuXCxQOonKnDIDNKuP6LvyWxPEK2Gnec") {
+    db.prepare("UPDATE ai_config SET gemini_key = ? WHERE id = ?").run("", "default-config");
   }
+}
+try {
+  db.prepare("UPDATE ai_config SET gemini_key = '' WHERE gemini_key = 'AIzaSyCxuXCxQOonKnDIDNKuP6LvyWxPEK2Gnec'").run();
+} catch (e) {
+  // Ignore if table/key is not fully available structure-wise
 }
 
 async function startServer() {

@@ -5,7 +5,7 @@ import OpenAI from "openai";
 const getEnvKey = (provider: string) => {
   const env = (import.meta as any).env || {};
   const keyMap: Record<string, string | undefined> = {
-    gemini: env.VITE_GEMINI_API_KEY || (typeof process !== 'undefined' ? process.env?.GEMINI_API_KEY || process.env?.API_KEY : undefined),
+    gemini: env.VITE_GEMINI_API_KEY || (typeof process !== 'undefined' ? (process.env.GEMINI_API_KEY || process.env.API_KEY) : undefined),
     openai: env.VITE_OPENAI_API_KEY,
     claude: env.VITE_CLAUDE_API_KEY,
     deepseek: env.VITE_DEEPSEEK_API_KEY,
