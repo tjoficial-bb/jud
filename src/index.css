@@ -353,11 +353,12 @@
     break-after: avoid !important;
   }
 
-  /* Specific section page breaks */
+  /* Specific section page breaks and margins */
   .print-section-2,
   .print-section-3 {
-    page-break-before: always !important;
-    break-before: page !important;
+    margin-top: 40px !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
   }
 
   tr, blockquote, .avoid-break {

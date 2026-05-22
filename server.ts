@@ -70,31 +70,74 @@ console.log("DEBUG: Servidor iniciando...");
 const DB_NAME = path.join(process.cwd(), "leiloes_pro.db");
 let db: InstanceType<typeof Database>;
 
-try {
-  // Quick integrity check to detect corruption early
-  const testDb = new Database(DB_NAME);
-  testDb.prepare("PRAGMA integrity_check").get();
-  testDb.close();
-  db = new Database(DB_NAME);
-} catch (err: any) {
-  console.error("CRITICAL: Database is malformed or corrupted. Attempting self-healing...", err.message);
-  if (fs.existsSync(DB_NAME)) {
-    const backupName = `leiloes_pro_corrupted_${Date.now()}.db`;
+function initDbWithRetry() {
+  const maxRetries = 5;
+  let delay = 100;
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      fs.renameSync(DB_NAME, backupName);
-      console.log(`Corrupted database moved to ${backupName}`);
-    } catch (renameErr: any) {
-      console.error("Failed to rename corrupted database:", renameErr.message);
+      const conn = new Database(DB_NAME);
+      conn.pragma("busy_timeout = 5000");
+      
+      const checkResult = conn.prepare("PRAGMA integrity_check").get() as any;
+      const isOk = checkResult && checkResult.integrity_check === "ok";
+      
+      if (!isOk) {
+        throw new Error("Database integrity check failed");
+      }
+      
+      conn.close();
+      
+      db = new Database(DB_NAME);
+      db.pragma("busy_timeout = 5000");
+      console.log("Database initialized successfully with busy_timeout=5000.");
+      return;
+    } catch (err: any) {
+      const errMsg = err.message || "";
+      const isLockedOrBusy = errMsg.includes("locked") || errMsg.includes("busy") || errMsg.includes("resource temporarily unavailable");
+      
+      if (isLockedOrBusy && attempt < maxRetries) {
+        console.warn(`[DB] Database is locked (attempt ${attempt}/${maxRetries}). Retrying in ${delay}ms...`);
+        // Sync delay sleep
+        const start = Date.now();
+        while (Date.now() - start < delay) {}
+        delay *= 2;
+        continue;
+      }
+      
+      if (!isLockedOrBusy) {
+        console.error("CRITICAL: Database is malformed or corrupted. Attempting safe recovery...", err.message);
+        if (fs.existsSync(DB_NAME)) {
+          const backupName = path.join(process.cwd(), `leiloes_pro_corrupted_${Date.now()}.db`);
+          try {
+            fs.copyFileSync(DB_NAME, backupName);
+            console.log(`Corrupted database backed up safely to ${backupName}`);
+          } catch (backupErr: any) {
+            console.error("Failed to back up corrupted database:", backupErr.message);
+          }
+        }
+      }
+      
+      // Try to open it anyway as a fallback, configuring busy_timeout
       try {
-        fs.unlinkSync(DB_NAME);
-        console.log("Corrupted database deleted.");
-      } catch (deleteErr) {
-        console.error("Failed to delete corrupted database.");
+        db = new Database(DB_NAME);
+        db.pragma("busy_timeout = 5000");
+        return;
+      } catch (fallbackErr: any) {
+        console.error("Failed to open database as fallback, initializing new one:", fallbackErr.message);
+        try {
+          if (fs.existsSync(DB_NAME)) {
+            fs.unlinkSync(DB_NAME);
+          }
+        } catch (unLinkErr) {}
+        db = new Database(DB_NAME);
+        db.pragma("busy_timeout = 5000");
+        return;
       }
     }
   }
-  db = new Database(DB_NAME);
 }
+
+initDbWithRetry();
 
 const JWT_SECRET = process.env.JWT_SECRET || "tj-invest-secure-key-2026";
 

@@ -436,7 +436,7 @@ export default function App() {
 
   // AI Analysis Persistent State
   const [aiAnalysisState, setAiAnalysisState] = useState<{
-    activeSubTab: 'report' | 'processos' | 'documents' | 'debts' | 'simulations' | 'cnj' | 'investors' | 'costs';
+    activeSubTab: 'report' | 'processos' | 'documents' | 'simulations' | 'cnj' | 'investors' | 'edital' | 'matricula';
     selectedPropertyId: string;
     report: string | null;
     adHocDocs: any[];
@@ -5056,7 +5056,191 @@ const reportComponents = {
     }
     return <p className="text-brand-ink/80 leading-relaxed mb-4" {...props} />;
   },
-  table: ({node, ...props}: any) => <div className="overflow-x-auto my-6"><table className="min-w-full divide-y divide-brand-border border border-brand-border rounded-lg" {...props} /></div>,
+  table: ({ children, ...props }: any) => {
+    const getText = (node: any): string => {
+      if (typeof node === 'string') return node;
+      if (Array.isArray(node)) return node.map(getText).join(' ');
+      if (node?.props?.children) return getText(node.props.children);
+      return '';
+    };
+    
+    const tableText = getText(children);
+    
+    const simulationKeywords = [
+      "Valor (R$)", "Valor Estimado", "Custo Total", "QUADRO RESUMO", 
+      "RECEITA", "AQUISIÇÃO", "Lance Sugerido", "Comissão Leiloeiro", 
+      "ITBI Estimado", "Valor de Mercado", "Valor de Avaliação", 
+      "Débitos Acumulados", "Assessoria TJ INVEST", "Entrada TJ INVEST", 
+      "Lucro Líquido", "ROI", "Investimento", "Custo de Aquisição",
+      "Resumo de Investimento", "Quadro de Investimento", "Item", "Observação",
+      "MASTER", "CATEGORIA", "DETALHAMENTO"
+    ];
+    
+    const matchCount = simulationKeywords.filter(kw => {
+      const regex = new RegExp(kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+      return regex.test(tableText);
+    }).length;
+    
+    const isFinancialTable = matchCount >= 2 || 
+      tableText.includes("TJ INVEST") || 
+      tableText.includes("MASTER") ||
+      tableText.includes("Quadro de Investimento") ||
+      tableText.includes("Quadro Resumo") ||
+      (tableText.includes("COMPARATIVO") && (tableText.includes("MERCADO") || tableText.includes("INVESTIMENTOS") || tableText.includes("CENÁRIOS"))) ||
+      (tableText.includes("Cenário") && (tableText.includes("Disputa") || tableText.includes("Lance") || tableText.includes("ROI")));
+
+    if (isFinancialTable) {
+      const getElementText = (n: any): string => {
+        if (!n) return '';
+        if (typeof n === 'string' || typeof n === 'number') return String(n);
+        if (Array.isArray(n)) return n.map(getElementText).join('');
+        if (n.props && n.props.children) return getElementText(n.props.children);
+        return '';
+      };
+
+      const headers: string[] = [];
+      const rows: string[][] = [];
+
+      const traverse = (curr: any) => {
+        if (!curr) return;
+        if (Array.isArray(curr)) {
+          curr.forEach(traverse);
+          return;
+        }
+        if (curr.type === 'thead') {
+          const trs = Array.isArray(curr.props.children) ? curr.props.children : [curr.props.children];
+          trs.forEach((tr: any) => {
+            if (tr && tr.props && tr.props.children) {
+              const ths = Array.isArray(tr.props.children) ? tr.props.children : [tr.props.children];
+              ths.forEach((th: any) => {
+                headers.push(getElementText(th).trim());
+              });
+            }
+          });
+        } else if (curr.type === 'tbody') {
+          const trs = Array.isArray(curr.props.children) ? curr.props.children : [curr.props.children];
+          trs.forEach((tr: any) => {
+            if (tr && tr.props && tr.props.children) {
+              const cells: string[] = [];
+              const tds = Array.isArray(tr.props.children) ? tr.props.children : [tr.props.children];
+              tds.forEach((td: any) => {
+                cells.push(getElementText(td).trim());
+              });
+              if (cells.length > 0) {
+                rows.push(cells);
+              }
+            }
+          });
+        } else {
+          if (curr.props && curr.props.children) {
+            traverse(curr.props.children);
+          }
+        }
+      };
+
+      traverse(children);
+
+      if (rows.length > 0) {
+        return (
+          <div className="my-8 space-y-4 avoid-break">
+            <div className="border-b-2 border-brand-primary/20 pb-2">
+              <h4 className="text-xs font-bold text-brand-primary uppercase tracking-widest flex items-center gap-2">
+                📊 Quadro Resumo de Investimento (MASTER de Análise)
+              </h4>
+            </div>
+            
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {rows.map((row, idx) => {
+                let category = "Métrica";
+                let item = "";
+                let value = "";
+                let detail = "";
+                
+                if (row.length >= 4) {
+                  category = row[0];
+                  item = row[1];
+                  value = row[2];
+                  detail = row[3];
+                } else if (row.length === 3) {
+                  category = "Métrica";
+                  item = row[0];
+                  value = row[1];
+                  detail = row[2];
+                } else if (row.length === 2) {
+                  category = "Métrica";
+                  item = row[0];
+                  value = row[1];
+                } else {
+                  item = row[0] || "";
+                }
+                
+                const isHeadingRow = 
+                  item.toLowerCase().includes('total') || 
+                  item.toLowerCase().includes('lucro') || 
+                  item.toLowerCase().includes('receita') || 
+                  item.toLowerCase().includes('roi') || 
+                  item.toLowerCase().includes('tir') || 
+                  item.startsWith('**') && item.endsWith('**') ||
+                  value.startsWith('**');
+                  
+                const cleanItem = item.replace(/\*\*/g, '').trim();
+                const cleanValue = value.replace(/\*\*/g, '').trim();
+                const cleanDetail = detail.replace(/\*\*/g, '').trim();
+                const cleanCategory = category.replace(/\*\*/g, '').trim();
+
+                if (!cleanItem && !cleanValue) return null;
+
+                return (
+                  <div 
+                    key={idx} 
+                    className={`rounded-2xl border p-4 shadow-sm flex flex-col justify-between gap-2 transition-all duration-300 avoid-break ${
+                      isHeadingRow 
+                        ? 'bg-brand-primary/5 border-brand-primary/30 shadow-sm shadow-brand-primary/5' 
+                        : 'bg-brand-paper border-brand-primary/10 hover:border-brand-primary/20'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className={`text-[8px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-md font-sans ${
+                        isHeadingRow ? 'bg-brand-primary/20 text-brand-primary' : 'bg-brand-primary/10 text-brand-primary/80'
+                      }`}>
+                        {cleanCategory}
+                      </span>
+                      <span className={`text-xs font-mono font-bold ${
+                        isHeadingRow ? 'text-brand-primary text-sm font-black' : 'text-brand-ink/90'
+                      }`}>
+                        {cleanValue}
+                      </span>
+                    </div>
+                    
+                    <div className="space-y-1">
+                      <h5 className={`text-[10px] sm:text-xs font-bold font-sans uppercase tracking-wide ${
+                        isHeadingRow ? 'text-brand-primary font-bold' : 'text-brand-ink/80'
+                      }`}>
+                        {cleanItem}
+                      </h5>
+                      {cleanDetail && (
+                        <p className="text-[10px] sm:text-xs text-brand-ink/50 leading-relaxed font-sans font-medium">
+                          {cleanDetail}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      }
+    }
+
+    return (
+      <div className="overflow-x-auto my-6 rounded-2xl border border-brand-primary/10 shadow-sm max-w-full">
+        <table className="min-w-full divide-y divide-brand-border" {...props}>
+          {children}
+        </table>
+      </div>
+    );
+  },
   th: ({node, ...props}: any) => <th className="px-4 py-3 bg-brand-bg/50 text-left text-xs font-bold text-brand-primary uppercase tracking-wider" {...props} />,
   td: ({node, ...props}: any) => <td className="px-4 py-3 text-sm text-brand-ink/90 border-t border-brand-border" {...props} />,
   strong: ({node, ...props}: any) => <strong className="font-bold text-brand-primary" {...props} />,
@@ -7096,13 +7280,6 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
                 <InvestorsTabContent simulationData={simulationData} report={report} />
               )}
 
-              {activeSubTab === 'costs' && (
-                <CostsEditor 
-                  simulationData={simulationData} 
-                  updateSimulationData={(data) => updateState({ simulationData: data })} 
-                />
-              )}
-
               {activeSubTab === 'cnj' && (
                 <div className="space-y-10">
                   {cnjResult ? (
@@ -7198,34 +7375,6 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
                       Nenhum documento vinculado.
                     </div>
                   )}
-                </div>
-              )}
-
-              {activeSubTab === 'debts' && (
-                <div className="space-y-6">
-                  <h4 className="text-xl font-bold text-brand-primary">Levantamento de Débitos</h4>
-                  <div className="bg-brand-bg rounded-3xl p-8 border border-brand-primary/10">
-                    <div className="space-y-4">
-                      {currentDebts.map(debt => (
-                        <div key={debt.id} className="flex items-center justify-between p-4 bg-brand-paper rounded-2xl shadow-sm border border-brand-primary/5">
-                          <div>
-                            <p className="font-bold text-brand-ink">{debt.type}</p>
-                            <p className="text-xs text-brand-ink/40">Responsável: {debt.responsible}</p>
-                          </div>
-                          <p className="font-bold text-brand-primary">
-                            {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(debt.value)}
-                          </p>
-                        </div>
-                      ))}
-                      {currentDebts.length === 0 && (
-                        <p className="text-center text-brand-ink/30 font-medium py-10">
-                          {selectedPropertyId 
-                            ? "Nenhum débito registrado para este imóvel." 
-                            : "Débitos só podem ser visualizados para imóveis cadastrados."}
-                        </p>
-                      )}
-                    </div>
-                  </div>
                 </div>
               )}
 
