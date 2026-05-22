@@ -61,6 +61,8 @@ import { twMerge } from 'tailwind-merge';
 import { TIRCalculator } from './components/TIRCalculator';
 import { CashFlowChart } from './components/CashFlowChart';
 import { User, Property, Process, AIConfig, StrategicBrainItem } from './types';
+import { SYSTEM_PROMPT } from './constants';
+import { analyzeAuctionDocuments, generateProcessStory, sendChatMessage } from './services/aiService';
 
 const SimulationContext = React.createContext<{ simulationData: any, updateState: (s: any) => void, onJumpToSimulation?: (id: string) => void }>({
   simulationData: null,
@@ -5478,7 +5480,6 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
     if (docs.length === 0) { alert("Nenhum Edital encontrado."); return; }
     setAnalyzing(true);
     try {
-      const { analyzeAuctionDocuments } = await import('./services/aiService');
       const fileParts = docs.map(doc => {
         const hasText = doc.extracted_text && doc.extracted_text.trim().length > 0;
         return {
@@ -5500,7 +5501,6 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
     if (docs.length === 0) { alert("Nenhuma Matrícula encontrada."); return; }
     setAnalyzing(true);
     try {
-      const { analyzeAuctionDocuments } = await import('./services/aiService');
       const fileParts = docs.map(doc => {
         const hasText = doc.extracted_text && doc.extracted_text.trim().length > 0;
         return {
@@ -5526,7 +5526,6 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
     
     setAnalyzing(true);
     try {
-      const { analyzeAuctionDocuments } = await import('./services/aiService');
       const fileParts = processDocs.map(doc => {
         const hasText = doc.extracted_text && doc.extracted_text.trim().length > 0;
         return {
@@ -6211,9 +6210,6 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
         ? brainItems.map((item: any) => `[${item.category}] ${item.title}: ${item.extracted_text}`).join('\n\n')
         : "";
 
-      const { analyzeAuctionDocuments, generateProcessStory } = await import('./services/aiService');
-      const { SYSTEM_PROMPT } = await import('./constants');
-      
       let promptWithBrain = `${SYSTEM_PROMPT}\n\nCONTEXTO ESTRATÉGICO DO USUÁRIO (CÉREBRO ESTRATÉGICO):\n${brainContextText}\n\nUse o contexto acima para guiar sua análise e recomendações.`;
       
       if (state.manualAuctionType !== 'auto') {
@@ -6464,8 +6460,6 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
 
       console.log(`DEBUG FRONTEND (CHAT): Modelo ${selectedModel}. Chave (tamanho): ${userApiKey?.length || 0}`);
 
-      const { sendChatMessage } = await import('./services/aiService');
-      const { SYSTEM_PROMPT } = await import('./constants');
       const response = await sendChatMessage(newMessages, `Relatório Original:\n${report}\n\n${SYSTEM_PROMPT}\n\nResponda sempre em português do Brasil.`, selectedModel, userApiKey || undefined);
       
       const updatedReport = `${report}\n\n---\n\n### Adendo do Chat\n\n**Pergunta:** ${userMsg.content}\n\n**Resposta:**\n${response}`;
