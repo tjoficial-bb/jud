@@ -1177,14 +1177,13 @@ async function startServer() {
 
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
-    console.log("Iniciando Vite em modo middleware com limpeza de cache forcada...");
+    console.log("Iniciando Vite em modo middleware...");
     const vite = await createViteServer({
       server: { middlewareMode: true },
-      appType: "spa",
-      optimizeDeps: { force: true }
+      appType: "spa"
     });
     app.use(vite.middlewares);
-    console.log("Vite middleware configurado com optimizeDeps force.");
+    console.log("Vite middleware configurado.");
 
     // Catch-all to log requests hitting Vite
     app.use((req, res, next) => {

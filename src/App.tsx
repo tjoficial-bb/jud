@@ -874,7 +874,13 @@ export default function App() {
                 />
               )}
               {activeTab === 'users' && <UsersView token={token!} />}
-              {activeTab === 'settings' && <SettingsView token={token!} />}
+              {activeTab === 'settings' && (
+                <SettingsView 
+                  token={token!} 
+                  aiConfig={aiAnalysisState.aiConfig} 
+                  onConfigUpdate={(config) => setAiAnalysisState(prev => ({ ...prev, aiConfig: config }))} 
+                />
+              )}
             </motion.div>
           </AnimatePresence>
         </div>
@@ -6774,46 +6780,92 @@ function UsersView({ token }: { token: string }) {
   );
 }
 
-function SettingsView({ token }: { token: string }) {
+function SettingsView({ 
+  token, 
+  aiConfig, 
+  onConfigUpdate 
+}: { 
+  token: string; 
+  aiConfig: AIConfig | null; 
+  onConfigUpdate: (config: AIConfig) => void; 
+}) {
+  const [activeSubTab, setActiveSubTab] = useState<'ai' | 'general'>('ai');
+
   return (
-    <div className="space-y-12">
-      <div className="flex items-center justify-between">
+    <div className="space-y-8">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-brand-primary/10 pb-6">
         <div>
-          <h2 className="text-4xl font-serif font-medium tracking-tight text-brand-primary">Configurações do Sistema</h2>
-          <p className="text-brand-ink/40 font-medium text-lg">Ajuste as preferências globais e parâmetros de análise.</p>
+          <h2 className="text-4xl font-serif font-medium tracking-tight text-brand-primary">Configurações</h2>
+          <p className="text-brand-ink/40 font-medium text-lg">Gerencie as chaves de API das Inteligências Artificiais e parâmetros globais do sistema.</p>
+        </div>
+        
+        {/* Tab system inside settings */}
+        <div className="flex bg-brand-bg/50 p-1.5 rounded-2xl border border-brand-primary/10 self-start md:self-auto uppercase tracking-wider text-[10px] font-bold">
+          <button
+            onClick={() => setActiveSubTab('ai')}
+            className={cn(
+              "px-5 py-2.5 rounded-xl transition-all cursor-pointer",
+              activeSubTab === 'ai' 
+                ? "bg-brand-primary text-black shadow-lg" 
+                : "text-brand-ink/40 hover:text-brand-primary"
+            )}
+          >
+            Configuração de IA
+          </button>
+          <button
+            onClick={() => setActiveSubTab('general')}
+            className={cn(
+              "px-5 py-2.5 rounded-xl transition-all cursor-pointer",
+              activeSubTab === 'general' 
+                ? "bg-brand-primary text-black shadow-lg" 
+                : "text-brand-ink/40 hover:text-brand-primary"
+            )}
+          >
+            Parâmetros Gerais
+          </button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-        <Card title="Preferências de Notificação">
-          <div className="space-y-6">
-            <div className="flex items-center justify-between p-6 bg-brand-bg/50 rounded-3xl border border-brand-primary/5">
-              <span className="font-bold text-brand-primary">Alertas de Novos Leilões</span>
-              <div className="w-14 h-7 bg-brand-primary rounded-full relative cursor-pointer">
-                <div className="absolute right-1 top-1 w-5 h-5 bg-white rounded-full shadow-sm" />
+      <div className="pt-4 animate-fade-in">
+        {activeSubTab === 'ai' ? (
+          <AIConfigView 
+            token={token} 
+            aiConfig={aiConfig} 
+            onConfigUpdate={onConfigUpdate} 
+          />
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+            <Card title="Preferências de Notificação">
+              <div className="space-y-6">
+                <div className="flex items-center justify-between p-6 bg-brand-bg/50 rounded-3xl border border-brand-primary/5">
+                  <span className="font-bold text-brand-primary">Alertas de Novos Leilões</span>
+                  <div className="w-14 h-7 bg-brand-primary rounded-full relative cursor-pointer">
+                    <div className="absolute right-1 top-1 w-5 h-5 bg-white rounded-full shadow-sm" />
+                  </div>
+                </div>
+                <div className="flex items-center justify-between p-6 bg-brand-bg/50 rounded-3xl border border-brand-primary/5">
+                  <span className="font-bold text-brand-primary">Relatórios de IA por Email</span>
+                  <div className="w-14 h-7 bg-brand-ink/10 rounded-full relative cursor-pointer">
+                    <div className="absolute left-1 top-1 w-5 h-5 bg-white rounded-full shadow-sm" />
+                  </div>
+                </div>
               </div>
-            </div>
-            <div className="flex items-center justify-between p-6 bg-brand-bg/50 rounded-3xl border border-brand-primary/5">
-              <span className="font-bold text-brand-primary">Relatórios de IA por Email</span>
-              <div className="w-14 h-7 bg-brand-ink/10 rounded-full relative cursor-pointer">
-                <div className="absolute left-1 top-1 w-5 h-5 bg-white rounded-full shadow-sm" />
-              </div>
-            </div>
-          </div>
-        </Card>
+            </Card>
 
-        <Card title="Parâmetros de Cálculo">
-          <div className="space-y-6">
-            <div>
-              <label className="block text-[10px] font-bold uppercase tracking-[0.2em] text-brand-ink/30 mb-3 ml-1">ITBI Padrão (%)</label>
-              <input type="number" defaultValue={2} className="w-full bg-brand-bg border-none rounded-2xl py-5 px-8 focus:ring-2 focus:ring-brand-primary font-serif text-xl font-bold text-brand-primary" />
-            </div>
-            <div>
-              <label className="block text-[10px] font-bold uppercase tracking-[0.2em] text-brand-ink/30 mb-3 ml-1">Comissão Leiloeiro (%)</label>
-              <input type="number" defaultValue={5} className="w-full bg-brand-bg border-none rounded-2xl py-5 px-8 focus:ring-2 focus:ring-brand-primary font-serif text-xl font-bold text-brand-primary" />
-            </div>
+            <Card title="Parâmetros de Cálculo">
+              <div className="space-y-6">
+                <div>
+                  <label className="block text-[10px] font-bold uppercase tracking-[0.2em] text-brand-ink/30 mb-3 ml-1">ITBI Padrão (%)</label>
+                  <input type="number" defaultValue={2} className="w-full bg-brand-bg border-none rounded-2xl py-5 px-8 focus:ring-2 focus:ring-brand-primary font-serif text-xl font-bold text-brand-primary" />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold uppercase tracking-[0.2em] text-brand-ink/30 mb-3 ml-1">Comissão Leiloeiro (%)</label>
+                  <input type="number" defaultValue={5} className="w-full bg-brand-bg border-none rounded-2xl py-5 px-8 focus:ring-2 focus:ring-brand-primary font-serif text-xl font-bold text-brand-primary" />
+                </div>
+              </div>
+            </Card>
           </div>
-        </Card>
+        )}
       </div>
     </div>
   );
