@@ -1,6 +1,6 @@
 node_modules/
 build/
-dist/
+# dist/ (commented out to allow committing compiled build files to git for Hostinger/shared servers)
 coverage/
 .DS_Store
 *.log
