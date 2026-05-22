@@ -1,7 +1,7 @@
 import React from 'react';
 import { cn } from '../../lib/utils';
 import { 
-  LayoutDashboard, DollarSign, Brain, Settings, Users, Search, FileText, Home, LogOut, Cpu
+  LayoutDashboard, DollarSign, Brain, Settings, Users, Search, FileText, Home, LogOut, Cpu, Lightbulb
 } from 'lucide-react';
 
 export const Sidebar = ({ activeTab, setActiveTab, isSidebarOpen, setIsSidebarOpen, onLogout }: any) => {
@@ -10,6 +10,7 @@ export const Sidebar = ({ activeTab, setActiveTab, isSidebarOpen, setIsSidebarOp
     { id: 'properties', label: 'Gestão de Imóveis', icon: Home },
     { id: 'debts', label: 'Débitos', icon: DollarSign },
     { id: 'ai-analysis', label: 'Análise IA', icon: Brain },
+    { id: 'brain', label: 'Cérebro Estratégico', icon: Lightbulb },
     { id: 'documents', label: 'Gestão de Documentos', icon: FileText },
     { id: 'ai-config', label: 'Configuração de IA', icon: Cpu },
     { id: 'users', label: 'Usuários', icon: Users },

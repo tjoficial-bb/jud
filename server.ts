@@ -316,48 +316,142 @@ try {
       console.log("Adicionando coluna 'last_sync'...");
       db.prepare("ALTER TABLE strategic_brain ADD COLUMN last_sync DATETIME").run();
     }
+    if (!columns.includes('module')) {
+      console.log("Adicionando coluna 'module'...");
+      db.prepare("ALTER TABLE strategic_brain ADD COLUMN module TEXT").run();
+    }
+    if (!columns.includes('lesson')) {
+      console.log("Adicionando coluna 'lesson'...");
+      db.prepare("ALTER TABLE strategic_brain ADD COLUMN lesson TEXT").run();
+    }
     console.log("Migrações concluídas com sucesso.");
     
-    // Seed strategic_brain if empty
-    const count = db.prepare("SELECT COUNT(*) as count FROM strategic_brain").get() as { count: number };
-    if (count.count === 0) {
-      console.log("Semeando dados iniciais para o Cérebro Estratégico...");
-      const seedItems = [
-        {
-          id: 'sb-1',
-          title: 'Manual de Leilões Judiciais (CPC)',
-          category: 'Jurídico',
-          source: 'Manual',
-          extracted_text: 'Diretrizes para análise de leilões judiciais baseadas no CPC 2015. Foco em editais, intimações e prazos de recursos.',
-          url: '',
-          is_automated: 0
-        },
-        {
-          id: 'sb-2',
-          title: 'Estratégia CAIXA - Venda Direta',
-          category: 'Estratégia',
-          source: 'Manual',
-          extracted_text: 'Regras específicas para Venda Direta Online da CAIXA. Prioridade para imóveis com desocupação facilitada e financiamento aprovado.',
-          url: 'https://venda-imoveis.caixa.gov.br',
-          is_automated: 1
-        },
-        {
-          id: 'sb-3',
-          title: 'Checklist de Matrícula Imobiliária',
-          category: 'Jurídico',
-          source: 'Manual',
-          extracted_text: 'Pontos críticos na matrícula: Penhoras anteriores, Usufruto, Indisponibilidades e Arrolamentos da RFB.',
-          url: '',
-          is_automated: 0
-        }
-      ];
+    // Seed strategic_brain with premium curated items
+    console.log("Verificando e semeando dados no Cérebro Estratégico...");
+    const seedItems = [
+      {
+        id: 'sb-1',
+        title: 'Manual de Leilões Judiciais (CPC)',
+        category: 'Jurídico',
+        source: 'Código de Processo Civil - Lei 13.105/15',
+        extracted_text: 'Diretrizes cruciais para análise de leilões judiciais baseadas no Código de Processo Civil (CPC). O leilão judicial decorre de processos judiciais de cobrança, execução fiscal, alienações, etc. Foco total em editais, intimações pessoais dos devedores (Art. 889 CPC), preço vil (Art. 891 CPC - proibido lance inferior a 50% do valor da avaliação se não fixado outro patamar pelo juiz) e prazos para embargos à arrematação (Art. 903). Diferente de leilões extrajudiciais, o próprio juiz do caso emite a Carta de Arrematação e o Mandado de Imissão na Posse diretamente nos autos.',
+        url: '',
+        is_automated: 0,
+        module: '',
+        lesson: ''
+      },
+      {
+        id: 'sb-2',
+        title: 'Estratégia CAIXA - Venda Direta Online',
+        category: 'Estratégia',
+        source: 'Manual Operacional CAIXA',
+        extracted_text: 'Regras de ouro para a Venda Direta e Venda Online de imóveis recuperados pela CAIXA Econômica Federal. Na "Venda Online", o imóvel é vencido por quem der o maior lance até o fim do cronômetro. Na "Venda Direta Online", o primeiro que clicar em comprar e concluir as etapas leva o imóvel imediatamente pelo preço de venda do site. Principais vantagens: 1. Isenção total de dívidas de IPTU e condomínio anteriores à arrematação (a Caixa assume tudo e entrega o imóvel livre de ônus ao comprador, exceto se houver cláusula expressa contrária). 2. Assessoria gratuita de Corretores Credenciados CAIXA pagos pelo próprio banco para auxiliar o arrematante na compra, documentação e desocupação. 3. Possibilidade de financiar até 95% do valor do imóvel através de Crédito Habitacional CAIXA utilizando também os recursos do FGTS.',
+        url: 'https://venda-imoveis.caixa.gov.br',
+        is_automated: 1,
+        module: '',
+        lesson: ''
+      },
+      {
+        id: 'sb-3',
+        title: 'Checklist Crítico de Matrícula Imobiliária',
+        category: 'Jurídico',
+        source: 'Manual Prático Cartorário',
+        extracted_text: 'Roteiro de inspeção visual na Certidão de Matrícula Atualizada (Inteiro Teor). Itens vermelhos/bloqueantes a verificar: 1. Penhoras anteriores (focar em penhoras de processos criminais ou federais, que exigem maior cautela). 2. Usufruto vitalício ou temporário registrado e não extinto (arrematar imóvel com usufruto significa comprar apenas a nu-propriedade, sem o direito de posse direta até extinção do usufruto). 3. Cláusulas de inalienabilidade ou impenhorabilidade (comuns em doações ou heranças, que precisam ser inspecionadas). 4. Gravames de indisponibilidade decretada por tribunais trabalhistas ou federais (exige pedido formal ao juízo do leilão para levantamento via sistema CNIB). 5. Registro de habite-se e conformidade da metragem de área construída.',
+        url: '',
+        is_automated: 0,
+        module: '',
+        lesson: ''
+      },
+      {
+        id: 'sb-cur-1',
+        title: 'Como Selecionar Leilões Altamente Lucrativos',
+        category: 'Cursos',
+        source: 'TJ INVEST Academy',
+        extracted_text: 'Nesta videoaula, ensinamos o método prático para triar editais de leilões judiciais e extrajudiciais. Aprendemos a identificar o desconto real ou "deságio" comparando o valor de avaliação ou avaliação judicial contra o valor real de mercado praticado em portais imobiliários semelhantes na região (método comparativo direto). O foco deve estar em imóveis residenciais (apartamentos e casas em condomínio fechado) de médio padrão, pois possuem altíssima liquidez pós-venda e desocupação muito rápida e menos custos adicionais.',
+        url: '',
+        is_automated: 0,
+        module: 'Módulo 1: Fundamentos de Leilões',
+        lesson: 'Aula 1: Triagem de Oportunidades de Alto Deságio'
+      },
+      {
+        id: 'sb-cur-2',
+        title: 'Domando os Custos Invisíveis nos Cálculos',
+        category: 'Cursos',
+        source: 'TJ INVEST Academy',
+        extracted_text: 'Como precificar e projetar os custos fiscais e de manutenção sem errar. Abordamos os custos cruciais para sua simulação: 1. ITBI (Imposto de Transmissão de Bens Imóveis): cobrado sobre o maior valor entre o da arrematação ou o de referência municipal, sob alíquota de 2% a 3%. 2. Custos Cartorários: Registro da Carta de Arrematação ou Escritura de Compra, segundo a tabela progressiva de custas de cada estado. 3. Custos de Desocupação: provisão para custas de ação com advogado (honorários) ou acordo consensual ("taxa de mudança" de R$ 3.000 a R$ 5.000). 4. Reformas e reparos: provisão padrão de 5% a 10% do valor de mercado. 5. Custos de holding: IPTU e condomínio mensais acumulados durante os meses estimados de giro (geralmente 8 a 12 meses).',
+        url: '',
+        is_automated: 0,
+        module: 'Módulo 1: Fundamentos de Leilões',
+        lesson: 'Aula 2: Planilhamento Real e Custos de Aquisição'
+      },
+      {
+        id: 'sb-cur-3',
+        title: 'A Venda Online e Venda Direta CAIXA por Dentro',
+        category: 'Cursos',
+        source: 'TJ INVEST Academy',
+        extracted_text: 'Mergulho prático nas duas principais modalidades extrajudiciais da Caixa Econômica Federal. Na Venda Online, aprenda as estratégias de cronômetro: os lances cruciais devem ser dados nos últimos 10 a 15 segundos para evitar inflacionamento antecipado de disputa. Na Venda Direta Online, o sistema é de "clique rápido", sendo vital possuir cadastro de pré-aprovação de crédito previamente homologado junto a um Correspondente Caixa Aqui parceiro (CCA) para fins de agilidade no fechamento.',
+        url: '',
+        is_automated: 0,
+        module: 'Módulo 2: Oportunidades CAIXA',
+        lesson: 'Aula 1: Estratégias de Disputa e Clique Rápido'
+      },
+      {
+        id: 'sb-cur-4',
+        title: 'Como Financiar Imóveis Retomados e Uso de FGTS',
+        category: 'Cursos',
+        source: 'TJ INVEST Academy',
+        extracted_text: 'Nesta aula mostramos todas as vantagens do financiamento Caixa de até 95% para os imóveis de propriedade própria adjudicados. Você pode dar apenas 5% de entrada em recursos próprios ou consorciados e o saldo restante financiado em até 420 meses. Além disso, pode usar seu saldo de conta vinculada do FGTS para abatimento total da entrada ou das taxas de custas iniciais de registro, desde que cumpra os requisitos do SFH (Sistemas Financeiros de Habitação): possuir 3 anos de carteira assinada, não possuir outro imóvel residencial no mesmo município e não estar em dívidas ativas.',
+        url: '',
+        is_automated: 0,
+        module: 'Módulo 2: Oportunidades CAIXA',
+        lesson: 'Aula 2: Operacionalizando o Financiamento'
+      },
+      {
+        id: 'sb-cur-5',
+        title: 'Método Desocupação Acelerada (Negociação vs Judicial)',
+        category: 'Cursos',
+        source: 'TJ INVEST Academy',
+        extracted_text: 'O segredo dos grandes investidores de leilão está na desocupação inteligente e diplomática do imóvel arrematado. Dividimos o plano em duas frentes: 1. Negociação Consensual (Abordagem de Alto Valor): Visitar o ocupante logo após obter a folha de pagamento das custas do leilão. Conversar civilizadamente, empatizar com a situação, e propor um acordo financeiro amigável (ajuda de custo para mudança, geralmente de R$ 2.000 a R$ 5.000) condicionada à entrega imediata e pacífica das chaves do imóvel limpo em até 30 dias. 2. Ação de Imissão na Posse / Homologação Judicial: Se o ocupante se recusar, entra-se imediatamente em juízo munido de Carta de Arrematação registrada, requerendo liminar de desocupação forçada em 15 dias.',
+        url: '',
+        is_automated: 0,
+        module: 'Módulo 3: Pós-Leilão de Sucesso',
+        lesson: 'Aula 1: Estratégias de Desocupação Rápida'
+      },
+      {
+        id: 'sb-doc-caixa',
+        title: 'Normativo CAIXA de Venda de Imóveis no Portal de Oportunidades',
+        category: 'Documentos',
+        source: 'Regulamento Geral CAIXA CEF nº 212/26',
+        extracted_text: 'Regulação interna e oficial de alienação dos imóveis retomados pela Caixa Econômica Federal. Normativa que garante formalmente ao comprador que a CAIXA arca com todos os débitos e encargos tributários de IPTU e contribuições condominiais pendentes até o dia do leilão ou da contratação do imóvel. O normativo estabelece que eventuais cobranças judiciais tributárias que cheguem ao novo arrematante anteriores ao faturamento devem ser repassadas imediatamente ao jurídico do banco para liquidação perante os órgãos competentes, preservando o patrimônio livre de ônus ao investidor.',
+        url: 'https://venda-imoveis.caixa.gov.br',
+        is_automated: 0,
+        module: '',
+        lesson: ''
+      },
+      {
+        id: 'sb-doc-limp',
+        title: 'Guia de Desocupação Amigável e Modelos de Acordo',
+        category: 'Documentos',
+        source: 'Jurídico TJ INVEST',
+        extracted_text: 'Kit com minutas e modelos operacionais para aplicação prática na desocupação amigável de imóveis adquiridos. Contém: 1. Roteiro e script exato de conversa inicial com o ex-proprietário ou ocupante ilegal. 2. Modelo de Termo de Acordo Extrajudicial de Desocupação Amigável, prevendo cronograma de vistoria e entrega de chaves com quitação mútua. 3. Cláusula de liberação do pagamento da "ajuda de mudança" somente após a desocupação física, com entrega de chaves na portaria ou no imóvel sem avarias estruturais.',
+        url: '',
+        is_automated: 0,
+        module: '',
+        lesson: ''
+      }
+    ];
 
-      const insert = db.prepare("INSERT INTO strategic_brain (id, title, category, source, extracted_text, url, is_automated) VALUES (?, ?, ?, ?, ?, ?, ?)");
-      seedItems.forEach(item => {
-        insert.run(item.id, item.title, item.category, item.source, item.extracted_text, item.url, item.is_automated);
-      });
-      console.log("Semeando concluído.");
-    }
+    const insert = db.prepare(`
+      INSERT OR REPLACE INTO strategic_brain 
+      (id, title, category, source, extracted_text, url, is_automated, module, lesson) 
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    
+    seedItems.forEach(item => {
+      insert.run(item.id, item.title, item.category, item.source, item.extracted_text, item.url, item.is_automated, item.module, item.lesson);
+    });
+    console.log("Cérebro Estratégico semeado/restaurado com os dados premium.");
+
     console.log("Verificando migrações para properties...");
     const propTableInfo: any[] = db.prepare("PRAGMA table_info(properties)").all();
     const propColumns = propTableInfo.map(c => c.name);
@@ -803,9 +897,9 @@ async function startServer() {
   app.post("/api/strategic-brain", authenticateToken, (req, res) => {
     try {
       const id = Math.random().toString(36).substring(7);
-      const { title, category, source, extracted_text, data, url, username, password, is_automated } = req.body;
-      db.prepare("INSERT INTO strategic_brain (id, title, category, source, extracted_text, data, url, username, password, is_automated) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").run(
-        id, title, category, source, extracted_text || null, data || null, url || null, username || null, password || null, is_automated ? 1 : 0
+      const { title, category, source, extracted_text, data, url, username, password, is_automated, module, lesson } = req.body;
+      db.prepare("INSERT INTO strategic_brain (id, title, category, source, extracted_text, data, url, username, password, is_automated, module, lesson) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").run(
+        id, title, category, source, extracted_text || null, data || null, url || null, username || null, password || null, is_automated ? 1 : 0, module || null, lesson || null
       );
       res.json({ id });
     } catch (error: any) {
