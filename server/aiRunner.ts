@@ -85,7 +85,7 @@ const getPayloadBudget = (model: string): number => {
 const optimizePayload = (files: any[], budget: number) => {
   let currentFiles = files.map(f => ({ 
     ...f, 
-    useText: !f.data || f.data === "" || f.data === "null",
+    useText: (!!f.extractedText && f.extractedText.trim().length > 0) || !f.data || f.data === "" || f.data === "null",
     optimizedText: f.extractedText ? (f.extractedText.length > 1000000 ? f.extractedText.substring(0, 1000000) + "\n... [Texto truncado por tamanho] ..." : f.extractedText) : ""
   }));
   

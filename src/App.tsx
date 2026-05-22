@@ -24,6 +24,7 @@ import {
   Scale,
   Loader2, 
   Download,
+  Upload,
   ChevronRight,
   Menu,
   X,
@@ -466,7 +467,7 @@ export default function App() {
       adHocDocs: [],
       cnjNumber: '',
       cnjResult: null,
-      selectedModel: 'gemini-2.5-flash',
+      selectedModel: (localStorage.getItem('saved_selected_model') || 'gemini-2.5-flash') as AIModel,
       chatMessages: [],
       simulationData: {
         valuation: { value: 0, type: 'BRL' },
@@ -550,7 +551,7 @@ export default function App() {
       processAnalysis: null,
       isGeneratingStory: false,
       isEditingStory: false,
-      selectedKeySource: 'system_default',
+      selectedKeySource: (localStorage.getItem('saved_selected_key_source') || 'system_default') as any,
     };
   });
 
@@ -658,14 +659,48 @@ export default function App() {
     if (isLoggedIn && token) {
       fetch('/api/ai-config', { headers: { 'Authorization': `Bearer ${token}` } })
         .then(res => res.ok ? parseJsonResponse(res) : null)
-        .then(data => {
+        .then(async data => {
           if (data) {
-            setAiAnalysisState(prev => ({ ...prev, aiConfig: data }));
+            const hasKeys = !!(data.gemini_key || data.openai_key || data.claude_key || data.deepseek_key || data.datajud_key);
+            if (hasKeys) {
+              localStorage.setItem('backup_ai_config', JSON.stringify(data));
+              setAiAnalysisState(prev => ({ ...prev, aiConfig: data }));
+            } else {
+              const savedBackup = localStorage.getItem('backup_ai_config');
+              if (savedBackup) {
+                try {
+                  const parsedBackup = JSON.parse(savedBackup);
+                  console.log("Auto-restoring AI config from local browser backup...", parsedBackup);
+                  
+                  await fetch('/api/ai-config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify(parsedBackup)
+                  });
+                  
+                  setAiAnalysisState(prev => ({ ...prev, aiConfig: parsedBackup }));
+                } catch (backupErr) {
+                  console.error("Erro ao restaurar backup local de IA:", backupErr);
+                  setAiAnalysisState(prev => ({ ...prev, aiConfig: data }));
+                }
+              } else {
+                setAiAnalysisState(prev => ({ ...prev, aiConfig: data }));
+              }
+            }
           }
         })
         .catch(err => console.error("Erro ao carregar config inicial:", err));
     }
   }, [isLoggedIn, token]);
+
+  useEffect(() => {
+    if (aiAnalysisState.selectedModel) {
+      localStorage.setItem('saved_selected_model', aiAnalysisState.selectedModel);
+    }
+    if (aiAnalysisState.selectedKeySource) {
+      localStorage.setItem('saved_selected_key_source', aiAnalysisState.selectedKeySource);
+    }
+  }, [aiAnalysisState.selectedModel, aiAnalysisState.selectedKeySource]);
 
   const handleLogout = () => {
     localStorage.removeItem('token');
@@ -1781,6 +1816,84 @@ function AIConfigView({ token, aiConfig, onConfigUpdate }: { token: string, aiCo
     }
   };
 
+  const [restoring, setRestoring] = useState(false);
+
+  const handleBackup = async () => {
+    try {
+      const response = await fetch('/api/backup', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      if (!response.ok) {
+        throw new Error("Falha ao gerar o arquivo de backup");
+      }
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `leiloes_pro_backup_${new Date().toISOString().split('T')[0]}.db`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      
+      if ((window as any).customToast) {
+        (window as any).customToast("Backup baixado com sucesso!", "success");
+      } else {
+        alert("Backup baixado com sucesso!");
+      }
+    } catch (err: any) {
+      console.error(err);
+      alert("Erro ao realizar backup: " + err.message);
+    }
+  };
+
+  const handleRestore = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!window.confirm("Atenção: Ao restaurar este backup, TODOS os dados atuais de imóveis, documentos e relatórios serão SUBSTITUÍDOS. Esta ação não pode ser desfeita. Deseja continuar?")) {
+      e.target.value = '';
+      return;
+    }
+
+    setRestoring(true);
+    const formData = new FormData();
+    formData.append('backup_file', file);
+
+    try {
+      const response = await fetch('/api/restore', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
+      });
+
+      const data = await parseJsonResponse(response);
+      if (!response.ok) {
+        throw new Error(data.error || "Erro desconhecido ao restaurar o banco de dados.");
+      }
+
+      if ((window as any).customToast) {
+        (window as any).customToast("Banco de dados restaurado com sucesso!", "success");
+      } else {
+        alert("Banco de dados restaurado com sucesso!");
+      }
+      
+      setTimeout(() => {
+        window.location.reload();
+      }, 1500);
+    } catch (err: any) {
+      console.error(err);
+      alert("Falha ao restaurar banco de dados: " + err.message);
+    } finally {
+      setRestoring(false);
+      e.target.value = '';
+    }
+  };
+
   return (
     <div className="max-w-4xl mx-auto space-y-12">
       <div className="text-center space-y-6 mb-16">
@@ -1928,6 +2041,71 @@ function AIConfigView({ token, aiConfig, onConfigUpdate }: { token: string, aiCo
           >
             Resetar para Padrão
           </button>
+        </div>
+      </div>
+
+      {/* CARD DE BACKUP E RESTAURAÇÃO */}
+      <div className="premium-card p-6 sm:p-12 space-y-8 mt-12">
+        <div>
+          <h3 className="text-xl font-serif font-bold text-brand-primary flex items-center gap-3">
+            <Database size={20} />
+            Backup e Restauração de Dados
+          </h3>
+          <p className="text-brand-ink/40 text-[11px] mt-2 leading-relaxed">
+            Seus arquivos, imóveis cadastrados e análises são armazenados localmente. Use esta ferramenta para fazer backups manuais periódicos ou recuperar seus dados em caso de alterações no ambiente de hospedagem.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6 border-t border-brand-primary/5">
+          {/* Fazer Backup */}
+          <div className="bg-brand-bg/45 p-6 rounded-2xl border border-brand-primary/5 flex flex-col justify-between space-y-4">
+            <div>
+              <h4 className="font-bold text-brand-primary text-xs uppercase tracking-wider mb-2">Exportar Banco de Dados</h4>
+              <p className="text-brand-ink/50 text-[10px] leading-relaxed">
+                Baixe o arquivo de banco de dados <code>.db</code> completo contendo todo o histórico de imóveis, documentos processados, cérebro estratégico e chaves.
+              </p>
+            </div>
+            <button
+              onClick={handleBackup}
+              className="w-full bg-brand-bg border border-brand-primary/25 hover:border-brand-primary/50 text-brand-primary py-4 rounded-xl font-bold text-xs uppercase tracking-widest hover:bg-brand-primary/5 transition-all flex items-center justify-center gap-2"
+            >
+              <Download size={16} />
+              Fazer Download do Backup
+            </button>
+          </div>
+
+          {/* Restaurar Backup */}
+          <div className="bg-brand-bg/45 p-6 rounded-2xl border border-brand-primary/5 flex flex-col justify-between space-y-4">
+            <div>
+              <h4 className="font-bold text-brand-primary text-xs uppercase tracking-wider mb-2">Importar Banco de Dados</h4>
+              <p className="text-brand-ink/50 text-[10px] leading-relaxed">
+                Suba um arquivo de backup do sistema (<code>leiloes_pro_backup.db</code>) para restaurar instantaneamente todo o seu painel de leilões ao estado anterior.
+              </p>
+            </div>
+            <label className={cn(
+              "w-full bg-brand-primary text-black py-4 rounded-xl font-bold text-xs uppercase tracking-widest hover:bg-brand-primary/90 transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xl shadow-brand-primary/10",
+              restoring ? "opacity-50 cursor-not-allowed" : ""
+            )}>
+              {restoring ? (
+                <>
+                  <Loader2 className="animate-spin" size={16} />
+                  Restaurando...
+                </>
+              ) : (
+                <>
+                  <Upload size={16} />
+                  Enviar arquivo de Backup
+                </>
+              )}
+              <input
+                type="file"
+                accept=".db"
+                disabled={restoring}
+                onChange={handleRestore}
+                className="hidden"
+              />
+            </label>
+          </div>
         </div>
       </div>
     </div>
@@ -5301,7 +5479,16 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
     setAnalyzing(true);
     try {
       const { analyzeAuctionDocuments } = await import('./services/aiService');
-      const fileParts = docs.map(doc => ({ id: doc.id, filename: doc.filename, data: doc.data, mimeType: 'application/pdf', extractedText: doc.extracted_text }));
+      const fileParts = docs.map(doc => {
+        const hasText = doc.extracted_text && doc.extracted_text.trim().length > 0;
+        return {
+          id: doc.id,
+          filename: doc.filename,
+          data: !hasText && doc.data ? doc.data : "",
+          mimeType: 'application/pdf',
+          extractedText: doc.extracted_text || ""
+        };
+      });
       const userApiKey = resolveApiKey(state.selectedKeySource, state.aiConfig, state.selectedModel || 'gemini-2.5-flash') || "";
       const analysis = await analyzeAuctionDocuments(fileParts, "Analise o Edital", state.selectedModel || 'gemini-2.5-flash', userApiKey || undefined, [], 'edital');
       setState(prev => ({ ...prev, editalAnalysis: analysis }));
@@ -5314,7 +5501,16 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
     setAnalyzing(true);
     try {
       const { analyzeAuctionDocuments } = await import('./services/aiService');
-      const fileParts = docs.map(doc => ({ id: doc.id, filename: doc.filename, data: doc.data, mimeType: 'application/pdf', extractedText: doc.extracted_text }));
+      const fileParts = docs.map(doc => {
+        const hasText = doc.extracted_text && doc.extracted_text.trim().length > 0;
+        return {
+          id: doc.id,
+          filename: doc.filename,
+          data: !hasText && doc.data ? doc.data : "",
+          mimeType: 'application/pdf',
+          extractedText: doc.extracted_text || ""
+        };
+      });
       const userApiKey = resolveApiKey(state.selectedKeySource, state.aiConfig, state.selectedModel || 'gemini-2.5-flash') || "";
       const analysis = await analyzeAuctionDocuments(fileParts, "Analise a Matrícula", state.selectedModel || 'gemini-2.5-flash', userApiKey || undefined, [], 'matricula');
       setState(prev => ({ ...prev, matriculaAnalysis: analysis }));
@@ -5331,13 +5527,16 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
     setAnalyzing(true);
     try {
       const { analyzeAuctionDocuments } = await import('./services/aiService');
-      const fileParts = processDocs.map(doc => ({
-        id: doc.id,
-        filename: doc.filename,
-        data: doc.data,
-        mimeType: 'application/pdf',
-        extractedText: doc.extracted_text
-      }));
+      const fileParts = processDocs.map(doc => {
+        const hasText = doc.extracted_text && doc.extracted_text.trim().length > 0;
+        return {
+          id: doc.id,
+          filename: doc.filename,
+          data: !hasText && doc.data ? doc.data : "",
+          mimeType: 'application/pdf',
+          extractedText: doc.extracted_text || ""
+        };
+      });
       
       const selectedProperty = properties.find(p => p.id === selectedPropertyId);
       const propertyContext = selectedProperty ? `\n\nIMÓVEL EM LEILÃO: ${selectedProperty.title}` : "\n\nIMÓVEL EM LEILÃO: Não especificado.";
@@ -6027,12 +6226,13 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
         else if (doc.filename.toLowerCase().endsWith('.png')) mimeType = 'image/png';
         else if (doc.filename.toLowerCase().endsWith('.webp')) mimeType = 'image/webp';
 
+        const hasText = doc.extracted_text && doc.extracted_text.trim().length > 0;
         return {
           id: doc.id,
           filename: doc.filename,
-          data: doc.data ? (doc.data.startsWith('data:') ? doc.data : `data:${mimeType};base64,${doc.data}`) : "",
+          data: !hasText && doc.data ? (doc.data.startsWith('data:') ? doc.data : `data:${mimeType};base64,${doc.data}`) : "",
           mimeType: mimeType,
-          extractedText: doc.extracted_text
+          extractedText: doc.extracted_text || ""
         };
       });
 

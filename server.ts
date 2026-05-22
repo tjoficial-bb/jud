@@ -648,6 +648,81 @@ async function startServer() {
     }
   });
 
+  // --- Backup and Restore Routes ---
+  app.get("/api/backup", authenticateToken, (req, res) => {
+    try {
+      if (!fs.existsSync(DB_NAME)) {
+        return res.status(404).json({ error: "Banco de dados não encontrado" });
+      }
+      
+      const backupPath = path.join(process.cwd(), "leiloes_pro_backup_temp.db");
+      db.backup(backupPath)
+        .then(() => {
+          res.download(backupPath, "leiloes_pro_backup.db", (err) => {
+            try {
+              if (fs.existsSync(backupPath)) {
+                fs.unlinkSync(backupPath);
+              }
+            } catch (cleanupErr) {
+              console.error("Erro ao deletar arquivo de backup temp:", cleanupErr);
+            }
+          });
+        })
+        .catch((backupErr) => {
+          console.error("Erro ao realizar backup do banco:", backupErr);
+          res.status(500).json({ error: "Erro ao gerar arquivo de backup: " + backupErr.message });
+        });
+    } catch (error: any) {
+      console.error("Erro na API de backup:", error.message);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/restore", authenticateToken, upload.single('backup_file'), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: "Arquivo de backup não fornecido" });
+      }
+
+      const tempRestorePath = path.join(process.cwd(), "leiloes_pro_restore_temp.db");
+      fs.writeFileSync(tempRestorePath, req.file.buffer);
+
+      // Perform integrity check using better-sqlite3
+      try {
+        const testDb = new Database(tempRestorePath);
+        const integrity = testDb.prepare("PRAGMA integrity_check").get() as any;
+        testDb.close();
+
+        if (!integrity || integrity.integrity_check !== "ok") {
+          throw new Error("Integrity check failed: " + JSON.stringify(integrity));
+        }
+      } catch (integrityErr: any) {
+        if (fs.existsSync(tempRestorePath)) {
+          fs.unlinkSync(tempRestorePath);
+        }
+        return res.status(400).json({ error: "Arquivo inválido ou corrompido. Certifique-se de enviar um banco SQLite correto. " + integrityErr.message });
+      }
+
+      // Overwrite current database
+      console.log("[Restore] Integrity check passed. Replaced database starting...");
+      
+      db.close();
+      fs.renameSync(tempRestorePath, DB_NAME);
+      db = new Database(DB_NAME);
+
+      console.log("[Restore] Database replaced and re-opened successfully.");
+      res.json({ success: true, message: "Banco de dados restaurado com sucesso!" });
+    } catch (error: any) {
+      console.error("Erro ao restaurar banco:", error.message);
+      try {
+        db = new Database(DB_NAME);
+      } catch (recoveryErr) {
+        console.error("Critical: Failed to re-initialize SQLite on restore failure:", recoveryErr);
+      }
+      res.status(500).json({ error: "Erro ao restaurar backup: " + error.message });
+    }
+  });
+
   app.get("/api/strategic-brain", authenticateToken, (req, res) => {
     const items = db.prepare("SELECT * FROM strategic_brain ORDER BY created_at DESC").all();
     res.json(items);
