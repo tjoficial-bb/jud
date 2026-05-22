@@ -1,3 +1,0 @@
-src/App.tsx:    const processDocs = analysisDocs.filter(d => d.doc_type === 'Processo Judicial');
-src/App.tsx:      if (docType === 'Processo Judicial') {
-src/App.tsx:                  {['Edital', 'Matrícula', 'Processo Judicial', 'Outros'].map(category => {

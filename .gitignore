@@ -6,3 +6,11 @@ coverage/
 *.log
 .env*
 !.env.example
+*.db
+*.sqlite
+*.sqlite3
+debug.txt
+debug_*.txt
+test-upload.mjs
+recovered_temp.db
+

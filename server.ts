@@ -484,14 +484,56 @@ async function startServer() {
   app.post("/api/properties", authenticateToken, (req, res) => {
     try {
       const id = Math.random().toString(36).substring(7);
-      const { title, type, modality, address, city, state, valuation_value, min_bid } = req.body;
-      db.prepare("INSERT INTO properties (id, title, type, modality, address, city, state, valuation_value, min_bid) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)").run(
-        id, title, type, modality, address, city, state, valuation_value, min_bid
+      const { title, type, modality, address, city, state, valuation_value, min_bid, expected_sale_value } = req.body;
+      db.prepare("INSERT INTO properties (id, title, type, modality, address, city, state, valuation_value, min_bid, expected_sale_value) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").run(
+        id, title, type, modality, address, city, state, valuation_value, min_bid, expected_sale_value || 0
       );
       res.json({ id });
     } catch (error: any) {
       console.error("Erro ao inserir imóvel:", error.message);
       res.status(500).json({ error: "Erro ao inserir imóvel: " + error.message });
+    }
+  });
+
+  app.put("/api/properties/:id", authenticateToken, (req, res) => {
+    try {
+      const { id } = req.params;
+      const { title, type, modality, address, city, state, valuation_value, min_bid, expected_sale_value } = req.body;
+      
+      const existing = db.prepare("SELECT * FROM properties WHERE id = ?").get(id);
+      if (!existing) {
+        return res.status(404).json({ error: "Imóvel não encontrado" });
+      }
+
+      db.prepare(`
+        UPDATE properties 
+        SET title = ?,
+            type = ?,
+            modality = ?,
+            address = ?,
+            city = ?,
+            state = ?,
+            valuation_value = ?,
+            min_bid = ?,
+            expected_sale_value = ?
+        WHERE id = ?
+      `).run(
+        title !== undefined ? title : existing.title,
+        type !== undefined ? type : existing.type,
+        modality !== undefined ? modality : existing.modality,
+        address !== undefined ? address : existing.address,
+        city !== undefined ? city : existing.city,
+        state !== undefined ? state : existing.state,
+        valuation_value !== undefined ? valuation_value : existing.valuation_value,
+        min_bid !== undefined ? min_bid : existing.min_bid,
+        expected_sale_value !== undefined ? expected_sale_value : existing.expected_sale_value,
+        id
+      );
+
+      res.json({ message: "Imóvel atualizado com sucesso" });
+    } catch (error: any) {
+      console.error("Erro ao atualizar imóvel:", error.message);
+      res.status(500).json({ error: "Erro ao atualizar imóvel: " + error.message });
     }
   });
 
@@ -1191,16 +1233,32 @@ async function startServer() {
       next();
     });
   } else {
-    app.use(express.static(path.join(process.cwd(), "dist")));
+    const rootDir = path.resolve(__dirname, '..');
+    app.use(express.static(path.join(rootDir, "dist")));
+
     // Serve source files for sourcemaps to work in production without 404s
-    // Serve .ts/.tsx as text/plain instead of video/mp2t so browser doesn't block it
-    app.use("/src", express.static(path.join(process.cwd(), "src"), {
-      setHeaders: (res, filePath) => {
-        if (filePath.endsWith('.ts') || filePath.endsWith('.tsx')) {
+    app.get("/src/*", (req, res) => {
+      const cleanPath = req.params[0] || req.path.replace(/^\/src\//, '');
+      const safePath = path.normalize(cleanPath).replace(/^(\.\.(\/|\\|$))+/, '');
+      
+      const fullPath = path.join(process.cwd(), "src", safePath);
+      if (fs.existsSync(fullPath) && fs.statSync(fullPath).isFile()) {
+        if (fullPath.endsWith('.ts') || fullPath.endsWith('.tsx')) {
           res.setHeader('Content-Type', 'text/plain; charset=utf-8');
         }
+        return res.sendFile(fullPath);
       }
-    }));
+      
+      const fallbackPath = path.join(rootDir, "src", safePath);
+      if (fs.existsSync(fallbackPath) && fs.statSync(fallbackPath).isFile()) {
+        if (fallbackPath.endsWith('.ts') || fallbackPath.endsWith('.tsx')) {
+          res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+        }
+        return res.sendFile(fallbackPath);
+      }
+      
+      res.status(404).send('Not found');
+    });
     
     // Catch-all for non-asset and non-api routes to return index.html (SPA routing)
     // But exclude /src/ and /assets/ to prevent HTML being returned for sourcemaps/scripts
@@ -1208,7 +1266,7 @@ async function startServer() {
       if (req.url.startsWith('/src/') || req.url.startsWith('/assets/')) {
         return res.status(404).send('Not found');
       }
-      res.sendFile(path.resolve("dist/index.html"));
+      res.sendFile(path.join(rootDir, "dist", "index.html"));
     });
   }
 

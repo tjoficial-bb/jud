@@ -255,8 +255,6 @@
     padding: 0 !important;
     border: none !important;
     box-shadow: none !important;
-    page-break-before: always !important;
-    break-before: page !important;
   }
 
   .markdown-body h1, .markdown-body h2, .markdown-body h3, .markdown-body h4 {
@@ -284,8 +282,7 @@
   /* Page breaks inside strategic heading sections */
   .markdown-body h1:not(:first-of-type), 
   .markdown-body h2:not(:first-of-type) {
-    page-break-before: always !important;
-    break-before: page !important;
+    margin-top: 32px !important;
   }
 
   .markdown-body h3 {

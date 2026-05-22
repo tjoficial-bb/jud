@@ -4376,13 +4376,162 @@ function GlossaryMarkdown({ content, onJumpToSimulation, simulationData, updateS
         (tableText.includes("COMPARATIVO") && (tableText.includes("MERCADO") || tableText.includes("INVESTIMENTOS") || tableText.includes("CENÁRIOS"))) ||
         (tableText.includes("Cenário") && (tableText.includes("Disputa") || tableText.includes("Lance") || tableText.includes("ROI")));
 
+      const extractTableData = (node: any): { headers: string[], rows: string[][] } => {
+        const headers: string[] = [];
+        const rows: string[][] = [];
+
+        const getElementText = (n: any): string => {
+          if (!n) return '';
+          if (typeof n === 'string' || typeof n === 'number') return String(n);
+          if (Array.isArray(n)) return n.map(getElementText).join('');
+          if (n.props && n.props.children) return getElementText(n.props.children);
+          return '';
+        };
+
+        const traverse = (curr: any) => {
+          if (!curr) return;
+          if (Array.isArray(curr)) {
+            curr.forEach(traverse);
+            return;
+          }
+          if (curr.type === 'thead') {
+            const trs = Array.isArray(curr.props.children) ? curr.props.children : [curr.props.children];
+            trs.forEach((tr: any) => {
+              if (tr && tr.props && tr.props.children) {
+                const ths = Array.isArray(tr.props.children) ? tr.props.children : [tr.props.children];
+                ths.forEach((th: any) => {
+                  headers.push(getElementText(th).trim());
+                });
+              }
+            });
+          } else if (curr.type === 'tbody') {
+            const trs = Array.isArray(curr.props.children) ? curr.props.children : [curr.props.children];
+            trs.forEach((tr: any) => {
+              if (tr && tr.props && tr.props.children) {
+                const cells: string[] = [];
+                const tds = Array.isArray(tr.props.children) ? tr.props.children : [tr.props.children];
+                tds.forEach((td: any) => {
+                  cells.push(getElementText(td).trim());
+                });
+                if (cells.length > 0) {
+                  rows.push(cells);
+                }
+              }
+            });
+          } else {
+            if (curr.props && curr.props.children) {
+              traverse(curr.props.children);
+            }
+          }
+        };
+
+        traverse(node);
+        return { headers, rows };
+      };
+
       if (isFinancialTable) {
-        return null; // Remove financial tables from markdown as they are now rendered explicitly as the Master Table
+        const parsedData = extractTableData(children);
+        if (parsedData.rows.length > 0) {
+          return (
+            <div className="my-8 space-y-4 avoid-break">
+              <div className="border-b-2 border-brand-primary/20 pb-3">
+                <h4 className="text-sm font-bold text-brand-primary uppercase tracking-widest flex items-center gap-2">
+                  📊 Quadro Resumo de Investimento (MASTER de Análise)
+                </h4>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {parsedData.rows.map((row, idx) => {
+                  let category = "Geral";
+                  let item = "";
+                  let value = "";
+                  let detail = "";
+                  
+                  if (row.length >= 4) {
+                    category = row[0];
+                    item = row[1];
+                    value = row[2];
+                    detail = row[3];
+                  } else if (row.length === 3) {
+                    category = "Métrica";
+                    item = row[0];
+                    value = row[1];
+                    detail = row[2];
+                   } else if (row.length === 2) {
+                    category = "Métrica";
+                    item = row[0];
+                    value = row[1];
+                  } else {
+                    item = row[0] || "";
+                  }
+                  
+                  // Style highlights for important rows (receipts, totals, net profit, return rate)
+                  const isHeadingRow = 
+                    item.toLowerCase().includes('total') || 
+                    item.toLowerCase().includes('lucro') || 
+                    item.toLowerCase().includes('receita') || 
+                    item.toLowerCase().includes('roi') || 
+                    item.toLowerCase().includes('tir') || 
+                    item.startsWith('**') && item.endsWith('**') ||
+                    value.startsWith('**');
+                    
+                  const cleanItem = item.replace(/\*\*/g, '').trim();
+                  const cleanValue = value.replace(/\*\*/g, '').trim();
+                  const cleanDetail = detail.replace(/\*\*/g, '').trim();
+                  const cleanCategory = category.replace(/\*\*/g, '').trim();
+
+                  if (!cleanItem && !cleanValue) return null;
+
+                  return (
+                    <div 
+                      key={idx} 
+                      className={cn(
+                        "rounded-2xl border p-4 shadow-sm flex flex-col justify-between gap-3 transition-all duration-300 avoid-break",
+                        isHeadingRow 
+                          ? "bg-brand-primary/5 border-brand-primary/35 shadow-brand-primary/5" 
+                          : "bg-brand-paper border-brand-primary/10 hover:border-brand-primary/20"
+                      )}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className={cn(
+                          "text-[8px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-md font-sans",
+                          isHeadingRow ? "bg-brand-primary/20 text-brand-primary" : "bg-brand-primary/10 text-brand-primary/80"
+                        )}>
+                          {cleanCategory}
+                        </span>
+                        <span className={cn(
+                          "text-xs font-mono font-bold",
+                          isHeadingRow ? "text-brand-primary text-sm font-black" : "text-brand-ink/90"
+                        )}>
+                          {cleanValue}
+                        </span>
+                      </div>
+                      
+                      <div className="space-y-1">
+                        <h5 className={cn(
+                          "text-[10px] sm:text-xs font-bold font-sans uppercase tracking-wide",
+                          isHeadingRow ? "text-brand-primary" : "text-brand-ink/80"
+                        )}>
+                          {cleanItem}
+                        </h5>
+                        {cleanDetail && (
+                          <p className="text-[10px] sm:text-xs text-brand-ink/50 leading-relaxed font-sans font-medium">
+                            {cleanDetail}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        }
       }
 
       return (
-        <div className="my-8 overflow-hidden rounded-2xl border border-brand-primary/10 shadow-sm">
-          <table className="w-full text-left border-collapse bg-brand-bg/20">
+        <div className="my-8 overflow-x-auto rounded-2xl border border-brand-primary/10 shadow-sm max-w-full">
+          <table className="w-full text-left border-collapse bg-brand-bg/20 min-w-[600px]">
             {children}
           </table>
         </div>
@@ -5304,7 +5453,8 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
             city: 'Cidade extraída',
             state: 'Estado',
             valuation_value: simulationData.valuation?.value || 0,
-            min_bid: simulationData.bid?.value || 0
+            min_bid: simulationData.bid?.value || 0,
+            expected_sale_value: simulationData.saleValue?.value || 0
           })
         });
         if (res.ok) {
@@ -5329,6 +5479,21 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
         console.error(err);
         alert("Erro ao preparar compartilhamento: " + (err as Error).message);
         return;
+      }
+    } else {
+      // Property already exists, but we want to save our screen's customized financial values into the db
+      try {
+        await fetch(`/api/properties/${propertyId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({
+            valuation_value: simulationData.valuation?.value || 0,
+            min_bid: simulationData.bid?.value || 0,
+            expected_sale_value: simulationData.saleValue?.value || 0
+          })
+        });
+      } catch (err) {
+        console.error("Erro ao atualizar dados do imóvel para compartilhar:", err);
       }
     }
 
@@ -5446,7 +5611,8 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
           city: 'Cidade extraída',
           state: 'Estado',
           valuation_value: simulationData.valuation?.value || 0,
-          min_bid: simulationData.bid?.value || 0
+          min_bid: simulationData.bid?.value || 0,
+          expected_sale_value: simulationData.saleValue?.value || 0
         })
       });
       if (res.ok) {
@@ -5966,6 +6132,17 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
       // Save analysis to database if property is selected
       if (selectedPropertyId) {
         try {
+          // Update the property values in the database with the extracted values
+          await fetch(`/api/properties/${selectedPropertyId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({
+              valuation_value: extractedData.valuation?.value || 0,
+              min_bid: extractedData.bid?.value || 0,
+              expected_sale_value: extractedData.saleValue?.value || 0
+            })
+          });
+
           const saveRes = await fetch('/api/ai-analyses', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
@@ -6294,10 +6471,8 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
               <AnalysisTab active={activeSubTab === 'matricula'} onClick={() => updateState({ activeSubTab: 'matricula' })} icon={<BookOpen size={16} />} label="Matrícula" />
               <AnalysisTab active={activeSubTab === 'processos'} onClick={() => updateState({ activeSubTab: 'processos' })} icon={<Search size={16} />} label="Processos" />
               {!isPublicView && <AnalysisTab active={activeSubTab === 'documents'} onClick={() => updateState({ activeSubTab: 'documents' })} icon={<Files size={16} />} label="Documentos" />}
-              <AnalysisTab active={activeSubTab === 'debts'} onClick={() => updateState({ activeSubTab: 'debts' })} icon={<DollarSign size={16} />} label="Débitos" />
               <AnalysisTab active={activeSubTab === 'simulations'} onClick={() => updateState({ activeSubTab: 'simulations' })} icon={<TrendingUp size={16} />} label="Simulação" />
               <AnalysisTab active={activeSubTab === 'investors'} onClick={() => updateState({ activeSubTab: 'investors' })} icon={<Users size={16} />} label="Investidores" />
-              <AnalysisTab active={activeSubTab === 'costs'} onClick={() => updateState({ activeSubTab: 'costs' })} icon={<Calculator size={16} />} label="Custos" />
             </div>
 
             {/* Tab Content */}
