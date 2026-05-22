@@ -1,3 +1,5 @@
+import { parseJsonResponse } from './apiService';
+
 /**
  * Lightweight client-side proxy service for AI features.
  * All operations are run securely on the server-side to hide API keys from the browser
@@ -23,11 +25,11 @@ export const analyzeAuctionDocuments = async (
   });
 
   if (!res.ok) {
-    const errorData = await res.json().catch(() => ({}));
+    const errorData = await parseJsonResponse(res).catch(() => ({}));
     throw new Error(errorData.error || `Erro de análise (${res.status})`);
   }
 
-  const data = await res.json();
+  const data = await parseJsonResponse(res);
   return data.result;
 };
 
@@ -47,11 +49,11 @@ export const generateProcessStory = async (
   });
 
   if (!res.ok) {
-    const errorData = await res.json().catch(() => ({}));
+    const errorData = await parseJsonResponse(res).catch(() => ({}));
     throw new Error(errorData.error || `Erro de geração de história (${res.status})`);
   }
 
-  return await res.json();
+  return await parseJsonResponse(res);
 };
 
 export const sendChatMessage = async (
@@ -71,10 +73,10 @@ export const sendChatMessage = async (
   });
 
   if (!res.ok) {
-    const errorData = await res.json().catch(() => ({}));
+    const errorData = await parseJsonResponse(res).catch(() => ({}));
     throw new Error(errorData.error || `Erro de chat (${res.status})`);
   }
 
-  const data = await res.json();
+  const data = await parseJsonResponse(res);
   return data.result;
 };

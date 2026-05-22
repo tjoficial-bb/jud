@@ -106,12 +106,13 @@ const parseJsonResponse = async (res: Response) => {
     if (lowerTrimmed.startsWith('<!doctype') || lowerTrimmed.includes('<html') || lowerTrimmed.includes('<body') || lowerTrimmed.startsWith('<')) {
       console.warn(`API Warning: Received HTML instead of JSON for ${res.url}. Status: ${res.status}.`);
       const msg = "Sessão expirada ou cookies bloqueados.\n\nPor favor, tente abrir o sistema em uma nova aba para renovar a sessão.";
-      throw new SessionException(msg);
+      const error = new SessionException(msg);
+      throw error;
     }
     
     return JSON.parse(trimmed);
-  } catch (e) {
-    if (e instanceof SessionException) {
+  } catch (e: any) {
+    if (e instanceof SessionException || e.name === 'SessionException' || (e.message && e.message.includes("Sessão expirada"))) {
       throw e;
     }
     console.error(`Erro ao parsear JSON para ${res.url}. Status: ${res.status}. Content: ${text.substring(0, 200)}...`);
@@ -5492,7 +5493,7 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
           console.error("Erro ao buscar documentos:", text);
           throw new Error(`Erro ao carregar documentos (${docsRes.status}).`);
         }
-        docs = await docsRes.json();
+        docs = await parseJsonResponse(docsRes);
       } else {
         docs = adHocDocs;
       }
@@ -6680,7 +6681,7 @@ function UsersView({ token }: { token: string }) {
     fetch('/api/users', { headers: { 'Authorization': `Bearer ${token}` } })
       .then(res => {
         if (!res.ok) throw new Error("Erro ao carregar usuários");
-        return res.json();
+        return parseJsonResponse(res);
       })
       .then(data => setUsers(data))
       .catch(err => console.error(err));

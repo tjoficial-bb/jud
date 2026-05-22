@@ -67,7 +67,7 @@ async function extractTextFromBuffer(buffer: Buffer, mimeType: string): Promise<
 
 console.log("DEBUG: Servidor iniciando...");
 
-const DB_NAME = "leiloes_pro.db";
+const DB_NAME = path.join(process.cwd(), "leiloes_pro.db");
 let db: InstanceType<typeof Database>;
 
 try {
