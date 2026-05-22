@@ -135,8 +135,11 @@
 
 @media print {
   body {
-    background: white !important;
-    color: black !important;
+    background: #ffffff !important;
+    color: #0f172a !important;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
   
   .no-print, 
@@ -158,11 +161,11 @@
   main {
     padding: 0 !important;
     margin: 0 !important;
-    padding-left: 0 !important;
-    margin-left: 0 !important;
+    width: 100% !important;
+    background: transparent !important;
   }
 
-  /* Reset layout grids for printing */
+  /* Force grids to act as sequential block layout or clean flex for pdf */
   .grid {
     display: block !important;
   }
@@ -175,55 +178,140 @@
     margin: 0 !important;
   }
 
+  /* Make sure background and badges look beautiful and high contrast */
+  .bg-brand-paper, .bg-brand-paper\/50, .bg-brand-paper\/30 {
+    background: #f8fafc !important;
+    border: 1px solid #e2e8f0 !important;
+    border-radius: 12px !important;
+    padding: 16px !important;
+    margin-bottom: 20px !important;
+    box-shadow: none !important;
+  }
+
+  .bg-black, .bg-brand-bg, .bg-brand-bg\/20 {
+    background: #f1f5f9 !important;
+    border: 1px solid #e2e8f0 !important;
+  }
+
+  /* Text color fixes for light print mode */
+  .text-brand-ink, p, li, blockquote, span, div {
+    color: #1e293b !important;
+  }
+
+  .text-brand-ink\/40 {
+    color: #64748b !important;
+  }
+
+  .text-brand-ink\/30 {
+    color: #94a3b8 !important;
+  }
+
+  /* High-contrast brand highlights optimized for light print paper */
+  .text-brand-primary {
+    color: #b45309 !important; /* Elegant dark amber instead of neon yellow */
+    font-weight: 700 !important;
+  }
+
+  .bg-brand-primary {
+    background-color: #fef08a !important; /* Soft yellow highlight background */
+    color: #713f12 !important;
+  }
+
+  /* Positive and Negative metric highlights optimized for white paper */
+  .text-emerald-500, .text-green-500, .text-emerald-400 {
+    color: #15803d !important; /* Rich readable emerald green */
+    font-weight: bold !important;
+  }
+
+  .text-blue-500, .text-blue-400 {
+    color: #1d4ed8 !important; /* Professional royal blue */
+    font-weight: bold !important;
+  }
+
+  .text-red-500 {
+    color: #b91c1c !important; /* Bright but readable red */
+    font-weight: bold !important;
+  }
+
+  /* Markdown & Prose Styling */
   .prose, 
   .markdown-body {
     background: transparent !important;
-    color: #111111 !important;
+    color: #1e293b !important;
     padding: 0 !important;
     border: none !important;
     box-shadow: none !important;
   }
+
+  .markdown-body h1, .markdown-body h2, .markdown-body h3, .markdown-body h4 {
+    color: #0f172a !important;
+    page-break-after: avoid !important;
+    break-after: avoid !important;
+  }
+
   .markdown-body h1 {
-    margin-top: 0 !important;
-    color: #000000 !important;
-    font-size: 24pt !important;
-    border-bottom: 1.5pt solid #000000 !important;
-    padding-bottom: 6pt !important;
+    margin-top: 15px !important;
+    font-size: 20pt !important;
+    border-bottom: 2px solid #cbd5e1 !important;
+    padding-bottom: 4px !important;
   }
+
   .markdown-body h2 {
-    color: #222222 !important;
-    font-size: 18pt !important;
-    border-left: 4px solid #000000 !important;
-    border-bottom: 1px solid #dddddd !important;
-    padding-bottom: 4pt !important;
+    margin-top: 15px !important;
+    font-size: 16pt !important;
+    border-left: 4px solid #b45309 !important;
+    padding-left: 10px !important;
+    border-bottom: 1px solid #e2e8f0 !important;
+    padding-bottom: 4px !important;
   }
+
   .markdown-body h3 {
-    color: #444444 !important;
-    font-size: 14pt !important;
-    border-bottom: 1px solid #eeeeee !important;
+    margin-top: 10px !important;
+    font-size: 13pt !important;
+    color: #334155 !important;
+    border-bottom: 1px solid #f1f5f9 !important;
   }
+
   .markdown-body p, 
   .markdown-body li {
-    color: #222222 !important;
-    font-size: 11pt !important;
+    color: #334155 !important;
+    font-size: 10.5pt !important;
+    line-height: 1.5 !important;
   }
-  .markdown-body table {
+
+  /* Custom table print layout */
+  table, .markdown-body table {
     display: table !important;
     width: 100% !important;
-    border: 1px solid #ccc !important;
+    border-collapse: collapse !important;
+    margin: 15px 0 !important;
+    page-break-inside: avoid !important;
   }
-  .markdown-body th, 
-  .markdown-body td {
-    border: 1px solid #ccc !important;
-    padding: 8px !important;
-    color: #111111 !important;
+
+  th, .markdown-body th {
+    background: #f1f5f9 !important;
+    color: #0f172a !important;
+    font-weight: 700 !important;
+    border: 1px solid #cbd5e1 !important;
+    padding: 8px 12px !important;
+    font-size: 9.5pt !important;
+    text-transform: uppercase !important;
   }
+
+  td, .markdown-body td {
+    background: #ffffff !important;
+    color: #334155 !important;
+    border: 1px solid #e2e8f0 !important;
+    padding: 8px 12px !important;
+    font-size: 9pt !important;
+  }
+
   .print-only {
     display: block !important;
   }
 
   @page {
-    margin: 25mm 20mm 25mm 20mm;
+    margin: 20mm 15mm 20mm 15mm;
     size: A4 portrait;
   }
 
@@ -233,58 +321,51 @@
     break-after: avoid !important;
   }
 
-  p, li, tr, blockquote, .premium-card, section, .avoid-break {
+  tr, blockquote, .avoid-break {
     page-break-inside: avoid !important;
     break-inside: avoid !important;
   }
 
-  /* Watermark Setup */
+  /* Fixed overlays avoided to prevent intersecting pages */
   .print-watermark {
     display: block !important;
     position: fixed !important;
     top: 50% !important;
     left: 50% !important;
     transform: translate(-50%, -50%) rotate(-35deg) !important;
-    font-size: 40pt !important;
-    color: rgba(212, 175, 55, 0.08) !important;
+    font-size: 36pt !important;
+    color: rgba(180, 83, 9, 0.05) !important;
     font-weight: 900 !important;
     text-transform: uppercase !important;
     letter-spacing: 4px !important;
     white-space: nowrap !important;
     z-index: -1000 !important;
     pointer-events: none !important;
-    text-shadow: 1px 1px 1px rgba(255, 255, 255, 0.5) !important;
   }
 
-  /* Repeated Print Header Setup */
   .print-header {
     display: flex !important;
-    position: fixed !important;
-    top: -15mm !important;
-    left: 0 !important;
-    right: 0 !important;
+    position: static !important; /* Switched to static to flow beautifully on top of the first page content */
+    border-bottom: 2px solid #b45309 !important;
+    padding-bottom: 8px !important;
+    margin-bottom: 20px !important;
     justify-content: space-between !important;
     align-items: center !important;
-    border-bottom: 0.5pt solid #dddddd !important;
-    padding-bottom: 4px !important;
     font-size: 8pt !important;
-    color: #666666 !important;
+    color: #64748b !important;
     font-weight: bold !important;
     text-transform: uppercase !important;
   }
 
-  /* Repeated Print Footer Setup */
   .print-footer {
     display: flex !important;
-    position: fixed !important;
-    bottom: -15mm !important;
-    left: 0 !important;
-    right: 0 !important;
+    position: static !important; /* Switched to static/relative so it flows nicely at the end of sections */
+    border-top: 1px solid #cbd5e1 !important;
+    padding-top: 8px !important;
+    margin-top: 30px !important;
     justify-content: space-between !important;
     align-items: center !important;
-    border-top: 0.5pt solid #dddddd !important;
-    padding-top: 4px !important;
     font-size: 8pt !important;
-    color: #666666 !important;
+    color: #64748b !important;
   }
 }

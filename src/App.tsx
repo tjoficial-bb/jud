@@ -805,6 +805,14 @@ export default function App() {
               <div className="w-12 h-12 bg-brand-primary/10 rounded-2xl flex items-center justify-center text-brand-primary font-bold text-lg border border-brand-primary/10">
                 {user?.name?.[0] || 'A'}
               </div>
+              <button
+                onClick={handleLogout}
+                title="Desconectar"
+                className="p-3 hover:bg-red-500/10 hover:text-red-500 text-brand-ink/40 rounded-2xl transition-all flex items-center gap-2 cursor-pointer no-print"
+              >
+                <LogOut size={20} />
+                <span className="text-[10px] font-bold uppercase tracking-widest hidden md:inline">Sair</span>
+              </button>
             </div>
           </header>
         )}
@@ -1789,8 +1797,6 @@ function AIConfigView({ token, aiConfig, onConfigUpdate }: { token: string, aiCo
             >
               <option>Gemini</option>
               <option>ChatGPT</option>
-              <option>Claude</option>
-              <option>DeepSeek</option>
             </select>
           </div>
           <div>
@@ -1803,8 +1809,6 @@ function AIConfigView({ token, aiConfig, onConfigUpdate }: { token: string, aiCo
               <option value="">Nenhuma</option>
               <option>Gemini</option>
               <option>ChatGPT</option>
-              <option>Claude</option>
-              <option>DeepSeek</option>
             </select>
           </div>
         </div>
@@ -1835,36 +1839,10 @@ function AIConfigView({ token, aiConfig, onConfigUpdate }: { token: string, aiCo
 
           <div className="flex items-end gap-4">
             <div className="flex-1">
-              <AIKeyInput label="Chave de API da OpenAI" value={localConfig.openai_key} onChange={val => setLocalConfig({...localConfig, openai_key: val})} />
+              <AIKeyInput label="Chave de API da OpenAI (ChatGPT)" value={localConfig.openai_key} onChange={val => setLocalConfig({...localConfig, openai_key: val})} />
             </div>
             <button 
               onClick={() => handleTestKey('openai', localConfig.openai_key)}
-              disabled={testing}
-              className="mb-1 bg-brand-bg border border-brand-primary/20 text-brand-primary px-6 py-4 rounded-2xl font-bold text-xs uppercase tracking-widest hover:bg-brand-primary/5 transition-all disabled:opacity-50"
-            >
-              {testing ? <Loader2 className="animate-spin" size={16} /> : "Testar"}
-            </button>
-          </div>
-
-          <div className="flex items-end gap-4">
-            <div className="flex-1">
-              <AIKeyInput label="Chave de API do Claude" value={localConfig.claude_key} onChange={val => setLocalConfig({...localConfig, claude_key: val})} />
-            </div>
-            <button 
-              onClick={() => handleTestKey('claude', localConfig.claude_key)}
-              disabled={testing}
-              className="mb-1 bg-brand-bg border border-brand-primary/20 text-brand-primary px-6 py-4 rounded-2xl font-bold text-xs uppercase tracking-widest hover:bg-brand-primary/5 transition-all disabled:opacity-50"
-            >
-              {testing ? <Loader2 className="animate-spin" size={16} /> : "Testar"}
-            </button>
-          </div>
-
-          <div className="flex items-end gap-4">
-            <div className="flex-1">
-              <AIKeyInput label="Chave de API do DeepSeek" value={localConfig.deepseek_key} onChange={val => setLocalConfig({...localConfig, deepseek_key: val})} />
-            </div>
-            <button 
-              onClick={() => handleTestKey('deepseek', localConfig.deepseek_key)}
               disabled={testing}
               className="mb-1 bg-brand-bg border border-brand-primary/20 text-brand-primary px-6 py-4 rounded-2xl font-bold text-xs uppercase tracking-widest hover:bg-brand-primary/5 transition-all disabled:opacity-50"
             >
@@ -2854,6 +2832,256 @@ function BidMap({ simulationData }: { simulationData: any }) {
 
 function InteractiveSimulationTable() {
   const { simulationData, updateState } = React.useContext(SimulationContext);
+  if (!simulationData) return null;
+
+  const metrics = calculateSimulationMetrics(simulationData);
+  const totalInvestment = metrics.assetCost;
+  const grossProfit = metrics.netProfit;
+  const roi = metrics.roi;
+
+  const handleUpdateField = (key: string, field: string, value: any) => {
+    updateState((prev: any) => {
+      const isDirect = key === 'saleValue' || key === 'bid';
+      const newData = {
+        ...prev.simulationData,
+        [key]: isDirect ? value : {
+          ...(prev.simulationData[key] || {}),
+          [field]: value
+        }
+      };
+      return { simulationData: newData };
+    });
+  };
+
+  const getFieldValue = (key: string) => {
+    return simulationData[key]?.value ?? (typeof simulationData[key] === 'number' ? simulationData[key] : 0);
+  };
+
+  const getFieldType = (key: string) => {
+    return simulationData[key]?.type ?? 'BRL';
+  };
+
+  const getVal = (field: any) => {
+    if (!field || !field.type) return 0;
+    if (field.type === 'BRL') return field.value;
+    const bidValue = simulationData.bid?.value || 0;
+    return bidValue * ((field.value || 0) / 100);
+  };
+
+  const format = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 py-4 font-sans leading-normal">
+      {/* Column 1: Configuração Simples */}
+      <div className="lg:col-span-7 space-y-6">
+        <div className="bg-brand-paper rounded-3xl border border-brand-primary/10 p-6 sm:p-8 shadow-sm space-y-6">
+          <div className="border-b border-brand-border/40 pb-4">
+            <h4 className="text-lg font-bold text-brand-primary font-sans">Valores Fundamentais</h4>
+            <p className="text-xs text-brand-ink/40 mt-1">Configure o preço estimado de mercado de venda e o lance planejado.</p>
+          </div>
+          
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            <div className="space-y-2">
+              <label className="text-[10px] font-bold text-brand-ink/60 uppercase tracking-widest block font-sans">Preço Estimado de Venda</label>
+              <div className="flex items-center gap-2 bg-brand-bg/40 rounded-2xl px-4 py-3 border border-brand-border focus-within:border-brand-primary/40 transition-all">
+                <span className="text-brand-ink/40 text-sm font-bold font-mono">R$</span>
+                <input 
+                  type="number"
+                  value={getFieldValue('saleValue')}
+                  onChange={(e) => handleUpdateField('saleValue', 'value', parseFloat(e.target.value) || 0)}
+                  className="w-full bg-transparent border-none focus:ring-0 text-sm font-bold p-0 text-brand-ink outline-none font-mono"
+                  placeholder="0,00"
+                />
+              </div>
+              <p className="text-[10px] text-brand-ink/40 font-sans">Valor projetado para a revenda do imóvel.</p>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-[10px] font-bold text-brand-ink/60 uppercase tracking-widest block text-brand-primary font-sans">Lance da Arrematação</label>
+              <div className="flex items-center gap-2 bg-brand-bg/40 rounded-2xl px-4 py-3 border border-brand-primary/25 focus-within:border-brand-primary/55 transition-all">
+                <span className="text-brand-primary text-sm font-bold font-mono">R$</span>
+                <input 
+                  type="number"
+                  value={getFieldValue('bid')}
+                  onChange={(e) => handleUpdateField('bid', 'value', parseFloat(e.target.value) || 0)}
+                  className="w-full bg-transparent border-none focus:ring-0 text-sm font-bold p-0 text-brand-primary outline-none font-mono"
+                  placeholder="0,00"
+                />
+              </div>
+              <p className="text-[10px] text-brand-ink/40 font-sans">Valor reservado para ofertar no leilão.</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Acquisition & Service Fees */}
+        <div className="bg-brand-paper rounded-3xl border border-brand-border p-6 sm:p-8 shadow-sm space-y-6">
+          <div className="border-b border-brand-border/40 pb-4">
+            <h4 className="text-lg font-bold text-brand-primary font-sans">Custos da Arrematação</h4>
+            <p className="text-xs text-brand-ink/40 mt-1">Apenas os valores necessários para a regularização e o assessoramento jurídico-financeiro.</p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            <div className="space-y-1">
+              <CompactSimulationInput 
+                label="Comissão do Leiloeiro"
+                value={getFieldValue('commission')}
+                type={getFieldType('commission')}
+                onTypeChange={t => handleUpdateField('commission', 'type', t)}
+                onChange={v => handleUpdateField('commission', 'value', v)}
+              />
+            </div>
+
+            <div className="space-y-1">
+              <CompactSimulationInput 
+                label="ITBI Estimado"
+                value={getFieldValue('itbi')}
+                type={getFieldType('itbi')}
+                onTypeChange={t => handleUpdateField('itbi', 'type', t)}
+                onChange={v => handleUpdateField('itbi', 'value', v)}
+              />
+            </div>
+
+            <div className="space-y-1">
+              <CompactSimulationInput 
+                label="Registro e Custas"
+                value={getFieldValue('transfRegistro')}
+                type={getFieldType('transfRegistro')}
+                onTypeChange={t => handleUpdateField('transfRegistro', 'type', t)}
+                onChange={v => handleUpdateField('transfRegistro', 'value', v)}
+              />
+            </div>
+
+            <div className="space-y-1">
+              <CompactSimulationInput 
+                label="Dívidas IPTU / Condo"
+                value={getFieldValue('desocupacaoAcordo')}
+                type={getFieldType('desocupacaoAcordo')}
+                onTypeChange={t => handleUpdateField('desocupacaoAcordo', 'type', t)}
+                onChange={v => handleUpdateField('desocupacaoAcordo', 'value', v)}
+              />
+            </div>
+
+            <div className="space-y-1">
+              <CompactSimulationInput 
+                label="Reforma / Desocupação"
+                value={getFieldValue('reforma')}
+                type={getFieldType('reforma')}
+                onTypeChange={t => handleUpdateField('reforma', 'type', t)}
+                onChange={v => handleUpdateField('reforma', 'value', v)}
+              />
+            </div>
+
+            <div className="space-y-1">
+              <CompactSimulationInput 
+                label="Assessoria TJ INVEST"
+                value={getFieldValue('assessoria')}
+                type={getFieldType('assessoria')}
+                onTypeChange={t => handleUpdateField('assessoria', 'type', t)}
+                onChange={v => handleUpdateField('assessoria', 'value', v)}
+              />
+            </div>
+
+            <div className="space-y-1">
+              <CompactSimulationInput 
+                label="Entrada TJ INVEST"
+                value={getFieldValue('entrada')}
+                type={getFieldType('entrada')}
+                onTypeChange={t => handleUpdateField('entrada', 'type', t)}
+                onChange={v => handleUpdateField('entrada', 'value', v)}
+              />
+            </div>
+
+            <div className="space-y-1">
+              <CompactSimulationInput 
+                label="Despesas Extra / Outros"
+                value={getFieldValue('extraFees')}
+                type={getFieldType('extraFees')}
+                onTypeChange={t => handleUpdateField('extraFees', 'type', t)}
+                onChange={v => handleUpdateField('extraFees', 'value', v)}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Column 2: Elegant summary card */}
+      <div className="lg:col-span-5">
+        <div className="bg-brand-paper rounded-3xl border-2 border-brand-primary/20 p-6 sm:p-8 shadow-xl sticky top-8 space-y-6">
+          <div className="border-b border-brand-border pb-4">
+            <h4 className="text-base font-bold uppercase tracking-wider text-brand-ink/80 flex items-center gap-2 font-sans">
+              <Calculator size={16} className="text-brand-primary" />
+              Resumo Operacional
+            </h4>
+            <p className="text-xs text-brand-ink/40 mt-1 font-sans">Visão simplificada do ativo para complementar sua análise jurídica documental.</p>
+          </div>
+
+          <div className="space-y-4 font-mono">
+            <div className="flex justify-between items-center text-sm font-sans">
+              <span className="text-brand-ink/50 text-xs uppercase tracking-wider font-sans">Valor Estimado de Venda</span>
+              <span className="font-bold text-brand-ink font-mono">{format(getFieldValue('saleValue'))}</span>
+            </div>
+
+            <div className="flex justify-between items-center text-sm border-b border-brand-border/30 pb-3 font-sans">
+              <span className="text-brand-primary text-xs uppercase tracking-wider font-bold font-sans">Lance da Arrematação</span>
+              <span className="font-extrabold text-brand-primary font-mono">{format(getFieldValue('bid'))}</span>
+            </div>
+
+            <div className="space-y-2.5 pt-2">
+              <div className="text-[10px] font-bold uppercase tracking-widest text-brand-primary/60 font-sans">Custos Detalhados</div>
+              {[
+                { label: 'Comissão Leiloeiro', val: getVal(simulationData.commission) },
+                { label: 'Imposto ITBI', val: getVal(simulationData.itbi) },
+                { label: 'Registro/Cartório', val: getVal(simulationData.transfRegistro) },
+                { label: 'Dívidas IPTU/Cond.', val: getVal(simulationData.desocupacaoAcordo) },
+                { label: 'Reformas/Imprevistos', val: getVal(simulationData.reforma) },
+                { label: 'Assessoria TJ INVEST', val: getVal(simulationData.assessoria) },
+                { label: 'Entrada TJ INVEST', val: getVal(simulationData.entrada) },
+                { label: 'Custos Extras', val: getVal(simulationData.extraFees) }
+              ].map((item, idx) => (
+                <div key={idx} className="flex justify-between text-xs text-brand-ink/70">
+                  <span className="font-sans">{item.label}</span>
+                  <span className="font-semibold font-mono">{format(item.val)}</span>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex justify-between items-center text-sm border-t border-brand-border/50 pt-4 font-sans">
+              <span className="text-brand-ink/50 text-xs uppercase tracking-wider font-sans">Custos Totais Adicionais</span>
+              <span className="font-bold text-red-500 font-mono">-{format(metrics.totalUpfrontExpenses - getFieldValue('bid'))}</span>
+            </div>
+
+            <div className="flex justify-between items-center text-sm border-b border-brand-border pb-4 font-sans">
+              <span className="text-brand-ink/50 text-xs uppercase tracking-wider font-bold font-sans">Custo de Aquisição Total</span>
+              <span className="font-bold text-brand-ink font-mono">{format(totalInvestment)}</span>
+            </div>
+
+            {/* Final profit indicator */}
+            <div className="pt-4 space-y-3 font-sans">
+              <div className="bg-brand-primary/10 border border-brand-primary/20 rounded-2xl p-4 flex justify-between items-center whitespace-nowrap">
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-brand-primary block font-sans">Lucro Líquido Estimado</span>
+                  <span className="text-xs text-brand-ink/55 font-sans">Diferença estimada pós-custos</span>
+                </div>
+                <span className="text-2xl font-black text-brand-primary font-mono">{format(grossProfit)}</span>
+              </div>
+
+              <div className="bg-brand-secondary/10 border border-brand-border rounded-2xl p-4 flex justify-between items-center whitespace-nowrap">
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-brand-ink/55 block font-sans">ROI sobre Investimento</span>
+                  <span className="text-xs text-brand-ink/55 font-sans">Percentual de retorno</span>
+                </div>
+                <span className="text-xl font-bold text-green-500 font-mono">{roi.toFixed(1)}%</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function InteractiveSimulationTableOLD() {
+  const { simulationData, updateState } = React.useContext(SimulationContext);
   const [showBreakdown, setShowBreakdown] = React.useState(false);
   const [showDebtsBreakdown, setShowDebtsBreakdown] = React.useState(false);
   const [showComparison, setShowComparison] = React.useState(false);
@@ -3371,7 +3599,8 @@ function InteractiveSimulationTable() {
         </div>
       </div>
 
-        <table className="w-full border-collapse">
+      <div className="overflow-x-auto border border-brand-border rounded-[2rem] -mx-4 sm:mx-0">
+        <table className="w-full border-collapse min-w-[760px]">
           <tbody className="divide-y divide-brand-border/50">
             {groups.map((group, groupIndex) => (
               <React.Fragment key={groupIndex}>
@@ -3619,6 +3848,7 @@ function InteractiveSimulationTable() {
           </tr>
         </tbody>
       </table>
+    </div>
 
       {/* Scenario Comparison Section */}
       <div className="bg-brand-bg/30 p-8 border-t border-brand-border">
@@ -4121,59 +4351,7 @@ function GlossaryMarkdown({ content, onJumpToSimulation, simulationData, updateS
 }
 
 function MarketComparisonTable({ metrics, roi, simulationData, format }: { metrics: any, roi: number, simulationData: any, format: (val: number) => string }) {
-  if (!metrics) return null;
-  const grossProfit = metrics.netProfit || 0;
-  const totalInvestment = metrics.totalInvestment || 0;
-  
-  return (
-    <div className="bg-brand-paper rounded-3xl border border-brand-border p-6 shadow-sm">
-      <div className="flex items-center justify-between mb-6">
-        <h4 className="text-xs font-bold uppercase tracking-widest text-brand-ink/40 flex items-center gap-2">
-          <TrendingUp size={14} className="text-brand-primary" />
-          Comparativo de Mercado (Anualizado)
-        </h4>
-      </div>
-      <div className="space-y-4">
-        <div className="grid grid-cols-5 gap-4 pb-2 border-b border-brand-border/30">
-          <div className="text-[9px] font-bold uppercase tracking-widest text-brand-ink/30">Investimento</div>
-          <div className="text-[9px] font-bold uppercase tracking-widest text-brand-ink/30 text-right">Lucro (R$)</div>
-          <div className="text-[9px] font-bold uppercase tracking-widest text-brand-ink/30 text-right">TIR (a.a.)</div>
-          <div className="text-[9px] font-bold uppercase tracking-widest text-brand-ink/30 text-right">ROI (Total)</div>
-          <div className="text-[9px] font-bold uppercase tracking-widest text-brand-ink/30 text-right">Prêmio</div>
-        </div>
-        
-        {[
-          { label: 'Este Imóvel (TJ INVEST)', profit: grossProfit, tir: calculateTIR(metrics), roi: roi, isPrimary: true },
-          { label: 'Tesouro Direto (SELIC)', profit: (totalInvestment * (simulationData.comparisonData?.tesouro?.roi || 11.5) / 100), tir: simulationData.comparisonData?.tesouro?.tir || 11.5, roi: simulationData.comparisonData?.tesouro?.roi || 11.5 },
-          { label: 'CDB (100% CDI)', profit: (totalInvestment * (simulationData.comparisonData?.cdb?.roi || 12.0) / 100), tir: simulationData.comparisonData?.cdb?.tir || 12.0, roi: simulationData.comparisonData?.cdb?.roi || 12.0 },
-          { label: 'Poupança', profit: (totalInvestment * (simulationData.comparisonData?.poupanca?.roi || 6.5) / 100), tir: simulationData.comparisonData?.poupanca?.tir || 6.5, roi: simulationData.comparisonData?.poupanca?.roi || 6.5 },
-          { label: 'Investimento em Aluguel', profit: (totalInvestment * (simulationData.comparisonData?.aluguel?.roi || 8.5) / 100), tir: simulationData.comparisonData?.aluguel?.tir || 8.5, roi: simulationData.comparisonData?.aluguel?.roi || 8.5 },
-        ].map((row, idx) => (
-          <div key={idx} className={cn(
-            "grid grid-cols-5 gap-4 py-2 items-center transition-all",
-            row.isPrimary ? "bg-brand-primary/10 rounded-xl px-4 -mx-4" : ""
-          )}>
-            <div className={cn("text-xs", row.isPrimary ? "font-bold text-brand-ink" : "text-brand-ink/60")}>{row.label}</div>
-            <div className={cn("text-xs font-mono text-right", row.isPrimary ? "font-bold text-brand-primary" : "text-brand-ink/60")}>{format(row.profit)}</div>
-            <div className={cn("text-xs font-mono text-right", row.isPrimary ? "font-bold text-brand-primary" : "text-brand-ink/60")}>{row.tir.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%</div>
-            <div className={cn("text-xs font-mono text-right", row.isPrimary ? "font-bold text-brand-primary" : "text-brand-ink/60")}>{row.roi.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%</div>
-            <div className="text-right">
-              {!row.isPrimary ? (
-                <span className="text-[10px] font-bold text-emerald-500">
-                  +{ Math.max(0, calculateTIR(metrics) - row.tir).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) }%
-                </span>
-              ) : (
-                <span className="text-[10px] font-bold text-brand-primary uppercase tracking-tighter">Target</span>
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
-      <p className="mt-6 text-[9px] text-brand-ink/30 italic leading-relaxed">
-        * O prêmio de risco representa o ganho adicional anualizado deste imóvel em relação aos ativos de renda fixa tradicionais.
-      </p>
-    </div>
-  );
+  return null;
 }
 
 function InvestorsTabContent({ simulationData, report }: { simulationData: any, report: string }) {
@@ -4621,8 +4799,8 @@ function MasterReportView({
       </div>
 
       {/* Header / Opportunity */}
-      <section className="bg-brand-paper p-8 rounded-[2.5rem] border border-brand-primary/10 shadow-sm">
-        <div className="flex items-center justify-between mb-8">
+      <section className="bg-brand-paper p-4 sm:p-8 rounded-[2rem] sm:rounded-[2.5rem] border border-brand-primary/10 shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 gap-6">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 bg-brand-primary rounded-2xl flex items-center justify-center text-black">
               <Star size={24} />
@@ -4825,6 +5003,64 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
   } = state;
   const analysisDocs = selectedPropertyId ? propertyDocs : state.adHocDocs; // Use the passed props
   const currentDebts = selectedPropertyId ? propertyDebts : [];
+
+  const handleNewAnalysis = () => {
+    if (window.confirm("Deseja iniciar uma nova análise? Todos os dados da análise atual serão redefinidos.")) {
+      setState(prev => ({
+        ...prev,
+        activeSubTab: 'report',
+        selectedPropertyId: '',
+        report: null,
+        adHocDocs: [],
+        cnjNumber: '',
+        cnjResult: null,
+        chatMessages: [],
+        simulationData: {
+          valuation: { value: 0, type: 'BRL' },
+          bid: { value: 0, type: 'BRL' },
+          saleValue: { value: 0, type: 'BRL' },
+          holdingMonths: 12,
+          strategy: 'venda',
+          expectedReturn: 15,
+          customExpenses: [],
+          assessoria: { value: 6, type: 'PERCENT', base: 'bid' },
+          entrada: { value: 1500, type: 'BRL' },
+          desocupacaoAcordo: { value: 0, type: 'BRL' },
+          desocupacaoDespesas: { value: 0, type: 'BRL' },
+          reformaMin: { value: 0, type: 'BRL' },
+          iptuAtraso: { value: 0, type: 'BRL' },
+          condominioAtraso: { value: 0, type: 'BRL' },
+          outrosAtraso: { value: 0, type: 'BRL' },
+          itbi: { value: 3, type: 'PERCENT', base: 'bid' },
+          escritura: { value: 1000, type: 'BRL' },
+          registro: { value: 1500, type: 'BRL' },
+          comissaoVenda: { value: 5, type: 'PERCENT', base: 'saleValue' },
+          outrosCustos: { value: 0, type: 'BRL' },
+          vendaHoldingMonths: { value: 0, type: 'BRL' },
+          vendaCondominioMonths: { value: 0, type: 'BRL' },
+          vendaIptuMonths: { value: 0, type: 'BRL' },
+          vendaOutrosMonths: { value: 0, type: 'BRL' },
+          downPaymentPercent: 100,
+          installments: 1,
+          interestRate: 0,
+          comparisonData: {
+            tesouro: { tir: 11.5, roi: 11.5 },
+            cdb: { tir: 12.0, roi: 12.0 },
+            poupanca: { tir: 6.5, roi: 6.5 }
+          }
+        },
+        analysisId: null,
+        processStory: null,
+        processAnalysis: null,
+        editalAnalysis: undefined,
+        matriculaAnalysis: undefined,
+        manualAuctionType: 'auto',
+        auctionUrls: [],
+        isEditingReport: false,
+        isEditingStory: false
+      }));
+    }
+  };
 
   const handleAnalyzeEdital = async () => {
     const docs = analysisDocs.filter(d => d.doc_type === 'Edital');
@@ -5110,7 +5346,10 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
 
   const handleSaveAsProperty = async () => {
     try {
-      const title = cnjResult ? `Leilão: ${cnjResult.cnj_number}` : `Análise IA: ${new Date().toLocaleDateString()}`;
+      const defaultTitle = cnjResult ? `Leilão: ${cnjResult.cnj_number}` : `Análise IA: ${new Date().toLocaleDateString('pt-BR')}`;
+      const titleInput = window.prompt("Escolha um nome para salvar a análise:", defaultTitle);
+      if (titleInput === null) return; // cancelado pelo usuário
+      const title = titleInput.trim() || defaultTitle;
       
       const res = await fetch('/api/properties', {
         method: 'POST',
@@ -5832,10 +6071,6 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
                       nextModel = 'gemini-2.5-flash';
                     } else if (nextSource === 'openai_custom') {
                       nextModel = 'gpt-4o';
-                    } else if (nextSource === 'claude_custom') {
-                      nextModel = 'claude-4-6-sonnet';
-                    } else if (nextSource === 'deepseek_custom') {
-                      nextModel = 'deepseek-v3';
                     }
                     updateState({ selectedKeySource: nextSource, selectedModel: nextModel });
                   }}
@@ -5843,8 +6078,6 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
                   <option value="system_default">Padrão do Sistema (Google AI Studio - Gemini)</option>
                   <option value="openai_custom">OpenAI / ChatGPT (Minha Chave)</option>
                   <option value="gemini_custom">Google Gemini (Minha Chave)</option>
-                  <option value="claude_custom">Anthropic Claude (Minha Chave)</option>
-                  <option value="deepseek_custom">DeepSeek (Minha Chave)</option>
                 </select>
                 
                   {/* Status Indicator Badge */}
@@ -5877,20 +6110,6 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
                       <span className="text-amber-500 font-bold flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span> Chave não cadastrada (Configuração de IA)</span>
                     )
                   )}
-                  {state.selectedKeySource === 'claude_custom' && (
-                    state.aiConfig?.claude_key?.trim() ? (
-                      <span className="text-emerald-500 font-bold flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-500"></span> Chave Claude Cadastrada</span>
-                    ) : (
-                      <span className="text-amber-500 font-bold flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span> Chave não cadastrada (Configuração de IA)</span>
-                    )
-                  )}
-                  {state.selectedKeySource === 'deepseek_custom' && (
-                    state.aiConfig?.deepseek_key?.trim() ? (
-                      <span className="text-emerald-500 font-bold flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-500"></span> Chave DeepSeek Cadastrada</span>
-                    ) : (
-                      <span className="text-amber-500 font-bold flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span> Chave não cadastrada (Configuração de IA)</span>
-                    )
-                  )}
                 </div>
               </div>
 
@@ -5916,21 +6135,6 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
                       <option value="gpt-5">GPT-5 (Nova Geração)</option>
                       <option value="gpt-4o">GPT-4o (Omni)</option>
                       <option value="o1-preview">OpenAI o1 (Raciocínio)</option>
-                    </optgroup>
-                  )}
-                  {state.selectedKeySource === 'claude_custom' && (
-                    <optgroup label="Anthropic Claude">
-                      <option value="claude-4-6-opus">Claude 4.6 Opus (Topo de Linha)</option>
-                      <option value="claude-4-6-sonnet">Claude 4.6 Sonnet (Mais Eficiente)</option>
-                      <option value="claude-4-5-haiku">Claude 4.5 Haiku (Ultra Rápido)</option>
-                      <option value="claude-4-5-opus">Claude 4.5 Opus</option>
-                      <option value="claude-4-5-sonnet">Claude 4.5 Sonnet</option>
-                    </optgroup>
-                  )}
-                  {state.selectedKeySource === 'deepseek_custom' && (
-                    <optgroup label="DeepSeek">
-                      <option value="deepseek-v3">DeepSeek V3</option>
-                      <option value="deepseek-r1">DeepSeek R1 (Raciocínio)</option>
                     </optgroup>
                   )}
                 </select>
@@ -6005,7 +6209,7 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
               <AnalysisTab active={activeSubTab === 'edital'} onClick={() => updateState({ activeSubTab: 'edital' })} icon={<FileText size={16} />} label="Edital" />
               <AnalysisTab active={activeSubTab === 'matricula'} onClick={() => updateState({ activeSubTab: 'matricula' })} icon={<BookOpen size={16} />} label="Matrícula" />
               <AnalysisTab active={activeSubTab === 'processos'} onClick={() => updateState({ activeSubTab: 'processos' })} icon={<Search size={16} />} label="Processos" />
-              <AnalysisTab active={activeSubTab === 'documents'} onClick={() => updateState({ activeSubTab: 'documents' })} icon={<Files size={16} />} label="Documentos" />
+              {!isPublicView && <AnalysisTab active={activeSubTab === 'documents'} onClick={() => updateState({ activeSubTab: 'documents' })} icon={<Files size={16} />} label="Documentos" />}
               <AnalysisTab active={activeSubTab === 'debts'} onClick={() => updateState({ activeSubTab: 'debts' })} icon={<DollarSign size={16} />} label="Débitos" />
               <AnalysisTab active={activeSubTab === 'simulations'} onClick={() => updateState({ activeSubTab: 'simulations' })} icon={<TrendingUp size={16} />} label="Simulação" />
               <AnalysisTab active={activeSubTab === 'investors'} onClick={() => updateState({ activeSubTab: 'investors' })} icon={<Users size={16} />} label="Investidores" />
@@ -6036,7 +6240,7 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
                     </Card>
                     {state.editalAnalysis && (
                       <Card title="Resultado da Análise de Edital">
-                        <div className="prose prose-sm max-w-none text-brand-ink p-8 bg-white rounded-3xl border border-brand-primary/10 shadow-lg">
+                        <div className="p-4 sm:p-8 bg-brand-paper rounded-3xl border border-brand-border shadow-lg overflow-x-auto markdown-body">
                           <ReactMarkdown remarkPlugins={[remarkGfm]}>{state.editalAnalysis}</ReactMarkdown>
                         </div>
                       </Card>
@@ -6055,7 +6259,7 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
                     </Card>
                     {state.matriculaAnalysis && (
                       <Card title="Resultado da Análise de Matrícula">
-                        <div className="prose prose-sm max-w-none text-brand-ink p-8 bg-white rounded-3xl border border-brand-primary/10 shadow-lg">
+                        <div className="p-4 sm:p-8 bg-brand-paper rounded-3xl border border-brand-border shadow-lg overflow-x-auto markdown-body">
                           <ReactMarkdown remarkPlugins={[remarkGfm]}>{state.matriculaAnalysis}</ReactMarkdown>
                         </div>
                       </Card>
@@ -6080,7 +6284,7 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
                   </div>
                   {state.processAnalysis && (
                     <Card title="Resultado da Análise de Processos">
-                      <div className="prose prose-sm max-w-none text-brand-ink p-8 bg-white rounded-3xl border border-brand-primary/10 shadow-lg">
+                      <div className="p-4 sm:p-8 bg-brand-paper rounded-3xl border border-brand-border shadow-lg overflow-x-auto markdown-body">
                         <ReactMarkdown remarkPlugins={[remarkGfm]}>{state.processAnalysis}</ReactMarkdown>
                       </div>
                     </Card>
@@ -6225,10 +6429,21 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
                           <button 
                             type="button"
                             onClick={handlePrint}
-                            className="flex items-center gap-2 bg-brand-paper border border-brand-border text-brand-ink/60 px-6 py-3 rounded-xl text-xs font-bold hover:text-brand-primary hover:border-brand-primary/30 transition-all"
+                            className="flex items-center gap-2 bg-brand-paper border border-brand-border text-brand-ink/60 px-6 py-3 rounded-xl text-xs font-bold hover:text-brand-primary hover:border-brand-primary/30 transition-all font-sans"
+                            title="Salvar como PDF ou Imprimir o relatório completo"
                           >
-                            <Printer size={16} /> Imprimir Relatório
+                            <Printer size={16} /> Salvar PDF / Imprimir
                           </button>
+                          {!isPublicView && (
+                            <button 
+                              type="button"
+                              onClick={handleNewAnalysis}
+                              className="flex items-center gap-2 bg-brand-bg border border-brand-primary/20 text-brand-primary hover:bg-brand-primary/10 px-6 py-3 rounded-xl text-xs font-bold transition-all font-sans"
+                              title="Iniciar uma nova análise jurídica/financeira do zero"
+                            >
+                              <RefreshCw size={16} /> Nova Análise
+                            </button>
+                          )}
                           {state.analysisId && !isPublicView && (
                             <div className="flex gap-2">
                               <button 
@@ -6254,41 +6469,41 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
                       </div>
 
                       {/* Property Summary Cards */}
-                      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-                        <div className="bg-brand-paper/50 p-5 rounded-3xl border border-brand-border">
-                          <p className="text-[10px] font-bold uppercase tracking-widest text-brand-ink/30 mb-2">Valor de Venda</p>
-                          <p className="text-lg font-bold text-brand-ink">
+                      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
+                        <div className="bg-brand-paper/50 p-4 sm:p-5 rounded-2xl sm:rounded-3xl border border-brand-border">
+                          <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-brand-ink/30 mb-2">Valor de Venda</p>
+                          <p className="text-sm sm:text-lg font-bold text-brand-ink break-all">
                             {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(metrics.saleValue || 0)}
                           </p>
                         </div>
-                        <div className="bg-brand-paper/50 p-5 rounded-3xl border border-brand-border">
-                          <p className="text-[10px] font-bold uppercase tracking-widest text-brand-ink/30 mb-2">Custos da Arrematação</p>
-                          <p className="text-lg font-bold text-brand-primary">
+                        <div className="bg-brand-paper/50 p-4 sm:p-5 rounded-2xl sm:rounded-3xl border border-brand-border">
+                          <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-brand-ink/30 mb-2">Custos da Arrematação</p>
+                          <p className="text-sm sm:text-lg font-bold text-brand-primary break-all">
                             {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(metrics.totalInvestment || 0)}
                           </p>
                         </div>
-                        <div className="bg-brand-paper/50 p-5 rounded-3xl border border-brand-border">
-                          <p className="text-[10px] font-bold uppercase tracking-widest text-brand-ink/30 mb-2">Lucro Estimado</p>
-                          <p className="text-lg font-bold text-emerald-500">
+                        <div className="bg-brand-paper/50 p-4 sm:p-5 rounded-2xl sm:rounded-3xl border border-brand-border">
+                          <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-brand-ink/30 mb-2">Lucro Estimado</p>
+                          <p className="text-sm sm:text-lg font-bold text-emerald-500 break-all">
                             {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(metrics.netProfit)}
                           </p>
                         </div>
-                        <div className="bg-brand-paper/50 p-5 rounded-3xl border border-brand-border">
-                          <p className="text-[10px] font-bold uppercase tracking-widest text-brand-ink/30 mb-2">ROI (Total)</p>
-                          <p className="text-lg font-bold text-brand-primary">
+                        <div className="bg-brand-paper/50 p-4 sm:p-5 rounded-2xl sm:rounded-3xl border border-brand-border">
+                          <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-brand-ink/30 mb-2">ROI (Total)</p>
+                          <p className="text-sm sm:text-lg font-bold text-brand-primary break-all">
                             {metrics.roi.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%
                           </p>
                         </div>
-                        <div className="bg-brand-paper/50 p-5 rounded-3xl border border-brand-border">
-                          <p className="text-[10px] font-bold uppercase tracking-widest text-brand-ink/30 mb-2">TIR (Anual)</p>
-                          <p className="text-lg font-bold text-brand-primary">
+                        <div className="bg-brand-paper/50 p-4 sm:p-5 rounded-2xl sm:rounded-3xl border border-brand-border">
+                          <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-brand-ink/30 mb-2">TIR (Anual)</p>
+                          <p className="text-sm sm:text-lg font-bold text-brand-primary break-all">
                             {tir.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%
                           </p>
                         </div>
                       </div>
 
-                      <div className="bg-brand-paper rounded-[2.5rem] border border-brand-border shadow-inner overflow-hidden">
-                        <div className="p-6 md:p-10 border-b border-brand-border bg-brand-bg/20">
+                      <div className="bg-brand-paper rounded-2xl sm:rounded-[2.5rem] border border-brand-border shadow-inner overflow-hidden">
+                        <div className="p-4 sm:p-6 md:p-10 border-b border-brand-border bg-brand-bg/20">
                           <div className="flex items-center justify-between mb-6">
                             <h4 className="text-[10px] font-bold uppercase tracking-widest text-brand-ink/60">Quadro de Investimento (Master)</h4>
                             <button 
@@ -6302,7 +6517,7 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
                           <InteractiveSimulationTable />
                         </div>
                         
-                        <div className="p-6 md:p-10 prose prose-invert max-w-none">
+                        <div className="p-4 sm:p-6 md:p-10 markdown-body max-w-none text-brand-ink break-words">
                           {report ? (
                             <ReactMarkdown remarkPlugins={[remarkGfm]} components={reportComponents}>{report}</ReactMarkdown>
                           ) : (
@@ -6508,7 +6723,7 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
                 </div>
               )}
 
-              {activeSubTab === 'documents' && (
+              {activeSubTab === 'documents' && !isPublicView && (
                 <div className="space-y-12">
                   <div className="flex items-center justify-between">
                     <h4 className="text-2xl font-serif font-medium text-brand-primary">Repositório Organizado</h4>
@@ -6562,23 +6777,19 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
               )}
 
               {activeSubTab === 'simulations' && (
-                <div className="space-y-12">
-                  <div className="flex items-center justify-between">
-                    <h4 className="text-3xl font-serif font-medium text-brand-primary">Simulação de Viabilidade</h4>
-                    <div className="flex gap-2 bg-brand-bg p-1.5 rounded-2xl border border-brand-primary/5">
-                      <button className="px-6 py-2.5 bg-brand-primary rounded-xl text-[10px] font-bold uppercase tracking-widest shadow-sm text-black">Cenário Conservador</button>
-                      <button className="px-6 py-2.5 text-[10px] font-bold uppercase tracking-widest text-brand-ink/30 hover:text-brand-primary transition-colors">Cenário Otimista</button>
+                <div className="space-y-6">
+                  <div className="flex items-center justify-between border-b border-brand-border/40 pb-4">
+                    <div>
+                      <h4 className="text-2xl font-bold text-brand-primary font-sans">Parâmetros Financeiros Resumidos</h4>
+                      <p className="text-xs text-brand-ink/40 mt-1 font-sans">Defina os valores do imóvel e custos para complementar sua viabilidade documental.</p>
                     </div>
                   </div>
-
-                  <SimulationContext.Provider value={{ simulationData, updateState, onJumpToSimulation: onJumpToSimulation || (() => {}) }}>
-                    <InteractiveSimulationTable />
-                    <BidMap simulationData={simulationData} />
-                    <TIRCalculator />
-                    <CashFlowChart simulationData={simulationData} />
-                  </SimulationContext.Provider>
-                </div>
-              )}
+ 
+                   <SimulationContext.Provider value={{ simulationData, updateState, onJumpToSimulation: onJumpToSimulation || (() => {}) }}>
+                     <InteractiveSimulationTable />
+                   </SimulationContext.Provider>
+                 </div>
+               )}
             </div>
           </div>
         </div>
@@ -6602,7 +6813,7 @@ function AnalysisTab({ active, onClick, icon, label }: { active: boolean, onClic
     <button 
       onClick={onClick}
       className={cn(
-        "flex items-center gap-3 px-10 py-6 text-[10px] font-bold uppercase tracking-[0.2em] transition-all border-b-2",
+        "flex items-center gap-3 px-10 py-6 text-[10px] font-bold uppercase tracking-[0.2em] transition-all border-b-2 shrink-0 whitespace-nowrap",
         active ? "bg-brand-paper border-brand-primary text-brand-primary" : "border-transparent text-brand-ink/30 hover:text-brand-primary/60"
       )}
     >
