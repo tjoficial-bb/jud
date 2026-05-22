@@ -165,6 +165,17 @@
     background: transparent !important;
   }
 
+  /* Strip parent wrapping card borders and background shadows on print */
+  .bg-brand-paper.rounded-\[2\.5rem\].border,
+  div.flex-1.p-4.sm\:p-6.md\:p-10 {
+    border: none !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
+  }
+
   /* Force grids to act as sequential block layout or clean flex for pdf */
   .grid {
     display: block !important;
@@ -172,19 +183,21 @@
 
   .lg\:col-span-3,
   .lg\:col-span-4,
+  .xl\:col-span-12,
   .xl\:col-span-5 {
     width: 100% !important;
     padding: 0 !important;
     margin: 0 !important;
+    border: none !important;
   }
 
-  /* Make sure background and badges look beautiful and high contrast */
+  /* Make sure internal card blocks look clean on paper */
   .bg-brand-paper, .bg-brand-paper\/50, .bg-brand-paper\/30 {
     background: #f8fafc !important;
     border: 1px solid #e2e8f0 !important;
     border-radius: 12px !important;
-    padding: 16px !important;
-    margin-bottom: 20px !important;
+    padding: 18px !important;
+    margin-bottom: 24px !important;
     box-shadow: none !important;
   }
 
@@ -193,17 +206,17 @@
     border: 1px solid #e2e8f0 !important;
   }
 
-  /* Text color fixes for light print mode */
+  /* Text color fixes for clear black ink on white paper */
   .text-brand-ink, p, li, blockquote, span, div {
-    color: #1e293b !important;
+    color: #0f172a !important;
   }
 
   .text-brand-ink\/40 {
-    color: #64748b !important;
+    color: #475569 !important;
   }
 
   .text-brand-ink\/30 {
-    color: #94a3b8 !important;
+    color: #64748b !important;
   }
 
   /* High-contrast brand highlights optimized for light print paper */
@@ -215,21 +228,22 @@
   .bg-brand-primary {
     background-color: #fef08a !important; /* Soft yellow highlight background */
     color: #713f12 !important;
+    font-weight: bold !important;
   }
 
   /* Positive and Negative metric highlights optimized for white paper */
   .text-emerald-500, .text-green-500, .text-emerald-400 {
-    color: #15803d !important; /* Rich readable emerald green */
+    color: #166534 !important; /* Dark rich green */
     font-weight: bold !important;
   }
 
   .text-blue-500, .text-blue-400 {
-    color: #1d4ed8 !important; /* Professional royal blue */
+    color: #1e40af !important; /* Deep sapphire blue */
     font-weight: bold !important;
   }
 
   .text-red-500 {
-    color: #b91c1c !important; /* Bright but readable red */
+    color: #991b1b !important; /* Deep brick red */
     font-weight: bold !important;
   }
 
@@ -237,10 +251,12 @@
   .prose, 
   .markdown-body {
     background: transparent !important;
-    color: #1e293b !important;
+    color: #0f172a !important;
     padding: 0 !important;
     border: none !important;
     box-shadow: none !important;
+    page-break-before: always !important;
+    break-before: page !important;
   }
 
   .markdown-body h1, .markdown-body h2, .markdown-body h3, .markdown-body h4 {
@@ -250,33 +266,52 @@
   }
 
   .markdown-body h1 {
-    margin-top: 15px !important;
+    margin-top: 24px !important;
     font-size: 20pt !important;
-    border-bottom: 2px solid #cbd5e1 !important;
-    padding-bottom: 4px !important;
+    border-bottom: 2px solid #b45309 !important;
+    padding-bottom: 6px !important;
   }
 
   .markdown-body h2 {
-    margin-top: 15px !important;
-    font-size: 16pt !important;
+    margin-top: 24px !important;
+    font-size: 15pt !important;
     border-left: 4px solid #b45309 !important;
     padding-left: 10px !important;
-    border-bottom: 1px solid #e2e8f0 !important;
-    padding-bottom: 4px !important;
+    border-bottom: 1px solid #cbd5e1 !important;
+    padding-bottom: 6px !important;
+  }
+
+  /* Page breaks inside strategic heading sections */
+  .markdown-body h1:not(:first-of-type), 
+  .markdown-body h2:not(:first-of-type) {
+    page-break-before: always !important;
+    break-before: page !important;
   }
 
   .markdown-body h3 {
-    margin-top: 10px !important;
-    font-size: 13pt !important;
-    color: #334155 !important;
+    margin-top: 16px !important;
+    font-size: 12.5pt !important;
+    color: #1e293b !important;
     border-bottom: 1px solid #f1f5f9 !important;
+    padding-bottom: 4px !important;
   }
 
   .markdown-body p, 
   .markdown-body li {
-    color: #334155 !important;
+    color: #1e293b !important;
     font-size: 10.5pt !important;
-    line-height: 1.5 !important;
+    line-height: 1.6 !important;
+  }
+
+  /* Prevent sentences and list items from splitting across pages */
+  p, li, .markdown-body p, .markdown-body li, blockquote {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  /* Hide raw JSON developer blocks or code segments completely in printout */
+  pre, code, .markdown-body pre, .markdown-body code {
+    display: none !important;
   }
 
   /* Custom table print layout */
@@ -284,7 +319,7 @@
     display: table !important;
     width: 100% !important;
     border-collapse: collapse !important;
-    margin: 15px 0 !important;
+    margin: 18px 0 !important;
     page-break-inside: avoid !important;
   }
 
@@ -300,7 +335,7 @@
 
   td, .markdown-body td {
     background: #ffffff !important;
-    color: #334155 !important;
+    color: #1e293b !important;
     border: 1px solid #e2e8f0 !important;
     padding: 8px 12px !important;
     font-size: 9pt !important;
@@ -315,10 +350,17 @@
     size: A4 portrait;
   }
 
-  /* Page Break optimization */
+  /* Prevent headings from being solitary at page bottom (orphans) */
   h1, h2, h3, h4, h5, h6 {
     page-break-after: avoid !important;
     break-after: avoid !important;
+  }
+
+  /* Specific section page breaks */
+  .print-section-2,
+  .print-section-3 {
+    page-break-before: always !important;
+    break-before: page !important;
   }
 
   tr, blockquote, .avoid-break {
@@ -326,18 +368,18 @@
     break-inside: avoid !important;
   }
 
-  /* Fixed overlays avoided to prevent intersecting pages */
+  /* Watermarks, Header and Footer custom placements */
   .print-watermark {
     display: block !important;
     position: fixed !important;
     top: 50% !important;
     left: 50% !important;
     transform: translate(-50%, -50%) rotate(-35deg) !important;
-    font-size: 36pt !important;
-    color: rgba(180, 83, 9, 0.05) !important;
+    font-size: 38pt !important;
+    color: rgba(180, 83, 9, 0.04) !important;
     font-weight: 900 !important;
     text-transform: uppercase !important;
-    letter-spacing: 4px !important;
+    letter-spacing: 5px !important;
     white-space: nowrap !important;
     z-index: -1000 !important;
     pointer-events: none !important;
@@ -345,27 +387,27 @@
 
   .print-header {
     display: flex !important;
-    position: static !important; /* Switched to static to flow beautifully on top of the first page content */
+    position: static !important;
     border-bottom: 2px solid #b45309 !important;
-    padding-bottom: 8px !important;
-    margin-bottom: 20px !important;
+    padding-bottom: 10px !important;
+    margin-bottom: 24px !important;
     justify-content: space-between !important;
     align-items: center !important;
-    font-size: 8pt !important;
-    color: #64748b !important;
+    font-size: 8.5pt !important;
+    color: #475569 !important;
     font-weight: bold !important;
     text-transform: uppercase !important;
   }
 
   .print-footer {
     display: flex !important;
-    position: static !important; /* Switched to static/relative so it flows nicely at the end of sections */
+    position: static !important;
     border-top: 1px solid #cbd5e1 !important;
-    padding-top: 8px !important;
-    margin-top: 30px !important;
+    padding-top: 10px !important;
+    margin-top: 36px !important;
     justify-content: space-between !important;
     align-items: center !important;
-    font-size: 8pt !important;
-    color: #64748b !important;
+    font-size: 8.5pt !important;
+    color: #475569 !important;
   }
 }

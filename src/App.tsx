@@ -220,6 +220,30 @@ const CostsEditor = ({ simulationData, updateSimulationData }: { simulationData:
   );
 };
 
+const getMasterBudgetConfigs = () => {
+  const stored = localStorage.getItem('QUADRO_RESUMO_INVESTIMENTO_MASTER');
+  if (stored) {
+    try {
+      const parsed = JSON.parse(stored);
+      if (parsed && typeof parsed === 'object') {
+        return parsed;
+      }
+    } catch (e) {
+      console.error("Erro ao ler QUADRO_RESUMO_INVESTIMENTO_MASTER de localStorage", e);
+    }
+  }
+  return {
+    comissaoLeiloeiro: { value: 5, type: 'PERCENT' },
+    itbi: { value: 3, type: 'PERCENT' },
+    transfRegistro: { value: 1.5, type: 'PERCENT' },
+    desocupacaoAcordo: { value: 0, type: 'BRL' },
+    reforma: { value: 0, type: 'BRL' },
+    assessoria: { value: 6, type: 'PERCENT' },
+    entrada: { value: 1500, type: 'BRL' },
+    extraFees: { value: 0, type: 'BRL' }
+  };
+};
+
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [user, setUser] = useState<User | null>(null);
@@ -433,95 +457,101 @@ export default function App() {
     isGeneratingStory: boolean;
     isEditingStory: boolean;
     selectedKeySource: 'system_default' | 'openai_custom' | 'gemini_custom' | 'claude_custom' | 'deepseek_custom';
-  }>({
-    activeSubTab: 'report',
-    selectedPropertyId: '',
-    report: null,
-    adHocDocs: [],
-    cnjNumber: '',
-    cnjResult: null,
-    selectedModel: 'gemini-2.5-flash',
-    chatMessages: [],
-    simulationData: {
-      valuation: { value: 0, type: 'BRL' },
-      bid: { value: 0, type: 'BRL' },
-      saleValue: { value: 0, type: 'BRL' },
-      holdingMonths: 12,
-      strategy: 'venda',
-      expectedReturn: 15,
-      customExpenses: [],
-      
-      // Assessoramento
-      assessoria: { value: 6, type: 'PERCENT', base: 'bid' },
-      entrada: { value: 1500, type: 'BRL' },
-      
-      // Desocupação
-      desocupacaoAcordo: { value: 0, type: 'BRL' },
-      desocupacaoDespesas: { value: 0, type: 'BRL' },
-      desocupacaoHonorarios: { value: 0, type: 'PERCENT', base: 'bid' },
-      desocupacaoCustas: { value: 0, type: 'PERCENT', base: 'bid' },
-      
-      // Pré-Arrematação
-      preAnaliseImobiliaria: { value: 0, type: 'BRL' },
-      preAnaliseJuridica: { value: 0, type: 'BRL' },
-      preCopiaProcessos: { value: 0, type: 'BRL' },
-      preConsultas: { value: 0, type: 'BRL' },
-      preMatricula: { value: 0, type: 'BRL' },
-      
-      // Reforma
-      reforma: { value: 0, type: 'BRL', base: 'bid' },
-      
-      // Arrematação
-      comissaoLeiloeiro: { value: 5, type: 'PERCENT', base: 'bid' },
-      
-      // Realização
-      despesasVenda: { value: 0, type: 'BRL' },
-      
-      // Despesas Mensais (per month)
-      mensalCondominio: { value: 0, type: 'BRL' },
-      mensalIPTU: { value: 0, type: 'BRL' },
-      mensalOutros: { value: 0, type: 'BRL' },
-      
-      // Despesas Pós-Operacionais
-      posTaxaPerformance: { value: 0, type: 'PERCENT', base: 'profit' },
-      posComissaoCorretor: { value: 5, type: 'PERCENT', base: 'saleValue' },
-      posIR: { value: 15, type: 'PERCENT', base: 'capitalGain' },
-      
-      // Transferência
-      transfEscritura: { value: 1.5, type: 'PERCENT', base: 'bid' },
-      transfITBI: { value: 3, type: 'PERCENT', base: 'bid' },
-      transfRegistro: { value: 1.5, type: 'PERCENT', base: 'bid' },
-      transfCartorio: { value: 0, type: 'BRL' },
-      transfAverbacoes: { value: 0, type: 'BRL' },
-      transfLaudemio: { value: 0, type: 'BRL' },
-      transfForo: { value: 0, type: 'BRL' },
+  }>(() => {
+    const masterDefaults = getMasterBudgetConfigs();
+    return {
+      activeSubTab: 'report',
+      selectedPropertyId: '',
+      report: null,
+      adHocDocs: [],
+      cnjNumber: '',
+      cnjResult: null,
+      selectedModel: 'gemini-2.5-flash',
+      chatMessages: [],
+      simulationData: {
+        valuation: { value: 0, type: 'BRL' },
+        bid: { value: 0, type: 'BRL' },
+        saleValue: { value: 0, type: 'BRL' },
+        holdingMonths: 12,
+        strategy: 'venda',
+        expectedReturn: 15,
+        customExpenses: [],
+        
+        // Assessoramento
+        assessoria: { value: masterDefaults.assessoria?.value ?? 6, type: masterDefaults.assessoria?.type ?? 'PERCENT', base: 'bid' },
+        entrada: { value: masterDefaults.entrada?.value ?? 1500, type: masterDefaults.entrada?.type ?? 'BRL' },
+        
+        // Desocupação
+        desocupacaoAcordo: { value: masterDefaults.desocupacaoAcordo?.value ?? 0, type: masterDefaults.desocupacaoAcordo?.type ?? 'BRL' },
+        desocupacaoDespesas: { value: 0, type: 'BRL' },
+        desocupacaoHonorarios: { value: 0, type: 'PERCENT', base: 'bid' },
+        desocupacaoCustas: { value: 0, type: 'PERCENT', base: 'bid' },
+        
+        // Pré-Arrematação
+        preAnaliseImobiliaria: { value: 0, type: 'BRL' },
+        preAnaliseJuridica: { value: 0, type: 'BRL' },
+        preCopiaProcessos: { value: 0, type: 'BRL' },
+        preConsultas: { value: 0, type: 'BRL' },
+        preMatricula: { value: 0, type: 'BRL' },
+        
+        // Reforma
+        reforma: { value: masterDefaults.reforma?.value ?? 0, type: masterDefaults.reforma?.type ?? 'BRL', base: 'bid' },
+        
+        // Arrematação
+        comissaoLeiloeiro: { value: masterDefaults.comissaoLeiloeiro?.value ?? 5, type: masterDefaults.comissaoLeiloeiro?.type ?? 'PERCENT', base: 'bid' },
+        commission: { value: masterDefaults.comissaoLeiloeiro?.value ?? 5, type: masterDefaults.comissaoLeiloeiro?.type ?? 'PERCENT', base: 'bid' },
+        
+        // Realização
+        despesasVenda: { value: masterDefaults.extraFees?.value ?? 0, type: masterDefaults.extraFees?.type ?? 'BRL' },
+        extraFees: { value: masterDefaults.extraFees?.value ?? 0, type: masterDefaults.extraFees?.type ?? 'BRL' },
+        
+        // Despesas Mensais (per month)
+        mensalCondominio: { value: 0, type: 'BRL' },
+        mensalIPTU: { value: 0, type: 'BRL' },
+        mensalOutros: { value: 0, type: 'BRL' },
+        
+        // Despesas Pós-Operacionais
+        posTaxaPerformance: { value: 0, type: 'PERCENT', base: 'profit' },
+        posComissaoCorretor: { value: 5, type: 'PERCENT', base: 'saleValue' },
+        posIR: { value: 15, type: 'PERCENT', base: 'capitalGain' },
+        
+        // Transferência
+        transfEscritura: { value: 1.5, type: 'PERCENT', base: 'bid' },
+        transfITBI: { value: masterDefaults.itbi?.value ?? 3, type: masterDefaults.itbi?.type ?? 'PERCENT', base: 'bid' },
+        itbi: { value: masterDefaults.itbi?.value ?? 3, type: masterDefaults.itbi?.type ?? 'PERCENT', base: 'bid' },
+        transfRegistro: { value: masterDefaults.transfRegistro?.value ?? 1.5, type: masterDefaults.transfRegistro?.type ?? 'PERCENT', base: 'bid' },
+        transfCartorio: { value: 0, type: 'BRL' },
+        transfAverbacoes: { value: 0, type: 'BRL' },
+        transfLaudemio: { value: 0, type: 'BRL' },
+        transfForo: { value: 0, type: 'BRL' },
 
-      // Financing
-      downPaymentPercent: 100,
-      installments: 1,
-      interestRate: 0,
-      auctionType: 'judicial',
-      comparisonData: {
-        tesouro: { tir: 11.5, roi: 11.5 },
-        cdb: { tir: 12.0, roi: 12.0 },
-        poupanca: { tir: 6.5, roi: 6.5 }
-      }
-    },
-    isPublicView: false,
-    shareToken: null,
-    showInlineEditor: false,
-    anonymizeProperty: false,
-    analysisId: null,
-    isEditingReport: false,
-    aiConfig: null,
-    manualAuctionType: 'auto',
-    auctionUrls: [''],
-    sessionId: Math.random().toString(36).substring(7),
-    processStory: null,
-    processAnalysis: null,
-    isGeneratingStory: false,
-    isEditingStory: false,
-    selectedKeySource: 'system_default',
+        // Financing
+        downPaymentPercent: 100,
+        installments: 1,
+        interestRate: 0,
+        auctionType: 'judicial',
+        comparisonData: {
+          tesouro: { tir: 11.5, roi: 11.5 },
+          cdb: { tir: 12.0, roi: 12.0 },
+          poupanca: { tir: 6.5, roi: 6.5 }
+        }
+      },
+      isPublicView: false,
+      shareToken: null,
+      showInlineEditor: false,
+      anonymizeProperty: false,
+      analysisId: null,
+      isEditingReport: false,
+      aiConfig: null,
+      manualAuctionType: 'auto',
+      auctionUrls: [''],
+      sessionId: Math.random().toString(36).substring(7),
+      processStory: null,
+      processAnalysis: null,
+      isGeneratingStory: false,
+      isEditingStory: false,
+      selectedKeySource: 'system_default',
+    };
   });
 
   useEffect(() => {
@@ -2853,6 +2883,32 @@ function InteractiveSimulationTable() {
     });
   };
 
+  const handleApplyMasterParams = () => {
+    const master = getMasterBudgetConfigs();
+    updateState((prev: any) => {
+      const newData = {
+        ...prev.simulationData,
+        comissaoLeiloeiro: { ...(prev.simulationData.comissaoLeiloeiro || {}), value: master.comissaoLeiloeiro?.value ?? 5, type: master.comissaoLeiloeiro?.type ?? 'PERCENT' },
+        commission: { ...(prev.simulationData.commission || {}), value: master.comissaoLeiloeiro?.value ?? 5, type: master.comissaoLeiloeiro?.type ?? 'PERCENT' },
+        itbi: { ...(prev.simulationData.itbi || {}), value: master.itbi?.value ?? 3, type: master.itbi?.type ?? 'PERCENT' },
+        transfITBI: { ...(prev.simulationData.transfITBI || {}), value: master.itbi?.value ?? 3, type: master.itbi?.type ?? 'PERCENT' },
+        transfRegistro: { ...(prev.simulationData.transfRegistro || {}), value: master.transfRegistro?.value ?? 1.5, type: master.transfRegistro?.type ?? 'PERCENT' },
+        desocupacaoAcordo: { ...(prev.simulationData.desocupacaoAcordo || {}), value: master.desocupacaoAcordo?.value ?? 0, type: master.desocupacaoAcordo?.type ?? 'BRL' },
+        reforma: { ...(prev.simulationData.reforma || {}), value: master.reforma?.value ?? 0, type: master.reforma?.type ?? 'BRL' },
+        assessoria: { ...(prev.simulationData.assessoria || {}), value: master.assessoria?.value ?? 6, type: master.assessoria?.type ?? 'PERCENT' },
+        entrada: { ...(prev.simulationData.entrada || {}), value: master.entrada?.value ?? 1500, type: master.entrada?.type ?? 'BRL' },
+        extraFees: { ...(prev.simulationData.extraFees || {}), value: master.extraFees?.value ?? 0, type: master.extraFees?.type ?? 'BRL' },
+        despesasVenda: { ...(prev.simulationData.despesasVenda || {}), value: master.extraFees?.value ?? 0, type: master.extraFees?.type ?? 'BRL' }
+      };
+      return { simulationData: newData };
+    });
+    if ((window as any).customToast) {
+      (window as any).customToast("Parâmetros do Quadro Resumo (MASTER) aplicados com sucesso!", "success");
+    } else {
+      alert("Parâmetros do Quadro Resumo (MASTER) aplicados!");
+    }
+  };
+
   const getFieldValue = (key: string) => {
     return simulationData[key]?.value ?? (typeof simulationData[key] === 'number' ? simulationData[key] : 0);
   };
@@ -2915,9 +2971,19 @@ function InteractiveSimulationTable() {
 
         {/* Acquisition & Service Fees */}
         <div className="bg-brand-paper rounded-3xl border border-brand-border p-6 sm:p-8 shadow-sm space-y-6">
-          <div className="border-b border-brand-border/40 pb-4">
-            <h4 className="text-lg font-bold text-brand-primary font-sans">Custos da Arrematação</h4>
-            <p className="text-xs text-brand-ink/40 mt-1">Apenas os valores necessários para a regularização e o assessoramento jurídico-financeiro.</p>
+          <div className="border-b border-brand-border/40 pb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <h4 className="text-lg font-bold text-brand-primary font-sans">Custos da Arrematação</h4>
+              <p className="text-xs text-brand-ink/40 mt-1">Apenas os valores necessários para a regularização e o assessoramento jurídico-financeiro.</p>
+            </div>
+            <button
+              type="button"
+              onClick={handleApplyMasterParams}
+              className="flex items-center gap-2 bg-brand-primary/10 text-brand-primary hover:bg-brand-primary/20 transition-all px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-wider self-start sm:self-auto shrink-0 border border-brand-primary/20 cursor-pointer"
+            >
+              <RefreshCw size={12} className="text-brand-primary animate-pulse" />
+              Carregar Padrão MASTER
+            </button>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
@@ -4607,9 +4673,18 @@ const isRiskOrWarning = (text: string): boolean => {
 };
 
 const reportComponents = {
-  h1: ({node, ...props}: any) => <h1 className="text-3xl font-bold text-brand-primary mb-6 mt-8" {...props} />,
+  h1: ({node, ...props}: any) => {
+    const text = getPlainText(props.children);
+    if (/extração de dados|extracao de dados|dados extraídos|dados extraidos/i.test(text)) {
+      return null;
+    }
+    return <h1 className="text-3xl font-bold text-brand-primary mb-6 mt-8" {...props} />;
+  },
   h2: ({node, ...props}: any) => {
     const text = getPlainText(props.children);
+    if (/extração de dados|extracao de dados|dados extraídos|dados extraidos/i.test(text)) {
+      return null;
+    }
     if (isRiskOrWarning(text)) {
       return (
         <div className="my-6 p-6 bg-red-500/10 border-l-4 border-red-500 rounded-r-2xl flex items-start gap-4">
@@ -4624,6 +4699,9 @@ const reportComponents = {
   },
   h3: ({node, ...props}: any) => {
     const text = getPlainText(props.children);
+    if (/extração de dados|extracao de dados|dados extraídos|dados extraidos/i.test(text)) {
+      return null;
+    }
     if (isRiskOrWarning(text)) {
       return (
         <div className="my-5 p-5 bg-amber-500/10 border-l-4 border-amber-500 rounded-r-xl flex items-start gap-3">
@@ -4655,6 +4733,11 @@ const reportComponents = {
   strong: ({node, ...props}: any) => <strong className="font-bold text-brand-primary" {...props} />,
   ul: ({node, ...props}: any) => <ul className="list-disc list-inside mb-4 space-y-2 text-brand-ink/80" {...props} />,
   li: ({node, ...props}: any) => <li className="ml-4" {...props} />,
+  pre: ({node, ...props}: any) => null,
+  code: ({node, inline, ...props}: any) => {
+    if (!inline) return null;
+    return <code className="bg-brand-bg px-2 py-0.5 rounded text-amber-500 font-mono text-sm" {...props} />;
+  }
 };
 
 function MasterReportView({ 
@@ -4853,7 +4936,7 @@ function MasterReportView({
       </section>
 
       {/* The Story */}
-      <section className="grid grid-cols-1 lg:grid-cols-3 gap-12">
+      <section className="grid grid-cols-1 lg:grid-cols-3 gap-12 print-section-2">
         <div className="lg:col-span-2 space-y-8">
           <div className="flex items-center justify-between">
             <h3 className="text-2xl font-serif font-bold text-brand-primary flex items-center gap-3">
@@ -4926,7 +5009,7 @@ function MasterReportView({
       </section>
 
       {/* Financial Analysis - Quick View */}
-      <section className="bg-brand-paper/50 p-8 rounded-[2.5rem] border border-brand-primary/10">
+      <section className="bg-brand-paper/50 p-8 rounded-[2.5rem] border border-brand-primary/10 print-section-3">
         <h3 className="text-xl font-bold text-brand-primary mb-8 flex items-center gap-3">
           <TrendingUp size={20} />
           Fluxo de Caixa Estimado
@@ -5006,6 +5089,7 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
 
   const handleNewAnalysis = () => {
     if (window.confirm("Deseja iniciar uma nova análise? Todos os dados da análise atual serão redefinidos.")) {
+      const masterDefaults = getMasterBudgetConfigs();
       setState(prev => ({
         ...prev,
         activeSubTab: 'report',
@@ -5023,19 +5107,19 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
           strategy: 'venda',
           expectedReturn: 15,
           customExpenses: [],
-          assessoria: { value: 6, type: 'PERCENT', base: 'bid' },
-          entrada: { value: 1500, type: 'BRL' },
-          desocupacaoAcordo: { value: 0, type: 'BRL' },
+          assessoria: { value: masterDefaults.assessoria?.value ?? 6, type: masterDefaults.assessoria?.type ?? 'PERCENT', base: 'bid' },
+          entrada: { value: masterDefaults.entrada?.value ?? 1500, type: masterDefaults.entrada?.type ?? 'BRL' },
+          desocupacaoAcordo: { value: masterDefaults.desocupacaoAcordo?.value ?? 0, type: masterDefaults.desocupacaoAcordo?.type ?? 'BRL' },
           desocupacaoDespesas: { value: 0, type: 'BRL' },
-          reformaMin: { value: 0, type: 'BRL' },
+          reformaMin: { value: masterDefaults.reforma?.value ?? 0, type: masterDefaults.reforma?.type ?? 'BRL' },
           iptuAtraso: { value: 0, type: 'BRL' },
           condominioAtraso: { value: 0, type: 'BRL' },
           outrosAtraso: { value: 0, type: 'BRL' },
-          itbi: { value: 3, type: 'PERCENT', base: 'bid' },
+          itbi: { value: masterDefaults.itbi?.value ?? 3, type: masterDefaults.itbi?.type ?? 'PERCENT', base: 'bid' },
           escritura: { value: 1000, type: 'BRL' },
-          registro: { value: 1500, type: 'BRL' },
+          registro: { value: masterDefaults.transfRegistro?.value ?? 1.5, type: masterDefaults.transfRegistro?.type ?? 'PERCENT', base: 'bid' },
           comissaoVenda: { value: 5, type: 'PERCENT', base: 'saleValue' },
-          outrosCustos: { value: 0, type: 'BRL' },
+          outrosCustos: { value: masterDefaults.extraFees?.value ?? 0, type: masterDefaults.extraFees?.type ?? 'BRL' },
           vendaHoldingMonths: { value: 0, type: 'BRL' },
           vendaCondominioMonths: { value: 0, type: 'BRL' },
           vendaIptuMonths: { value: 0, type: 'BRL' },
@@ -7001,6 +7085,42 @@ function SettingsView({
   onConfigUpdate: (config: AIConfig) => void; 
 }) {
   const [activeSubTab, setActiveSubTab] = useState<'ai' | 'general'>('ai');
+  const [master, setMaster] = useState(() => {
+    return getMasterBudgetConfigs();
+  });
+
+  const handleUpdate = (key: string, field: 'value' | 'type', val: any) => {
+    setMaster((prev: any) => {
+      const updated = {
+        ...prev,
+        [key]: {
+          ...(prev[key] || { value: 0, type: 'BRL' }),
+          [field]: val
+        }
+      };
+      return updated;
+    });
+  };
+
+  const handleSaveMaster = () => {
+    localStorage.setItem('QUADRO_RESUMO_INVESTIMENTO_MASTER', JSON.stringify(master));
+    if ((window as any).customToast) {
+      (window as any).customToast("Quadro Resumo (MASTER) atualizado com sucesso!", "success");
+    } else {
+      alert("Quadro Resumo (MASTER) cadastrado com sucesso!");
+    }
+  };
+
+  const fields = [
+    { key: 'comissaoLeiloeiro', label: 'Comissão do Leiloeiro', desc: 'Default da taxa para arremate, tipicamente 5%' },
+    { key: 'itbi', label: 'ITBI Estimado', desc: 'Imposto Estadual de Transmissão de Bens Imóveis' },
+    { key: 'transfRegistro', label: 'Registro e Custas', desc: 'Emolumentos de cartório e taxas de averbação' },
+    { key: 'desocupacaoAcordo', label: 'Dívidas IPTU / Condo', desc: 'Pendências de impostos e condomínio associados ao imóvel' },
+    { key: 'reforma', label: 'Reforma / Desocupação', desc: 'Provisão de recursos para reforma ou remoção do ocupante' },
+    { key: 'assessoria', label: 'Assessoria TJ INVEST', desc: 'Comissão devida pelo assessoramento integral' },
+    { key: 'entrada', label: 'Entrada TJ INVEST', desc: 'Pagamento inicial fixo de consultoria jurídica' },
+    { key: 'extraFees', label: 'Despesas Extra / Outros', desc: 'Margem para despesas não listadas ou imprevistos' }
+  ];
 
   return (
     <div className="space-y-8">
@@ -7045,33 +7165,91 @@ function SettingsView({
             onConfigUpdate={onConfigUpdate} 
           />
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-            <Card title="Preferências de Notificação">
-              <div className="space-y-6">
-                <div className="flex items-center justify-between p-6 bg-brand-bg/50 rounded-3xl border border-brand-primary/5">
-                  <span className="font-bold text-brand-primary">Alertas de Novos Leilões</span>
-                  <div className="w-14 h-7 bg-brand-primary rounded-full relative cursor-pointer">
-                    <div className="absolute right-1 top-1 w-5 h-5 bg-white rounded-full shadow-sm" />
-                  </div>
+          <div className="space-y-8">
+            <Card title="QUADRO RESUMO DE INVESTIMENTO (MASTER)">
+              <div className="space-y-8">
+                <div className="p-6 bg-brand-primary/5 rounded-3xl border border-brand-primary/10">
+                  <p className="text-xs text-brand-primary font-sans leading-relaxed">
+                    ⚙️ **Configuração Master Global**: Defina aqui o padrão de cálculo para todas as simulações do sistema. Quando uma nova análise for executada, ela será calculada inicialmente com estes parâmetros. Caso deseje alterá-los para um caso específico, você poderá sobrescrevê-los diretamente na aba de **Simulação** do imóvel para garantir flexibilidade ("não ficar engessado").
+                  </p>
                 </div>
-                <div className="flex items-center justify-between p-6 bg-brand-bg/50 rounded-3xl border border-brand-primary/5">
-                  <span className="font-bold text-brand-primary">Relatórios de IA por Email</span>
-                  <div className="w-14 h-7 bg-brand-ink/10 rounded-full relative cursor-pointer">
-                    <div className="absolute left-1 top-1 w-5 h-5 bg-white rounded-full shadow-sm" />
-                  </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {fields.map(f => {
+                    const fd = master[f.key] || { value: 0, type: 'BRL' };
+                    return (
+                      <div key={f.key} className="flex flex-col gap-2 p-5 bg-brand-bg/30 rounded-3xl border border-brand-border hover:border-brand-primary/20 transition-all">
+                        <div className="flex items-center justify-between font-sans">
+                          <span className="text-xs font-bold uppercase tracking-widest text-brand-primary">{f.label}</span>
+                          
+                          <div className="flex bg-brand-bg rounded-lg p-0.5 border border-brand-border">
+                            <button 
+                              type="button"
+                              onClick={() => handleUpdate(f.key, 'type', 'BRL')}
+                              className={cn(
+                                "px-2 py-0.5 text-[8px] font-bold uppercase tracking-widest rounded transition-all cursor-pointer",
+                                fd.type === 'BRL' ? "bg-brand-primary text-black shadow-sm" : "text-brand-ink/40 hover:text-brand-primary"
+                              )}
+                            >
+                              R$
+                            </button>
+                            <button 
+                              type="button"
+                              onClick={() => handleUpdate(f.key, 'type', 'PERCENT')}
+                              className={cn(
+                                "px-2 py-0.5 text-[8px] font-bold uppercase tracking-widest rounded transition-all cursor-pointer",
+                                fd.type === 'PERCENT' ? "bg-brand-primary text-black shadow-sm" : "text-brand-ink/40 hover:text-brand-primary"
+                              )}
+                            >
+                              %
+                            </button>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center gap-2 bg-brand-bg/40 rounded-2xl px-4 py-2.5 border border-brand-border">
+                          <span className="text-brand-ink/40 text-xs font-bold font-mono">
+                            {fd.type === 'BRL' ? 'R$' : '%'}
+                          </span>
+                          <input 
+                            type="number"
+                            step="any"
+                            value={fd.value}
+                            onChange={(e) => handleUpdate(f.key, 'value', parseFloat(e.target.value) || 0)}
+                            className="w-full bg-transparent border-none focus:ring-0 text-sm font-bold p-0 text-brand-ink outline-none font-mono"
+                            placeholder="0,00"
+                          />
+                        </div>
+                        <span className="text-[9px] text-brand-ink/30 italic font-sans">{f.desc}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+                
+                <div className="flex justify-end pt-4 border-t border-brand-border/40">
+                  <button
+                    onClick={handleSaveMaster}
+                    className="bg-brand-primary text-black px-8 py-4 rounded-2xl font-bold hover:bg-brand-primary/95 transition-all shadow-lg shadow-brand-primary/10 flex items-center gap-2 text-xs uppercase tracking-widest cursor-pointer"
+                  >
+                    <Save size={14} />
+                    Salvar Quadro Resumo (MASTER)
+                  </button>
                 </div>
               </div>
             </Card>
 
-            <Card title="Parâmetros de Cálculo">
+            <Card title="Preferências do Sistema">
               <div className="space-y-6">
-                <div>
-                  <label className="block text-[10px] font-bold uppercase tracking-[0.2em] text-brand-ink/30 mb-3 ml-1">ITBI Padrão (%)</label>
-                  <input type="number" defaultValue={2} className="w-full bg-brand-bg border-none rounded-2xl py-5 px-8 focus:ring-2 focus:ring-brand-primary font-serif text-xl font-bold text-brand-primary" />
+                <div className="flex items-center justify-between p-6 bg-brand-bg/50 rounded-3xl border border-brand-border/45">
+                  <span className="font-bold text-brand-primary text-xs uppercase tracking-wider font-sans">Alertas de Novos Leilões</span>
+                  <div className="w-14 h-7 bg-brand-primary rounded-full relative cursor-pointer">
+                    <div className="absolute right-1 top-1 w-5 h-5 bg-white rounded-full shadow-sm" />
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-[10px] font-bold uppercase tracking-[0.2em] text-brand-ink/30 mb-3 ml-1">Comissão Leiloeiro (%)</label>
-                  <input type="number" defaultValue={5} className="w-full bg-brand-bg border-none rounded-2xl py-5 px-8 focus:ring-2 focus:ring-brand-primary font-serif text-xl font-bold text-brand-primary" />
+                <div className="flex items-center justify-between p-6 bg-brand-bg/50 rounded-3xl border border-brand-border/45">
+                  <span className="font-bold text-brand-primary text-xs uppercase tracking-wider font-sans">Relatórios de IA por Email</span>
+                  <div className="w-14 h-7 bg-brand-ink/10 rounded-full relative cursor-pointer">
+                    <div className="absolute left-1 top-1 w-5 h-5 bg-white rounded-full shadow-sm" />
+                  </div>
                 </div>
               </div>
             </Card>
