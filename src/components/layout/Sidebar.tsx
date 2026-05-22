@@ -16,16 +16,27 @@ export const Sidebar = ({ activeTab, setActiveTab, isSidebarOpen, setIsSidebarOp
   ];
 
   return (
-    <aside className={cn("fixed left-0 top-0 h-screen w-64 bg-brand-bg transition-all border-r border-brand-primary/10 flex flex-col justify-between z-50", !isSidebarOpen && "-translate-x-full")}>
+    <aside className={cn("fixed left-0 top-0 h-screen w-64 bg-brand-bg transition-all duration-300 border-r border-brand-primary/10 flex flex-col justify-between z-50", isSidebarOpen ? "translate-x-0" : "-translate-x-full")}>
       <div className="flex flex-col flex-1">
         <div className="p-8 text-2xl font-serif font-bold text-brand-primary flex items-center justify-between">
           <span>TJ INVEST</span>
+          <button 
+            onClick={() => setIsSidebarOpen(false)} 
+            className="p-2 hover:bg-brand-primary/10 rounded-xl text-brand-primary lg:hidden"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+          </button>
         </div>
         <nav className="flex-1 px-4 space-y-2 overflow-y-auto">
           {menuItems.map(item => (
             <button
               key={item.id}
-              onClick={() => setActiveTab(item.id)}
+              onClick={() => {
+                setActiveTab(item.id);
+                if (window.innerWidth < 1024) {
+                  setIsSidebarOpen(false);
+                }
+              }}
               className={cn(
                 "w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all",
                 activeTab === item.id ? "bg-brand-primary text-black" : "text-brand-ink/40 hover:text-brand-primary"

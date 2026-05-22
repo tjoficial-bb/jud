@@ -236,6 +236,20 @@ export default function App() {
     localStorage.setItem('theme', theme);
   }, [theme]);
 
+  // Sidebar responsiveness handler on window change
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < 1024) {
+        setIsSidebarOpen(false);
+      } else {
+        setIsSidebarOpen(true);
+      }
+    };
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   // Login State
   const [loginForm, setLoginForm] = useState({ username: '', password: '' });
   const [showPassword, setShowPassword] = useState(false);
@@ -755,11 +769,19 @@ export default function App() {
         />
       )}
 
+      {/* Backdrop overlay for mobile screens when Sidebar is open */}
+      {isSidebarOpen && !aiAnalysisState.isPublicView && (
+        <div 
+          onClick={() => setIsSidebarOpen(false)} 
+          className="fixed inset-0 bg-black/60 z-40 lg:hidden cursor-pointer backdrop-blur-sm transition-all duration-300"
+        />
+      )}
+
       {/* Main Content */}
       <main className={cn("flex-1 flex flex-col min-w-0 transition-all duration-300", isSidebarOpen && !aiAnalysisState.isPublicView && "lg:pl-64")}>
         {!aiAnalysisState.isPublicView && (
-          <header className="h-24 bg-brand-bg/80 backdrop-blur-xl border-b border-brand-primary/10 flex items-center justify-between px-10 sticky top-0 z-40">
-            <div className="flex items-center gap-6">
+          <header className="h-24 bg-brand-bg/80 backdrop-blur-xl border-b border-brand-primary/10 flex items-center justify-between px-4 sm:px-10 sticky top-0 z-40">
+            <div className="flex items-center gap-4 sm:gap-6">
               <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-3 hover:bg-brand-primary/10 rounded-2xl transition-all text-brand-primary">
                 {isSidebarOpen ? <Menu size={22} /> : <ChevronRight size={22} />}
               </button>
@@ -774,7 +796,7 @@ export default function App() {
               </button>
             </div>
 
-            <div className="flex items-center gap-8">
+            <div className="flex items-center gap-4 sm:gap-8">
               <div className="text-right hidden sm:block">
                 <p className="text-sm font-bold tracking-tight">{user?.name || 'Administrador'}</p>
                 <p className="text-[10px] text-brand-ink/30 uppercase tracking-[0.15em] font-bold">{user?.role || 'Admin'}</p>
@@ -786,7 +808,7 @@ export default function App() {
           </header>
         )}
 
-        <div className={cn("p-10 w-full mx-auto", aiAnalysisState.isPublicView && "p-4 sm:p-10")}>
+        <div className="p-4 sm:p-10 w-full mx-auto">
           <AnimatePresence mode="wait">
             <motion.div
               key={activeTab}
@@ -1749,12 +1771,12 @@ function AIConfigView({ token, aiConfig, onConfigUpdate }: { token: string, aiCo
         </div>
       )}
 
-      <div className="premium-card p-12 space-y-12">
-        <div className="grid grid-cols-2 gap-10">
+      <div className="premium-card p-6 sm:p-12 space-y-12">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-10">
           <div>
             <label className="block text-[10px] font-bold uppercase tracking-[0.2em] text-brand-ink/30 mb-4 ml-1">IA Principal</label>
             <select 
-              className="w-full bg-brand-bg border-none rounded-2xl py-5 px-8 focus:ring-2 focus:ring-brand-primary font-bold text-brand-primary text-lg"
+              className="w-full bg-brand-bg border-none rounded-2xl py-5 px-8 focus:ring-2 focus:ring-brand-primary font-bold text-brand-primary text-sm md:text-lg"
               value={localConfig.primary_ia || ''}
               onChange={e => setLocalConfig({...localConfig, primary_ia: e.target.value})}
             >
@@ -1767,7 +1789,7 @@ function AIConfigView({ token, aiConfig, onConfigUpdate }: { token: string, aiCo
           <div>
             <label className="block text-[10px] font-bold uppercase tracking-[0.2em] text-brand-ink/30 mb-4 ml-1">IA Secundária (Fallback)</label>
             <select 
-              className="w-full bg-brand-bg border-none rounded-2xl py-5 px-8 focus:ring-2 focus:ring-brand-primary font-bold text-brand-primary text-lg"
+              className="w-full bg-brand-bg border-none rounded-2xl py-5 px-8 focus:ring-2 focus:ring-brand-primary font-bold text-brand-primary text-sm md:text-lg"
               value={localConfig.secondary_ia || ''}
               onChange={e => setLocalConfig({...localConfig, secondary_ia: e.target.value})}
             >
@@ -4804,7 +4826,8 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
     try {
       const { analyzeAuctionDocuments } = await import('./services/aiService');
       const fileParts = docs.map(doc => ({ id: doc.id, filename: doc.filename, data: doc.data, mimeType: 'application/pdf', extractedText: doc.extracted_text }));
-      const analysis = await analyzeAuctionDocuments(fileParts, "Analise o Edital", state.selectedModel || 'gemini-2.5-flash', undefined, [], 'edital');
+      const userApiKey = resolveApiKey(state.selectedKeySource, state.aiConfig, state.selectedModel || 'gemini-2.5-flash') || "";
+      const analysis = await analyzeAuctionDocuments(fileParts, "Analise o Edital", state.selectedModel || 'gemini-2.5-flash', userApiKey || undefined, [], 'edital');
       setState(prev => ({ ...prev, editalAnalysis: analysis }));
     } catch (err) { console.error(err); alert("Erro ao analisar Edital."); } finally { setAnalyzing(false); }
   };
@@ -4816,7 +4839,8 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
     try {
       const { analyzeAuctionDocuments } = await import('./services/aiService');
       const fileParts = docs.map(doc => ({ id: doc.id, filename: doc.filename, data: doc.data, mimeType: 'application/pdf', extractedText: doc.extracted_text }));
-      const analysis = await analyzeAuctionDocuments(fileParts, "Analise a Matrícula", state.selectedModel || 'gemini-2.5-flash', undefined, [], 'matricula');
+      const userApiKey = resolveApiKey(state.selectedKeySource, state.aiConfig, state.selectedModel || 'gemini-2.5-flash') || "";
+      const analysis = await analyzeAuctionDocuments(fileParts, "Analise a Matrícula", state.selectedModel || 'gemini-2.5-flash', userApiKey || undefined, [], 'matricula');
       setState(prev => ({ ...prev, matriculaAnalysis: analysis }));
     } catch (err) { console.error(err); alert("Erro ao analisar Matrícula."); } finally { setAnalyzing(false); }
   };
@@ -4860,7 +4884,8 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
 
       Formate toda a resposta em português do Brasil, utilizando uma estrutura visual rica e limpa em Markdown, destacando os alertas cruciais.`;
       
-      const analysis = await analyzeAuctionDocuments(fileParts, prompt, state.selectedModel || 'gemini-2.5-flash', undefined, [], 'processo');
+      const userApiKey = resolveApiKey(state.selectedKeySource, state.aiConfig, state.selectedModel || 'gemini-2.5-flash') || "";
+      const analysis = await analyzeAuctionDocuments(fileParts, prompt, state.selectedModel || 'gemini-2.5-flash', userApiKey || undefined, [], 'processo');
       setState(prev => ({ ...prev, processAnalysis: analysis }));
     } catch (err) {
       console.error(err);
@@ -5815,11 +5840,22 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
                   <option value="deepseek_custom">DeepSeek (Minha Chave)</option>
                 </select>
                 
-                {/* Status Indicator Badge */}
-                <div className="mt-2 ml-1 text-[10px] font-medium transition-all">
-                  {state.selectedKeySource === 'system_default' && (
-                    <span className="text-emerald-500 font-bold flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-500"></span> Chave Integrada Ativa</span>
-                  )}
+                  {/* Status Indicator Badge */}
+                  <div className="mt-2 ml-1 text-[10px] font-medium transition-all">
+                    {state.selectedKeySource === 'system_default' && (
+                      !window.location.hostname.includes('run.app') && !window.location.hostname.includes('localhost') ? (
+                        <div className="text-amber-500 font-bold flex flex-col gap-1">
+                          <span className="flex items-center gap-1.5">
+                            <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span> Chave Integrada Desativada
+                          </span>
+                          <span className="text-[9px] text-brand-ink/40 font-normal leading-normal">
+                            Em domínios próprios/produção, selecione <strong>Gemini (Minha Chave)</strong> e cadastre sua chave na aba Configurações.
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-emerald-500 font-bold flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-500"></span> Chave Integrada Ativa</span>
+                      )
+                    )}
                   {state.selectedKeySource === 'openai_custom' && (
                     state.aiConfig?.openai_key?.trim() ? (
                       <span className="text-emerald-500 font-bold flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-500"></span> Chave OpenAI Cadastrada</span>
