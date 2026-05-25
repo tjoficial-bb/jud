@@ -894,12 +894,44 @@ async function startServer() {
     }
   });
 
-  app.post("/api/strategic-brain", authenticateToken, (req, res) => {
+  app.post("/api/strategic-brain", authenticateToken, async (req, res) => {
     try {
       const id = Math.random().toString(36).substring(7);
       const { title, category, source, extracted_text, data, url, username, password, is_automated, module, lesson } = req.body;
+      
+      let finalExtractedText = extracted_text || null;
+      
+      // Auto-extract text from manually uploaded PDF or Text files
+      if (data && data.startsWith("data:")) {
+        try {
+          const parts = data.split(",");
+          const meta = parts[0];
+          const base64Data = parts[1];
+          const mimeMatch = meta.match(/data:(.*?);/);
+          const mimeType = mimeMatch ? mimeMatch[1] : "";
+          const buffer = Buffer.from(base64Data, "base64");
+          
+          if (mimeType === 'application/pdf') {
+            console.log(`[CÉREBRO] Extraindo texto do PDF anexado ao cérebro para o ID ${id}...`);
+            const text = await extractTextFromBuffer(buffer, mimeType);
+            if (text && text.trim().length > 0) {
+              finalExtractedText = text;
+              console.log(`[CÉREBRO] Extraído com sucesso. Tamanho: ${text.length} caracteres.`);
+            }
+          } else if (mimeType.startsWith('text/') || mimeType.includes('txt')) {
+            const text = buffer.toString('utf-8');
+            if (text && text.trim().length > 0) {
+              finalExtractedText = text;
+              console.log(`[CÉREBRO] Texto plano carregado. Tamanho: ${text.length} caracteres.`);
+            }
+          }
+        } catch (err: any) {
+          console.error("[CÉREBRO] Erro na extração automática ao salvar novo conhecimento:", err.message);
+        }
+      }
+
       db.prepare("INSERT INTO strategic_brain (id, title, category, source, extracted_text, data, url, username, password, is_automated, module, lesson) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").run(
-        id, title, category, source, extracted_text || null, data || null, url || null, username || null, password || null, is_automated ? 1 : 0, module || null, lesson || null
+        id, title, category, source, finalExtractedText || null, data || null, url || null, username || null, password || null, is_automated ? 1 : 0, module || null, lesson || null
       );
       res.json({ id });
     } catch (error: any) {

@@ -77,6 +77,7 @@ import { Sidebar } from './components/layout/Sidebar';
 type Tab = 'dashboard' | 'properties' | 'processes' | 'documents' | 'debts' | 'ai-analysis' | 'simulations' | 'brain' | 'ai-config' | 'users' | 'settings' | 'datajud';
 
 type AIModel = 
+  | 'gemini-3.5-flash'
   | 'gemini-3.1-pro-preview' 
   | 'gemini-3.1-flash-preview'
   | 'gemini-3-flash-preview' 
@@ -1326,6 +1327,7 @@ function BrainView({ token, onRefresh }: { token: string, onRefresh: () => void 
   const [items, setItems] = useState<StrategicBrainItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isReadingFile, setIsReadingFile] = useState(false);
   const [form, setForm] = useState({ 
     title: '', 
     category: 'Estratégia', 
@@ -1354,9 +1356,15 @@ function BrainView({ token, onRefresh }: { token: string, onRefresh: () => void 
   const handleStrategicBrainFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    setIsReadingFile(true);
     const reader = new FileReader();
     reader.onload = () => {
       setForm({ ...form, data: reader.result as string, title: file.name });
+      setIsReadingFile(false);
+    };
+    reader.onerror = () => {
+      setIsReadingFile(false);
+      alert("Erro ao ler o arquivo no navegador.");
     };
     reader.readAsDataURL(file);
   };
@@ -1438,14 +1446,14 @@ function BrainView({ token, onRefresh }: { token: string, onRefresh: () => void 
 
   return (
     <div className="space-y-12">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
-          <h2 className="text-4xl font-serif font-medium tracking-tight text-brand-primary">Cérebro Estratégico</h2>
-          <p className="text-brand-ink/40 font-medium text-lg">Sua base de conhecimento proprietária para decisões de investimento.</p>
+          <h2 className="text-3xl md:text-4xl font-serif font-medium tracking-tight text-brand-primary">Cérebro Estratégico</h2>
+          <p className="text-brand-ink/40 font-medium text-base md:text-lg">Sua base de conhecimento proprietária para decisões de investimento.</p>
         </div>
         <button 
           onClick={() => setIsModalOpen(true)}
-          className="bg-brand-primary text-black px-8 py-4 rounded-2xl font-bold text-xs uppercase tracking-widest flex items-center gap-3 hover:bg-brand-primary/90 transition-all shadow-xl shadow-brand-primary/20"
+          className="bg-brand-primary text-black px-6 py-4 md:px-8 md:py-4 rounded-2xl font-bold text-xs uppercase tracking-widest flex items-center justify-center gap-3 hover:bg-brand-primary/90 transition-all shadow-xl shadow-brand-primary/20 w-full md:w-auto shrink-0 font-sans"
         >
           <Plus size={20} /> Adicionar Conhecimento
         </button>
@@ -1528,35 +1536,35 @@ function BrainView({ token, onRefresh }: { token: string, onRefresh: () => void 
       </div>
 
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex items-center justify-center p-6">
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex items-start sm:items-center justify-center p-4 overflow-y-auto">
           <motion.div 
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="bg-brand-paper w-full max-w-2xl rounded-[2.5rem] p-12 shadow-2xl border border-brand-primary/10"
+            className="bg-brand-paper w-full max-w-2xl rounded-2xl sm:rounded-[2.5rem] p-5 sm:p-10 md:p-12 shadow-2xl border border-brand-primary/10 my-auto"
           >
-            <div className="flex items-center justify-between mb-10">
-              <h3 className="text-3xl font-serif font-medium text-brand-primary">Novo Conhecimento</h3>
-              <button onClick={() => setIsModalOpen(false)} className="p-3 hover:bg-brand-primary/10 rounded-full text-brand-primary transition-all">
+            <div className="flex items-center justify-between mb-6 sm:mb-8 md:mb-10">
+              <h3 className="text-2xl sm:text-3xl font-serif font-medium text-brand-primary">Novo Conhecimento</h3>
+              <button onClick={() => setIsModalOpen(false)} className="p-2 sm:p-3 hover:bg-brand-primary/10 rounded-full text-brand-primary transition-all">
                 <X size={24} />
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-8">
-              <div className="grid grid-cols-2 gap-8">
+            <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6 md:space-y-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 md:gap-8">
                 <div>
-                  <label className="block text-[10px] font-bold uppercase tracking-[0.2em] text-brand-ink/30 mb-3 ml-1">Título</label>
+                  <label className="block text-[10px] font-bold uppercase tracking-[0.2em] text-brand-ink/30 mb-1.5 sm:mb-2 ml-1">Título</label>
                   <input 
                     type="text" 
                     required
-                    className="w-full bg-brand-bg border-brand-primary/10 rounded-2xl py-5 px-8 focus:ring-2 focus:ring-brand-primary transition-all font-medium text-lg"
+                    className="w-full bg-brand-bg border border-brand-primary/10 rounded-xl sm:rounded-2xl py-3 px-4 sm:py-4 sm:px-6 md:py-5 md:px-8 focus:ring-2 focus:ring-brand-primary transition-all font-medium text-sm sm:text-base md:text-lg text-brand-ink outline-none"
                     value={form.title}
                     onChange={e => setForm({...form, title: e.target.value})}
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-bold uppercase tracking-[0.2em] text-brand-ink/30 mb-3 ml-1">Categoria</label>
+                  <label className="block text-[10px] font-bold uppercase tracking-[0.2em] text-brand-ink/30 mb-1.5 sm:mb-2 ml-1">Categoria</label>
                   <select 
-                    className="w-full bg-brand-bg border-brand-primary/10 rounded-2xl py-5 px-8 focus:ring-2 focus:ring-brand-primary transition-all font-medium text-lg appearance-none"
+                    className="w-full bg-brand-bg border border-brand-primary/10 rounded-xl sm:rounded-2xl py-3 px-4 sm:py-4 sm:px-6 md:py-5 md:px-8 focus:ring-2 focus:ring-brand-primary transition-all font-medium text-sm sm:text-base md:text-lg text-brand-ink outline-none appearance-none"
                     value={form.category}
                     onChange={e => setForm({...form, category: e.target.value})}
                   >
@@ -1572,12 +1580,12 @@ function BrainView({ token, onRefresh }: { token: string, onRefresh: () => void 
                 {form.category === 'Cursos' && (
                   <>
                     <div>
-                      <label className="block text-[10px] font-bold uppercase tracking-[0.2em] text-brand-ink/30 mb-3 ml-1">Módulo</label>
-                      <input type="text" className="w-full bg-brand-bg border-brand-primary/10 rounded-2xl py-5 px-8 focus:ring-2 focus:ring-brand-primary transition-all font-medium text-lg" value={form.module} onChange={e => setForm({...form, module: e.target.value})} />
+                      <label className="block text-[10px] font-bold uppercase tracking-[0.2em] text-brand-ink/30 mb-1.5 sm:mb-2 ml-1">Módulo</label>
+                      <input type="text" className="w-full bg-brand-bg border border-brand-primary/10 rounded-xl sm:rounded-2xl py-3 px-4 sm:py-4 sm:px-6 md:py-5 md:px-8 focus:ring-2 focus:ring-brand-primary transition-all font-medium text-sm sm:text-base md:text-lg text-brand-ink outline-none" value={form.module} onChange={e => setForm({...form, module: e.target.value})} />
                     </div>
                     <div>
-                      <label className="block text-[10px] font-bold uppercase tracking-[0.2em] text-brand-ink/30 mb-3 ml-1">Aula</label>
-                      <input type="text" className="w-full bg-brand-bg border-brand-primary/10 rounded-2xl py-5 px-8 focus:ring-2 focus:ring-brand-primary transition-all font-medium text-lg" value={form.lesson} onChange={e => setForm({...form, lesson: e.target.value})} />
+                      <label className="block text-[10px] font-bold uppercase tracking-[0.2em] text-brand-ink/30 mb-1.5 sm:mb-2 ml-1">Aula</label>
+                      <input type="text" className="w-full bg-brand-bg border border-brand-primary/10 rounded-xl sm:rounded-2xl py-3 px-4 sm:py-4 sm:px-6 md:py-5 md:px-8 focus:ring-2 focus:ring-brand-primary transition-all font-medium text-sm sm:text-base md:text-lg text-brand-ink outline-none" value={form.lesson} onChange={e => setForm({...form, lesson: e.target.value})} />
                     </div>
                   </>
                 )}
@@ -1585,22 +1593,22 @@ function BrainView({ token, onRefresh }: { token: string, onRefresh: () => void 
 
               {form.category === 'Links Relevantes' && (
                 <div className="animate-in fade-in slide-in-from-top-4 duration-500">
-                  <label className="block text-[10px] font-bold uppercase tracking-[0.2em] text-brand-ink/30 mb-3 ml-1">URL do Site</label>
+                  <label className="block text-[10px] font-bold uppercase tracking-[0.2em] text-brand-ink/30 mb-1.5 sm:mb-2 ml-1">URL do Site</label>
                   <input 
                     type="url" 
                     placeholder="https://exemplo.com.br"
-                    className="w-full bg-brand-bg border-brand-primary/10 rounded-2xl py-5 px-8 focus:ring-2 focus:ring-brand-primary transition-all font-medium text-lg"
+                    className="w-full bg-brand-bg border border-brand-primary/10 rounded-xl sm:rounded-2xl py-3 px-4 sm:py-4 sm:px-6 md:py-5 md:px-8 focus:ring-2 focus:ring-brand-primary transition-all font-medium text-sm sm:text-base md:text-lg text-brand-ink outline-none"
                     value={form.url}
                     onChange={e => setForm({...form, url: e.target.value})}
                   />
                 </div>
               )}
 
-              <div className="flex items-center gap-4 p-6 bg-brand-bg rounded-2xl border border-brand-primary/10">
+              <div className="flex items-center gap-4 p-4 sm:p-5 md:p-6 bg-brand-bg rounded-xl sm:rounded-2xl border border-brand-primary/10">
                 <div 
                   onClick={() => setForm({...form, is_automated: !form.is_automated})}
                   className={cn(
-                    "w-12 h-6 rounded-full relative cursor-pointer transition-all",
+                    "w-12 h-6 rounded-full relative cursor-pointer shrink-0 transition-all",
                     form.is_automated ? "bg-brand-primary" : "bg-brand-ink/10"
                   )}
                 >
@@ -1610,38 +1618,38 @@ function BrainView({ token, onRefresh }: { token: string, onRefresh: () => void 
                   )} />
                 </div>
                 <div>
-                  <p className="text-sm font-bold uppercase tracking-widest">Sincronização Automática</p>
-                  <p className="text-[10px] text-brand-ink/40">Ative para ler sites, aulas e arquivos automaticamente.</p>
+                  <p className="text-xs sm:text-sm font-bold uppercase tracking-widest">Sincronização Automática</p>
+                  <p className="text-[9px] sm:text-[10px] text-brand-ink/40">Ative para ler sites, aulas e arquivos automaticamente.</p>
                 </div>
               </div>
 
               {form.is_automated ? (
-                <div className="space-y-6 animate-in fade-in slide-in-from-top-4 duration-500">
+                <div className="space-y-4 sm:space-y-6 animate-in fade-in slide-in-from-top-4 duration-500">
                   <div>
-                    <label className="block text-[10px] font-bold uppercase tracking-[0.2em] text-brand-ink/30 mb-3 ml-1">URL do Site / Área de Membros</label>
+                    <label className="block text-[10px] font-bold uppercase tracking-[0.2em] text-brand-ink/30 mb-1.5 sm:mb-2 ml-1">URL do Site / Área de Membros</label>
                     <input 
                       type="url" 
                       placeholder="https://exemplo.com/login"
-                      className="w-full bg-brand-bg border-brand-primary/10 rounded-2xl py-5 px-8 focus:ring-2 focus:ring-brand-primary transition-all font-medium text-lg"
+                      className="w-full bg-brand-bg border border-brand-primary/10 rounded-xl sm:rounded-2xl py-3 px-4 sm:py-4 sm:px-6 md:py-5 md:px-8 focus:ring-2 focus:ring-brand-primary transition-all font-medium text-sm sm:text-base md:text-lg text-brand-ink outline-none"
                       value={form.url}
                       onChange={e => setForm({...form, url: e.target.value})}
                     />
                   </div>
-                  <div className="grid grid-cols-2 gap-8">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 md:gap-8">
                     <div>
-                      <label className="block text-[10px] font-bold uppercase tracking-[0.2em] text-brand-ink/30 mb-3 ml-1">Usuário / Email</label>
+                      <label className="block text-[10px] font-bold uppercase tracking-[0.2em] text-brand-ink/30 mb-1.5 sm:mb-2 ml-1">Usuário / Email</label>
                       <input 
                         type="text" 
-                        className="w-full bg-brand-bg border-brand-primary/10 rounded-2xl py-5 px-8 focus:ring-2 focus:ring-brand-primary transition-all font-medium text-lg"
+                        className="w-full bg-brand-bg border border-brand-primary/10 rounded-xl sm:rounded-2xl py-3 px-4 sm:py-4 sm:px-6 md:py-5 md:px-8 focus:ring-2 focus:ring-brand-primary transition-all font-medium text-sm sm:text-base md:text-lg text-brand-ink outline-none"
                         value={form.username}
                         onChange={e => setForm({...form, username: e.target.value})}
                       />
                     </div>
                     <div>
-                      <label className="block text-[10px] font-bold uppercase tracking-[0.2em] text-brand-ink/30 mb-3 ml-1">Senha</label>
+                      <label className="block text-[10px] font-bold uppercase tracking-[0.2em] text-brand-ink/30 mb-1.5 sm:mb-2 ml-1">Senha</label>
                       <input 
                         type="password" 
-                        className="w-full bg-brand-bg border-brand-primary/10 rounded-2xl py-5 px-8 focus:ring-2 focus:ring-brand-primary transition-all font-medium text-lg"
+                        className="w-full bg-brand-bg border border-brand-primary/10 rounded-xl sm:rounded-2xl py-3 px-4 sm:py-4 sm:px-6 md:py-5 md:px-8 focus:ring-2 focus:ring-brand-primary transition-all font-medium text-sm sm:text-base md:text-lg text-brand-ink outline-none"
                         value={form.password}
                         onChange={e => setForm({...form, password: e.target.value})}
                       />
@@ -1651,45 +1659,59 @@ function BrainView({ token, onRefresh }: { token: string, onRefresh: () => void 
               ) : (
                 <>
                   <div>
-                    <label className="block text-[10px] font-bold uppercase tracking-[0.2em] text-brand-ink/30 mb-3 ml-1">Fonte / Origem</label>
+                    <label className="block text-[10px] font-bold uppercase tracking-[0.2em] text-brand-ink/30 mb-1.5 sm:mb-2 ml-1">Fonte / Origem</label>
                     <input 
                       type="text" 
-                      className="w-full bg-brand-bg border-brand-primary/10 rounded-2xl py-5 px-8 focus:ring-2 focus:ring-brand-primary transition-all font-medium text-lg"
+                      className="w-full bg-brand-bg border border-brand-primary/10 rounded-xl sm:rounded-2xl py-3 px-4 sm:py-4 sm:px-6 md:py-5 md:px-8 focus:ring-2 focus:ring-brand-primary transition-all font-medium text-sm sm:text-base md:text-lg text-brand-ink outline-none"
                       value={form.source}
                       onChange={e => setForm({...form, source: e.target.value})}
                     />
                   </div>
 
-                  <div className="border-2 border-dashed border-brand-primary/10 rounded-3xl p-12 text-center hover:bg-brand-primary/5 transition-all cursor-pointer relative group">
+                  <div className="border-2 border-dashed border-brand-primary/15 rounded-xl sm:rounded-3xl p-6 sm:p-10 md:p-12 text-center hover:bg-brand-primary/5 transition-all cursor-pointer relative group">
                     <input 
                       type="file" 
                       onChange={handleStrategicBrainFileUpload}
                       accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png,.gif"
                       className="absolute inset-0 opacity-0 cursor-pointer"
+                      disabled={isReadingFile}
                     />
-                    <div className="w-16 h-16 bg-brand-primary/10 rounded-2xl flex items-center justify-center text-brand-primary mx-auto mb-6 group-hover:scale-110 transition-transform">
-                      <Download size={32} />
+                    <div className="w-12 h-12 sm:w-16 sm:h-16 bg-brand-primary/10 rounded-xl sm:rounded-2xl flex items-center justify-center text-brand-primary mx-auto mb-4 sm:mb-6 group-hover:scale-110 transition-transform">
+                      {isReadingFile ? <Loader2 className="animate-spin" size={28} /> : <Download size={28} />}
                     </div>
-                    <p className="text-xl font-serif font-medium mb-2">{form.data ? form.title : 'Arraste ou clique para upload'}</p>
-                    <p className="text-sm text-brand-ink/30">PDF, DOC, TXT ou Imagens (Máx 50MB)</p>
+                    <p className="text-base sm:text-lg md:text-xl font-serif font-medium mb-1.5 sm:mb-2 max-w-full truncate px-4">
+                      {isReadingFile ? (
+                        <span className="text-brand-primary">Lendo e otimizando arquivo...</span>
+                      ) : form.data ? (
+                        form.title
+                      ) : (
+                        'Arraste ou clique para upload'
+                      )}
+                    </p>
+                    <p className="text-xs sm:text-sm text-brand-ink/30">PDF, DOC, TXT ou Imagens (Máx 50MB)</p>
                   </div>
                 </>
               )}
 
-              <div className="flex gap-6 pt-6">
+              <div className="flex flex-col sm:flex-row gap-3 sm:gap-6 pt-4 sm:pt-6">
                 <button 
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="flex-1 py-5 border border-brand-primary/10 rounded-2xl font-bold text-sm uppercase tracking-widest hover:bg-brand-primary/5 transition-all"
+                  className="w-full sm:flex-1 py-3 sm:py-4 md:py-5 border border-brand-primary/10 rounded-xl sm:rounded-2xl font-bold text-xs sm:text-sm uppercase tracking-widest hover:bg-brand-primary/5 transition-all cursor-pointer text-center"
                 >
                   Cancelar
                 </button>
                 <button 
                   type="submit"
-                  disabled={loading}
-                  className="flex-1 py-5 bg-brand-primary text-black rounded-2xl font-bold text-sm uppercase tracking-widest hover:scale-[1.02] transition-all shadow-xl shadow-brand-primary/20 flex items-center justify-center gap-3"
+                  disabled={loading || isReadingFile}
+                  className="w-full sm:flex-1 py-3 sm:py-4 md:py-5 bg-brand-primary text-black rounded-xl sm:rounded-2xl font-bold text-xs sm:text-sm uppercase tracking-widest hover:scale-[1.01] active:scale-[0.99] transition-all shadow-xl shadow-brand-primary/20 flex items-center justify-center gap-2 sm:gap-3 cursor-pointer"
                 >
-                  {loading ? <Loader2 className="animate-spin" size={20} /> : "Salvar Conhecimento"}
+                  {loading ? (
+                    <>
+                      <Loader2 className="animate-spin" size={20} />
+                      <span>Processando e Indexando...</span>
+                    </>
+                  ) : "Salvar Conhecimento"}
                 </button>
               </div>
             </form>
@@ -6390,9 +6412,19 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
         console.warn(`Aviso: Falha ao carregar Cérebro Estratégico (${brainRes.status}). Continuando sem contexto.`);
       }
       
-      const brainContextText = Array.isArray(brainItems) 
-        ? brainItems.map((item: any) => `[${item.category}] ${item.title}: ${item.extracted_text}`).join('\n\n')
+      let brainContextText = Array.isArray(brainItems) 
+        ? brainItems.map((item: any) => {
+            if (!item.extracted_text) return "";
+            const textToUse = item.extracted_text.length > 20000 
+              ? item.extracted_text.substring(0, 20000) + "\n... [Texto truncado para otimização de performance] ..."
+              : item.extracted_text;
+            return `[${item.category}] ${item.title}:\n${textToUse}`;
+          }).filter(Boolean).join('\n\n')
         : "";
+
+      if (brainContextText.length > 80000) {
+        brainContextText = brainContextText.substring(0, 80000) + "\n\n... [AVISO: O contexto acumulado do Cérebro Estratégico foi limitado a 80 mil caracteres para garantir estabilidade, evitar erros de processamento (Timeout) e manter excelente velocidade de análise] ...";
+      }
 
       let promptWithBrain = `${SYSTEM_PROMPT}\n\nCONTEXTO ESTRATÉGICO DO USUÁRIO (CÉREBRO ESTRATÉGICO):\n${brainContextText}\n\nUse o contexto acima para guiar sua análise e recomendações.`;
       
@@ -6761,6 +6793,7 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
                 >
                   {(state.selectedKeySource === 'system_default' || state.selectedKeySource === 'gemini_custom') && (
                     <optgroup label="Google Gemini">
+                      <option value="gemini-3.5-flash">Gemini 3.5 Flash (Ultra-Rápido - Recomendado)</option>
                       <option value="gemini-3.1-pro-preview">Gemini 3.1 Pro (Preview)</option>
                       <option value="gemini-3.1-flash-preview">Gemini 3.1 Flash (Preview)</option>
                       <option value="gemini-2.5-pro">Gemini 2.5 Pro (Preciso - Pago)</option>

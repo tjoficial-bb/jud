@@ -8,11 +8,8 @@ export const Sidebar = ({ activeTab, setActiveTab, isSidebarOpen, setIsSidebarOp
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'properties', label: 'Gestão de Imóveis', icon: Home },
-    { id: 'debts', label: 'Débitos', icon: DollarSign },
     { id: 'ai-analysis', label: 'Análise IA', icon: Brain },
     { id: 'brain', label: 'Cérebro Estratégico', icon: Lightbulb },
-    { id: 'documents', label: 'Gestão de Documentos', icon: FileText },
-    { id: 'ai-config', label: 'Configuração de IA', icon: Cpu },
     { id: 'users', label: 'Usuários', icon: Users },
     { id: 'settings', label: 'Configurações', icon: Settings },
   ];

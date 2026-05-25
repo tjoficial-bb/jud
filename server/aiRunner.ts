@@ -54,12 +54,13 @@ const getProviderFromModel = (model: string): string => {
 
 const mapModelId = (model: string): string => {
   const mapping: Record<string, string> = {
+    'gemini-3.5-flash': 'gemini-3.5-flash',
     'gemini-3.1-pro-preview': 'gemini-3.1-pro-preview',
-    'gemini-3.1-flash-preview': 'gemini-3-flash-preview',
-    'gemini-3-flash-preview': 'gemini-3-flash-preview',
+    'gemini-3.1-flash-preview': 'gemini-3.5-flash',
+    'gemini-3-flash-preview': 'gemini-3.5-flash',
     'gemini-2.5-pro': 'gemini-2.5-pro',
-    'gemini-2.5-flash': 'gemini-2.5-flash',
-    'gemini-flash-latest': 'gemini-flash-latest',
+    'gemini-2.5-flash': 'gemini-3.5-flash',
+    'gemini-flash-latest': 'gemini-3.5-flash',
     
     'claude-4-6-opus': 'claude-3-5-sonnet-20241022', 
     'claude-4-6-sonnet': 'claude-3-5-sonnet-20241022',
