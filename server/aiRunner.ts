@@ -87,18 +87,31 @@ const getPayloadBudget = (model: string): number => {
 const optimizePayload = (files: any[], budget: number) => {
   let currentFiles = files.map(f => {
     const hasText = !!f.extractedText && f.extractedText.trim().length > 0;
-    // PDF/image raw binaries larger than 5MB base64 characters are forced to useText to avoid heavy OCR timeout.
-    const isBase64TooLarge = f.data && f.data.length > 5 * 1024 * 1024;
+    
+    // We check if it is a heavy binary (PDF or Image).
+    // PDFs without text take extremely long to OCR visually on the Google/AI servers.
+    // So we lower the limit to 1.5MB of base64 characters (approx 1.1MB file) for non-text PDFs,
+    // and 3MB for images.
+    let limit = 3 * 1024 * 1024; // 3MB limit for images
+    if (f.mimeType === 'application/pdf') {
+      limit = 1.5 * 1024 * 1024; // 1.5MB limit for PDFs without text
+    }
+    
+    const isBase64TooLarge = f.data && f.data.length > limit;
     
     let useText = hasText || !f.data || f.data === "" || f.data === "null" || isBase64TooLarge;
     let optimizedText = "";
     
     if (hasText) {
-      optimizedText = f.extractedText.length > 1000000 
-        ? f.extractedText.substring(0, 1000000) + "\n... [Texto truncado por tamanho] ..." 
+      optimizedText = f.extractedText.length > 800000 
+        ? f.extractedText.substring(0, 800000) + "\n... [Texto truncado por tamanho] ..." 
         : f.extractedText;
     } else if (isBase64TooLarge) {
-      optimizedText = `[AVISO DO SISTEMA: O arquivo original '${f.filename || 'Documento'}' (${(f.data.length / (1024 * 1024 * 1.33)).toFixed(1)}MB) é muito grande e foi omitido como imagem/PDF bruto para garantir que a análise seja ultra rápida e livre de lentidões (timeouts). Se o conteúdo deste arquivo for de suma importância, faça o upload de uma versão onde o texto possa ser extraído nativamente ou que seja menor.]`;
+      if (f.mimeType === 'application/pdf') {
+        optimizedText = `[AVISO DO SISTEMA: O PDF '${f.filename || 'Documento'}' (${(f.data.length / (1024 * 1024 * 1.33)).toFixed(1)}MB) é escaneado (sem texto nativo extraível) e é muito grande para processo visual direto. Para evitar que os servidores de IA caiam por limite de tempo (Erro 504 Timeout), este arquivo foi omitido. Por favor, envie uma versão menor deste PDF (com até 15 páginas) ou faça o upload de um PDF com texto pesquisável.]`;
+      } else {
+        optimizedText = `[AVISO DO SISTEMA: A imagem '${f.filename || 'Documento'}' (${(f.data.length / (1024 * 1024 * 1.33)).toFixed(1)}MB) é muito pesada e foi omitida para garantir que a análise seja ultra rápida e livre de lentidões (timeouts). Se o conteúdo dela for importante, envie uma versão comprimida ou menor que 1.5MB.]`;
+      }
     }
     
     return {
@@ -211,7 +224,7 @@ const analyzeWithGemini = async (files: any[], systemInstruction: string, model:
   };
 
   if (auctionUrls && auctionUrls.length > 0) {
-    config.tools = [{ urlContext: {} }, { googleSearch: {} }];
+    config.tools = [{ googleSearch: {} }];
   }
 
   const response: GenerateContentResponse = await callGeminiWithRetry(() => ai.models.generateContent({
@@ -387,6 +400,21 @@ const analyzeWithDeepSeek = async (files: any[], systemInstruction: string, mode
   return response.choices[0].message.content || "";
 };
 
+const withTimeout = async <T>(promise: Promise<T>, timeoutMs: number, errorMessage: string): Promise<T> => {
+  let timeoutHandle: any;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeoutHandle = setTimeout(() => {
+      reject(new Error(errorMessage));
+    }, timeoutMs);
+  });
+
+  try {
+    return await Promise.race([promise, timeoutPromise]);
+  } finally {
+    clearTimeout(timeoutHandle);
+  }
+};
+
 export const runBackendAnalysis = async (
   files: any[],
   systemInstruction: string,
@@ -407,16 +435,29 @@ export const runBackendAnalysis = async (
     specializedInstruction += "\n\nFOCO COMPLEMENTAR DE ALTÍSSIMA PRIORIDADE: Analise estritamente os PROCESSOS JUDICIAIS de ponta a ponta. Identifique todos os CPF/CNPJ, nomes completos e endereços de réus, autores, executados, credores hipotecários, e cônjuges. Identifique e relate todos os processos correlacionados ou incidentes judiciais ativos, o número completo da ação judicial, a vara/juiz correspondente, e faça uma avaliação minuciosa de risco quanto a vício de citação/intimação ou recursos pendentes do executado.";
   }
 
-  if (provider === 'gemini') {
-    return analyzeWithGemini(files, specializedInstruction, model, apiKey, auctionUrls);
-  } else if (provider === 'claude') {
-    return analyzeWithClaude(files, specializedInstruction, model, apiKey, auctionUrls);
-  } else if (provider === 'openai') {
-    return analyzeWithOpenAI(files, specializedInstruction, model, apiKey, auctionUrls);
-  } else if (provider === 'deepseek') {
-    return analyzeWithDeepSeek(files, specializedInstruction, model, apiKey, auctionUrls);
-  }
-  throw new Error("Provedor não suportado.");
+  const timeoutMessage = `Tempo limite de processamento de IA atingido (Limite de 42 segundos).
+
+Os arquivos enviados são muito extensos ou possuem muitas imagens/páginas escaneadas não-otimizadas que sobrecarregaram o modelo de processamento da IA neste momento.
+
+Para resolver esta lentidão de forma imediata:
+1️⃣ Troque o Cérebro de IA de 'Gemini 3.1 Pro' para 'Gemini 3.5 Flash (Ultra-Rápido)' no painel lateral/superior (o modelo Flash é até 10 vezes mais rápido e altamente eficiente para múltiplos arquivos).
+2️⃣ Divida processos longos ou editais grandes em fatias ou blocos menores de 15 a 25 páginas para acelerar a análise.
+3️⃣ Certifique-se de que os PDFs enviados tenham texto nativo pesquisável correspondente, evitando uploads de apenas imagens escaneadas.`;
+
+  const runTask = async () => {
+    if (provider === 'gemini') {
+      return analyzeWithGemini(files, specializedInstruction, model, apiKey, auctionUrls);
+    } else if (provider === 'claude') {
+      return analyzeWithClaude(files, specializedInstruction, model, apiKey, auctionUrls);
+    } else if (provider === 'openai') {
+      return analyzeWithOpenAI(files, specializedInstruction, model, apiKey, auctionUrls);
+    } else if (provider === 'deepseek') {
+      return analyzeWithDeepSeek(files, specializedInstruction, model, apiKey, auctionUrls);
+    }
+    throw new Error("Provedor não suportado.");
+  };
+
+  return withTimeout(runTask(), 42000, timeoutMessage);
 };
 
 export const runBackendProcessStory = async (

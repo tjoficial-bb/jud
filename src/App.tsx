@@ -6824,7 +6824,7 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
         promptWithBrain += `\n\nATENÇÃO: Este leilão foi identificado manualmente pelo usuário como sendo do tipo: ${state.manualAuctionType.toUpperCase()}. Por favor, foque sua análise e cálculos financeiros especificamente nas regras deste tipo de leilão.`;
       }
 
-      const fileParts = docs.filter(d => d.data || d.extracted_text).map(doc => {
+      const fileParts = docs.map(doc => {
         let mimeType = 'application/pdf';
         if (doc.filename.toLowerCase().endsWith('.jpg') || doc.filename.toLowerCase().endsWith('.jpeg')) mimeType = 'image/jpeg';
         else if (doc.filename.toLowerCase().endsWith('.png')) mimeType = 'image/png';

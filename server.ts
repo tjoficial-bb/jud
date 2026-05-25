@@ -1143,21 +1143,24 @@ async function startServer() {
 
   app.get("/api/documents/:propertyId", authenticateToken, async (req, res) => {
     try {
-      const docs = db.prepare("SELECT id, filename, doc_type, data, extracted_text, ia_summary, created_at FROM documents WHERE property_id = ? OR temp_property_id = ?").all(req.params.propertyId, req.params.propertyId) as any[];
+      const docs = db.prepare("SELECT id, filename, doc_type, extracted_text, ia_summary, created_at FROM documents WHERE property_id = ? OR temp_property_id = ?").all(req.params.propertyId, req.params.propertyId) as any[];
       
       // On-the-fly extraction for existing docs
       for (const doc of docs) {
-        if (!doc.extracted_text && doc.data) {
-          try {
-            const buffer = Buffer.from(doc.data, 'base64');
-            const mimeType = doc.filename.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'unknown';
-            const text = await extractTextFromBuffer(buffer, mimeType);
-            if (text) {
-              db.prepare("UPDATE documents SET extracted_text = ? WHERE id = ?").run(text, doc.id);
-              doc.extracted_text = text;
+        if (!doc.extracted_text) {
+          const row = db.prepare("SELECT data FROM documents WHERE id = ?").get(doc.id) as any;
+          if (row && row.data) {
+            try {
+              const buffer = Buffer.from(row.data, 'base64');
+              const mimeType = doc.filename.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'unknown';
+              const text = await extractTextFromBuffer(buffer, mimeType);
+              if (text) {
+                db.prepare("UPDATE documents SET extracted_text = ? WHERE id = ?").run(text, doc.id);
+                doc.extracted_text = text;
+              }
+            } catch (err) {
+              console.error(`Erro na extração on-the-fly para doc ${doc.id}:`, err);
             }
-          } catch (err) {
-            console.error(`Erro na extração on-the-fly para doc ${doc.id}:`, err);
           }
         }
       }
@@ -1353,6 +1356,29 @@ async function startServer() {
 
       console.log(`[PROXY DIAGNOSTICS] analyze requested. Model: ${model}, Provider: ${provider}, incoming apiKey length: ${apiKey ? apiKey.length : 0}`);
 
+      // Server-side file hydration to keep payloads small and protect transmission issues
+      const hydratedFiles = [];
+      if (Array.isArray(files)) {
+        for (const f of files) {
+          if (f.id) {
+            const dbDoc = db.prepare("SELECT data, extracted_text, filename FROM documents WHERE id = ?").get(f.id) as any;
+            if (dbDoc) {
+              const mimeType = (dbDoc.filename || f.filename || "").toLowerCase().endsWith('.pdf') ? 'application/pdf' : f.mimeType;
+              hydratedFiles.push({
+                ...f,
+                id: f.id,
+                filename: dbDoc.filename || f.filename,
+                data: dbDoc.data || f.data || "",
+                mimeType: mimeType,
+                extractedText: dbDoc.extracted_text || f.extractedText || ""
+              });
+              continue;
+            }
+          }
+          hydratedFiles.push(f);
+        }
+      }
+
       let resolvedKey = apiKey || "";
       let foundInDb = false;
       if (!resolvedKey || resolvedKey.trim() === "") {
@@ -1390,8 +1416,8 @@ async function startServer() {
         return res.status(400).json({ error: `Configuração de IA incompleta: Nenhuma chave de API válida encontrada para o provedor ${provider.toUpperCase()}` });
       }
 
-      console.log(`[Proxy] Iniciando análise de IA com provedor ${provider} de ${files.length} arquivos.`);
-      const result = await runBackendAnalysis(files, systemInstruction, model, resolvedKey, auctionUrls, analysisType);
+      console.log(`[Proxy] Iniciando análise de IA com provedor ${provider} de ${hydratedFiles.length} arquivos.`);
+      const result = await runBackendAnalysis(hydratedFiles, systemInstruction, model, resolvedKey, auctionUrls, analysisType);
       res.json({ result });
     } catch (error: any) {
       console.error("Erro na API de análise server-side:", error);
@@ -1405,6 +1431,29 @@ async function startServer() {
       const provider = model.startsWith('gemini') ? 'gemini' : 
                        model.startsWith('claude') ? 'claude' : 
                        (model.startsWith('gpt') || model.startsWith('o1')) ? 'openai' : 'deepseek';
+
+      // Server-side file hydration to keep payloads small and protect transmission issues
+      const hydratedFiles = [];
+      if (Array.isArray(files)) {
+        for (const f of files) {
+          if (f.id) {
+            const dbDoc = db.prepare("SELECT data, extracted_text, filename FROM documents WHERE id = ?").get(f.id) as any;
+            if (dbDoc) {
+              const mimeType = (dbDoc.filename || f.filename || "").toLowerCase().endsWith('.pdf') ? 'application/pdf' : f.mimeType;
+              hydratedFiles.push({
+                ...f,
+                id: f.id,
+                filename: dbDoc.filename || f.filename,
+                data: dbDoc.data || f.data || "",
+                mimeType: mimeType,
+                extractedText: dbDoc.extracted_text || f.extractedText || ""
+              });
+              continue;
+            }
+          }
+          hydratedFiles.push(f);
+        }
+      }
 
       let resolvedKey = apiKey || "";
       if (!resolvedKey || resolvedKey.trim() === "") {
@@ -1436,7 +1485,7 @@ async function startServer() {
       }
 
       console.log(`[Proxy] Iniciando geração da história do processo com provedor ${provider}.`);
-      const result = await runBackendProcessStory(files, model, resolvedKey);
+      const result = await runBackendProcessStory(hydratedFiles, model, resolvedKey);
       res.json(result);
     } catch (error: any) {
       console.error("Erro na API de Process Story server-side:", error);
