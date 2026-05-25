@@ -23,7 +23,8 @@ const callGeminiWithRetry = async <T>(
         errorStr.includes("429") || 
         errorStr.includes("unavailable") || 
         errorStr.includes("high demand") ||
-        errorStr.includes("temp") ||
+        errorStr.includes("temporary") ||
+        errorStr.includes("overloaded") ||
         errorObjStr.includes("unavailable") ||
         errorObjStr.includes("503") ||
         errorObjStr.includes("429");
@@ -84,11 +85,28 @@ const getPayloadBudget = (model: string): number => {
 };
 
 const optimizePayload = (files: any[], budget: number) => {
-  let currentFiles = files.map(f => ({ 
-    ...f, 
-    useText: (!!f.extractedText && f.extractedText.trim().length > 0) || !f.data || f.data === "" || f.data === "null",
-    optimizedText: f.extractedText ? (f.extractedText.length > 1000000 ? f.extractedText.substring(0, 1000000) + "\n... [Texto truncado por tamanho] ..." : f.extractedText) : ""
-  }));
+  let currentFiles = files.map(f => {
+    const hasText = !!f.extractedText && f.extractedText.trim().length > 0;
+    // PDF/image raw binaries larger than 5MB base64 characters are forced to useText to avoid heavy OCR timeout.
+    const isBase64TooLarge = f.data && f.data.length > 5 * 1024 * 1024;
+    
+    let useText = hasText || !f.data || f.data === "" || f.data === "null" || isBase64TooLarge;
+    let optimizedText = "";
+    
+    if (hasText) {
+      optimizedText = f.extractedText.length > 1000000 
+        ? f.extractedText.substring(0, 1000000) + "\n... [Texto truncado por tamanho] ..." 
+        : f.extractedText;
+    } else if (isBase64TooLarge) {
+      optimizedText = `[AVISO DO SISTEMA: O arquivo original '${f.filename || 'Documento'}' (${(f.data.length / (1024 * 1024 * 1.33)).toFixed(1)}MB) é muito grande e foi omitido como imagem/PDF bruto para garantir que a análise seja ultra rápida e livre de lentidões (timeouts). Se o conteúdo deste arquivo for de suma importância, faça o upload de uma versão onde o texto possa ser extraído nativamente ou que seja menor.]`;
+    }
+    
+    return {
+      ...f,
+      useText,
+      optimizedText
+    };
+  });
   
   const calculateSize = (items: any[]) => {
     return items.reduce((acc, item) => {

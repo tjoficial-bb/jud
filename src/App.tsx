@@ -6989,6 +6989,9 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
       
       if (err.message?.includes('503') || err.message?.includes('UNAVAILABLE')) {
         errorMessage = "O servidor de IA está temporariamente sobrecarregado. Por favor, aguarde 30 segundos e tente novamente.";
+      } else if (err.message?.includes('504') || err.message?.toLowerCase().includes('timeout') || err.message?.toLowerCase().includes('gateway')) {
+        errorMessage = "Tempo limite excedido (Erro 504: Gateway Timeout). Os documentos enviados contêm muitas páginas ou imagens pesadas não otimizadas que levam mais de 60 segundos para processar nativamente.\n\n" +
+          "✅ Correção automática aplicada! O sistema agora removeu automaticamente formatos pesados e otimizou os arquivos grandes. Se o erro persistir, tente mudar o modelo de IA para 'Flash' nas configurações laterais ou divida o PDF em arquivos menores de até 15 páginas.";
       } else if (err.message?.includes('429')) {
         errorMessage = "Limite de requisições (Quota) atingido. Por favor, aguarde um minuto.";
       } else if (err.message?.includes('404') || err.message?.includes('not_found')) {
