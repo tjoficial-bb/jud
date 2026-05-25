@@ -50,7 +50,10 @@ import {
   Moon,
   Globe,
   BookOpen,
-  Star
+  Star,
+  Instagram,
+  Video,
+  Copy
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import ReactMarkdown from 'react-markdown';
@@ -3421,7 +3424,7 @@ function InteractiveSimulationTable() {
 
             <div className="flex justify-between items-center text-sm border-t border-brand-border/50 pt-4 font-sans">
               <span className="text-brand-ink/50 text-xs uppercase tracking-wider font-sans">Custos Totais Adicionais</span>
-              <span className="font-bold text-red-500 font-mono">-{format(metrics.totalUpfrontExpenses - getFieldValue('bid'))}</span>
+              <span className="font-bold text-red-500 font-mono">-{format(metrics.totalUpfrontExpenses)}</span>
             </div>
 
             <div className="flex justify-between items-center text-sm border-b border-brand-border pb-4 font-sans">
@@ -5432,6 +5435,59 @@ function MasterReportView({
 }) {
   const { processStory, isGeneratingStory, isEditingStory } = state;
 
+  const [activeInstaTab, setActiveInstaTab] = useState<'video' | 'post'>('video');
+  const [copiedInsta, setCopiedInsta] = useState(false);
+  const [isGeneratingInsta, setIsGeneratingInsta] = useState(false);
+
+  const handleCopyInsta = (text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedInsta(true);
+    setTimeout(() => setCopiedInsta(false), 2000);
+  };
+
+  const handleForceGenerateInsta = async () => {
+    if (!processStory?.full_story) {
+      alert("Por favor, certifique-se de que a história do processo está disponível.");
+      return;
+    }
+    setIsGeneratingInsta(true);
+    try {
+      const promptText = `Gere do zero um roteiro de vídeo (Instagram Reels/Stories) de prospecção e uma cópia de post para feed para o Instagram, com foco em investidores de leilão, baseando-se estritamente na análise e história deste caso de leilão:\n\n${processStory.full_story}\n\nResponda APENAS um objeto JSON válido, sem aspas adicionais, sem bloco de código, com as chaves "video_script" e "feed_post" exatamente. Exemplo de retorno esperado: {"video_script": "...", "feed_post": "..."}`;
+      const responseText = await sendChatMessage(
+        [{ role: 'user', content: promptText }],
+        "Você é um copywriter extraordinário de marketing e vendas focado em captar e prospectar clientes de alto poder aquisitivo para assessoria de arrematação de leilões imobiliários.",
+        state.selectedModel || "gemini-2.5-flash",
+        state.userApiKey || undefined
+      );
+
+      const firstCurly = responseText.indexOf('{');
+      const lastCurly = responseText.lastIndexOf('}');
+      if (firstCurly !== -1 && lastCurly !== -1) {
+        const jsonStr = responseText.substring(firstCurly, lastCurly + 1);
+        const parsed = JSON.parse(jsonStr);
+        if (parsed.video_script || parsed.feed_post) {
+          setState((prev: any) => ({
+            ...prev,
+            processStory: {
+              ...prev.processStory,
+              instagram_content: {
+                video_script: parsed.video_script || "",
+                feed_post: parsed.feed_post || ""
+              }
+            }
+          }));
+        }
+      } else {
+        throw new Error("Formato inválido de JSON recebido do Gemini");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Erro ao gerar roteiros. Verifique as chaves e tente novamente.");
+    } finally {
+      setIsGeneratingInsta(false);
+    }
+  };
+
   const handleSaveStory = async () => {
     if (!property?.id || !processStory) return;
     try {
@@ -5450,7 +5506,10 @@ function MasterReportView({
           body: JSON.stringify({
             full_story: processStory.full_story,
             legal_glossary: processStory.legal_glossary,
-            timeline_json: JSON.stringify(processStory.timeline)
+            timeline_json: JSON.stringify({
+              timeline: processStory.timeline || [],
+              instagram_content: processStory.instagram_content || null
+            })
           })
         });
       } else {
@@ -5461,7 +5520,10 @@ function MasterReportView({
             property_id: property.id,
             full_story: processStory.full_story,
             legal_glossary: processStory.legal_glossary,
-            timeline_json: JSON.stringify(processStory.timeline)
+            timeline_json: JSON.stringify({
+              timeline: processStory.timeline || [],
+              instagram_content: processStory.instagram_content || null
+            })
           })
         });
       }
@@ -5681,6 +5743,178 @@ function MasterReportView({
         </div>
       </section>
 
+      {/* SEÇÃO INSTAGRAM: GERADOR DE CONTEÚDO PARA PROSPECÇÃO */}
+      <section className="bg-brand-paper p-6 sm:p-8 rounded-[2rem] sm:rounded-[2.5rem] border border-brand-primary/10 shadow-sm relative overflow-hidden print-section-instagram">
+        {/* Glow effect background */}
+        <div className="absolute top-0 right-0 w-64 h-64 bg-brand-primary/5 rounded-full blur-3xl pointer-events-none" />
+        
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4 relative z-10">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-brand-primary/10 rounded-xl flex items-center justify-center text-brand-primary">
+              <Instagram size={20} />
+            </div>
+            <div>
+              <h3 className="text-xl font-bold text-brand-primary font-serif">Máquina de Captação & Prospecção (Instagram)</h3>
+              <p className="text-xs text-brand-ink/50">Gere autoridade e atraia investidores contando os bastidores deste caso de forma irresistível</p>
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-2">
+            {!isEditingStory && (
+              <button
+                type="button"
+                disabled={isGeneratingInsta}
+                onClick={handleForceGenerateInsta}
+                className="flex items-center gap-2 px-4 py-2 bg-brand-primary/10 text-brand-primary hover:bg-brand-primary/20 rounded-xl text-xs font-semibold analytics-btn transition-all disabled:opacity-50"
+              >
+                <RefreshCw size={14} className={isGeneratingInsta ? "animate-spin" : ""} />
+                {isGeneratingInsta ? "Gerando..." : "Regerar com IA"}
+              </button>
+            )}
+          </div>
+        </div>
+
+        {isGeneratingInsta ? (
+          <div className="flex flex-col items-center justify-center py-12 space-y-4">
+            <Loader2 className="w-8 h-8 text-brand-primary animate-spin" />
+            <p className="text-xs text-brand-ink/50">Processando detalhes do caso para estruturar a copy perfeita...</p>
+          </div>
+        ) : !processStory.instagram_content ? (
+          <div className="flex flex-col items-center justify-center py-10 text-center space-y-4 bg-brand-bg/40 rounded-2xl p-6 border border-brand-border/40">
+            <Sparkles className="w-8 h-8 text-brand-primary/60" />
+            <p className="text-sm text-brand-ink/60 max-w-md">
+              Ainda não geramos a cópia de prospecção do Instagram para este caso. Clique no botão abaixo para gerar instantaneamente.
+            </p>
+            <button
+              onClick={handleForceGenerateInsta}
+              className="px-6 py-2.5 bg-brand-primary text-black hover:bg-brand-primary/90 rounded-xl text-sm font-bold transition-all shadow-md cursor-pointer"
+            >
+              Criar Roteiros & Post de Prospecção
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-6 relative z-10">
+            {/* Tabs selector */}
+            <div className="flex border-b border-brand-border">
+              <button
+                type="button"
+                onClick={() => setActiveInstaTab('video')}
+                className={`py-3 px-4 text-sm font-semibold flex items-center gap-2 border-b-2 transition-all -mb-[2px] ${
+                  activeInstaTab === 'video' 
+                    ? 'border-brand-primary text-brand-primary' 
+                    : 'border-transparent text-brand-ink/50 hover:text-brand-ink'
+                }`}
+              >
+                <Video size={16} />
+                Video Script (Reels/Stories)
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveInstaTab('post')}
+                className={`py-3 px-4 text-sm font-semibold flex items-center gap-2 border-b-2 transition-all -mb-[2px] ${
+                  activeInstaTab === 'post' 
+                    ? 'border-brand-primary text-brand-primary' 
+                    : 'border-transparent text-brand-ink/50 hover:text-brand-ink'
+                }`}
+              >
+                <FileText size={16} />
+                Legenda do Post (Feed)
+              </button>
+            </div>
+
+            {/* Content area */}
+            <div className="bg-brand-bg/30 rounded-2xl p-6 border border-brand-border/50 relative">
+              <button
+                onClick={() => handleCopyInsta(
+                  activeInstaTab === 'video' 
+                    ? processStory.instagram_content.video_script 
+                    : processStory.instagram_content.feed_post
+                )}
+                className="absolute top-4 right-4 bg-brand-paper hover:bg-brand-primary/10 border border-brand-border/50 hover:border-brand-primary text-brand-ink/70 hover:text-brand-primary p-2 rounded-xl transition-all flex items-center gap-1.5 shadow-sm text-xs cursor-pointer z-20"
+                title="Copiar para área de transferência"
+              >
+                {copiedInsta ? (
+                  <>
+                    <Check size={14} className="text-green-500" />
+                    <span className="text-green-500 font-semibold">Copiado!</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy size={14} />
+                    <span>Copiar</span>
+                  </>
+                )}
+              </button>
+
+              <div className="prose prose-brand max-w-none text-sm text-brand-ink whitespace-pre-wrap leading-relaxed pr-20 pt-2 selection:bg-brand-primary/20">
+                {activeInstaTab === 'video' 
+                  ? processStory.instagram_content.video_script 
+                  : processStory.instagram_content.feed_post}
+              </div>
+            </div>
+            
+            {/* Advice badge */}
+            <div className="text-[11px] text-brand-ink/60 bg-brand-primary/5 p-4 rounded-xl border border-brand-primary/10 flex items-center gap-2">
+              <Sparkles size={14} className="text-brand-primary shrink-0 animate-pulse" />
+              <span>
+                <strong>Dica de Captação:</strong> Grave o vídeo com tom profissional e seguro. Use a legenda do Feed com as métricas reais (ROI de {roi.toFixed(1)}% e lucro estimado de {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(metrics.netProfit || 0)}) para consolidar a autoridade da sua assessoria de leilões!
+              </span>
+            </div>
+          </div>
+        )}
+
+        {isEditingStory && processStory.instagram_content && (
+          <div className="mt-6 p-6 bg-brand-primary/5 rounded-2xl border border-brand-primary/10 space-y-4">
+            <h4 className="text-sm font-bold text-brand-primary uppercase tracking-wider flex items-center gap-2">
+              <Instagram size={16} />
+              Editar Conteúdo do Instagram (Prospecção)
+            </h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-brand-ink/60 mb-2">Editor - Roteiro de Vídeo (Reels)</label>
+                <textarea
+                  className="w-full bg-brand-paper border border-brand-primary/20 rounded-xl p-4 min-h-[220px] text-brand-ink text-xs outline-none focus:ring-1 focus:ring-brand-primary"
+                  value={processStory.instagram_content.video_script || ""}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setState((prev: any) => ({
+                      ...prev,
+                      processStory: {
+                        ...prev.processStory,
+                        instagram_content: {
+                          ...(prev.processStory.instagram_content || {}),
+                          video_script: val
+                        }
+                      }
+                    }));
+                  }}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-brand-ink/60 mb-2">Editor - Legenda do Post (Feed)</label>
+                <textarea
+                  className="w-full bg-brand-paper border border-brand-primary/20 rounded-xl p-4 min-h-[220px] text-brand-ink text-xs outline-none focus:ring-1 focus:ring-brand-primary"
+                  value={processStory.instagram_content.feed_post || ""}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setState((prev: any) => ({
+                      ...prev,
+                      processStory: {
+                        ...prev.processStory,
+                        instagram_content: {
+                          ...(prev.processStory.instagram_content || {}),
+                          feed_post: val
+                        }
+                      }
+                    }));
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+      </section>
+
       {/* Financial Analysis - Quick View */}
       <section className="bg-brand-paper/50 p-8 rounded-[2.5rem] border border-brand-primary/10 print-section-3">
         <h3 className="text-xl font-bold text-brand-primary mb-8 flex items-center gap-3">
@@ -5714,7 +5948,7 @@ function MasterReportView({
               <tr>
                 <td className="py-4 text-sm">Custos Totais (Reforma, ITBI, etc)</td>
                 <td className="py-4 text-sm font-bold text-right text-red-500">
-                  -{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(metrics.totalUpfrontExpenses - metrics.bid || 0)}
+                  -{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(metrics.totalUpfrontExpenses || 0)}
                 </td>
                 <td className="py-4 text-xs text-brand-ink/40 text-right">Operacional</td>
               </tr>
@@ -6104,17 +6338,25 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
       if (storyRes.ok) {
         const story = await parseJsonResponse(storyRes);
         if (story) {
+          let timeline = [];
+          let instagramContent = null;
+          try {
+            const parsedJson = typeof story.timeline_json === 'string' ? JSON.parse(story.timeline_json) : story.timeline_json;
+            if (Array.isArray(parsedJson)) {
+              timeline = parsedJson;
+            } else if (parsedJson && typeof parsedJson === 'object') {
+              timeline = parsedJson.timeline || parsedJson.events || [];
+              instagramContent = parsedJson.instagram_content || null;
+            }
+          } catch (e) {
+            console.error("Erro ao parsear timeline_json:", e);
+          }
+
           updateState({ 
             processStory: {
               ...story,
-              timeline: typeof story.timeline_json === 'string' ? (() => {
-                try {
-                  return JSON.parse(story.timeline_json);
-                } catch (e) {
-                  console.error("Erro ao parsear timeline_json:", e);
-                  return [];
-                }
-              })() : story.timeline_json
+              timeline,
+              instagram_content: instagramContent
             }
           });
         } else {
@@ -6237,7 +6479,10 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
               property_id: id,
               full_story: state.processStory.full_story,
               legal_glossary: state.processStory.legal_glossary,
-              timeline_json: JSON.stringify(state.processStory.timeline)
+              timeline_json: JSON.stringify({
+                timeline: state.processStory.timeline || [],
+                instagram_content: state.processStory.instagram_content || null
+              })
             })
           });
         }
