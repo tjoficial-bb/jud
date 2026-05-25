@@ -991,8 +991,42 @@ async function startServer() {
 
   app.put("/api/ai-analyses/:id", authenticateToken, (req, res) => {
     try {
-      const { exec_summary } = req.body;
-      db.prepare("UPDATE ai_analyses SET exec_summary = ? WHERE id = ?").run(exec_summary, req.params.id);
+      const { exec_summary, financial_analysis, recommended_bid, roi, tir, estimated_profit } = req.body;
+      
+      const fields: string[] = [];
+      const values: any[] = [];
+      
+      if (exec_summary !== undefined) {
+        fields.push("exec_summary = ?");
+        values.push(exec_summary);
+      }
+      if (financial_analysis !== undefined) {
+        fields.push("financial_analysis = ?");
+        values.push(financial_analysis);
+      }
+      if (recommended_bid !== undefined) {
+        fields.push("recommended_bid = ?");
+        values.push(recommended_bid);
+      }
+      if (roi !== undefined) {
+        fields.push("roi = ?");
+        values.push(roi);
+      }
+      if (tir !== undefined) {
+        fields.push("tir = ?");
+        values.push(tir);
+      }
+      if (estimated_profit !== undefined) {
+        fields.push("estimated_profit = ?");
+        values.push(estimated_profit);
+      }
+      
+      if (fields.length > 0) {
+        values.push(req.params.id);
+        const query = `UPDATE ai_analyses SET ${fields.join(", ")} WHERE id = ?`;
+        db.prepare(query).run(...values);
+      }
+      
       res.json({ success: true });
     } catch (error: any) {
       console.error("Erro ao atualizar análise:", error.message);

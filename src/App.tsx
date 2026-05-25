@@ -64,7 +64,15 @@ import { User, Property, Process, AIConfig, StrategicBrainItem } from './types';
 import { SYSTEM_PROMPT } from './constants';
 import { analyzeAuctionDocuments, generateProcessStory, sendChatMessage } from './services/aiService';
 
-const SimulationContext = React.createContext<{ simulationData: any, updateState: (s: any) => void, onJumpToSimulation?: (id: string) => void }>({
+const SimulationContext = React.createContext<{ 
+  simulationData: any, 
+  updateState: (s: any) => void, 
+  onJumpToSimulation?: (id: string) => void,
+  selectedPropertyId?: string,
+  analysisId?: string | null,
+  token?: string,
+  report?: string | null
+}>({
   simulationData: null,
   updateState: () => {},
   onJumpToSimulation: () => {}
@@ -2649,16 +2657,16 @@ function CompactSimulationInput({
   };
 
   return (
-    <div className="flex flex-col gap-1">
-      <div className="flex items-center justify-between gap-2 group/input">
-        <label className="text-[9px] font-bold text-brand-ink/40 uppercase tracking-tight">{label}</label>
-        <div className="flex items-center gap-2">
-          <div className="flex bg-brand-bg/50 rounded-lg p-0.5 border border-brand-primary/5">
+    <div className="flex flex-col gap-1.5 p-3 rounded-2xl bg-brand-bg/10 hover:bg-brand-bg/30 transition-all border border-brand-primary/5 hover:border-brand-primary/20">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 group/input">
+        <label className="text-[10px] font-bold text-brand-ink/65 uppercase tracking-wider">{label}</label>
+        <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto">
+          <div className="flex bg-brand-bg/50 rounded-lg p-0.5 border border-brand-primary/5 shrink-0">
             <button 
               type="button"
-              onClick={() => onTypeChange('BRL')}
+              onClick={() => onTypeChange?.('BRL')}
               className={cn(
-                "px-1.5 py-0.5 text-[7px] font-bold uppercase tracking-widest rounded transition-all",
+                "px-2 py-0.5 text-[8px] font-bold uppercase tracking-widest rounded transition-all",
                 type === 'BRL' ? "bg-brand-primary text-black shadow-sm" : "text-brand-ink/30 hover:text-brand-primary"
               )}
             >
@@ -2666,16 +2674,16 @@ function CompactSimulationInput({
             </button>
             <button 
               type="button"
-              onClick={() => onTypeChange('PERCENT')}
+              onClick={() => onTypeChange?.('PERCENT')}
               className={cn(
-                "px-1.5 py-0.5 text-[7px] font-bold uppercase tracking-widest rounded transition-all",
+                "px-2 py-0.5 text-[8px] font-bold uppercase tracking-widest rounded transition-all",
                 type === 'PERCENT' ? "bg-brand-primary text-black shadow-sm" : "text-brand-ink/30 hover:text-brand-primary"
               )}
             >
               %
             </button>
           </div>
-          <div className="relative min-w-[100px] group/field">
+          <div className="relative flex-1 sm:flex-none sm:w-[110px] group/field">
             {type === 'BRL' && <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[9px] font-bold text-brand-ink/30">R$</span>}
             <input 
               type="text" 
@@ -2685,7 +2693,7 @@ function CompactSimulationInput({
               onChange={handleInputChange}
               className={cn(
                 "w-full bg-transparent border-b border-transparent hover:border-brand-primary/20 focus:border-brand-primary focus:ring-0 text-right text-xs font-bold p-1 transition-all",
-                (highlight || isHighlighted) ? "text-emerald-600 bg-emerald-50 border-emerald-500" : (highlight ? "text-brand-primary" : "text-brand-ink"),
+                (highlight || isHighlighted) ? "text-emerald-500 bg-emerald-500/10 border-emerald-500" : (highlight ? "text-brand-primary" : "text-brand-ink"),
                 type === 'BRL' ? "pl-6" : "pr-4"
               )}
               placeholder="0,00"
@@ -3063,8 +3071,106 @@ function BidMap({ simulationData }: { simulationData: any }) {
 }
 
 function InteractiveSimulationTable() {
-  const { simulationData, updateState } = React.useContext(SimulationContext);
+  const { 
+    simulationData, 
+    updateState, 
+    selectedPropertyId, 
+    analysisId, 
+    token, 
+    report 
+  } = React.useContext(SimulationContext);
   if (!simulationData) return null;
+
+  const [saving, setSaving] = React.useState(false);
+
+  const handleSaveSimulation = async () => {
+    if (!token) {
+      if ((window as any).customToast) {
+        (window as any).customToast("Você precisa estar autenticado para salvar uma simulação.", "error");
+      } else {
+        alert("Você precisa estar autenticado para salvar uma simulação.");
+      }
+      return;
+    }
+    if (!selectedPropertyId) {
+      if ((window as any).customToast) {
+        (window as any).customToast("Selecione ou salve um imóvel antes de salvar a simulação financeira.", "error");
+      } else {
+        alert("Selecione ou salve um imóvel antes de salvar a simulação financeira.");
+      }
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const currentMetrics = calculateSimulationMetrics(simulationData);
+      const bidVal = simulationData.bid?.value || 0;
+      const saleVal = simulationData.saleValue?.value || 0;
+      const valVal = simulationData.valuation?.value || 0;
+
+      // 1. Save core property pricing metrics to `/api/properties/:id`
+      const propRes = await fetch(`/api/properties/${selectedPropertyId}`, {
+        method: 'PUT',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          valuation_value: valVal,
+          min_bid: bidVal,
+          expected_sale_value: saleVal
+        })
+      });
+
+      if (!propRes.ok) {
+        throw new Error("Erro ao sincronizar parâmetros financeiros com o imóvel.");
+      }
+
+      // 2. If a document analysis exists, update it in `/api/ai-analyses/:id`
+      if (analysisId) {
+        const otherExpenses = currentMetrics.totalUpfrontExpenses;
+        const downPaymentPercent = simulationData.downPaymentPercent || 100;
+        const installments = simulationData.installments || 1;
+        const interestRate = simulationData.interestRate || 0;
+        const holdingMonths = simulationData.holdingMonths || 12;
+        const computedTir = calculateTIR(bidVal, saleVal, otherExpenses, downPaymentPercent, installments, interestRate, holdingMonths);
+
+        const analysisRes = await fetch(`/api/ai-analyses/${analysisId}`, {
+          method: 'PUT',
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            financial_analysis: JSON.stringify(simulationData),
+            recommended_bid: bidVal,
+            roi: currentMetrics.roi,
+            tir: computedTir,
+            estimated_profit: currentMetrics.netProfit
+          })
+        });
+
+        if (!analysisRes.ok) {
+          throw new Error("Erro ao sincronizar dados da simulação na analise documental.");
+        }
+      }
+
+      if ((window as any).customToast) {
+        (window as any).customToast("Simulação financeira e parâmetros salvos para este imóvel com sucesso!", "success");
+      } else {
+        alert("Simulação financeira e parâmetros salvos para este imóvel com sucesso!");
+      }
+    } catch (err: any) {
+      console.error(err);
+      if ((window as any).customToast) {
+        (window as any).customToast(`Erro ao salvar simulação: ${err.message}`, "error");
+      } else {
+        alert(`Erro ao salvar simulação: ${err.message}`);
+      }
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const metrics = calculateSimulationMetrics(simulationData);
   const totalInvestment = metrics.assetCost;
@@ -3274,7 +3380,7 @@ function InteractiveSimulationTable() {
 
       {/* Column 2: Elegant summary card */}
       <div className="lg:col-span-5">
-        <div className="bg-brand-paper rounded-3xl border-2 border-brand-primary/20 p-6 sm:p-8 shadow-xl sticky top-8 space-y-6">
+        <div className="bg-brand-paper rounded-3xl border-2 border-brand-primary/20 p-6 sm:p-8 shadow-xl lg:sticky lg:top-8 space-y-6">
           <div className="border-b border-brand-border pb-4">
             <h4 className="text-base font-bold uppercase tracking-wider text-brand-ink/80 flex items-center gap-2 font-sans">
               <Calculator size={16} className="text-brand-primary" />
@@ -3324,7 +3430,7 @@ function InteractiveSimulationTable() {
             </div>
 
             {/* Final profit indicator */}
-            <div className="pt-4 space-y-3 font-sans">
+            <div className="pt-4 space-y-3 font-sans font-sans">
               <div className="bg-brand-primary/10 border border-brand-primary/20 rounded-2xl p-4 flex justify-between items-center whitespace-nowrap">
                 <div>
                   <span className="text-[10px] font-bold uppercase tracking-widest text-brand-primary block font-sans">Lucro Líquido Estimado</span>
@@ -3339,6 +3445,38 @@ function InteractiveSimulationTable() {
                   <span className="text-xs text-brand-ink/55 font-sans">Percentual de retorno</span>
                 </div>
                 <span className="text-xl font-bold text-green-500 font-mono">{roi.toFixed(1)}%</span>
+              </div>
+
+              {/* Save Simulation Action Block */}
+              <div className="pt-4 border-t border-brand-border/40">
+                <button
+                  type="button"
+                  onClick={handleSaveSimulation}
+                  disabled={saving || !selectedPropertyId}
+                  className={cn(
+                    "w-full py-4 px-6 rounded-2xl font-bold text-xs uppercase tracking-widest flex items-center justify-center gap-2 transition-all border border-brand-primary shadow-lg cursor-pointer",
+                    selectedPropertyId 
+                      ? "bg-brand-primary text-black hover:bg-brand-primary/95 shadow-brand-primary/10" 
+                      : "bg-brand-primary/10 text-brand-primary/40 cursor-not-allowed border-brand-primary/10"
+                  )}
+                >
+                  {saving ? (
+                    <>
+                      <Loader2 className="animate-spin text-black shrink-0" size={14} />
+                      <span>Salvando Parâmetros...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Save size={14} />
+                      <span>Salvar e Sincronizar Análise</span>
+                    </>
+                  )}
+                </button>
+                {!selectedPropertyId && (
+                  <p className="text-[9px] text-brand-ink/40 text-center mt-2 font-semibold">
+                    * Vincule um imóvel para habilitar o salvamento permanente desta simulação.
+                  </p>
+                )}
               </div>
             </div>
           </div>
@@ -5945,10 +6083,19 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
         setPropertyAnalyses(analyses);
         if (analyses && analyses.length > 0) {
           const latest = analyses[0];
+          let parsedSimulationData = null;
+          if (latest.financial_analysis) {
+            try {
+              parsedSimulationData = JSON.parse(latest.financial_analysis);
+            } catch (e) {
+              console.error("Erro ao parsear simulationData de banco:", e);
+            }
+          }
           updateState({ 
             report: latest.exec_summary, 
             selectedModel: latest.ia_used,
-            analysisId: latest.id
+            analysisId: latest.id,
+            ...(parsedSimulationData ? { simulationData: parsedSimulationData } : {})
           });
         } else {
           updateState({ analysisId: null, report: null });
@@ -6561,6 +6708,7 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
             body: JSON.stringify({
               property_id: selectedPropertyId,
               exec_summary: finalReport,
+              financial_analysis: JSON.stringify(extractedData),
               ia_used: selectedModel,
               recommended_bid: extractedData.bid.value,
               estimated_profit: (() => {
@@ -7419,11 +7567,21 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
                       <p className="text-xs text-brand-ink/40 mt-1 font-sans">Defina os valores do imóvel e custos para complementar sua viabilidade documental.</p>
                     </div>
                   </div>
- 
-                   <SimulationContext.Provider value={{ simulationData, updateState, onJumpToSimulation: onJumpToSimulation || (() => {}) }}>
-                     <InteractiveSimulationTable />
-                   </SimulationContext.Provider>
-                 </div>
+
+                  <SimulationContext.Provider 
+                    value={{ 
+                      simulationData, 
+                      updateState, 
+                      onJumpToSimulation: onJumpToSimulation || (() => {}),
+                      selectedPropertyId: state.selectedPropertyId,
+                      analysisId: state.analysisId,
+                      token,
+                      report: state.report
+                    }}
+                  >
+                    <InteractiveSimulationTable />
+                  </SimulationContext.Provider>
+                </div>
                )}
             </div>
           </div>
