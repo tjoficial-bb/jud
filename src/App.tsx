@@ -593,6 +593,10 @@ export default function App() {
       const res = await fetch('/api/ai-analyses', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
+      if (res.status === 401 || res.status === 403) {
+        handleLogout();
+        return;
+      }
       if (res.ok) {
         const data = await parseJsonResponse(res);
         setAllAnalyses(data);
@@ -607,6 +611,10 @@ export default function App() {
       const res = await fetch('/api/strategic-brain', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
+      if (res.status === 401 || res.status === 403) {
+        handleLogout();
+        return;
+      }
       if (res.ok) {
         const data = await parseJsonResponse(res);
         setBrainItems(data);
@@ -621,6 +629,10 @@ export default function App() {
       const res = await fetch('/api/properties', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
+      if (res.status === 401 || res.status === 403) {
+        handleLogout();
+        return;
+      }
       if (res.ok) {
         const data = await parseJsonResponse(res);
         setProperties(data);
