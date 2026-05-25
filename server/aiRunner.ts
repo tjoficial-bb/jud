@@ -381,12 +381,12 @@ export const runBackendAnalysis = async (
   let specializedInstruction = systemInstruction;
 
   if (analysisType === 'edital') {
-    specializedInstruction += "\n\nFOCO: Analise estritamente o EDITAL. Identifique obrigações, prazos, ônus, valor de leilão, descrição do imóvel e condições de desocupação.";
+    specializedInstruction += "\n\nFOCO COMPLEMENTAR DE ALTÍSSIMA PRIORIDADE: Analise estritamente o EDITAL linha por linha. Dedique atenção extrema aos débitos de IPTU (dívida ativa municipal) e Condomínio, alertando se o arrematante assume os débitos anteriores ou se há sub-rogação pelo lance nos termos do Art. 130 do CTN. Identifique obrigações adicionais, prazos de pagamento, leiloeiro, comissão, descrição física do imóvel e condições e prazos para a desocupação de forma explícita.";
     specializedInstruction += "\n\n" + EF_DOCUMENTATION_KNOWLEDGE;
   } else if (analysisType === 'matricula') {
-    specializedInstruction += "\n\nFOCO: Analise estritamente a MATRÍCULA. Identifique o proprietário, histórico de transmissões, ônus reais, hipotecas, penhoras e averbações.";
+    specializedInstruction += "\n\nFOCO COMPLEMENTAR DE ALTÍSSIMA PRIORIDADE: Analise estritamente a MATRÍCULA. É obrigatório identificar e expor detalhadamente todos os dados do proprietário, executado e adquirente anterior mencionados no documento, incluindo Nome Completo, CPF/CNPJ, Estado Civil, Profissão e Endereço Completo de residência ou sede. Mapeie cirurgicamente o histórico de transmissões, ônus reais, hipotecas, penhoras, indisponibilidades, averbações de processos associados e divórcios/partilhas.";
   } else if (analysisType === 'processo') {
-    specializedInstruction += "\n\nFOCO: Analise estritamente os PROCESSOS JUDICIAIS para identificar e resumir quaisquer riscos relacionados à arrematação do imóvel...";
+    specializedInstruction += "\n\nFOCO COMPLEMENTAR DE ALTÍSSIMA PRIORIDADE: Analise estritamente os PROCESSOS JUDICIAIS de ponta a ponta. Identifique todos os CPF/CNPJ, nomes completos e endereços de réus, autores, executados, credores hipotecários, e cônjuges. Identifique e relate todos os processos correlacionados ou incidentes judiciais ativos, o número completo da ação judicial, a vara/juiz correspondente, e faça uma avaliação minuciosa de risco quanto a vício de citação/intimação ou recursos pendentes do executado.";
   }
 
   if (provider === 'gemini') {
