@@ -6824,7 +6824,27 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
 
       console.log(`DEBUG FRONTEND (CHAT): Modelo ${selectedModel}. Chave (tamanho): ${userApiKey?.length || 0}`);
 
-      const response = await sendChatMessage(newMessages, `Relatório Original:\n${report}\n\n${SYSTEM_PROMPT}\n\nResponda sempre em português do Brasil.`, selectedModel, userApiKey || undefined);
+      // Query any chat attachments uploaded in the active session
+      const selectedPropertyId = state.selectedPropertyId;
+      const activeDocs = selectedPropertyId ? propertyDocs : state.adHocDocs;
+      const chatAttachments = activeDocs.filter((d: any) => d.doc_type === 'Anexo Chat');
+      
+      let attachmentsCtx = "";
+      if (chatAttachments.length > 0) {
+        attachmentsCtx = "\n\nO usuário anexou os seguintes documentos adicionais ao chat para consulta/referência:\n";
+        chatAttachments.forEach((doc: any, i: number) => {
+          attachmentsCtx += `--- INÍCIO DO ARQUIVO ANEXADO ${i + 1}: ${doc.filename || 'Sem Nome'} ---\n`;
+          attachmentsCtx += `Conteúdo extraído:\n${doc.extracted_text || '(Nenhum conteúdo de texto pôde ser extraído ou o arquivo está vazio)'}\n`;
+          attachmentsCtx += `--- FIM DO ARQUIVO ANEXADO ${i + 1} ---\n\n`;
+        });
+      }
+
+      const response = await sendChatMessage(
+        newMessages, 
+        `Relatório Original:\n${report}\n${attachmentsCtx}\n\n${SYSTEM_PROMPT}\n\nPor favor, responda o assunto considerando com extrema atenção e integridade os documentos adicionados pelo usuário no anexo do chat acima. Responda sempre em português do Brasil.`, 
+        selectedModel, 
+        userApiKey || undefined
+      );
       
       const updatedReport = `${report}\n\n---\n\n### Adendo do Chat\n\n**Pergunta:** ${userMsg.content}\n\n**Resposta:**\n${response}`;
       
@@ -7392,6 +7412,45 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
                           )}
                         </div>
 
+                        {/* Attached files list */}
+                        {analysisDocs.filter((d: any) => d.doc_type === 'Anexo Chat').length > 0 && (
+                          <div className="flex flex-wrap gap-2 mb-3 max-h-32 overflow-y-auto p-1 border-b border-brand-primary/5 pb-3">
+                            {analysisDocs.filter((d: any) => d.doc_type === 'Anexo Chat').map((doc: any) => (
+                              <div 
+                                key={doc.id} 
+                                className="flex items-center gap-2 bg-brand-primary/10 border border-brand-primary/25 text-brand-primary rounded-xl px-3.5 py-2 text-xs font-semibold select-none shadow-sm animate-fade-in"
+                              >
+                                <FileText size={14} className="shrink-0 text-brand-primary/70" />
+                                <span className="truncate max-w-[180px] text-brand-ink">{doc.filename}</span>
+                                <button 
+                                  type="button"
+                                  onClick={async () => {
+                                    // Local optimistic delete
+                                    setPropertyDocs((prev: any) => prev.filter((d: any) => d.id !== doc.id));
+                                    setState((prev: any) => ({
+                                      ...prev,
+                                      adHocDocs: prev.adHocDocs.filter((d: any) => d.id !== doc.id)
+                                    }));
+                                    // Backend delete
+                                    try {
+                                      await fetch(`/api/documents/${doc.id}`, {
+                                        method: 'DELETE',
+                                        headers: { 'Authorization': `Bearer ${token}` }
+                                      });
+                                    } catch (e) {
+                                      console.error("Erro ao deletar anexo:", e);
+                                    }
+                                  }}
+                                  className="text-brand-ink/40 hover:text-red-500 cursor-pointer transition-colors p-0.5 rounded-full hover:bg-red-500/10 ml-1"
+                                  title="Remover anexo do chat"
+                                >
+                                  <X size={14} />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
                         <div className="relative flex gap-3">
                           <div className="relative flex-1">
                             <input 
@@ -7411,15 +7470,24 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
                             </button>
                           </div>
                           <label className="w-14 h-14 bg-brand-bg border border-brand-primary/20 text-brand-primary rounded-2xl flex items-center justify-center cursor-pointer hover:bg-brand-primary/5 transition-all shrink-0">
-                            <Plus size={24} />
+                            {uploading ? (
+                              <Loader2 size={24} className="animate-spin text-brand-primary" />
+                            ) : (
+                              <Plus size={24} />
+                            )}
                             <input 
                               type="file" 
                               className="hidden" 
                               multiple 
+                              disabled={uploading}
                               onChange={(e) => handleAnalysisFileUpload(e, 'Anexo Chat')} 
                             />
                           </label>
                         </div>
+                        <p className="text-[10px] text-brand-ink/40 font-semibold mt-1 flex items-center gap-1">
+                          <Info size={12} className="text-brand-primary" />
+                          <span>Envie novos documentos (+) para incluir no contexto desta conversa com a IA.</span>
+                        </p>
                       </div>
                     </div>
                   ) : (
