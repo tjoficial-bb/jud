@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { Property } from '../../types';
+import { uploadDocuments } from '../../services/documentService';
 
 interface Document {
   id: string;
@@ -30,6 +31,7 @@ export function DocumentsView({ token, properties, onSelectProperty }: Documents
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [uploading, setUploading] = useState(false);
+  const [uploadProgressText, setUploadProgressText] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
@@ -135,18 +137,13 @@ export function DocumentsView({ token, properties, onSelectProperty }: Documents
     try {
       setUploading(true);
       setError(null);
-      const formData = new FormData();
-      formData.append('files', uploadFile);
-      formData.append('doc_type', uploadType);
-      formData.append('property_id', uploadPropertyId || '');
+      setUploadProgressText('Preparando arquivo...');
 
-      const res = await fetch('/api/documents', {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` },
-        body: formData
+      const propertyId = uploadPropertyId || '';
+      
+      await uploadDocuments([uploadFile], uploadType, propertyId, token, (status) => {
+        setUploadProgressText(status);
       });
-
-      if (!res.ok) throw new Error('Falha ao enviar arquivo.');
 
       setSuccessMsg('Documento cadastrado e indexado com sucesso!');
       setUploadFile(null);
@@ -157,6 +154,7 @@ export function DocumentsView({ token, properties, onSelectProperty }: Documents
       setError(err.message || 'Erro ao fazer upload.');
     } finally {
       setUploading(false);
+      setUploadProgressText(null);
     }
   };
 
@@ -493,7 +491,7 @@ export function DocumentsView({ token, properties, onSelectProperty }: Documents
                 {uploading ? (
                   <>
                     <Loader2 size={16} className="animate-spin" />
-                    <span>Processando e Indexando...</span>
+                    <span>{uploadProgressText || "Processando e Indexando..."}</span>
                   </>
                 ) : (
                   <>

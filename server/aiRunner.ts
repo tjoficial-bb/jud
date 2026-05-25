@@ -435,7 +435,7 @@ export const runBackendAnalysis = async (
     specializedInstruction += "\n\nFOCO COMPLEMENTAR DE ALTÍSSIMA PRIORIDADE: Analise estritamente os PROCESSOS JUDICIAIS de ponta a ponta. Identifique todos os CPF/CNPJ, nomes completos e endereços de réus, autores, executados, credores hipotecários, e cônjuges. Identifique e relate todos os processos correlacionados ou incidentes judiciais ativos, o número completo da ação judicial, a vara/juiz correspondente, e faça uma avaliação minuciosa de risco quanto a vício de citação/intimação ou recursos pendentes do executado.";
   }
 
-  const timeoutMessage = `Tempo limite de processamento de IA atingido (Limite de 42 segundos).
+  const timeoutMessage = `Tempo limite de processamento de IA atingido (Limite de 180 segundos).
 
 Os arquivos enviados são muito extensos ou possuem muitas imagens/páginas escaneadas não-otimizadas que sobrecarregaram o modelo de processamento da IA neste momento.
 
@@ -457,7 +457,7 @@ Para resolver esta lentidão de forma imediata:
     throw new Error("Provedor não suportado.");
   };
 
-  return withTimeout(runTask(), 42000, timeoutMessage);
+  return withTimeout(runTask(), 180000, timeoutMessage);
 };
 
 export const runBackendProcessStory = async (
