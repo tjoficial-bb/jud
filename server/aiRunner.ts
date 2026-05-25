@@ -80,8 +80,9 @@ const mapModelId = (model: string): string => {
 };
 
 const getPayloadBudget = (model: string): number => {
-  if (model.startsWith('claude')) return 25 * 1024 * 1024;
-  return 18 * 1024 * 1024;
+  // Return a much safer 4MB budget of base64 data (~3MB of binary files).
+  // This guarantees that we don't send multiple heavy raw PDFs/images which would cause 504 Gateway Timeout (60s limit).
+  return 4 * 1024 * 1024;
 };
 
 const optimizePayload = (files: any[], budget: number) => {
@@ -89,12 +90,12 @@ const optimizePayload = (files: any[], budget: number) => {
     const hasText = !!f.extractedText && f.extractedText.trim().length > 0;
     
     // We check if it is a heavy binary (PDF or Image).
-    // PDFs without text take extremely long to OCR visually on the Google/AI servers.
-    // So we lower the limit to 1.5MB of base64 characters (approx 1.1MB file) for non-text PDFs,
-    // and 3MB for images.
-    let limit = 3 * 1024 * 1024; // 3MB limit for images
+    // PDFs without text take extremely long to OCR visually on the model provider side.
+    // So we lower the limit to 0.8MB of base64 characters (approx 600KB file) for non-text PDFs,
+    // and 1.5MB for images.
+    let limit = 1.5 * 1024 * 1024; // 1.5MB limit for images (approx 1.1MB raw)
     if (f.mimeType === 'application/pdf') {
-      limit = 1.5 * 1024 * 1024; // 1.5MB limit for PDFs without text
+      limit = 0.8 * 1024 * 1024; // 0.8MB limit for PDFs without text (approx 600KB raw)
     }
     
     const isBase64TooLarge = f.data && f.data.length > limit;
@@ -108,9 +109,9 @@ const optimizePayload = (files: any[], budget: number) => {
         : f.extractedText;
     } else if (isBase64TooLarge) {
       if (f.mimeType === 'application/pdf') {
-        optimizedText = `[AVISO DO SISTEMA: O PDF '${f.filename || 'Documento'}' (${(f.data.length / (1024 * 1024 * 1.33)).toFixed(1)}MB) é escaneado (sem texto nativo extraível) e é muito grande para processo visual direto. Para evitar que os servidores de IA caiam por limite de tempo (Erro 504 Timeout), este arquivo foi omitido. Por favor, envie uma versão menor deste PDF (com até 15 páginas) ou faça o upload de um PDF com texto pesquisável.]`;
+        optimizedText = `[AVISO DO SISTEMA: O PDF '${f.filename || 'Documento'}' (${(f.data.length / (1024 * 1024 * 1.33)).toFixed(1)}MB) é escaneado (sem texto nativo extraível) e excede o limite rápido do sistema. Para evitar lentidões ou quedas de conexão (como Erro 504 Timeout), este arquivo foi omitido. Envie uma versão menor de até 10-15 páginas ou use um PDF que tenha texto pesquisável nativo.]`;
       } else {
-        optimizedText = `[AVISO DO SISTEMA: A imagem '${f.filename || 'Documento'}' (${(f.data.length / (1024 * 1024 * 1.33)).toFixed(1)}MB) é muito pesada e foi omitida para garantir que a análise seja ultra rápida e livre de lentidões (timeouts). Se o conteúdo dela for importante, envie uma versão comprimida ou menor que 1.5MB.]`;
+        optimizedText = `[AVISO DO SISTEMA: A imagem '${f.filename || 'Documento'}' (${(f.data.length / (1024 * 1024 * 1.33)).toFixed(1)}MB) é muito pesada e foi omitida para garantir que a análise seja ultra rápida e livre de lentidões (timeouts). Se o conteúdo dela for importante, envie uma versão menor ou mais leve.]`;
       }
     }
     
