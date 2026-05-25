@@ -120,14 +120,20 @@ const parseJsonResponse = async (res: Response) => {
     // Check if it looks like HTML
     if (lowerTrimmed.startsWith('<!doctype') || lowerTrimmed.includes('<html') || lowerTrimmed.includes('<body') || lowerTrimmed.startsWith('<')) {
       console.warn(`API Warning: Received HTML instead of JSON for ${res.url}. Status: ${res.status}.`);
-      const msg = "Sessão expirada ou cookies bloqueados.\n\nPor favor, tente abrir o sistema em uma nova aba para renovar a sessão.";
-      const error = new SessionException(msg);
-      throw error;
+      
+      if (res.status === 401 || res.status === 403) {
+        const msg = "Sessão expirada ou cookies bloqueados.\n\nPor favor, tente abrir o sistema em uma nova aba para renovar a sessão.";
+        const error = new SessionException(msg);
+        throw error;
+      } else {
+        const msg = `O servidor está temporariamente indisponível ou em processo de reinicialização (Status: ${res.status}). Por favor, aguarde alguns segundos e tente novamente.`;
+        throw new Error(msg);
+      }
     }
     
     return JSON.parse(trimmed);
   } catch (e: any) {
-    if (e instanceof SessionException || e.name === 'SessionException' || (e.message && e.message.includes("Sessão expirada"))) {
+    if (e instanceof SessionException || e.name === 'SessionException' || (e.message && e.message.includes("Sessão expirada")) || (e.message && e.message.includes("O servidor está temporariamente indisponível"))) {
       throw e;
     }
     console.error(`Erro ao parsear JSON para ${res.url}. Status: ${res.status}. Content: ${text.substring(0, 200)}...`);
@@ -7036,7 +7042,7 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
         return;
       } else if (err.message?.includes('API_KEY_INVALID')) {
         errorMessage = "Chave de API inválida. Verifique se a chave foi copiada corretamente nas configurações de IA.";
-      } else if ((err.message?.includes('limit') || err.message?.includes('too large')) && !err.message?.includes('excede o limite')) {
+      } else if ((err.message?.includes('limit') || err.message?.includes('too large')) && !err.message?.includes('excede o limite') && !err.message?.includes('Tempo limite')) {
         errorMessage = "O volume de dados é muito grande para uma única análise. Tente reduzir o número de páginas ou arquivos.";
       }
       
