@@ -80,11 +80,11 @@ const mapModelId = (model: string): string => {
 };
 
 const getPayloadBudget = (model: string): number => {
-  // If we are using a fast Flash model, double the budget! Under 60s timeout, flash parses 8MB base64 easily
+  // Keep the payload budget optimized so that it processes well under 60s timeout.
   if (model && (model.includes('flash') || model.includes('gemini-2.1') || model.includes('gemini-3.5'))) {
-    return 16 * 1024 * 1024; // 16MB budget of base64 data (~12MB raw files)
+    return 5 * 1024 * 1024; // 5MB budget of base64 data (~3.8MB raw files)
   }
-  return 8 * 1024 * 1024; // 8MB budget of base64 data (~6MB raw files)
+  return 2.5 * 1024 * 1024; // 2.5MB budget of base64 data (~1.8MB raw files)
 };
 
 const optimizePayload = (files: any[], budget: number) => {
@@ -93,11 +93,11 @@ const optimizePayload = (files: any[], budget: number) => {
     
     // We check if it is a heavy binary (PDF or Image).
     // PDFs without text take extremely long to OCR visually on the model provider side.
-    // So we lower the limit to 6.0MB of base64 characters (approx 4.5MB file) for non-text PDFs,
-    // and 4.0MB for images.
-    let limit = 4 * 1024 * 1024; // 4MB limit for images (approx 3MB raw)
+    // So we lower the limit to 1.5MB of base64 characters (approx 1.1MB file) for non-text PDFs,
+    // and 1.0MB for images. This prevents 504 Gateway Timeout on heavy files.
+    let limit = 1.0 * 1024 * 1024; // 1.0MB limit for images (approx 750KB raw)
     if (f.mimeType === 'application/pdf') {
-      limit = 6 * 1024 * 1024; // 6MB limit for PDFs without text (approx 4.5MB raw)
+      limit = 1.5 * 1024 * 1024; // 1.5MB limit for PDFs without text (approx 1.1MB raw)
     }
     
     const isBase64TooLarge = f.data && f.data.length > limit;
@@ -437,6 +437,11 @@ export const runBackendAnalysis = async (
   } else if (analysisType === 'processo') {
     specializedInstruction += "\n\nFOCO COMPLEMENTAR DE ALTÍSSIMA PRIORIDADE: Analise estritamente os PROCESSOS JUDICIAIS de ponta a ponta. Identifique todos os CPF/CNPJ, nomes completos e endereços de réus, autores, executados, credores hipotecários, e cônjuges. Identifique e relate todos os processos correlacionados ou incidentes judiciais ativos, o número completo da ação judicial, a vara/juiz correspondente, e faça uma avaliação minuciosa de risco quanto a vício de citação/intimação ou recursos pendentes do executado.";
   }
+
+  // Inject critical bidder checklist and strategic brain consultation
+  specializedInstruction += "\n\nDIRETRIZ CRÍTICA DE EXECUÇÃO (MANDATÓRIO): " +
+    "\n- Você DEVE consultar ativamente o CONTEXTO ESTRATÉGICO DO USUÁRIO (CÉREBRO ESTRATÉGICO) fornecido nas instruções do sistema para alinhar todas as suas decisões e análises com os padrões e lições de proteção de capital do investidor." +
+    "\n- Inclua OBRIGATORIAMENTE de forma visível e muito detalhada o 'CHECKLIST DO ARREMATADOR (PML) - ANÁLISE DE VIABILIDADE' na sua resposta. Valide cada um dos 5 macro-itens do Checklist do Arrematador listando seus respectivos pontos com os status: [CONFIRMADO], [PENDENTE] ou [ATENÇÃO], acompanhados de justificativa analítica fundamentada.";
 
   const timeoutMessage = `Tempo limite de processamento de IA atingido (Limite de 180 segundos).
 
