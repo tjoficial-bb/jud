@@ -1570,6 +1570,22 @@ async function startServer() {
     app.use(express.static(path.join(rootDir, "dist")));
 
     // Serve source files for sourcemaps to work in production without 404s
+    app.use("/src", express.static(path.join(process.cwd(), "src"), {
+      setHeaders: (res, filePath) => {
+        if (filePath.endsWith('.ts') || filePath.endsWith('.tsx')) {
+          res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+        }
+      }
+    }));
+
+    app.use("/src", express.static(path.join(rootDir, "src"), {
+      setHeaders: (res, filePath) => {
+        if (filePath.endsWith('.ts') || filePath.endsWith('.tsx')) {
+          res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+        }
+      }
+    }));
+
     app.get("/src/*", (req, res) => {
       const cleanPath = req.params[0] || req.path.replace(/^\/src\//, '');
       const safePath = path.normalize(cleanPath).replace(/^(\.\.(\/|\\|$))+/, '');
