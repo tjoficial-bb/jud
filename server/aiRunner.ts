@@ -1,6 +1,49 @@
 import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
 import Anthropic from "@anthropic-ai/sdk";
 import OpenAI from "openai";
+import axios from "axios";
+
+const fetchUrlContent = async (url: string): Promise<string> => {
+  if (!url || typeof url !== 'string' || !url.startsWith('http')) {
+    return "";
+  }
+  try {
+    console.log(`[Crawler] Iniciando captura rápida de URL do leilão: ${url}`);
+    const res = await axios.get(url, {
+      timeout: 8000,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache'
+      }
+    });
+
+    if (typeof res.data === 'string') {
+      const html = res.data;
+      const titleMatch = html.match(/<title>([\s\S]*?)<\/title>/i);
+      const titleText = titleMatch ? titleMatch[1].trim() : "Portal-Leiloeiro";
+
+      let text = html.replace(/<script[^>]*>([\s\S]*?)<\/script>/gi, '');
+      text = text.replace(/<style[^>]*>([\s\S]*?)<\/style>/gi, '');
+      text = text.replace(/<\/p>|<\/div>|<br\s*\/?>|<\/tr>|<\/h[1-6]>/gi, '\n');
+      text = text.replace(/<[^>]+>/g, ' ');
+      text = text.trim();
+      
+      // Clean up whitespace beautifully
+      text = text.replace(/[ \t]+/g, ' ');
+      text = text.replace(/\n\s*\n+/g, '\n');
+
+      console.log(`[Crawler] Captura concluída. Título: "${titleText}", Extraído: ${text.length} caracteres.`);
+      return `Título do Portal: ${titleText}\n\nConteúdo:\n${text.substring(0, 12000)}`;
+    }
+    return "";
+  } catch (err: any) {
+    console.warn(`[Crawler Error] Erro ao buscar URL de leiloeiro ${url}:`, err.message);
+    return `[Este link de detalhes do leilão está sob proteção do Cloudflare, exige CAPTCHA ou está offline temporariamente. Erro: ${err.message}. Prossiga fornecendo as diretrizes e parecer de análise com base nos outros documentos disponíveis.]`;
+  }
+};
 
 const callGeminiWithRetry = async <T>(
   fn: () => Promise<T>,
@@ -226,10 +269,6 @@ const analyzeWithGemini = async (files: any[], systemInstruction: string, model:
     temperature: 0.2,
   };
 
-  if (auctionUrls && auctionUrls.length > 0) {
-    config.tools = [{ googleSearch: {} }];
-  }
-
   const response: GenerateContentResponse = await callGeminiWithRetry(() => ai.models.generateContent({
     model: mappedModel,
     contents: {
@@ -452,15 +491,44 @@ Para resolver esta lentidão de forma imediata:
 2️⃣ Divida processos longos ou editais grandes em fatias ou blocos menores de 15 a 25 páginas para acelerar a análise.
 3️⃣ Certifique-se de que os PDFs enviados tenham texto nativo pesquisável correspondente, evitando uploads de apenas imagens escaneadas.`;
 
+  // Crawl URLs first in parallel and hydrate files
+  let analyzedFiles = [...files];
+  if (Array.isArray(auctionUrls) && auctionUrls.length > 0) {
+    try {
+      const crawled = await Promise.all(
+        auctionUrls.map(async (url) => {
+          const content = await fetchUrlContent(url);
+          return { url, content };
+        })
+      );
+      
+      crawled.forEach((item, index) => {
+        if (item.content) {
+          analyzedFiles.push({
+            id: `crawl-${index}`,
+            filename: `Link_Leiloeiro_Extraido_${index + 1}.txt`,
+            mimeType: 'text/plain',
+            extractedText: item.content,
+            data: "",
+            useText: true,
+            optimizedText: item.content
+          });
+        }
+      });
+    } catch (crawlErr: any) {
+      console.warn("[runBackendAnalysis] Erro ao rastrear links integrados:", crawlErr.message);
+    }
+  }
+
   const runTask = async () => {
     if (provider === 'gemini') {
-      return analyzeWithGemini(files, specializedInstruction, model, apiKey, auctionUrls);
+      return analyzeWithGemini(analyzedFiles, specializedInstruction, model, apiKey, auctionUrls);
     } else if (provider === 'claude') {
-      return analyzeWithClaude(files, specializedInstruction, model, apiKey, auctionUrls);
+      return analyzeWithClaude(analyzedFiles, specializedInstruction, model, apiKey, auctionUrls);
     } else if (provider === 'openai') {
-      return analyzeWithOpenAI(files, specializedInstruction, model, apiKey, auctionUrls);
+      return analyzeWithOpenAI(analyzedFiles, specializedInstruction, model, apiKey, auctionUrls);
     } else if (provider === 'deepseek') {
-      return analyzeWithDeepSeek(files, specializedInstruction, model, apiKey, auctionUrls);
+      return analyzeWithDeepSeek(analyzedFiles, specializedInstruction, model, apiKey, auctionUrls);
     }
     throw new Error("Provedor não suportado.");
   };
