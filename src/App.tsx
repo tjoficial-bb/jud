@@ -7885,12 +7885,12 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
                   </div>
                   
                   {/* Link do leiloeiro */}
-                  {selectedProperty && (
+                  {selectedProperty ? (
                     <div className="premium-card p-6 bg-brand-primary/5 rounded-[2rem] border border-brand-primary/10 space-y-4">
                       <div>
                         <h5 className="text-sm font-bold text-brand-primary flex items-center gap-2 uppercase tracking-wider">
                           <Globe size={16} className="text-brand-primary animate-pulse" />
-                          Link do Leilão / Leiloeiro
+                          Link do Leilão / Leiloeiro (Imóvel Cadastrado)
                         </h5>
                         <p className="text-xs text-brand-ink/65 mt-1 leading-relaxed">
                           Adicione a URL oficial do lote no portal do leiloeiro. O Cérebro da IA irá rastrear este link para extrair regras de parcelamento, valores atualizados e dados do leilão direto da fonte.
@@ -7959,6 +7959,41 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
                           <AlertTriangle size={14} /> {state.auctionUrlSaveError}
                         </div>
                       )}
+                    </div>
+                  ) : (
+                    <div className="premium-card p-6 bg-brand-primary/5 rounded-[2rem] border border-brand-primary/10 space-y-4 font-sans">
+                      <div>
+                        <h5 className="text-sm font-bold text-brand-primary flex items-center gap-2 uppercase tracking-wider">
+                          <Globe size={16} className="text-brand-primary animate-pulse" />
+                          Link do Leilão / Leiloeiro (Análise Avulsa)
+                        </h5>
+                        <p className="text-xs text-brand-ink/65 mt-1 leading-relaxed">
+                          Adicione a URL oficial do lote no portal do leiloeiro. O Cérebro da IA irá ler e rastrear este link em tempo real durante a execução da análise para extrair regras de parcelamento e dados atualizados.
+                        </p>
+                      </div>
+                      
+                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                        <input 
+                          type="url"
+                          placeholder="https://www.leiloeiro.com.br/lote/..."
+                          value={state.auctionUrls && state.auctionUrls[0] ? state.auctionUrls[0] : ''}
+                          onChange={(e) => {
+                            const newUrl = e.target.value;
+                            updateState({ auctionUrls: [newUrl] });
+                          }}
+                          className="flex-1 px-4 py-3.5 text-xs bg-brand-bg rounded-xl border border-brand-primary/10 text-brand-ink focus:border-brand-primary focus:outline-none"
+                        />
+                        <button 
+                          className="px-6 py-3.5 bg-brand-primary/20 text-brand-primary text-xs font-bold uppercase tracking-widest rounded-xl transition-all cursor-default whitespace-nowrap flex items-center justify-center gap-2 select-none"
+                          disabled={true}
+                        >
+                          <Check size={14} className="text-brand-primary" />
+                          <span>Link Ativo</span>
+                        </button>
+                      </div>
+                      <p className="text-[10px] text-brand-ink/40">
+                        O link inserido acima será enviado e analisado junto com os seus documentos quando você clicar no botão <strong>"Executar Análise IA"</strong>.
+                      </p>
                     </div>
                   )}
                   
