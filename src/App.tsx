@@ -6865,7 +6865,17 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
       // Run analysis (unified)
       setState(prev => ({ ...prev, isGeneratingStory: true }));
       
-      const analysis = await analyzeAuctionDocuments(fileParts, promptWithBrain, selectedModel, finalApiKey || undefined, state.auctionUrls);
+      let aggregatedUrls = [...(state.auctionUrls || [])];
+      const activePropertyObj = properties.find(p => p.id === selectedPropertyId);
+      if (activePropertyObj && activePropertyObj.auction_url && activePropertyObj.auction_url.trim().length > 0) {
+        const cleanUrl = activePropertyObj.auction_url.trim();
+        if (!aggregatedUrls.some(u => u.trim() === cleanUrl)) {
+          aggregatedUrls.push(cleanUrl);
+        }
+      }
+      aggregatedUrls = aggregatedUrls.filter(u => u && u.trim().length > 5);
+
+      const analysis = await analyzeAuctionDocuments(fileParts, promptWithBrain, selectedModel, finalApiKey || undefined, aggregatedUrls);
       
       let finalReport = analysis || "Falha ao gerar relatório.";
       
@@ -7870,9 +7880,87 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
 
               {activeSubTab === 'documents' && !isPublicView && (
                 <div className="space-y-12">
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <h4 className="text-2xl font-serif font-medium text-brand-primary">Repositório Organizado</h4>
                   </div>
+                  
+                  {/* Link do leiloeiro */}
+                  {selectedProperty && (
+                    <div className="premium-card p-6 bg-brand-primary/5 rounded-[2rem] border border-brand-primary/10 space-y-4">
+                      <div>
+                        <h5 className="text-sm font-bold text-brand-primary flex items-center gap-2 uppercase tracking-wider">
+                          <Globe size={16} className="text-brand-primary animate-pulse" />
+                          Link do Leilão / Leiloeiro
+                        </h5>
+                        <p className="text-xs text-brand-ink/65 mt-1 leading-relaxed">
+                          Adicione a URL oficial do lote no portal do leiloeiro. O Cérebro da IA irá rastrear este link para extrair regras de parcelamento, valores atualizados e dados do leilão direto da fonte.
+                        </p>
+                      </div>
+                      
+                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                        <input 
+                          type="url"
+                          placeholder="https://www.leiloeiro.com.br/lote/..."
+                          value={state.auctionUrlInputValue !== undefined ? state.auctionUrlInputValue : (selectedProperty.auction_url || '')}
+                          onChange={(e) => updateState({ auctionUrlInputValue: e.target.value })}
+                          className="flex-1 px-4 py-3.5 text-xs bg-brand-bg rounded-xl border border-brand-primary/10 text-brand-ink focus:border-brand-primary focus:outline-none"
+                        />
+                        <button 
+                          onClick={async () => {
+                            const urlValue = state.auctionUrlInputValue !== undefined ? state.auctionUrlInputValue : (selectedProperty.auction_url || '');
+                            updateState({ isSavingAuctionUrl: true, auctionUrlSaveSuccess: false, auctionUrlSaveError: null });
+                            try {
+                              const res = await fetch(`/api/properties/${selectedProperty.id}`, {
+                                method: 'PUT',
+                                headers: {
+                                  'Content-Type': 'application/json',
+                                  'Authorization': `Bearer ${token}`
+                                },
+                                body: JSON.stringify({
+                                  ...selectedProperty,
+                                  auction_url: urlValue
+                                })
+                              });
+                              if (!res.ok) throw new Error('Não foi possível salvar o link.');
+                              
+                              if (onPropertyCreated) {
+                                onPropertyCreated();
+                              }
+                              updateState({ auctionUrlSaveSuccess: true, isSavingAuctionUrl: false });
+                              setTimeout(() => {
+                                updateState({ auctionUrlSaveSuccess: false });
+                              }, 3000);
+                            } catch (err: any) {
+                              updateState({ auctionUrlSaveError: err.message || 'Erro ao salvar o link.', isSavingAuctionUrl: false });
+                            }
+                          }}
+                          disabled={state.isSavingAuctionUrl}
+                          className="px-6 py-3.5 bg-brand-primary hover:bg-brand-primary hover:scale-[1.01] text-black text-xs font-bold uppercase tracking-widest rounded-xl transition-all cursor-pointer whitespace-nowrap flex items-center justify-center gap-2 select-none"
+                        >
+                          {state.isSavingAuctionUrl ? (
+                            <>
+                              <Loader2 size={14} className="animate-spin text-black" />
+                              <span>Salvando...</span>
+                            </>
+                          ) : (
+                            <span>Salvar Link</span>
+                          )}
+                        </button>
+                      </div>
+                      
+                      {state.auctionUrlSaveSuccess && (
+                        <div className="text-xs text-emerald-400 font-bold flex items-center gap-1.5 animate-bounce mt-2">
+                          <Check size={14} /> Link do leiloeiro atualizado com sucesso!
+                        </div>
+                      )}
+                      
+                      {state.auctionUrlSaveError && (
+                        <div className="text-xs text-red-500 font-bold flex items-center gap-1.5 mt-2">
+                          <AlertTriangle size={14} /> {state.auctionUrlSaveError}
+                        </div>
+                      )}
+                    </div>
+                  )}
                   
                   {['Edital', 'Matrícula', 'Processo Judicial', 'Outros'].map(category => (
                     <DocumentManager 

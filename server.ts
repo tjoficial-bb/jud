@@ -459,6 +459,10 @@ try {
       console.log("Adicionando coluna 'anonymize_property'...");
       db.prepare("ALTER TABLE properties ADD COLUMN anonymize_property INTEGER DEFAULT 0").run();
     }
+    if (!propColumns.includes('auction_url')) {
+      console.log("Adicionando coluna 'auction_url'...");
+      db.prepare("ALTER TABLE properties ADD COLUMN auction_url TEXT").run();
+    }
 
     console.log("Verificando migrações para documents...");
     const docTableInfo: any[] = db.prepare("PRAGMA table_info(documents)").all();
@@ -621,9 +625,9 @@ async function startServer() {
   app.post("/api/properties", authenticateToken, (req, res) => {
     try {
       const id = Math.random().toString(36).substring(7);
-      const { title, type, modality, address, city, state, valuation_value, min_bid, expected_sale_value } = req.body;
-      db.prepare("INSERT INTO properties (id, title, type, modality, address, city, state, valuation_value, min_bid, expected_sale_value) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").run(
-        id, title, type, modality, address, city, state, valuation_value, min_bid, expected_sale_value || 0
+      const { title, type, modality, address, city, state, valuation_value, min_bid, expected_sale_value, auction_url } = req.body;
+      db.prepare("INSERT INTO properties (id, title, type, modality, address, city, state, valuation_value, min_bid, expected_sale_value, auction_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").run(
+        id, title, type, modality, address, city, state, valuation_value, min_bid, expected_sale_value || 0, auction_url || null
       );
       res.json({ id });
     } catch (error: any) {
@@ -635,7 +639,7 @@ async function startServer() {
   app.put("/api/properties/:id", authenticateToken, (req, res) => {
     try {
       const { id } = req.params;
-      const { title, type, modality, address, city, state, valuation_value, min_bid, expected_sale_value } = req.body;
+      const { title, type, modality, address, city, state, valuation_value, min_bid, expected_sale_value, auction_url } = req.body;
       
       const existing = db.prepare("SELECT * FROM properties WHERE id = ?").get(id);
       if (!existing) {
@@ -652,7 +656,8 @@ async function startServer() {
             state = ?,
             valuation_value = ?,
             min_bid = ?,
-            expected_sale_value = ?
+            expected_sale_value = ?,
+            auction_url = ?
         WHERE id = ?
       `).run(
         title !== undefined ? title : existing.title,
@@ -664,6 +669,7 @@ async function startServer() {
         valuation_value !== undefined ? valuation_value : existing.valuation_value,
         min_bid !== undefined ? min_bid : existing.min_bid,
         expected_sale_value !== undefined ? expected_sale_value : existing.expected_sale_value,
+        auction_url !== undefined ? auction_url : existing.auction_url,
         id
       );
 

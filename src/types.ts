@@ -26,6 +26,7 @@ export interface Property {
   status: string;
   observations: string;
   created_at: string;
+  auction_url?: string;
 }
 
 export interface Process {
