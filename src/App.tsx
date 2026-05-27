@@ -309,48 +309,7 @@ export default function App() {
   const [brainItems, setBrainItems] = useState<StrategicBrainItem[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // Copy state variables
-  const [copiedReport, setCopiedReport] = useState(false);
-  const [copiedEdital, setCopiedEdital] = useState(false);
-  const [copiedMatricula, setCopiedMatricula] = useState(false);
-  const [copiedProcessos, setCopiedProcessos] = useState(false);
 
-  const handleCopyText = async (text: string, setCopiedState: (v: boolean) => void) => {
-    if (!text) return;
-    try {
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        await navigator.clipboard.writeText(text);
-        setCopiedState(true);
-        setTimeout(() => setCopiedState(false), 2000);
-        return;
-      }
-    } catch (e) {
-      console.warn("Navigator clipboard copy failed, trying fallback:", e);
-    }
-
-    try {
-      const textArea = document.createElement("textarea");
-      textArea.value = text;
-      textArea.style.position = "fixed";
-      textArea.style.top = "0";
-      textArea.style.left = "0";
-      textArea.style.opacity = "0";
-      document.body.appendChild(textArea);
-      textArea.focus();
-      textArea.select();
-      const success = document.execCommand('copy');
-      document.body.removeChild(textArea);
-      if (success) {
-        setCopiedState(true);
-        setTimeout(() => setCopiedState(false), 2000);
-      } else {
-        alert("Não foi possível copiar automaticamente. Por favor, selecione e copie o texto manualmente.");
-      }
-    } catch (err) {
-      console.error("Fallback clipboard copy failed:", err);
-      alert("Erro ao copiar.");
-    }
-  };
 
   // Custom confirm and toast state
   const [confirmDialog, setConfirmDialog] = useState<{
@@ -6048,6 +6007,49 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
   const [chatInput, setChatInput] = useState('');
   const [isPasteModalOpen, setIsPasteModalOpen] = useState(false);
   const [pasteText, setPasteText] = useState('');
+
+  // Copy state variables
+  const [copiedReport, setCopiedReport] = useState(false);
+  const [copiedEdital, setCopiedEdital] = useState(false);
+  const [copiedMatricula, setCopiedMatricula] = useState(false);
+  const [copiedProcessos, setCopiedProcessos] = useState(false);
+
+  const handleCopyText = async (text: string, setCopiedState: (v: boolean) => void) => {
+    if (!text) return;
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(text);
+        setCopiedState(true);
+        setTimeout(() => setCopiedState(false), 2000);
+        return;
+      }
+    } catch (e) {
+      console.warn("Navigator clipboard copy failed, trying fallback:", e);
+    }
+
+    try {
+      const textArea = document.createElement("textarea");
+      textArea.value = text;
+      textArea.style.position = "fixed";
+      textArea.style.top = "0";
+      textArea.style.left = "0";
+      textArea.style.opacity = "0";
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      const success = document.execCommand('copy');
+      document.body.removeChild(textArea);
+      if (success) {
+        setCopiedState(true);
+        setTimeout(() => setCopiedState(false), 2000);
+      } else {
+        alert("Não foi possível copiar automaticamente. Por favor, selecione e copie o texto manualmente.");
+      }
+    } catch (err) {
+      console.error("Fallback clipboard copy failed:", err);
+      alert("Erro ao copiar.");
+    }
+  };
   const { 
     activeSubTab, 
     selectedPropertyId, 
