@@ -124,10 +124,10 @@ const mapModelId = (model: string): string => {
 
 const getPayloadBudget = (model: string): number => {
   // Keep the payload budget optimized yet generous since text-based files take almost 0 bytes.
-  if (model && (model.includes('flash') || model.includes('gemini-2.1') || model.includes('gemini-3.5'))) {
-    return 12 * 1024 * 1024; // 12MB budget of base64 data (~9MB raw files)
+  if (model && (model.includes('flash') || model.includes('gemini') || model.includes('claude') || model.includes('gpt-4') || model.includes('o1') || model.includes('deepseek'))) {
+    return 30 * 1024 * 1024; // 30MB budget of base64 data (~22MB raw files)
   }
-  return 6 * 1024 * 1024; // 6MB budget of base64 data (~4.5MB raw files)
+  return 12 * 1024 * 1024; // 12MB budget of base64 data (~9MB raw files)
 };
 
 const optimizePayload = (files: any[], budget: number) => {
@@ -135,11 +135,11 @@ const optimizePayload = (files: any[], budget: number) => {
     const hasText = !!f.extractedText && f.extractedText.trim().length > 0;
     
     // We check if it is a heavy binary (PDF or Image).
-    // PDFs without text take extremely long to OCR visually on the model provider side,
-    // but up to 8MB is safe and standard for common auction documents.
-    let limit = 4.0 * 1024 * 1024; // 4.0MB limit for images (approx 3MB raw)
+    // PDFs without text are processed visually by top-tier models using deep multi-modal features.
+    // Up to 26MB base64 (~19MB raw) is fully supported for heavy scanned registry files.
+    let limit = 8.0 * 1024 * 1024; // 8.0MB limit for images (approx 6MB raw)
     if (f.mimeType === 'application/pdf') {
-      limit = 8.0 * 1024 * 1024; // 8.0MB limit for PDFs without text (approx 6MB raw)
+      limit = 26.0 * 1024 * 1024; // 26.0MB limit for PDFs without text (approx 19MB raw)
     }
     
     const isBase64TooLarge = f.data && f.data.length > limit;
@@ -221,6 +221,23 @@ const optimizePayload = (files: any[], budget: number) => {
 
   return currentFiles;
 };
+
+const BB_AND_CAIXA_KNOWLEDGE = `
+> **DIRETRIZES DE RECONHECIMENTO DE EDITAIS E DOCUMENTAÇÃO BANCÁRIA**
+>
+> Você deve identificar rigorosamente qual instituição financeira é a promotora do edital ou credora fiduciária (ex: Banco do Brasil S/A, Caixa Econômica Federal - CEF, Bradesco, Itaú, etc.) a partir da análise das primeiras páginas e do cabeçalho do documento de Edital. Jamais misture as regras ou marcas das instituições.
+>
+> **1. CASO O EDITAL SEJA DA CAIXA ECONÔMICA FEDERAL (CEF):**
+> - **Regularizações e Débitos:** A Caixa geralmente é responsável pela baixa de gravames, cancelamento de alienações anteriores e pagamento de condomínio/IPTU até a data da contratação. Os custos de ITBI, escritura do imóvel e registro da venda no cartório de imóveis (RGI) correm por conta do adquirente sob regras gerais, a menos que conste de forma diferente no edital.
+> - **Reembolso:** Para reaver valores indevidos que eram obrigações da CEF, o comprador deve enviar o comprovante de pagamento ao endereço indicado no edital para o respectivo reembolso administrativo.
+> - **Financiamento:** O adquirente pode incluir até 5% do valor financiável para regular despesas cartorárias desde que estabelecido antes da contratação.
+>
+> **2. CASO O EDITAL SEJA DO BANCO DO BRASIL (BB):**
+> - **Comissão de Leiloeiro:** Geralmente estipulada em 5% sobre o valor da arrematação, paga diretamente ao leiloeiro oficial pelo arrematante.
+> - **Despesas e Custos de Regularização:** No Banco do Brasil, todas as despesas decorrentes de ITBI, lavratura de escritura pública (ou instrumento de compra e venda) e respectivos registros de transmissão correm exclusivamente por conta do arrematante investidor.
+> - **Débitos Anteriores (IPTU e Condomínio):** Conforme regras padrão do BB, o banco se responsabiliza pelos débitos de IPTU (Imposto Predial e Territorial Urbano) e cotas de condomínio vencidos e não pagos até a data do leilão público (ou assinatura do contrato de venda direta), cabendo ao comprador formalizar o pedido de quitação/reembolso junto ao BB com as certidões e comprovantes exigidos pelo edital dentro do prazo decadencial (geralmente até 120 dias da arrematação). O investidor deve ser assessorado sobre essa solicitação.
+> - **Desocupação:** No Banco do Brasil, a desocupação de imóveis ocupados por terceiros é de inteira e exclusiva responsabilidade do adquirente.
+`;
 
 const EF_DOCUMENTATION_KNOWLEDGE = `
 > **HIGHLIGHT: RECUPERAÇÃO DE VALORES DE DOCUMENTAÇÃO (CAIXA)**
@@ -469,9 +486,18 @@ export const runBackendAnalysis = async (
 
   if (analysisType === 'edital') {
     specializedInstruction += "\n\nFOCO COMPLEMENTAR DE ALTÍSSIMA PRIORIDADE: Analise estritamente o EDITAL linha por linha. Dedique atenção extrema aos débitos de IPTU (dívida ativa municipal) e Condomínio, alertando se o arrematante assume os débitos anteriores ou se há sub-rogação pelo lance nos termos do Art. 130 do CTN. Identifique obrigações adicionais, prazos de pagamento, leiloeiro, comissão, descrição física do imóvel e condições e prazos para a desocupação de forma explícita.";
-    specializedInstruction += "\n\n" + EF_DOCUMENTATION_KNOWLEDGE;
+    specializedInstruction += "\n\n" + BB_AND_CAIXA_KNOWLEDGE;
   } else if (analysisType === 'matricula') {
-    specializedInstruction += "\n\nFOCO COMPLEMENTAR DE ALTÍSSIMA PRIORIDADE: Analise estritamente a MATRÍCULA. É obrigatório identificar e expor detalhadamente todos os dados do proprietário, executado e adquirente anterior mencionados no documento, incluindo Nome Completo, CPF/CNPJ, Estado Civil, Profissão e Endereço Completo de residência ou sede. Mapeie cirurgicamente o histórico de transmissões, ônus reais, hipotecas, penhoras, indisponibilidades, averbações de processos associados e divórcios/partilhas.";
+    specializedInstruction += "\n\nFOCO COMPLEMENTAR DE ALTÍSSIMA PRIORIDADE (MANDATÓRIO):" +
+      "\nAnalise estritamente toda a MATRÍCULA DO IMÓVEL folha por folha, prestando atenção prioritária aos atos registrados sob as siglas 'R-' (Registro) e 'AV-' (Averbação)." +
+      "\nVocê deve identificar e expor obrigatoriamente:" +
+      "\n1. HISTÓRICO COMPLETO DE PROPRIETÁRIOS: Identifique TODOS os adquirentes, proprietários antigos e atuais mencionados nos registros de Compra e Venda (R-). Extraia: Nome Completo, CPF/CNPJ, Estado Civil, Cônjuge (se houver), Profissão, e Endereço Completo de residência." +
+      "\n2. GARANTIAS E FIDUCIÁRIOS: Mapeie qualquer Alienação Fiduciária (geralmente sob R- ou AV-), apontando claramente quem é o Devedor Fiduciante e quem é o Credor Fiduciário (por exemplo, Banco do Brasil S/A, Bradesco, Caixa, etc.)." +
+      "\n3. CANCELAMENTO DE GARANTIAS E CONSOLIDAÇÃO: Verifique se houve cancelamento de gravames antigos e, crucialmente, se há Averbação de Consolidação da Propriedade (AV-) em nome do banco credor por inadimplemento (o que legitima o leilão). Liste as datas exatas destes atos." +
+      "\n4. ÔNUS, BLOQUEIOS E PENHORAS: Liste toda e qualquer penhora ativa, indisponibilidade de bens, hipotecas ou processos averbados." +
+      "\n\nESTRUTURA DE RETORNO OBRIGATÓRIA:" +
+      "\n- **Apresente uma Tabela Cronológica de Registros e Averbações (R e AV)** contendo: Código (Ex: R-4, AV-7), Ato (Compra e Venda, Alienação, Consolidação), Partes Envolvidas (com todos os CPFs, profissões e endereços identificados) e Detalhes Importantes." +
+      "\n- **Apresente uma Segunda Tabela Resumo dos Proprietários Atuais e de Direito**, deixando claro quem é o proprietário fiduciante executado e quem é o credor titular de direito (Ex: Banco do Brasil S/A). Qualquer lacuna de dados devido a digitalização fraca deve ser indicada expressamente em vez de silenciada.";
   } else if (analysisType === 'processo') {
     specializedInstruction += "\n\nFOCO COMPLEMENTAR DE ALTÍSSIMA PRIORIDADE: Analise estritamente os PROCESSOS JUDICIAIS de ponta a ponta. Identifique todos os CPF/CNPJ, nomes completos e endereços de réus, autores, executados, credores hipotecários, e cônjuges. Identifique e relate todos os processos correlacionados ou incidentes judiciais ativos, o número completo da ação judicial, a vara/juiz correspondente, e faça uma avaliação minuciosa de risco quanto a vício de citação/intimação ou recursos pendentes do executado.";
   }

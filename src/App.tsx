@@ -309,6 +309,49 @@ export default function App() {
   const [brainItems, setBrainItems] = useState<StrategicBrainItem[]>([]);
   const [loading, setLoading] = useState(false);
 
+  // Copy state variables
+  const [copiedReport, setCopiedReport] = useState(false);
+  const [copiedEdital, setCopiedEdital] = useState(false);
+  const [copiedMatricula, setCopiedMatricula] = useState(false);
+  const [copiedProcessos, setCopiedProcessos] = useState(false);
+
+  const handleCopyText = async (text: string, setCopiedState: (v: boolean) => void) => {
+    if (!text) return;
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(text);
+        setCopiedState(true);
+        setTimeout(() => setCopiedState(false), 2000);
+        return;
+      }
+    } catch (e) {
+      console.warn("Navigator clipboard copy failed, trying fallback:", e);
+    }
+
+    try {
+      const textArea = document.createElement("textarea");
+      textArea.value = text;
+      textArea.style.position = "fixed";
+      textArea.style.top = "0";
+      textArea.style.left = "0";
+      textArea.style.opacity = "0";
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      const success = document.execCommand('copy');
+      document.body.removeChild(textArea);
+      if (success) {
+        setCopiedState(true);
+        setTimeout(() => setCopiedState(false), 2000);
+      } else {
+        alert("Não foi possível copiar automaticamente. Por favor, selecione e copie o texto manualmente.");
+      }
+    } catch (err) {
+      console.error("Fallback clipboard copy failed:", err);
+      alert("Erro ao copiar.");
+    }
+  };
+
   // Custom confirm and toast state
   const [confirmDialog, setConfirmDialog] = useState<{
     isOpen: boolean;
@@ -7354,6 +7397,23 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
                     </Card>
                     {state.editalAnalysis && (
                       <Card title="Resultado da Análise de Edital">
+                        <div className="flex justify-end mb-4 no-print">
+                          <button
+                            type="button"
+                            onClick={() => handleCopyText(state.editalAnalysis || '', setCopiedEdital)}
+                            className="flex items-center gap-2 bg-brand-bg hover:bg-brand-bg/80 text-brand-primary border border-brand-primary/20 px-4 py-2 rounded-xl text-xs font-bold transition-all"
+                          >
+                            {copiedEdital ? (
+                              <>
+                                <Check size={14} className="text-emerald-500" /> Copiado!
+                              </>
+                            ) : (
+                              <>
+                                <Copy size={14} /> Copiar Análise
+                              </>
+                            )}
+                          </button>
+                        </div>
                         <div className="p-4 sm:p-8 bg-brand-paper rounded-3xl border border-brand-border shadow-lg overflow-x-auto markdown-body">
                           <ReactMarkdown remarkPlugins={[remarkGfm]}>{state.editalAnalysis}</ReactMarkdown>
                         </div>
@@ -7373,6 +7433,23 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
                     </Card>
                     {state.matriculaAnalysis && (
                       <Card title="Resultado da Análise de Matrícula">
+                        <div className="flex justify-end mb-4 no-print">
+                          <button
+                            type="button"
+                            onClick={() => handleCopyText(state.matriculaAnalysis || '', setCopiedMatricula)}
+                            className="flex items-center gap-2 bg-brand-bg hover:bg-brand-bg/80 text-brand-primary border border-brand-primary/20 px-4 py-2 rounded-xl text-xs font-bold transition-all"
+                          >
+                            {copiedMatricula ? (
+                              <>
+                                <Check size={14} className="text-emerald-500" /> Copiado!
+                              </>
+                            ) : (
+                              <>
+                                <Copy size={14} /> Copiar Análise
+                              </>
+                            )}
+                          </button>
+                        </div>
                         <div className="p-4 sm:p-8 bg-brand-paper rounded-3xl border border-brand-border shadow-lg overflow-x-auto markdown-body">
                           <ReactMarkdown remarkPlugins={[remarkGfm]}>{state.matriculaAnalysis}</ReactMarkdown>
                         </div>
@@ -7398,6 +7475,23 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
                   </div>
                   {state.processAnalysis && (
                     <Card title="Resultado da Análise de Processos">
+                      <div className="flex justify-end mb-4 no-print">
+                        <button
+                          type="button"
+                          onClick={() => handleCopyText(state.processAnalysis || '', setCopiedProcessos)}
+                          className="flex items-center gap-2 bg-brand-bg hover:bg-brand-bg/80 text-brand-primary border border-brand-primary/20 px-4 py-2 rounded-xl text-xs font-bold transition-all"
+                        >
+                          {copiedProcessos ? (
+                            <>
+                              <Check size={14} className="text-emerald-500" /> Copiado!
+                            </>
+                          ) : (
+                            <>
+                              <Copy size={14} /> Copiar Análise
+                            </>
+                          )}
+                        </button>
+                      </div>
                       <div className="p-4 sm:p-8 bg-brand-paper rounded-3xl border border-brand-border shadow-lg overflow-x-auto markdown-body">
                         <ReactMarkdown remarkPlugins={[remarkGfm]}>{state.processAnalysis}</ReactMarkdown>
                       </div>
@@ -7547,6 +7641,22 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
                             title="Salvar como PDF ou Imprimir o relatório completo"
                           >
                             <Printer size={16} /> Salvar PDF / Imprimir
+                          </button>
+                          <button 
+                            type="button"
+                            onClick={() => handleCopyText(report || '', setCopiedReport)}
+                            className="flex items-center gap-2 bg-brand-paper border border-brand-border text-brand-ink/60 px-6 py-3 rounded-xl text-xs font-bold hover:text-brand-primary hover:border-brand-primary/30 transition-all font-sans"
+                            title="Copiar relatório formatado em texto para a área de transferência"
+                          >
+                            {copiedReport ? (
+                              <>
+                                <Check size={16} className="text-emerald-500" /> Copiado!
+                              </>
+                            ) : (
+                              <>
+                                <Copy size={16} /> Copiar Relatório
+                              </>
+                            )}
                           </button>
                           {!isPublicView && (
                             <button 
