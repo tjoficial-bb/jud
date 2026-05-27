@@ -123,11 +123,11 @@ const mapModelId = (model: string): string => {
 };
 
 const getPayloadBudget = (model: string): number => {
-  // Keep the payload budget optimized so that it processes well under 60s timeout.
+  // Keep the payload budget optimized yet generous since text-based files take almost 0 bytes.
   if (model && (model.includes('flash') || model.includes('gemini-2.1') || model.includes('gemini-3.5'))) {
-    return 5 * 1024 * 1024; // 5MB budget of base64 data (~3.8MB raw files)
+    return 12 * 1024 * 1024; // 12MB budget of base64 data (~9MB raw files)
   }
-  return 2.5 * 1024 * 1024; // 2.5MB budget of base64 data (~1.8MB raw files)
+  return 6 * 1024 * 1024; // 6MB budget of base64 data (~4.5MB raw files)
 };
 
 const optimizePayload = (files: any[], budget: number) => {
@@ -135,12 +135,11 @@ const optimizePayload = (files: any[], budget: number) => {
     const hasText = !!f.extractedText && f.extractedText.trim().length > 0;
     
     // We check if it is a heavy binary (PDF or Image).
-    // PDFs without text take extremely long to OCR visually on the model provider side.
-    // So we lower the limit to 1.5MB of base64 characters (approx 1.1MB file) for non-text PDFs,
-    // and 1.0MB for images. This prevents 504 Gateway Timeout on heavy files.
-    let limit = 1.0 * 1024 * 1024; // 1.0MB limit for images (approx 750KB raw)
+    // PDFs without text take extremely long to OCR visually on the model provider side,
+    // but up to 8MB is safe and standard for common auction documents.
+    let limit = 4.0 * 1024 * 1024; // 4.0MB limit for images (approx 3MB raw)
     if (f.mimeType === 'application/pdf') {
-      limit = 1.5 * 1024 * 1024; // 1.5MB limit for PDFs without text (approx 1.1MB raw)
+      limit = 8.0 * 1024 * 1024; // 8.0MB limit for PDFs without text (approx 6MB raw)
     }
     
     const isBase64TooLarge = f.data && f.data.length > limit;

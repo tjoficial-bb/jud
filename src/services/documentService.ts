@@ -12,52 +12,61 @@ export async function uploadDocuments(
   const MAX_FILE_SIZE = 30 * 1024 * 1024; // 30MB (GCP Cloud Run hard limit is 32MB)
 
   for (const file of files) {
+    let clientExtractedText = "";
+    
+    // Always extract text client-side for PDFs (highly resilient & modern)
+    if (file.name.toLowerCase().endsWith('.pdf')) {
+      if (onProgress) {
+        onProgress(`Extraindo texto de ${file.name} localmente para agilizar a IA...`);
+      }
+      try {
+        clientExtractedText = await extractTextFromPdfClientSide(file, (pct, page, total) => {
+          if (onProgress) {
+            onProgress(`Lendo PDF localmente: pág. ${page}/${total} (${pct}%)`);
+          }
+        });
+        console.log(`[documentService] Texto extraído com sucesso de ${file.name}: ${clientExtractedText.length} caracteres.`);
+      } catch (err: any) {
+        console.warn(`[documentService] Falha na extração de texto via navegador para ${file.name}:`, err.message);
+        if (file.size > MAX_FILE_SIZE) {
+          throw new Error(`O arquivo "${file.name}" é muito grande (${(file.size / (1024 * 1024)).toFixed(1)}MB) e a extração local falhou: ${err.message}`);
+        }
+      }
+    }
+
     if (file.size > MAX_FILE_SIZE) {
       if (file.name.toLowerCase().endsWith('.pdf')) {
+        // Since it's huge, we upload only the extracted text to /api/documents/text-only
         if (onProgress) {
-          onProgress(`Iniciando análise local de ${file.name}...`);
+          onProgress(`Enviando texto extraído de PDF grande para análise...`);
         }
-        try {
-          const text = await extractTextFromPdfClientSide(file, (pct, page, total) => {
-            if (onProgress) {
-              onProgress(`Lendo PDF localmente: pág. ${page}/${total} (${pct}%)`);
-            }
-          });
 
-          if (onProgress) {
-            onProgress(`Enviando texto extraído para análise...`);
-          }
+        const res = await fetch('/api/documents/text-only', {
+          method: 'POST',
+          headers: { 
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            filename: file.name,
+            doc_type: docType,
+            property_id: propertyId,
+            extracted_text: clientExtractedText
+          })
+        });
 
-          const res = await fetch('/api/documents/text-only', {
-            method: 'POST',
-            headers: { 
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              filename: file.name,
-              doc_type: docType,
-              property_id: propertyId,
-              extracted_text: text
-            })
-          });
-
-          if (!res.ok) {
-            const errText = await res.text();
-            throw new Error(`Erro ao enviar texto do PDF: ${errText}`);
-          }
-
-          const data = await parseJsonResponse(res);
-          if (Array.isArray(data)) {
-            allResults.push(...data);
-          } else {
-            allResults.push(data);
-          }
-          continue;
-        } catch (err: any) {
-          console.error("Client-side extraction failed:", err);
-          throw new Error(`Erro ao processar PDF grande no navegador (${file.name}): ${err.message}`);
+        if (!res.ok) {
+          const errText = await res.text();
+          throw new Error(`Erro ao enviar tempo do PDF: ${errText}`);
         }
+
+        const data = await parseJsonResponse(res);
+        if (Array.isArray(data)) {
+          allResults.push(...data);
+        } else {
+          allResults.push(data);
+        }
+        continue;
       } else {
         throw new Error(
           `O arquivo "${file.name}" possui ${(file.size / (1024 * 1024)).toFixed(1)}MB e excede o limite de 30MB da infraestrutura contratada.\n\n` +
@@ -72,6 +81,9 @@ export async function uploadDocuments(
     formData.append('files', file);
     formData.append('doc_type', docType);
     formData.append('property_id', propertyId);
+    if (clientExtractedText) {
+      formData.append('extracted_text', clientExtractedText);
+    }
 
     const res = await fetch('/api/documents', {
       method: 'POST',

@@ -67,8 +67,31 @@ async function extractTextFromBuffer(buffer: Buffer, mimeType: string): Promise<
 
 console.log("DEBUG: Servidor iniciando...");
 
-const DB_NAME = path.join(process.cwd(), "leiloes_pro.db");
+import { fileURLToPath } from 'url';
+
+// Safe resolution of directory name across ESM, CommonJS, and various hosting environments (like Hostinger Passenger)
+const getAppRoot = () => {
+  try {
+    const isESM = typeof import.meta !== 'undefined' && import.meta.url;
+    const currentFile = isESM ? fileURLToPath(import.meta.url) : (typeof __filename !== 'undefined' ? __filename : '');
+    const currentDir = currentFile ? path.dirname(currentFile) : (typeof __dirname !== 'undefined' ? __dirname : process.cwd());
+    
+    // If we are in 'dist' or 'server' folder, go up to parent
+    if (currentDir.endsWith('dist') || currentDir.endsWith('server') || currentDir.endsWith('/dist') || currentDir.endsWith('\\dist')) {
+      return path.join(currentDir, '..');
+    }
+    return currentDir;
+  } catch (e) {
+    return process.cwd();
+  }
+};
+
+const APP_ROOT = getAppRoot();
+const DB_NAME = path.join(APP_ROOT, "leiloes_pro.db");
 let db: InstanceType<typeof Database>;
+
+console.log(`[Database Path] Resolvido base de dados para: ${DB_NAME}`);
+
 
 function initDbWithRetry() {
   const maxRetries = 5;
@@ -107,7 +130,7 @@ function initDbWithRetry() {
       if (!isLockedOrBusy) {
         console.error("CRITICAL: Database is malformed or corrupted. Attempting safe recovery...", err.message);
         if (fs.existsSync(DB_NAME)) {
-          const backupName = path.join(process.cwd(), `leiloes_pro_corrupted_${Date.now()}.db`);
+          const backupName = path.join(APP_ROOT, `leiloes_pro_corrupted_${Date.now()}.db`);
           try {
             fs.copyFileSync(DB_NAME, backupName);
             console.log(`Corrupted database backed up safely to ${backupName}`);
@@ -798,7 +821,7 @@ async function startServer() {
         return res.status(404).json({ error: "Banco de dados não encontrado" });
       }
       
-      const backupPath = path.join(process.cwd(), "leiloes_pro_backup_temp.db");
+      const backupPath = path.join(APP_ROOT, "leiloes_pro_backup_temp.db");
       db.backup(backupPath)
         .then(() => {
           res.download(backupPath, "leiloes_pro_backup.db", (err) => {
@@ -827,7 +850,7 @@ async function startServer() {
         return res.status(400).json({ error: "Arquivo de backup não fornecido" });
       }
 
-      const tempRestorePath = path.join(process.cwd(), "leiloes_pro_restore_temp.db");
+      const tempRestorePath = path.join(APP_ROOT, "leiloes_pro_restore_temp.db");
       fs.writeFileSync(tempRestorePath, req.file.buffer);
 
       // Perform integrity check using better-sqlite3
@@ -1191,7 +1214,11 @@ async function startServer() {
         const id = Math.random().toString(36).substring(7);
         const filename = file.originalname;
         const data = file.buffer.toString('base64');
-        const extracted_text = await extractTextFromBuffer(file.buffer, file.mimetype);
+        
+        let extracted_text = req.body.extracted_text;
+        if (!extracted_text || typeof extracted_text !== 'string' || extracted_text.trim() === '') {
+          extracted_text = await extractTextFromBuffer(file.buffer, file.mimetype);
+        }
         
         let final_property_id = property_id || null;
         let temp_property_id = null;
