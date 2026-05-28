@@ -6008,6 +6008,25 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
   const [isPasteModalOpen, setIsPasteModalOpen] = useState(false);
   const [pasteText, setPasteText] = useState('');
 
+  // Sub-tab chats states
+  const [matriculaChatMessages, setMatriculaChatMessages] = useState<ChatMessage[]>([
+    { role: 'assistant', content: 'Olá! Compartilhe suas dúvidas sobre o registro da matrícula, proprietários anteriores, gravames e indisponibilidades deste imóvel.' }
+  ]);
+  const [matriculaChatInput, setMatriculaChatInput] = useState('');
+  const [sendingMatriculaChat, setSendingMatriculaChat] = useState(false);
+
+  const [processosChatMessages, setProcessosChatMessages] = useState<ChatMessage[]>([
+    { role: 'assistant', content: 'Olá! Estudo processual iniciado. Pergunte sobre os prazos de recursos, penhoras no processo ou riscos de suspensão do leilão.' }
+  ]);
+  const [processosChatInput, setProcessosChatInput] = useState('');
+  const [sendingProcessosChat, setSendingProcessosChat] = useState(false);
+
+  const [documentsChatMessages, setDocumentsChatMessages] = useState<ChatMessage[]>([
+    { role: 'assistant', content: 'Olá! Sou seu assistente de gestão documental. Pergunte qualquer informação de dados ou incoerências nas peças enviadas.' }
+  ]);
+  const [documentsChatInput, setDocumentsChatInput] = useState('');
+  const [sendingDocumentsChat, setSendingDocumentsChat] = useState(false);
+
   // Copy state variables
   const [copiedReport, setCopiedReport] = useState(false);
   const [copiedEdital, setCopiedEdital] = useState(false);
@@ -7185,6 +7204,184 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
     }
   };
 
+  const handleSendTabChat = async (tab: 'matricula' | 'processos' | 'documents') => {
+    let input = "";
+    let chatMsgs: ChatMessage[] = [];
+    let setInput: any = null;
+    let setMsgs: any = null;
+    let setSending: any = null;
+    let promptContext = "";
+
+    if (tab === 'matricula') {
+      input = matriculaChatInput;
+      chatMsgs = matriculaChatMessages;
+      setInput = setMatriculaChatInput;
+      setMsgs = setMatriculaChatMessages;
+      setSending = setSendingMatriculaChat;
+      promptContext = `Análise de Matrícula Atual:\n${state.matriculaAnalysis || "Nenhuma análise de matrícula executada ainda."}`;
+    } else if (tab === 'processos') {
+      input = processosChatInput;
+      chatMsgs = processosChatMessages;
+      setInput = setProcessosChatInput;
+      setMsgs = setProcessosChatMessages;
+      setSending = setSendingProcessosChat;
+      promptContext = `Análise de Processos Atual:\n${state.processAnalysis || "Nenhuma análise de processos executada ainda."}`;
+    } else if (tab === 'documents') {
+      input = documentsChatInput;
+      chatMsgs = documentsChatMessages;
+      setInput = setDocumentsChatInput;
+      setMsgs = setDocumentsChatMessages;
+      setSending = setSendingDocumentsChat;
+      
+      const filesSummary = analysisDocs.map((doc: any, i: number) => {
+        return `[Documento ${i+1}: ${doc.filename} (Tipo: ${doc.doc_type})]\n${(doc.extracted_text || "").substring(0, 8000)}`;
+      }).join("\n\n");
+      promptContext = `Resumo dos documentos do Dossiê:\n${filesSummary || "Nenhum documento anexado ao dossiê."}`;
+    }
+
+    if (!input.trim()) return;
+
+    const userMsg: ChatMessage = { role: 'user', content: input };
+    const newMessages = [...chatMsgs, userMsg];
+    setMsgs(newMessages);
+    setInput('');
+    setSending(true);
+
+    try {
+      let userApiKey = "";
+      const aiConfig = state.aiConfig;
+      if (aiConfig) {
+        userApiKey = resolveApiKey(state.selectedKeySource, aiConfig, selectedModel) || "";
+      } else {
+        const configRes = await fetch('/api/ai-config', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (configRes.ok) {
+          const fetchedConfig = await parseJsonResponse(configRes);
+          setState((prev: any) => ({ ...prev, aiConfig: fetchedConfig }));
+          userApiKey = resolveApiKey(state.selectedKeySource, fetchedConfig, selectedModel) || "";
+        }
+      }
+
+      const response = await sendChatMessage(
+        newMessages, 
+        `Contexto Relacionado à Aba ${tab.toUpperCase()}:\n${promptContext}\n\n${SYSTEM_PROMPT}\n\nPor favor, responda o assunto sobre ${tab} considerando com extrema atenção e integridade os dados jurídicos e os documentos acima. Responda sempre em português do Brasil e de forma direta.`, 
+        selectedModel, 
+        userApiKey || undefined
+      );
+
+      setMsgs([...newMessages, { role: 'assistant', content: response || "Sem resposta." }]);
+    } catch (err: any) {
+      console.error(err);
+      let errorMessage = "Erro ao processar sua pergunta. Tente novamente.";
+      if (err.message?.includes('503') || err.message?.includes('UNAVAILABLE')) {
+        errorMessage = "O servidor de IA está temporariamente sobrecarregado. Por favor, tente novamente em alguns segundos.";
+      }
+      setMsgs([...newMessages, { role: 'assistant', content: `❌ ${errorMessage}` }]);
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const renderTabChat = (tab: 'matricula' | 'processos' | 'documents') => {
+    let title = "";
+    let placeholder = "";
+    let inputVal = "";
+    let setInputVal: any = null;
+    let msgs: ChatMessage[] = [];
+    let sending = false;
+
+    if (tab === 'matricula') {
+      title = "Dúvidas sobre a Matrícula";
+      placeholder = "Pergunte algo sobre gravames, adquirentes federais ou indisponibilidades...";
+      inputVal = matriculaChatInput;
+      setInputVal = setMatriculaChatInput;
+      msgs = matriculaChatMessages;
+      sending = sendingMatriculaChat;
+    } else if (tab === 'processos') {
+      title = "Discussão do Processo Judicial";
+      placeholder = "Pergunte sobre prazos judiciais, andamento ou incidentes relatados...";
+      inputVal = processosChatInput;
+      setInputVal = setProcessosChatInput;
+      msgs = processosChatMessages;
+      sending = sendingProcessosChat;
+    } else if (tab === 'documents') {
+      title = "Análise de Documentos e Evidências";
+      placeholder = "Pergunte sobre contradições de datas, falta de certidões ou termos ocultos...";
+      inputVal = documentsChatInput;
+      setInputVal = setDocumentsChatInput;
+      msgs = documentsChatMessages;
+      sending = sendingDocumentsChat;
+    }
+
+    return (
+      <div className="space-y-6 pt-10 border-t border-black/5 no-print" id={`chat-section-${tab}`}>
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-brand-primary rounded-xl flex items-center justify-center text-black">
+            <MessageSquare size={20} />
+          </div>
+          <h5 className="text-lg font-bold text-brand-primary">{title}</h5>
+        </div>
+
+        <div className="bg-brand-bg rounded-[2rem] p-6 space-y-6 max-h-[350px] overflow-y-auto border border-brand-primary/10">
+          {msgs.map((msg, idx) => (
+            <div key={idx} className={cn(
+              "flex gap-4 max-w-[85%]",
+              msg.role === 'user' ? "ml-auto flex-row-reverse" : ""
+            )}>
+              <div className={cn(
+                "w-8 h-8 rounded-lg flex items-center justify-center shrink-0",
+                msg.role === 'assistant' ? "bg-brand-primary text-black" : "bg-brand-ink/10 text-brand-ink/40"
+              )}>
+                {msg.role === 'assistant' ? <Cpu size={14} /> : <Users size={14} />}
+              </div>
+              <div className={cn(
+                "p-4 rounded-2xl text-sm font-medium leading-relaxed",
+                msg.role === 'assistant' ? "bg-brand-paper shadow-sm markdown-body !text-sm whitespace-pre-wrap" : "bg-brand-primary text-black whitespace-pre-wrap"
+              )}>
+                {msg.role === 'assistant' ? (
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
+                ) : (
+                  msg.content
+                )}
+              </div>
+            </div>
+          ))}
+          {sending && (
+            <div className="flex gap-4 max-w-[85%]">
+              <div className="w-8 h-8 bg-brand-primary rounded-lg flex items-center justify-center text-black shrink-0">
+                <Loader2 size={14} className="animate-spin" />
+              </div>
+              <div className="p-4 rounded-2xl bg-brand-paper shadow-sm text-sm font-medium text-brand-ink/20 italic">
+                IA está pensando...
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="relative flex gap-3">
+          <div className="relative flex-1">
+            <input 
+              type="text" 
+              value={inputVal}
+              onChange={e => setInputVal(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleSendTabChat(tab)}
+              placeholder={placeholder}
+              className="w-full bg-brand-bg border border-brand-primary/10 rounded-2xl py-5 px-6 pr-16 focus:ring-2 focus:ring-brand-primary outline-none font-medium text-brand-ink"
+            />
+            <button 
+              onClick={() => handleSendTabChat(tab)}
+              disabled={sending || !inputVal.trim()}
+              className="absolute right-3 top-1/2 -translate-y-1/2 w-12 h-12 bg-brand-primary text-black rounded-xl flex items-center justify-center hover:bg-brand-primary/90 transition-all disabled:opacity-50"
+            >
+              <Send size={20} />
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
 
 
   return (
@@ -7458,6 +7655,7 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
                       </Card>
                     )}
                   </div>
+                  {renderTabChat('matricula')}
                 </div>
               )}
               {activeSubTab === 'processos' && (
@@ -7499,6 +7697,7 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
                       </div>
                     </Card>
                   )}
+                  {renderTabChat('processos')}
                 </div>
               )}
               {isPasteModalOpen && (
@@ -8125,6 +8324,7 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
                       Nenhum documento vinculado.
                     </div>
                   )}
+                  {renderTabChat('documents')}
                 </div>
               )}
 

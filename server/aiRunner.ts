@@ -130,7 +130,9 @@ const getPayloadBudget = (model: string): number => {
   return 12 * 1024 * 1024; // 12MB budget of base64 data (~9MB raw files)
 };
 
-const optimizePayload = (files: any[], budget: number) => {
+const optimizePayload = (files: any[], budget: number, model?: string) => {
+  const isMultiModalProvider = model ? (model.startsWith('gemini') || model.startsWith('claude')) : true;
+
   let currentFiles = files.map(f => {
     const hasText = !!f.extractedText && f.extractedText.trim().length > 0;
     
@@ -144,7 +146,20 @@ const optimizePayload = (files: any[], budget: number) => {
     
     const isBase64TooLarge = f.data && f.data.length > limit;
     
-    let useText = hasText || !f.data || f.data === "" || f.data === "null" || isBase64TooLarge;
+    // Determine whether to use plain text fallback or send the binary (PDF/Image) visually.
+    // For multimodal models, we always prefer sending the actual PDF/Image visually unless it's too large,
+    // so they can read scanned text, see handwriting, stamps, signatures, and complete page layouts.
+    let useText = !f.data || f.data === "" || f.data === "null" || isBase64TooLarge;
+    
+    // If it's a non-multimodal model (e.g. deepseek, old models) or if it's a text-based format,
+    // use extracted text if available.
+    if (!isMultiModalProvider && hasText) {
+      useText = true;
+    }
+    if ((f.mimeType?.startsWith('text/') || f.mimeType?.includes('txt')) && hasText) {
+      useText = true;
+    }
+
     let optimizedText = "";
     
     if (hasText) {
@@ -256,7 +271,7 @@ const analyzeWithGemini = async (files: any[], systemInstruction: string, model:
   const ai = new GoogleGenAI({ apiKey });
   const mappedModel = mapModelId(model);
   const budget = getPayloadBudget(model);
-  const optimizedFiles = optimizePayload(files, budget);
+  const optimizedFiles = optimizePayload(files, budget, model);
   const finalSize = optimizedFiles.reduce((acc, f) => acc + (f.useText ? (f.optimizedText?.length || 0) : (f.data?.length || 0)), 0);
 
   if (finalSize > budget + (1 * 1024 * 1024)) {
@@ -303,7 +318,7 @@ const analyzeWithClaude = async (files: any[], systemInstruction: string, model:
   const anthropic = new Anthropic({ apiKey });
   const mappedModel = mapModelId(model);
   const budget = getPayloadBudget(model);
-  const optimizedFiles = optimizePayload(files, budget);
+  const optimizedFiles = optimizePayload(files, budget, model);
   const finalSize = optimizedFiles.reduce((acc, f) => acc + (f.useText ? (f.optimizedText?.length || 0) : (f.data?.length || 0)), 0);
 
   if (finalSize > budget + (1 * 1024 * 1024)) {
@@ -370,7 +385,7 @@ const analyzeWithOpenAI = async (files: any[], systemInstruction: string, model:
   const openai = new OpenAI({ apiKey });
   const mappedModel = mapModelId(model);
   const budget = getPayloadBudget(model);
-  const optimizedFiles = optimizePayload(files, budget);
+  const optimizedFiles = optimizePayload(files, budget, model);
   const finalSize = optimizedFiles.reduce((acc, f) => acc + (f.useText ? (f.optimizedText?.length || 0) : (f.data?.length || 0)), 0);
 
   if (finalSize > budget + (1 * 1024 * 1024)) {
@@ -433,7 +448,7 @@ const analyzeWithDeepSeek = async (files: any[], systemInstruction: string, mode
   });
   const mappedModel = mapModelId(model);
   const budget = getPayloadBudget(model);
-  const optimizedFiles = optimizePayload(files, budget);
+  const optimizedFiles = optimizePayload(files, budget, model);
   
   const textContent = optimizedFiles.map(file => {
     if (file.extractedText) {
@@ -589,7 +604,7 @@ Formate a resposta estritamente em JSON com a seguinte estrutura:
   if (provider === 'gemini') {
     const ai = new GoogleGenAI({ apiKey });
     const budget = getPayloadBudget(model);
-    const optimizedFiles = optimizePayload(files, budget);
+    const optimizedFiles = optimizePayload(files, budget, model);
 
     const parts = optimizedFiles.map(file => {
       if (file.useText) {
