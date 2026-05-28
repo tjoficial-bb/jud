@@ -8358,33 +8358,6 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
                       </div>
 
                       <div className="bg-brand-paper rounded-2xl sm:rounded-[2.5rem] border border-brand-border shadow-inner overflow-hidden">
-                        <div className="p-4 sm:p-6 md:p-10 border-b border-brand-border bg-brand-bg/20">
-                          <div className="flex items-center justify-between mb-6">
-                            <h4 className="text-[10px] font-bold uppercase tracking-widest text-brand-ink/60">Quadro de Investimento (Master)</h4>
-                            <button 
-                              type="button"
-                              onClick={() => updateState({ activeSubTab: 'simulations' })}
-                              className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-black rounded-xl text-[10px] font-bold uppercase tracking-widest shadow-lg hover:bg-brand-primary/90 transition-all"
-                            >
-                              <Edit size={12} /> Editar Simulação
-                            </button>
-                          </div>
-                          <SimulationContext.Provider 
-                            value={{ 
-                              simulationData, 
-                              updateState, 
-                              onJumpToSimulation: onJumpToSimulation || (() => {}),
-                              selectedPropertyId: state.selectedPropertyId,
-                              analysisId: state.analysisId,
-                              token,
-                              report: state.report,
-                              handleSaveAsProperty
-                            }}
-                          >
-                            <InteractiveSimulationTable />
-                          </SimulationContext.Provider>
-                        </div>
-                        
                         <div className="p-4 sm:p-6 md:p-10 markdown-body max-w-none text-brand-ink break-words">
                           {report ? (
                             <ReactMarkdown remarkPlugins={[remarkGfm]} components={reportComponents}>{report}</ReactMarkdown>
