@@ -5505,10 +5505,22 @@ function MasterReportView({
     }
     setIsGeneratingInsta(true);
     try {
-      const promptText = `Gere do zero um roteiro de vídeo (Instagram Reels/Stories) de prospecção e uma cópia de post para feed para o Instagram, com foco em investidores de leilão, baseando-se estritamente na análise e história deste caso de leilão:\n\n${processStory.full_story}\n\nResponda APENAS um objeto JSON válido, sem aspas adicionais, sem bloco de código, com as chaves "video_script" e "feed_post" exatamente. Exemplo de retorno esperado: {"video_script": "...", "feed_post": "..."}`;
+      const promptText = `Gere do zero um roteiro de vídeo (Instagram Reels/Stories) de prospecção e uma cópia de post de feed para o Instagram.
+O público-alvo são médicos, empresários, investidores de alto padrão ou famílias que desejam morar bem pagando barato, mas que NÃO têm tempo para estudar leilões, NÃO desejam lidar com as burocracias pesadas e complexas do judiciário, e querem total comodidade, delegando tudo para profissionais.
+
+DIRETRIZ DE DESENVOLVIMENTO:
+- NÃO dê dicas educativas de como o espectador fazer isso "sozinho".
+- NÃO foque em ensinar conteúdo. Foque em gerar desejo, comodidade e alertar sobre os riscos graves que apenas especialistas sabem contornar.
+- Posicione a Assessoria TJ INVEST como a solução definitiva fim-a-fim ("turnkey"): desde a triagem minuciosa de riscos do processo, simulação de lucros, lances no leilão, defesa em recursos pós-arrematação, até a desocupação rápida amigável e entrega das chaves prontas na mão.
+- O roteiro deve ter um gancho eletrizante baseado nos lucros ou desconto real deste caso específico, revelar riscos processuais superados e finalizar com uma forte chamada para ação (CTA) direcionando o investidor para agendar uma reunião de assessoria com a TJ INVEST.
+
+Baseie-se estritamente na história e análise deste caso de leilão:
+${processStory.full_story}
+
+Responda APENAS um objeto JSON válido, sem aspas adicionais, sem bloco de código markdown, com as chaves "video_script" e "feed_post" exatamente. Exemplo de retorno esperado: {"video_script": "...", "feed_post": "..."}`;
       const responseText = await sendChatMessage(
         [{ role: 'user', content: promptText }],
-        "Você é um copywriter extraordinário de marketing e vendas focado em captar e prospectar clientes de alto poder aquisitivo para assessoria de arrematação de leilões imobiliários.",
+        "Você é um copywriter de marketing e vendas sênior e altamente estratégico, focado em atrair clientes de alto padrão para delegar o processo completo de leilão de imóveis para a assessoria premium de ponta a ponta da TJ INVEST.",
         state.selectedModel || "gemini-2.5-flash",
         state.userApiKey || undefined
       );
