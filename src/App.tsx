@@ -8111,7 +8111,20 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
                               <Edit size={12} /> Editar Simulação
                             </button>
                           </div>
-                          <InteractiveSimulationTable />
+                          <SimulationContext.Provider 
+                            value={{ 
+                              simulationData, 
+                              updateState, 
+                              onJumpToSimulation: onJumpToSimulation || (() => {}),
+                              selectedPropertyId: state.selectedPropertyId,
+                              analysisId: state.analysisId,
+                              token,
+                              report: state.report,
+                              handleSaveAsProperty
+                            }}
+                          >
+                            <InteractiveSimulationTable />
+                          </SimulationContext.Provider>
                         </div>
                         
                         <div className="p-4 sm:p-6 md:p-10 markdown-body max-w-none text-brand-ink break-words">
