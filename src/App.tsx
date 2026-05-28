@@ -7337,7 +7337,7 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
               </div>
               <div className={cn(
                 "p-4 rounded-2xl text-sm font-medium leading-relaxed",
-                msg.role === 'assistant' ? "bg-brand-paper shadow-sm markdown-body !text-sm whitespace-pre-wrap" : "bg-brand-primary text-black whitespace-pre-wrap"
+                msg.role === 'assistant' ? "bg-brand-paper shadow-sm markdown-body !text-sm text-brand-ink" : "bg-brand-primary text-black whitespace-pre-wrap"
               )}>
                 {msg.role === 'assistant' ? (
                   <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
@@ -7596,7 +7596,16 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
                     </Card>
                     {state.editalAnalysis && (
                       <Card title="Resultado da Análise de Edital">
-                        <div className="flex justify-end mb-4 no-print">
+                        <div className="flex justify-end gap-3 mb-4 no-print">
+                          {!isPublicView && (
+                            <button
+                              type="button"
+                              onClick={handleShare}
+                              className="flex items-center gap-2 bg-brand-primary text-black px-4 py-2 rounded-xl text-xs font-bold hover:bg-brand-primary/90 transition-all shadow-sm"
+                            >
+                              <Globe size={14} /> Compartilhar / Gerar Link Público
+                            </button>
+                          )}
                           <button
                             type="button"
                             onClick={() => handleCopyText(state.editalAnalysis || '', setCopiedEdital)}
@@ -7632,7 +7641,16 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
                     </Card>
                     {state.matriculaAnalysis && (
                       <Card title="Resultado da Análise de Matrícula">
-                        <div className="flex justify-end mb-4 no-print">
+                        <div className="flex justify-end gap-3 mb-4 no-print">
+                          {!isPublicView && (
+                            <button
+                              type="button"
+                              onClick={handleShare}
+                              className="flex items-center gap-2 bg-brand-primary text-black px-4 py-2 rounded-xl text-xs font-bold hover:bg-brand-primary/90 transition-all shadow-sm"
+                            >
+                              <Globe size={14} /> Compartilhar / Gerar Link Público
+                            </button>
+                          )}
                           <button
                             type="button"
                             onClick={() => handleCopyText(state.matriculaAnalysis || '', setCopiedMatricula)}
@@ -7675,7 +7693,16 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
                   </div>
                   {state.processAnalysis && (
                     <Card title="Resultado da Análise de Processos">
-                      <div className="flex justify-end mb-4 no-print">
+                      <div className="flex justify-end gap-3 mb-4 no-print">
+                        {!isPublicView && (
+                          <button
+                            type="button"
+                            onClick={handleShare}
+                            className="flex items-center gap-2 bg-brand-primary text-black px-4 py-2 rounded-xl text-xs font-bold hover:bg-brand-primary/90 transition-all shadow-sm"
+                          >
+                            <Globe size={14} /> Compartilhar / Gerar Link Público
+                          </button>
+                        )}
                         <button
                           type="button"
                           onClick={() => handleCopyText(state.processAnalysis || '', setCopiedProcessos)}
@@ -7831,7 +7858,7 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
                                 onClick={handleShare}
                                 className="flex items-center gap-2 bg-brand-primary text-black px-6 py-3 rounded-xl text-xs font-bold hover:bg-brand-primary/90 transition-all shadow-lg shadow-brand-primary/20"
                               >
-                                <Plus size={16} /> Compartilhar
+                                <Globe size={16} /> Compartilhar / Gerar Link Público
                               </button>
                             </>
                           )}
@@ -8193,6 +8220,15 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
                 <div className="space-y-12">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <h4 className="text-2xl font-serif font-medium text-brand-primary">Repositório Organizado</h4>
+                    {!isPublicView && (
+                      <button
+                        type="button"
+                        onClick={handleShare}
+                        className="flex items-center gap-2 bg-brand-primary text-black px-4 py-2 rounded-xl text-xs font-bold hover:bg-brand-primary/90 transition-all shadow-sm"
+                      >
+                        <Globe size={14} /> Compartilhar / Gerar Link Público
+                      </button>
+                    )}
                   </div>
                   
                   {/* Link do leiloeiro */}
