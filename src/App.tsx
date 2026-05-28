@@ -74,7 +74,8 @@ const SimulationContext = React.createContext<{
   selectedPropertyId?: string,
   analysisId?: string | null,
   token?: string,
-  report?: string | null
+  report?: string | null,
+  handleSaveAsProperty?: () => Promise<void>
 }>({
   simulationData: null,
   updateState: () => {},
@@ -3100,7 +3101,8 @@ function InteractiveSimulationTable() {
     selectedPropertyId, 
     analysisId, 
     token, 
-    report 
+    report,
+    handleSaveAsProperty
   } = React.useContext(SimulationContext);
   if (!simulationData) return null;
 
@@ -3216,7 +3218,7 @@ function InteractiveSimulationTable() {
       const isDirect = key === 'saleValue' || key === 'bid';
       const newData = {
         ...prev.simulationData,
-        [key]: isDirect ? value : {
+        [key]: isDirect ? { value, type: 'BRL' } : {
           ...(prev.simulationData[key] || {}),
           [field]: value
         }
@@ -3507,13 +3509,10 @@ function InteractiveSimulationTable() {
               <div className="pt-4 border-t border-brand-border/40">
                 <button
                   type="button"
-                  onClick={handleSaveSimulation}
-                  disabled={saving || (!selectedPropertyId && !analysisId)}
+                  onClick={(!selectedPropertyId && !analysisId && handleSaveAsProperty) ? handleSaveAsProperty : handleSaveSimulation}
+                  disabled={saving}
                   className={cn(
-                    "w-full py-4 px-6 rounded-2xl font-bold text-xs uppercase tracking-widest flex items-center justify-center gap-2 transition-all border border-brand-primary shadow-lg cursor-pointer",
-                    (selectedPropertyId || analysisId) 
-                      ? "bg-brand-primary text-black hover:bg-brand-primary/95 shadow-brand-primary/10" 
-                      : "bg-brand-primary/10 text-brand-primary/40 cursor-not-allowed border-brand-primary/10"
+                    "w-full py-4 px-6 rounded-2xl font-bold text-xs uppercase tracking-widest flex items-center justify-center gap-2 transition-all border border-brand-primary shadow-lg cursor-pointer bg-brand-primary text-black hover:bg-brand-primary/95 shadow-brand-primary/10"
                   )}
                 >
                   {saving ? (
@@ -3524,13 +3523,13 @@ function InteractiveSimulationTable() {
                   ) : (
                     <>
                       <Save size={14} />
-                      <span>Salvar e Sincronizar Análise</span>
+                      <span>{(!selectedPropertyId && !analysisId) ? "Salvar como Novo Imóvel" : "Salvar e Sincronizar Análise"}</span>
                     </>
                   )}
                 </button>
                 {!selectedPropertyId && !analysisId && (
                   <p className="text-[9px] text-brand-ink/40 text-center mt-2 font-semibold">
-                    * Vincule um imóvel ou execute uma Análise IA para habilitar o salvamento desta simulação.
+                    * Ao salvar como Novo Imóvel, esta simulação financeira será gravada em um novo cadastro no sistema.
                   </p>
                 )}
               </div>
@@ -3565,7 +3564,7 @@ function InteractiveSimulationTableOLD() {
       const isDirect = key === 'saleValue' || key === 'bid';
       const newData = {
         ...prev.simulationData,
-        [key]: isDirect ? value : {
+        [key]: isDirect ? { value, type: 'BRL' } : {
           ...(prev.simulationData[key] || {}),
           [field]: value
         }
@@ -5508,7 +5507,13 @@ function MasterReportView({
       const promptText = `Gere do zero um roteiro de vídeo (Instagram Reels/Stories) de prospecção e uma cópia de post de feed para o Instagram.
 O público-alvo são médicos, empresários, investidores de alto padrão ou famílias que desejam morar bem pagando barato, mas que NÃO têm tempo para estudar leilões, NÃO desejam lidar com as burocracias pesadas e complexas do judiciário, e querem total comodidade, delegando tudo para profissionais.
 
-DIRETRIZ DE DESENVOLVIMENTO:
+DIRETRIZ DE DESENVOLVIMENTO (ESTRATÉGIA DAS 4 IMPRESSÕES PARA VIRALIZAR):
+Adapte o conteúdo das copys do Reels e do Feed para despertar simultaneamente estes 4 sentimentos no espectador premium:
+1. "Isso é muito eu" (Identificação imediata da rotina/dor): O espectador se identifica com a falta de tempo, o estresse da rotina e o cansaço mental de querer investir sem ter tempo sequer para ler um edital.
+2. "Isso é muito você" (Caracterização direta de frustração/sonho): Toque direto na dor dele: "Você sonha em adquirir excelentes imóveis com até 50% de desconto mas desiste ou se assusta toda vez que olha para um edital burocrático de 40 páginas."
+3. "Isso é muito verdade" (Sinceridade e autoridade nua e crua): Seja honesto ao revelar que leilão NÃO é dinheiro fácil. Diga que sem profissionais especializados (como a equipe da TJ INVEST) o risco de perder dinheiro é real, mostrando as dores e pegadinhas reais do processo em análise.
+4. "Isso eu consigo fazer" (Praticidade total por delegação): Deixe claro que para colocar isso em prática ele NÃO precisa adquirir cursos ou estudar leis, mas sim delegar a operação total: "Isso eu consigo realizar de forma impecável: apenas agendando uma reunião com a equipe da TJ INVEST para que eles analisem, arrematem e cuidem de tudo por mim."
+
 - NÃO dê dicas educativas de como o espectador fazer isso "sozinho".
 - NÃO foque em ensinar conteúdo. Foque em gerar desejo, comodidade e alertar sobre os riscos graves que apenas especialistas sabem contornar.
 - Posicione a Assessoria TJ INVEST como a solução definitiva fim-a-fim ("turnkey"): desde a triagem minuciosa de riscos do processo, simulação de lucros, lances no leilão, defesa em recursos pós-arrematação, até a desocupação rápida amigável e entrega das chaves prontas na mão.
@@ -5531,16 +5536,63 @@ Responda APENAS um objeto JSON válido, sem aspas adicionais, sem bloco de códi
         const jsonStr = responseText.substring(firstCurly, lastCurly + 1);
         const parsed = JSON.parse(jsonStr);
         if (parsed.video_script || parsed.feed_post) {
+          const updatedInstaContent = {
+            video_script: parsed.video_script || "",
+            feed_post: parsed.feed_post || ""
+          };
+
           setState((prev: any) => ({
             ...prev,
             processStory: {
               ...prev.processStory,
-              instagram_content: {
-                video_script: parsed.video_script || "",
-                feed_post: parsed.feed_post || ""
-              }
+              instagram_content: updatedInstaContent
             }
           }));
+
+          // Auto-save to database to persist this generated content
+          if (property?.id) {
+            try {
+              const res = await fetch(`/api/process-stories/${property.id}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+              });
+              let existing = null;
+              if (res.ok) {
+                existing = await parseJsonResponse(res);
+              }
+              
+              if (existing) {
+                await fetch(`/api/process-stories/${existing.id}`, {
+                  method: 'PUT',
+                  headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                  body: JSON.stringify({
+                    full_story: processStory.full_story,
+                    legal_glossary: processStory.legal_glossary,
+                    timeline_json: JSON.stringify({
+                      timeline: processStory.timeline || [],
+                      instagram_content: updatedInstaContent
+                    })
+                  })
+                });
+              } else {
+                await fetch('/api/process-stories', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                  body: JSON.stringify({
+                    property_id: property.id,
+                    full_story: processStory.full_story,
+                    legal_glossary: processStory.legal_glossary,
+                    timeline_json: JSON.stringify({
+                      timeline: processStory.timeline || [],
+                      instagram_content: updatedInstaContent
+                    })
+                  })
+                });
+              }
+              console.log("DEBUG: Instagram content saved successfully after generation.");
+            } catch (saveErr) {
+              console.error("Erro ao salvar instagram_content no banco:", saveErr);
+            }
+          }
         }
       } else {
         throw new Error("Formato inválido de JSON recebido do Gemini");
@@ -7020,6 +7072,8 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
         }
       };
 
+      let extractedStoryData: any = null;
+
       try {
         // Try to find the first '{' and last '}'
         const firstBrace = analysis?.indexOf('{');
@@ -7035,10 +7089,12 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
           try {
             const parsed = JSON.parse(jsonStr);
             // Extract process story if present in the unified JSON
-            if (parsed.process_story) {
+            const processStoryData = parsed.process_story || parsed.processStory;
+            if (processStoryData) {
+              extractedStoryData = processStoryData;
               setState(prev => ({ 
                 ...prev, 
-                processStory: parsed.process_story,
+                processStory: processStoryData,
                 isGeneratingStory: false 
               }));
             } else {
@@ -7083,6 +7139,50 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
               expected_sale_value: extractedData.saleValue?.value || 0
             })
           });
+
+          // Save process story if extracted to prevent it being wiped by background fetches
+          if (extractedStoryData) {
+            try {
+              const checkRes = await fetch(`/api/process-stories/${selectedPropertyId}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+              });
+              let existing = null;
+              if (checkRes.ok) {
+                existing = await parseJsonResponse(checkRes);
+              }
+              if (existing) {
+                await fetch(`/api/process-stories/${existing.id}`, {
+                  method: 'PUT',
+                  headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                  body: JSON.stringify({
+                    full_story: extractedStoryData.full_story,
+                    legal_glossary: extractedStoryData.legal_glossary,
+                    timeline_json: JSON.stringify({
+                      timeline: extractedStoryData.timeline || [],
+                      instagram_content: extractedStoryData.instagram_content || extractedStoryData.instagramContent || null
+                    })
+                  })
+                });
+              } else {
+                await fetch('/api/process-stories', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                  body: JSON.stringify({
+                    property_id: selectedPropertyId,
+                    full_story: extractedStoryData.full_story,
+                    legal_glossary: extractedStoryData.legal_glossary,
+                    timeline_json: JSON.stringify({
+                      timeline: extractedStoryData.timeline || [],
+                      instagram_content: extractedStoryData.instagram_content || extractedStoryData.instagramContent || null
+                    })
+                  })
+                });
+              }
+              console.log("DEBUG: Process story successfully auto-saved to database in handleAnalyze.");
+            } catch (storyErr) {
+              console.error("Erro ao salvar história do processo:", storyErr);
+            }
+          }
 
           const saveRes = await fetch('/api/ai-analyses', {
             method: 'POST',
@@ -8426,7 +8526,8 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
                       selectedPropertyId: state.selectedPropertyId,
                       analysisId: state.analysisId,
                       token,
-                      report: state.report
+                      report: state.report,
+                      handleSaveAsProperty
                     }}
                   >
                     <InteractiveSimulationTable />
