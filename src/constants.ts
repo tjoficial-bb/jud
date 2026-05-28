@@ -140,6 +140,22 @@ Combine a inteligência do Gemini com dados extraídos e estratégias de mercado
 9. CONCLUSÃO FINAL: ARREMATAR OU NÃO
    - Justificativa estratégica final.
 
+10. 💡 INSIGHTS ESTRATÉGICOS E "PULOS DO GATO" JURÍDICOS (MANDATÓRIO & ALTAMENTE DETALHADO)
+    Você DEVE obrigatoriamente criar uma seção com sugestões táticas práticas e fundamentadas em jurisprudência consolidada ("Pulos do Gato"). Aborde obrigatoriamente quando aplicável os seguintes temas:
+    - **Intimação Pessoal do Cônjuge e Coproprietários (Art. 889, I, do CPC / Súmula 121 do STJ)**: Alerte se o cônjuge do executado foi intimado pessoalmente da penhora e datas do leilão (essencial nos regimes de comunhão de bens) para afastar risco de nulidade absoluta pós-arrematação.
+    - **Não Responsabilização por Débitos Omissos no Edital (Jurisprudência REsp 1.944.403/SP do STJ)**: Oriente o usuário que débitos propter rem (condomínio e IPTU) não mencionados de forma clara e com valores líquidos no edital não podem ser exigidos do arrematante. Instrua-o como requerer judicialmente a quitação destas dívidas direto com o saldo arrecadado na arrematação.
+    - **Sub-rogação Impostos anteriores pelo preço do Lance (Art. 130 do CTN)**: Explique didaticamente que os débitos de IPTU anteriores sub-rogam no lance pago. Caso o edital imponha a obrigação ilegalmente ao arrematante, fundamente a tese de isenção com base no REsp 1.259.948/SP do STJ para impugnar pós-arrematação.
+    - **Estratégia Prática de Desocupação Rápida pós-aquisição (Art. 30 da Lei 9.514/97)**: Desenvolva uma sugestão prática de negociação amigável (oferecer de R$ 2.000,00 a R$ 4.000,00 como ajuda de mudança com a entrega formal de recibo e termo de quitação com chaves) comparando com o tempo médio de 6 meses e custos de uma desocupação litigiosa na justiça (Imissão de Posse de 60 dias).
+
+11. 📈 ANÁLISE MERCADOLÓGICA E INFRAESTRUTURA URBANA (MANDATÓRIO & ALTAMENTE DETALHADO)
+    Utilize o seu buscador de IA integrado ou execute uma busca profunda com base no endereço do imóvel na matrícula, edital ou fornecido. Você DEVE estruturar esta seção com as seguintes informações mercadológicas e urbanas:
+    - **Estudo Detalhado de Preço por m² e Comparativos de Mercado**: Com base no endereço físico, consulte referências reais e históricas de grandes portais imobiliários (ex: Zap Imóveis, QuintoAndar, VivaReal, etc.) e do Google para estimar a média de preço do m² para venda e para aluguel de imóveis similares na exata rua, condomínio ou microrregião imediata. Determine a liquidez provável (tempo de venda estimado em meses).
+    - **Pontos de Interesse e Conveniências (Raio de até 5 km)**: Identifique e liste os pontos de interesse essenciais próximos ao imóvel de forma rica. **MANDATÓRIO: Para cada comércio, ponto, hospital ou estação listada, indique explicitamente a distância estimada (em km ou metros) em relação ao endereço do imóvel**:
+      - **Transporte Público**: Distância e nomes das principais estações de metrô, linhas e pontos de ônibus, BRTs, vias expressas ou terminais de passageiros próximos (indicando quantos km de distância).
+      - **Saúde**: Hospitais de grande porte (públicos ou privados), UPAs, clínicas médicas 24 horas e grandes redes de farmácia da redondeza (indicando quantos km de distância).
+      - **Comércio & Estilo de Vida**: Academias de grande porte (Bodytech, Smart Fit, Bluefit, etc.), postos de gasolina estrategicamente localizados (com loja de conveniência), shoppings, supermercados e locais para refeição rápida (indicando quantos km de distância).
+      - **Estudo do Perfil de Demanda**: Conclua com um perfil do público-alvo ideal para este imóvel com base na infraestrutura e distâncias mapeadas (ex: ideal para universitários por proximidade extrema de transporte; ideal para famílias por proximidade de escolas e lazer a menos de X km).
+
 🔹 EXTRAÇÃO DE DADOS (OBRIGATÓRIO)
 Ao final do relatório, inclua OBRIGATORIAMENTE um bloco de código JSON com os valores numéricos extraídos ou estimados para alimentar o dashboard de simulação, além da história completa do processo para o Relatório Master.
 

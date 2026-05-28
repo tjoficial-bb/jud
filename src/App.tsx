@@ -2681,9 +2681,9 @@ function CompactSimulationInput({
 
   return (
     <div className="flex flex-col gap-1.5 p-3 rounded-2xl bg-brand-bg/10 hover:bg-brand-bg/30 transition-all border border-brand-primary/5 hover:border-brand-primary/20">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 group/input">
-        <label className="text-[10px] font-bold text-brand-ink/65 uppercase tracking-wider">{label}</label>
-        <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto">
+      <div className="flex flex-col gap-2 group/input">
+        <label className="text-[10px] font-bold text-brand-ink/65 uppercase tracking-wider block">{label}</label>
+        <div className="flex items-center justify-between gap-3 w-full">
           <div className="flex bg-brand-bg/50 rounded-lg p-0.5 border border-brand-primary/5 shrink-0">
             <button 
               type="button"
@@ -2706,7 +2706,7 @@ function CompactSimulationInput({
               %
             </button>
           </div>
-          <div className="relative flex-1 sm:flex-none sm:w-[110px] group/field">
+          <div className="relative flex-1 group/field">
             {type === 'BRL' && <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[9px] font-bold text-brand-ink/30">R$</span>}
             <input 
               type="text" 
@@ -3115,11 +3115,11 @@ function InteractiveSimulationTable() {
       }
       return;
     }
-    if (!selectedPropertyId) {
+    if (!selectedPropertyId && !analysisId) {
       if ((window as any).customToast) {
-        (window as any).customToast("Selecione ou salve um imóvel antes de salvar a simulação financeira.", "error");
+        (window as any).customToast("Para salvar a simulação, selecione um imóvel ou execute uma Análise IA primeiro.", "error");
       } else {
-        alert("Selecione ou salve um imóvel antes de salvar a simulação financeira.");
+        alert("Para salvar a simulação, selecione um imóvel ou execute uma Análise IA primeiro.");
       }
       return;
     }
@@ -3131,22 +3131,24 @@ function InteractiveSimulationTable() {
       const saleVal = simulationData.saleValue?.value || 0;
       const valVal = simulationData.valuation?.value || 0;
 
-      // 1. Save core property pricing metrics to `/api/properties/:id`
-      const propRes = await fetch(`/api/properties/${selectedPropertyId}`, {
-        method: 'PUT',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          valuation_value: valVal,
-          min_bid: bidVal,
-          expected_sale_value: saleVal
-        })
-      });
+      // 1. Save core property pricing metrics to `/api/properties/:id` if custom property exists
+      if (selectedPropertyId) {
+        const propRes = await fetch(`/api/properties/${selectedPropertyId}`, {
+          method: 'PUT',
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            valuation_value: valVal,
+            min_bid: bidVal,
+            expected_sale_value: saleVal
+          })
+        });
 
-      if (!propRes.ok) {
-        throw new Error("Erro ao sincronizar parâmetros financeiros com o imóvel.");
+        if (!propRes.ok) {
+          throw new Error("Erro ao sincronizar parâmetros financeiros com o imóvel.");
+        }
       }
 
       // 2. If a document analysis exists, update it in `/api/ai-analyses/:id`
@@ -3179,9 +3181,18 @@ function InteractiveSimulationTable() {
       }
 
       if ((window as any).customToast) {
-        (window as any).customToast("Simulação financeira e parâmetros salvos para este imóvel com sucesso!", "success");
+        (window as any).customToast(
+          selectedPropertyId 
+            ? "Simulação financeira e parâmetros salvos para este imóvel com sucesso!" 
+            : "Simulação de análise avulsa salva e sincronizada com sucesso!",
+          "success"
+        );
       } else {
-        alert("Simulação financeira e parâmetros salvos para este imóvel com sucesso!");
+        alert(
+          selectedPropertyId 
+            ? "Simulação financeira e parâmetros salvos para este imóvel com sucesso!" 
+            : "Simulação de análise avulsa salva e sincronizada com sucesso!"
+        );
       }
     } catch (err: any) {
       console.error(err);
@@ -3258,9 +3269,9 @@ function InteractiveSimulationTable() {
   const format = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 py-4 font-sans leading-normal">
+    <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 py-4 font-sans leading-normal">
       {/* Column 1: Configuração Simples */}
-      <div className="lg:col-span-7 space-y-6">
+      <div className="xl:col-span-7 space-y-6">
         <div className="bg-brand-paper rounded-3xl border border-brand-primary/10 p-6 sm:p-8 shadow-sm space-y-6">
           <div className="border-b border-brand-border/40 pb-4">
             <h4 className="text-lg font-bold text-brand-primary font-sans">Valores Fundamentais</h4>
@@ -3397,13 +3408,33 @@ function InteractiveSimulationTable() {
                 onChange={v => handleUpdateField('extraFees', 'value', v)}
               />
             </div>
+
+            <div className="space-y-1">
+              <CompactSimulationInput 
+                label="Comissão de Venda"
+                value={getFieldValue('posComissaoCorretor')}
+                type={getFieldType('posComissaoCorretor')}
+                onTypeChange={t => handleUpdateField('posComissaoCorretor', 'type', t)}
+                onChange={v => handleUpdateField('posComissaoCorretor', 'value', v)}
+              />
+            </div>
+
+            <div className="space-y-1">
+              <CompactSimulationInput 
+                label="IPRF Ganho de Capital"
+                value={getFieldValue('posIR')}
+                type={getFieldType('posIR')}
+                onTypeChange={t => handleUpdateField('posIR', 'type', t)}
+                onChange={v => handleUpdateField('posIR', 'value', v)}
+              />
+            </div>
           </div>
         </div>
       </div>
 
       {/* Column 2: Elegant summary card */}
-      <div className="lg:col-span-5">
-        <div className="bg-brand-paper rounded-3xl border-2 border-brand-primary/20 p-6 sm:p-8 shadow-xl lg:sticky lg:top-8 space-y-6">
+      <div className="xl:col-span-5">
+        <div className="bg-brand-paper rounded-3xl border-2 border-brand-primary/20 p-6 sm:p-8 shadow-xl xl:sticky xl:top-8 space-y-6">
           <div className="border-b border-brand-border pb-4">
             <h4 className="text-base font-bold uppercase tracking-wider text-brand-ink/80 flex items-center gap-2 font-sans">
               <Calculator size={16} className="text-brand-primary" />
@@ -3433,6 +3464,8 @@ function InteractiveSimulationTable() {
                 { label: 'Reformas/Imprevistos', val: getVal(simulationData.reforma) },
                 { label: 'Assessoria TJ INVEST', val: getVal(simulationData.assessoria) },
                 { label: 'Entrada TJ INVEST', val: getVal(simulationData.entrada) },
+                { label: 'Comissão de Venda (5%)', val: metrics.brokerFee },
+                { label: 'IR Ganho de Capital (15%)', val: metrics.incomeTax },
                 { label: 'Custos Extras', val: getVal(simulationData.extraFees) }
               ].map((item, idx) => (
                 <div key={idx} className="flex justify-between text-xs text-brand-ink/70">
@@ -3475,10 +3508,10 @@ function InteractiveSimulationTable() {
                 <button
                   type="button"
                   onClick={handleSaveSimulation}
-                  disabled={saving || !selectedPropertyId}
+                  disabled={saving || (!selectedPropertyId && !analysisId)}
                   className={cn(
                     "w-full py-4 px-6 rounded-2xl font-bold text-xs uppercase tracking-widest flex items-center justify-center gap-2 transition-all border border-brand-primary shadow-lg cursor-pointer",
-                    selectedPropertyId 
+                    (selectedPropertyId || analysisId) 
                       ? "bg-brand-primary text-black hover:bg-brand-primary/95 shadow-brand-primary/10" 
                       : "bg-brand-primary/10 text-brand-primary/40 cursor-not-allowed border-brand-primary/10"
                   )}
@@ -3495,9 +3528,9 @@ function InteractiveSimulationTable() {
                     </>
                   )}
                 </button>
-                {!selectedPropertyId && (
+                {!selectedPropertyId && !analysisId && (
                   <p className="text-[9px] text-brand-ink/40 text-center mt-2 font-semibold">
-                    * Vincule um imóvel para habilitar o salvamento permanente desta simulação.
+                    * Vincule um imóvel ou execute uma Análise IA para habilitar o salvamento desta simulação.
                   </p>
                 )}
               </div>
