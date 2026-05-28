@@ -5860,19 +5860,235 @@ Responda APENAS um objeto JSON válido, sem aspas adicionais, sem bloco de códi
         </div>
       </section>
 
-      {/* SEÇÃO INSTAGRAM: GERADOR DE CONTEÚDO PARA PROSPECÇÃO */}
-      <section className="bg-brand-paper p-6 sm:p-8 rounded-[2rem] sm:rounded-[2.5rem] border border-brand-primary/10 shadow-sm relative overflow-hidden print-section-instagram">
-        {/* Glow effect background */}
+      {/* Financial Analysis - Quick View */}
+      <section className="bg-brand-paper/50 p-8 rounded-[2.5rem] border border-brand-primary/10 print-section-3">
+        <h3 className="text-xl font-bold text-brand-primary mb-8 flex items-center gap-3">
+          <TrendingUp size={20} />
+          Fluxo de Caixa Estimado
+        </h3>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="border-b border-brand-primary/10">
+                <th className="py-4 text-[10px] font-bold uppercase tracking-widest text-brand-ink/30">Item</th>
+                <th className="py-4 text-[10px] font-bold uppercase tracking-widest text-brand-ink/30 text-right">Valor</th>
+                <th className="py-4 text-[10px] font-bold uppercase tracking-widest text-brand-ink/30 text-right">Base</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-brand-primary/5">
+              <tr>
+                <td className="py-4 text-sm">Valor de Venda</td>
+                <td className="py-4 text-sm font-bold text-right text-green-500">
+                  {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(metrics.saleValue || 0)}
+                </td>
+                <td className="py-4 text-xs text-brand-ink/40 text-right">Mercado</td>
+              </tr>
+              <tr>
+                <td className="py-4 text-sm">Lance (Investimento)</td>
+                <td className="py-4 text-sm font-bold text-right text-red-500">
+                  -{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(metrics.bid || 0)}
+                </td>
+                <td className="py-4 text-xs text-brand-ink/40 text-right">Arrematação</td>
+              </tr>
+              <tr>
+                <td className="py-4 text-sm">Custos Totais (Reforma, ITBI, etc)</td>
+                <td className="py-4 text-sm font-bold text-right text-red-500">
+                  -{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(metrics.totalUpfrontExpenses || 0)}
+                </td>
+                <td className="py-4 text-xs text-brand-ink/40 text-right">Operacional</td>
+              </tr>
+              <tr className="bg-brand-primary/5">
+                <td className="py-4 px-4 text-sm font-bold">Lucro Líquido Estimado</td>
+                <td className="py-4 px-4 text-sm font-bold text-right text-green-500">
+                  {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(metrics.netProfit || 0)}
+                </td>
+                <td className="py-4 px-4 text-xs text-brand-ink/40 text-right">Final</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function InstagramMarketingView({
+  state,
+  setState,
+  property,
+  metrics,
+  tir,
+  roi,
+  token
+}: {
+  state: any,
+  setState: React.Dispatch<React.SetStateAction<any>>,
+  property?: Property,
+  metrics: any,
+  tir: number,
+  roi: number,
+  token: string
+}) {
+  const { processStory, isGeneratingStory, isEditingStory } = state;
+
+  const [activeInstaTab, setActiveInstaTab] = useState<'video' | 'post'>('video');
+  const [copiedInsta, setCopiedInsta] = useState(false);
+  const [isGeneratingInsta, setIsGeneratingInsta] = useState(false);
+
+  const handleCopyInsta = (text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedInsta(true);
+    setTimeout(() => setCopiedInsta(false), 2000);
+  };
+
+  const handleForceGenerateInsta = async () => {
+    if (!processStory?.full_story) {
+      alert("Por favor, certifique-se de que a história do processo está disponível.");
+      return;
+    }
+    setIsGeneratingInsta(true);
+    try {
+      const promptText = `Gere do zero um roteiro de vídeo (Instagram Reels/Stories) de prospecção e uma cópia de post de feed para o Instagram.
+O público-alvo são médicos, empresários, investidores de alto padrão ou famílias que desejam morar bem pagando barato, mas que NÃO têm tempo para estudar leilões, NÃO desejam lidar com as burocracias pesadas e complexas do judiciário, e querem total comodidade, delegando tudo para profissionais.
+
+DIRETRIZ DE DESENVOLVIMENTO (ESTRATÉGIA DAS 4 IMPRESSÕES PARA VIRALIZAR):
+Adapte o conteúdo das copys do Reels e do Feed para despertar simultaneamente estes 4 sentimentos no espectador premium:
+1. "Isso é muito eu" (Identificação imediata da rotina/dor): O espectador se identifica com a falta de tempo, o estresse da rotina e o cansaço mental de querer investir sem ter tempo sequer para ler um edital.
+2. "Isso é muito você" (Caracterização direta de frustração/sonho): Toque direto na dor dele: "Você sonha em adquirir excelentes imóveis com até 50% de desconto mas desiste ou se assusta toda vez que olha para um edital burocrático de 40 páginas."
+3. "Isso é muito verdade" (Sinceridade e autoridade nua e crua): Seja honesto ao revelar que leilão NÃO é dinheiro fácil. Diga que sem profissionais especializados (como a equipe da TJ INVEST) o risco de perder dinheiro é real, mostrando as dores e pegadinhas reais do processo em análise.
+4. "Isso eu consigo fazer" (Praticidade total por delegação): Deixe claro que para colocar isso em prática ele NÃO precisa adquirir cursos ou estudar leis, mas sim delegar a operação total: "Isso eu consigo realizar de forma impecável: apenas agendando uma reunião com a equipe da TJ INVEST para que eles analisem, arrematem e cuidem de tudo por mim."
+
+- NÃO dê dicas educativas de como o espectador fazer isso "sozinho".
+- NÃO foque em ensinar conteúdo. Foque em gerar desejo, comodidade e alertar sobre os riscos graves que apenas especialistas sabem contornar.
+- Posicione a Assessoria TJ INVEST como a solução definitiva fim-a-fim ("turnkey"): desde a triagem minuciosa de riscos do processo, simulação de lucros, lances no leilão, defesa em recursos pós-arrematação, até a desocupação rápida amigável e entrega das chaves prontas na mão.
+- O roteiro deve ter um gancho eletrizante baseado nos lucros ou desconto real deste caso específico, revelar riscos processuais superados e finalizar com uma forte chamada para ação (CTA) direcionando o investidor para agendar uma reunião de assessoria com a TJ INVEST.
+
+VALORES REAIS DO CASO (OBRIGATÓRIO USAR NA LEGENDAS E SCRIPTS):
+- Imóvel: ${property?.title || "Imóvel Selecionado"}
+- Localização: ${property?.city || "N/A"} - ${property?.state || "N/A"}
+- Retorno sobre o Investimento estimado (ROI): ${roi.toFixed(1)}%
+- Lucro Líquido Real Estimado BRL: ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(metrics.netProfit || 0)}
+
+Retorne a resposta estritamente formatada em formato JSON válido com as seguintes duas chaves de strings:
+{
+  "video_script": "roteiro do Reels aqui...",
+  "feed_post": "legenda do Feed aqui..."
+}`;
+
+      const selectedModel = state.selectedModel || 'gemini-2.5-flash';
+      const userApiKey = (() => {
+        const source = state.selectedKeySource;
+        const config = state.aiConfig;
+        if (source === 'custom' && config) {
+          if (selectedModel.startsWith('gemini') || selectedModel.startsWith('external-gemini')) {
+            return config.gemini_key;
+          } else if (selectedModel.startsWith('gpt-') || selectedModel.startsWith('o1-') || selectedModel.startsWith('o3-')) {
+            return config.openai_key;
+          } else if (selectedModel.startsWith('claude-')) {
+            return config.claude_key;
+          } else if (selectedModel.startsWith('deepseek-')) {
+            return config.deepseek_key;
+          }
+        }
+        return "";
+      })();
+
+      const finalApiKey = userApiKey || null;
+      console.log(`DEBUG CAPTACAO: Geração de copy de marketing para modelo ${selectedModel}.`);
+      
+      const analysisJson = await analyzeAuctionDocuments([], promptText, selectedModel, finalApiKey || undefined);
+      
+      if (!analysisJson) throw new Error("A IA retornou uma resposta vazia.");
+      
+      let parsed = null;
+      try {
+        const firstBrace = analysisJson.indexOf('{');
+        const lastBrace = analysisJson.lastIndexOf('}');
+        if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+          const jsonStr = analysisJson.substring(firstBrace, lastBrace + 1);
+          parsed = JSON.parse(jsonStr);
+        }
+      } catch (jsonErr) {
+        console.warn("Retorno da IA não é um JSON perfeito. Usando fallback.", jsonErr);
+      }
+
+      const updatedContent = parsed || {
+        video_script: analysisJson,
+        feed_post: analysisJson
+      };
+
+      setState((prev: any) => {
+        const nextStory = {
+          ...(prev.processStory || {}),
+          instagram_content: updatedContent
+        };
+        // Auto-save to database
+        fetch(`/api/process-stories/${prev.processStory?.id || ''}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({
+            full_story: nextStory.full_story || "",
+            legal_glossary: nextStory.legal_glossary || "",
+            timeline_json: JSON.stringify({
+              timeline: nextStory.timeline || [],
+              instagram_content: nextStory.instagram_content
+            })
+          })
+        }).catch(err => console.error("Erro ao salvar instagram_content automaticamente:", err));
+
+        return {
+          ...prev,
+          processStory: nextStory
+        };
+      });
+
+    } catch (err: any) {
+      console.error(err);
+      alert("Erro ao gerar conteúdo de captação: " + (err.message || err));
+    } finally {
+      setIsGeneratingInsta(false);
+    }
+  };
+
+  if (isGeneratingStory) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 space-y-6">
+        <div className="w-16 h-16 border-4 border-brand-primary border-t-transparent rounded-full animate-spin" />
+        <div className="text-center bg-brand-paper/50 p-6 rounded-3xl border border-brand-primary/10">
+          <h3 className="text-xl font-bold text-brand-primary mb-2">Analisando Dados</h3>
+          <p className="text-brand-ink/40 text-sm">Buscando os bastidores do caso para estruturar a copy...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!processStory) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-center space-y-6">
+        <div className="w-20 h-20 bg-brand-primary/10 rounded-3xl flex items-center justify-center text-brand-primary shadow-sm border border-brand-primary/20">
+          <Instagram size={40} />
+        </div>
+        <div className="max-w-md">
+          <h3 className="text-xl font-bold text-brand-primary mb-2">Máquina de Captação não carregada</h3>
+          <p className="text-brand-ink/40 text-sm">Execute a análise IA no painel "Relatório" primeiro para extrair a história do processo e habilitar a criação dos criativos.</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <section className="bg-brand-paper p-6 sm:p-8 rounded-[2rem] sm:rounded-[2.5rem] border border-brand-primary/10 shadow-sm relative overflow-hidden">
         <div className="absolute top-0 right-0 w-64 h-64 bg-brand-primary/5 rounded-full blur-3xl pointer-events-none" />
         
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4 relative z-10">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 gap-4 relative z-10">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-brand-primary/10 rounded-xl flex items-center justify-center text-brand-primary">
-              <Instagram size={20} />
+            <div className="w-12 h-12 bg-brand-primary/10 rounded-2xl flex items-center justify-center text-brand-primary border border-brand-primary/20">
+              <Instagram size={22} />
             </div>
             <div>
-              <h3 className="text-xl font-bold text-brand-primary font-serif">Máquina de Captação & Prospecção (Instagram)</h3>
-              <p className="text-xs text-brand-ink/50">Gere autoridade e atraia investidores contando os bastidores deste caso de forma irresistível</p>
+              <h3 className="text-2xl font-bold text-brand-primary font-serif">Máquina de Captação & Prospecção (Instagram)</h3>
+              <p className="text-xs text-brand-ink/50 mt-1">Atraia investidores e gere autoridade contando as curiosidades jurídicas do caso no Instagram de forma profissional</p>
             </div>
           </div>
           
@@ -5882,29 +6098,29 @@ Responda APENAS um objeto JSON válido, sem aspas adicionais, sem bloco de códi
                 type="button"
                 disabled={isGeneratingInsta}
                 onClick={handleForceGenerateInsta}
-                className="flex items-center gap-2 px-4 py-2 bg-brand-primary/10 text-brand-primary hover:bg-brand-primary/20 rounded-xl text-xs font-semibold analytics-btn transition-all disabled:opacity-50"
+                className="flex items-center gap-2 px-4 py-2.5 bg-brand-primary/10 border border-brand-primary/20 hover:border-brand-primary text-brand-primary hover:bg-brand-primary/20 rounded-xl text-xs font-semibold transition-all disabled:opacity-50 cursor-pointer"
               >
                 <RefreshCw size={14} className={isGeneratingInsta ? "animate-spin" : ""} />
-                {isGeneratingInsta ? "Gerando..." : "Regerar com IA"}
+                {isGeneratingInsta ? "Mapeando caso..." : "Gerar Roteiros & Post"}
               </button>
             )}
           </div>
         </div>
 
         {isGeneratingInsta ? (
-          <div className="flex flex-col items-center justify-center py-12 space-y-4">
-            <Loader2 className="w-8 h-8 text-brand-primary animate-spin" />
-            <p className="text-xs text-brand-ink/50">Processando detalhes do caso para estruturar a copy perfeita...</p>
+          <div className="flex flex-col items-center justify-center py-16 space-y-4">
+            <Loader2 className="w-10 h-10 text-brand-primary animate-spin" />
+            <p className="text-xs text-brand-ink/60">Analisando dados estratégicos e estruturando os roteiros...</p>
           </div>
         ) : !processStory.instagram_content ? (
-          <div className="flex flex-col items-center justify-center py-10 text-center space-y-4 bg-brand-bg/40 rounded-2xl p-6 border border-brand-border/40">
-            <Sparkles className="w-8 h-8 text-brand-primary/60" />
+          <div className="flex flex-col items-center justify-center py-14 text-center space-y-4 bg-brand-bg/40 rounded-3xl p-8 border border-brand-border/40">
+            <Sparkles className="w-10 h-10 text-brand-primary/60" />
             <p className="text-sm text-brand-ink/60 max-w-md">
               Ainda não geramos a cópia de prospecção do Instagram para este caso. Clique no botão abaixo para gerar instantaneamente.
             </p>
             <button
               onClick={handleForceGenerateInsta}
-              className="px-6 py-2.5 bg-brand-primary text-black hover:bg-brand-primary/90 rounded-xl text-sm font-bold transition-all shadow-md cursor-pointer"
+              className="px-6 py-3 bg-brand-primary text-black hover:bg-brand-primary/90 rounded-xl text-sm font-bold transition-all shadow-md cursor-pointer"
             >
               Criar Roteiros & Post de Prospecção
             </button>
@@ -5916,19 +6132,19 @@ Responda APENAS um objeto JSON válido, sem aspas adicionais, sem bloco de códi
               <button
                 type="button"
                 onClick={() => setActiveInstaTab('video')}
-                className={`py-3 px-4 text-sm font-semibold flex items-center gap-2 border-b-2 transition-all -mb-[2px] ${
+                className={`py-3 px-5 text-sm font-semibold flex items-center gap-2 border-b-2 transition-all -mb-[2px] cursor-pointer ${
                   activeInstaTab === 'video' 
                     ? 'border-brand-primary text-brand-primary' 
                     : 'border-transparent text-brand-ink/50 hover:text-brand-ink'
                 }`}
               >
                 <Video size={16} />
-                Video Script (Reels/Stories)
+                Script de Vídeo (Reels/Stories)
               </button>
               <button
                 type="button"
                 onClick={() => setActiveInstaTab('post')}
-                className={`py-3 px-4 text-sm font-semibold flex items-center gap-2 border-b-2 transition-all -mb-[2px] ${
+                className={`py-3 px-5 text-sm font-semibold flex items-center gap-2 border-b-2 transition-all -mb-[2px] cursor-pointer ${
                   activeInstaTab === 'post' 
                     ? 'border-brand-primary text-brand-primary' 
                     : 'border-transparent text-brand-ink/50 hover:text-brand-ink'
@@ -5958,7 +6174,7 @@ Responda APENAS um objeto JSON válido, sem aspas adicionais, sem bloco de códi
                 ) : (
                   <>
                     <Copy size={14} />
-                    <span>Copiar</span>
+                    <span>Copiar Texto</span>
                   </>
                 )}
               </button>
@@ -6031,55 +6247,6 @@ Responda APENAS um objeto JSON válido, sem aspas adicionais, sem bloco de códi
           </div>
         )}
       </section>
-
-      {/* Financial Analysis - Quick View */}
-      <section className="bg-brand-paper/50 p-8 rounded-[2.5rem] border border-brand-primary/10 print-section-3">
-        <h3 className="text-xl font-bold text-brand-primary mb-8 flex items-center gap-3">
-          <TrendingUp size={20} />
-          Fluxo de Caixa Estimado
-        </h3>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="border-b border-brand-primary/10">
-                <th className="py-4 text-[10px] font-bold uppercase tracking-widest text-brand-ink/30">Item</th>
-                <th className="py-4 text-[10px] font-bold uppercase tracking-widest text-brand-ink/30 text-right">Valor</th>
-                <th className="py-4 text-[10px] font-bold uppercase tracking-widest text-brand-ink/30 text-right">Base</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-brand-primary/5">
-              <tr>
-                <td className="py-4 text-sm">Valor de Venda</td>
-                <td className="py-4 text-sm font-bold text-right text-green-500">
-                  {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(metrics.saleValue || 0)}
-                </td>
-                <td className="py-4 text-xs text-brand-ink/40 text-right">Mercado</td>
-              </tr>
-              <tr>
-                <td className="py-4 text-sm">Lance (Investimento)</td>
-                <td className="py-4 text-sm font-bold text-right text-red-500">
-                  -{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(metrics.bid || 0)}
-                </td>
-                <td className="py-4 text-xs text-brand-ink/40 text-right">Arrematação</td>
-              </tr>
-              <tr>
-                <td className="py-4 text-sm">Custos Totais (Reforma, ITBI, etc)</td>
-                <td className="py-4 text-sm font-bold text-right text-red-500">
-                  -{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(metrics.totalUpfrontExpenses || 0)}
-                </td>
-                <td className="py-4 text-xs text-brand-ink/40 text-right">Operacional</td>
-              </tr>
-              <tr className="bg-brand-primary/5">
-                <td className="py-4 px-4 text-sm font-bold">Lucro Líquido Estimado</td>
-                <td className="py-4 px-4 text-sm font-bold text-right text-green-500">
-                  {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(metrics.netProfit || 0)}
-                </td>
-                <td className="py-4 px-4 text-xs text-brand-ink/40 text-right">Final</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </section>
     </div>
   );
 }
@@ -6132,9 +6299,36 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
 
   const handleCopyText = async (text: string, setCopiedState: (v: boolean) => void) => {
     if (!text) return;
+
+    // Clean formatting characters (markdown symbols, etc)
+    const cleanText = (() => {
+      let clean = text;
+      // 1. Remove bold/italic markup (e.g. **** or ** or *)
+      clean = clean.replace(/\*{1,4}/g, '');
+      clean = clean.replace(/_{1,4}/g, '');
+      
+      // 2. Remove markdown title hashes (e.g. ### Title -> Title)
+      clean = clean.replace(/^[ \t]*#+[ \t]+/gm, '');
+      
+      // 3. Remove equal/dash line dividers (e.g. ====== or ------ or ---)
+      clean = clean.replace(/^[=\-]{3,}$/gm, '');
+      clean = clean.replace(/^---$/gm, '');
+      
+      // 4. Remove blockquote markers at start of a line (e.g. > Quote -> Quote)
+      clean = clean.replace(/^[ \t]*>[ \t]*/gm, '');
+      
+      // 5. Remove HTML open/close tags
+      clean = clean.replace(/<\/?[^>]+(>|$)/g, "");
+
+      // 6. Restructure spacing to be perfectly readable and remove excessive empty lines (more than 2)
+      clean = clean.replace(/\n{3,}/g, '\n\n');
+      
+      return clean.trim();
+    })();
+
     try {
       if (navigator.clipboard && navigator.clipboard.writeText) {
-        await navigator.clipboard.writeText(text);
+        await navigator.clipboard.writeText(cleanText);
         setCopiedState(true);
         setTimeout(() => setCopiedState(false), 2000);
         return;
@@ -6145,7 +6339,7 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
 
     try {
       const textArea = document.createElement("textarea");
-      textArea.value = text;
+      textArea.value = cleanText;
       textArea.style.position = "fixed";
       textArea.style.top = "0";
       textArea.style.left = "0";
@@ -7023,20 +7217,80 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
         throw new Error("Os documentos selecionados não possuem conteúdo válido para análise.");
       }
 
+      // Filter documents to pass only labeled ones when available, or fall back to all documents
+      const editalDocs = docs.filter(d => d.doc_type === 'Edital');
+      const matriculaDocs = docs.filter(d => d.doc_type === 'Matrícula');
+      const processDocs = docs.filter(d => d.doc_type === 'Processo Judicial');
+
+      const makeFileParts = (filteredDocs: any[]) => {
+        const sourceDocs = filteredDocs.length > 0 ? filteredDocs : docs;
+        return sourceDocs.map(doc => {
+          let mType = 'application/pdf';
+          if (doc.filename.toLowerCase().endsWith('.jpg') || doc.filename.toLowerCase().endsWith('.jpeg')) mType = 'image/jpeg';
+          else if (doc.filename.toLowerCase().endsWith('.png')) mType = 'image/png';
+          else if (doc.filename.toLowerCase().endsWith('.webp')) mType = 'image/webp';
+
+          const hasTxt = doc.extracted_text && doc.extracted_text.trim().length > 0;
+          return {
+            id: doc.id,
+            filename: doc.filename,
+            data: !hasTxt && doc.data ? (doc.data.startsWith('data:') ? doc.data : `data:${mType};base64,${doc.data}`) : "",
+            mimeType: mType,
+            extractedText: doc.extracted_text || ""
+          };
+        });
+      };
+
+      const editalFileParts = makeFileParts(editalDocs);
+      const matriculaFileParts = makeFileParts(matriculaDocs);
+      const processFileParts = makeFileParts(processDocs);
+
+      const activeProperty = properties.find(p => p.id === selectedPropertyId);
+      const propertyContext = activeProperty ? `\n\nIMÓVEL EM LEILÃO: ${activeProperty.title}` : "\n\nIMÓVEL EM LEILÃO: Não especificado.";
+      const processesPrompt = `Analise detalhadamente cada documento ou peça do processo judicial anexado para identificar e resumir quaisquer riscos relacionados à arrematação do imóvel.
+
+      ${propertyContext}
+
+      Para cada documento analisado, identifique os seguintes pontos de impacto:
+      1. NOME DETALHADO DO DOCUMENTO (Petição, Decisão, Recurso, Certidão, etc.).
+      2. OBJETIVO PRINCIPAL: Qual a pretensão da peça ou o teor da decisão?
+      3. DISCUSSÕES SOBRE NULIDADES: Há alguma alegação de falta de intimação regular (de cônjuge, coproprietário, credor hipotecário, etc.), preço vil ou irregularidade processual?
+      4. RECURSOS PENDENTES: Quais recursos estão tramitando ou podem ser interpostos? Há pedidos de suspensão do leilão em andamento?
+      5. IMPACTO POTENCIAL NA POSSE: Qual o efeito da peça na imissão/obtenção da posse pelo arrematante (ex: resistência ativa dos ocupantes, embargos à adjudicação ou à execução)?
+
+      Ao final, apresente um PARECER CONSOLIDADO DE RISCO PROCESSUAL:
+      - Classificação Geral de Risco (Baixo, Médio ou Alto).
+      - Risco de Anulação do Leilão (Sim/Não - Justificado).
+      - Estimativa de Tempo de Desocupação / Ganho de Posse.
+      - Recomendação Estratégica Executiva (Se vale a pena arrematar e quais cautelas adotar).
+
+      Formate toda a resposta em português do Brasil, utilizando uma estrutura visual rica e limpa em Markdown, destacando os alertas cruciais.`;
+
       // Run analysis (unified)
       setState(prev => ({ ...prev, isGeneratingStory: true }));
       
       let aggregatedUrls = [...(state.auctionUrls || [])];
-      const activePropertyObj = properties.find(p => p.id === selectedPropertyId);
-      if (activePropertyObj && activePropertyObj.auction_url && activePropertyObj.auction_url.trim().length > 0) {
-        const cleanUrl = activePropertyObj.auction_url.trim();
+      if (activeProperty && activeProperty.auction_url && activeProperty.auction_url.trim().length > 0) {
+        const cleanUrl = activeProperty.auction_url.trim();
         if (!aggregatedUrls.some(u => u.trim() === cleanUrl)) {
           aggregatedUrls.push(cleanUrl);
         }
       }
       aggregatedUrls = aggregatedUrls.filter(u => u && u.trim().length > 5);
 
-      const analysis = await analyzeAuctionDocuments(fileParts, promptWithBrain, selectedModel, finalApiKey || undefined, aggregatedUrls);
+      console.log("DEBUG: Iniciando análise simultânea em paralelo para Relatório, Edital, Matrícula e Processo...");
+
+      const reportPromise = analyzeAuctionDocuments(fileParts, promptWithBrain, selectedModel, finalApiKey || undefined, aggregatedUrls);
+      const editalPromise = analyzeAuctionDocuments(editalFileParts, "Analise o Edital", selectedModel, finalApiKey || undefined, [], 'edital');
+      const matriculaPromise = analyzeAuctionDocuments(matriculaFileParts, "Analise a Matrícula", selectedModel, finalApiKey || undefined, [], 'matricula');
+      const processPromise = analyzeAuctionDocuments(processFileParts, processesPrompt, selectedModel, finalApiKey || undefined, [], 'processo');
+
+      const [analysis, editalAnalysis, matriculaAnalysis, processAnalysis] = await Promise.all([
+        reportPromise,
+        editalPromise.catch(err => { console.error("Erro ao analisar edital automaticamente:", err); return "Falha ao gerar análise automática de Edital."; }),
+        matriculaPromise.catch(err => { console.error("Erro ao analisar certidão de matrícula automaticamente:", err); return "Falha ao gerar análise automática de Certidão de Matrícula."; }),
+        processPromise.catch(err => { console.error("Erro ao analisar processos judiciais automaticamente:", err); return "Falha ao gerar análise de riscos processuais."; })
+      ]);
       
       let finalReport = analysis || "Falha ao gerar relatório.";
       
@@ -7216,6 +7470,9 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
 
       updateState({ 
         report: finalReport,
+        editalAnalysis: editalAnalysis,
+        matriculaAnalysis: matriculaAnalysis,
+        processAnalysis: processAnalysis,
         chatMessages: [{ role: 'assistant', content: "Análise concluída. Como posso ajudar a aprofundar algum ponto?" }],
         simulationData: extractedData
       });
@@ -7715,6 +7972,7 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
               {!isPublicView && <AnalysisTab active={activeSubTab === 'documents'} onClick={() => updateState({ activeSubTab: 'documents' })} icon={<Files size={16} />} label="Documentos" />}
               <AnalysisTab active={activeSubTab === 'simulations'} onClick={() => updateState({ activeSubTab: 'simulations' })} icon={<TrendingUp size={16} />} label="Simulação" />
               <AnalysisTab active={activeSubTab === 'investors'} onClick={() => updateState({ activeSubTab: 'investors' })} icon={<Users size={16} />} label="Investidores" />
+              <AnalysisTab active={activeSubTab === 'instagram'} onClick={() => updateState({ activeSubTab: 'instagram' })} icon={<Instagram size={16} />} label="Captação" />
             </div>
 
             {/* Tab Content */}
@@ -8299,6 +8557,18 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
 
               {activeSubTab === 'investors' && (
                 <InvestorsTabContent simulationData={simulationData} report={report} />
+              )}
+
+              {activeSubTab === 'instagram' && (
+                <InstagramMarketingView 
+                  state={state} 
+                  setState={setState} 
+                  property={selectedProperty} 
+                  metrics={metrics} 
+                  tir={tir} 
+                  roi={roi}
+                  token={token}
+                />
               )}
 
               {activeSubTab === 'cnj' && (
