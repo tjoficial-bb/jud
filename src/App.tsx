@@ -12,6 +12,7 @@ import {
   Search, 
   LogOut, 
   Plus, 
+  Sliders,
   Trash2, 
   Edit, 
   Edit2,
@@ -5935,6 +5936,12 @@ function InstagramMarketingView({
   const [copiedInsta, setCopiedInsta] = useState(false);
   const [isGeneratingInsta, setIsGeneratingInsta] = useState(false);
 
+  // Customization state for Instagram script generation
+  const [targetAudience, setTargetAudience] = useState<'investor' | 'dwelling' | 'both'>('both');
+  const [copyFramework, setCopyFramework] = useState<'AIDA' | 'PAS' | 'BAB' | 'HSO'>('HSO');
+  const [videoDuration, setVideoDuration] = useState<'30' | '60' | '90'>('60');
+  const [customBrief, setCustomBrief] = useState('');
+
   const handleCopyInsta = (text: string) => {
     navigator.clipboard.writeText(text);
     setCopiedInsta(true);
@@ -5948,8 +5955,35 @@ function InstagramMarketingView({
     }
     setIsGeneratingInsta(true);
     try {
+      const frameworkDesc = {
+        'AIDA': 'AIDA (Atenção, Interesse, Desejo, Ação)',
+        'PAS': 'PAS (Problema, Agitação, Solução)',
+        'BAB': 'BAB (Before-After-Bridge / Antes, Depois, Ponte)',
+        'HSO': 'HSO (Hook-Story-Offer / Gancho, História, Oferta)'
+      }[copyFramework];
+
+      const audienceDesc = {
+        'investor': 'Investidores puros de alto padrão, médicos, empresários (Focado em lucratividade alta, ROI líquido expressivo de investimento patrimonial, proteção de capital e delegação completa do estresse burocrático)',
+        'dwelling': 'Famílias ou pessoas físicas focando em Moradia ou uso próprio (Focado em realizar o sonho de morar extremamente bem com desconto seguro de até 50% em leilão judicial, economizando centenas de milhares de reais e delegando riscos)',
+        'both': 'Público Misto de Alto Padrão (Atendendo de forma inteligente tanto o interesse de investimento/lucro financeiro robusto quanto o desejo de morar em excelente imóvel pagando muito abaixo de mercado)'
+      }[targetAudience];
+
+      const durationDesc = {
+        '30': 'Vídeo curto, dinâmico e direto de no máximo 30 segundos (ritmo rápido, gancho avassalador inicial, poucas frases de impacto com foco total na delegação e dor de tempo)',
+        '60': 'Vídeo equilibrado de 60 segundos (ritmo comercial e fluído com bom tempo de retenção, explanação na medida certa do caso real, dores de quem quer comprar e delegação total dos riscos)',
+        '90': 'Vídeo detalhado e aprofundado de 90 segundos (ritmo explicativo e seguro, gera alta autoridade, aborda as curiosidades jurídicas do caso e dores reais, acalmando o espectador com segurança técnica)'
+      }[videoDuration];
+
+      const customContextPrompt = customBrief.trim() ? `\n\nDIRETRIZES PERSONALIZADAS ADICIONAIS DO USUÁRIO:\n${customBrief.trim()}` : "";
+
       const promptText = `Gere do zero um roteiro de vídeo (Instagram Reels/Stories) de prospecção e uma cópia de post de feed para o Instagram.
-O público-alvo são médicos, empresários, investidores de alto padrão ou famílias que desejam morar bem pagando barato, mas que NÃO têm tempo para estudar leilões, NÃO desejam lidar com as burocracias pesadas e complexas do judiciário, e querem total comodidade, delegando tudo para profissionais.
+O público-alvo são médicos, empresários, investidores de alto padrão ou famílias.
+
+Desta vez, o foco da prospecção e posicionamento deve ser:
+- PÚBLICO E DIRECIONAMENTO ESTRATÉGICO: ${audienceDesc}
+- FRAMEWORK DE MARKETING: ${frameworkDesc}
+- DURAÇÃO ESTIMADA DO ROTEIRO: ${durationDesc}
+${customContextPrompt}
 
 DIRETRIZ DE DESENVOLVIMENTO (ESTRATÉGIA DAS 4 IMPRESSÕES PARA VIRALIZAR):
 Adapte o conteúdo das copys do Reels e do Feed para despertar simultaneamente estes 4 sentimentos no espectador premium:
@@ -6108,6 +6142,119 @@ Retorne a resposta estritamente formatada em formato JSON válido com as seguint
           </div>
         </div>
 
+        {/* CUSTOMIZATION OPTIONS PANEL */}
+        <div className="bg-brand-bg/50 border border-brand-primary/10 rounded-2xl p-5 mb-8 relative z-10 space-y-5">
+          <div className="flex items-center gap-2 text-brand-primary border-b border-brand-primary/10 pb-3">
+            <Sliders size={18} className="text-brand-primary" />
+            <h4 className="text-sm font-bold uppercase tracking-wider font-sans">Estratégia & Parâmetros do Criativo</h4>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            {/* Target Audience Profile */}
+            <div className="space-y-2">
+              <label className="text-[10px] font-bold uppercase tracking-widest text-brand-ink/50 flex items-center gap-1.5">
+                <Users size={12} className="text-brand-primary" />
+                Direcionamento / Objetivo
+              </label>
+              <div className="grid grid-cols-1 gap-1.5">
+                {[
+                  { id: 'both', label: 'Moradia ou Investimento (Misto)' },
+                  { id: 'dwelling', label: 'Foco em Moradia (Viver Bem)' },
+                  { id: 'investor', label: 'Foco em Investimento (Lucro)' }
+                ].map((opt) => (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => setTargetAudience(opt.id as any)}
+                    className={`px-3 py-2 text-xs font-medium rounded-xl text-left border transition-all flex items-center justify-between cursor-pointer ${
+                      targetAudience === opt.id
+                        ? 'bg-brand-primary/10 border-brand-primary text-brand-primary shadow-sm'
+                        : 'bg-brand-paper/40 border-brand-primary/5 text-brand-ink/70 hover:bg-brand-paper/80'
+                    }`}
+                  >
+                    <span>{opt.label}</span>
+                    {targetAudience === opt.id && <Check size={12} className="text-brand-primary" />}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Copywriting Framework */}
+            <div className="space-y-2">
+              <label className="text-[10px] font-bold uppercase tracking-widest text-brand-ink/50 flex items-center gap-1.5">
+                <Sparkles size={12} className="text-brand-primary" />
+                Framework de Vendas (Copy)
+              </label>
+              <div className="grid grid-cols-1 gap-1.5">
+                {[
+                  { id: 'HSO', label: 'HSO (Gancho, História, Oferta)' },
+                  { id: 'AIDA', label: 'AIDA (Atenção, Interesse, Desejo, Ação)' },
+                  { id: 'PAS', label: 'PAS (Problema, Agitação, Solução)' },
+                  { id: 'BAB', label: 'BAB (Antes, Depois, Ponte)' }
+                ].map((opt) => (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => setCopyFramework(opt.id as any)}
+                    className={`px-3 py-2 text-xs font-medium rounded-xl text-left border transition-all flex items-center justify-between cursor-pointer ${
+                      copyFramework === opt.id
+                        ? 'bg-brand-primary/10 border-brand-primary text-brand-primary shadow-sm'
+                        : 'bg-brand-paper/40 border-brand-primary/5 text-brand-ink/70 hover:bg-brand-paper/80'
+                    }`}
+                  >
+                    <span>{opt.label}</span>
+                    {copyFramework === opt.id && <Check size={12} className="text-brand-primary" />}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Video Duration */}
+            <div className="space-y-2">
+              <label className="text-[10px] font-bold uppercase tracking-widest text-brand-ink/50 flex items-center gap-1.5">
+                <Clock size={12} className="text-brand-primary" />
+                Tempo do Vídeo (Duração)
+              </label>
+              <div className="grid grid-cols-1 gap-1.5">
+                {[
+                  { id: '30', label: '30 segundos (Impacto Rápido)' },
+                  { id: '60', label: '60 segundos (Foco em Venda)' },
+                  { id: '90', label: '90 segundos (Aprofundado / Autoridade)' }
+                ].map((opt) => (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => setVideoDuration(opt.id as any)}
+                    className={`px-3 py-2 text-xs font-medium rounded-xl text-left border transition-all flex items-center justify-between cursor-pointer ${
+                      videoDuration === opt.id
+                        ? 'bg-brand-primary/10 border-brand-primary text-brand-primary shadow-sm'
+                        : 'bg-brand-paper/40 border-brand-primary/5 text-brand-ink/70 hover:bg-brand-paper/80'
+                    }`}
+                  >
+                    <span>{opt.label}</span>
+                    {videoDuration === opt.id && <Check size={12} className="text-brand-primary" />}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Guidelines Custom Text Input */}
+          <div className="space-y-2 pt-2">
+            <label className="text-[10px] font-bold uppercase tracking-widest text-brand-ink/50 flex items-center gap-1.5">
+              <FileText size={12} className="text-brand-primary" />
+              Diretrizes Adicionais / Informações Importantes (Opcional)
+            </label>
+            <textarea
+              value={customBrief}
+              onChange={(e) => setCustomBrief(e.target.value)}
+              placeholder="Ex: Enfatizar que aceita parcelamento em até 30 meses; reforçar que o imóvel é de alto padrão no bairro X; mudar CTA para enviar 'QUERO' por direct..."
+              rows={2}
+              className="w-full bg-brand-paper/40 border border-brand-primary/10 focus:border-brand-primary rounded-xl px-4 py-2.5 text-xs text-brand-ink outline-none placeholder:text-brand-ink/30 transition-all font-sans resize-none"
+            />
+          </div>
+        </div>
+
         {isGeneratingInsta ? (
           <div className="flex flex-col items-center justify-center py-16 space-y-4">
             <Loader2 className="w-10 h-10 text-brand-primary animate-spin" />
@@ -6117,7 +6264,7 @@ Retorne a resposta estritamente formatada em formato JSON válido com as seguint
           <div className="flex flex-col items-center justify-center py-14 text-center space-y-4 bg-brand-bg/40 rounded-3xl p-8 border border-brand-border/40">
             <Sparkles className="w-10 h-10 text-brand-primary/60" />
             <p className="text-sm text-brand-ink/60 max-w-md">
-              Ainda não geramos a cópia de prospecção do Instagram para este caso. Clique no botão abaixo para gerar instantaneamente.
+              Ainda não geramos a cópia de prospecção do Instagram para este caso. Selecione suas preferências de estratégia e clique abaixo para gerar.
             </p>
             <button
               onClick={handleForceGenerateInsta}
