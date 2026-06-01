@@ -5943,7 +5943,24 @@ function InstagramMarketingView({
   const [customBrief, setCustomBrief] = useState('');
 
   const handleCopyInsta = (text: string) => {
-    navigator.clipboard.writeText(text);
+    let cleanText = text;
+    if (activeInstaTab === 'video') {
+      cleanText = cleanText
+        // Remove markdown labels at the start of a line or after a newline, followed by an optional space/separator
+        // For stage labels/brackets and custom labels (case-insensitive)
+        .replace(/^\s*\*\*?(gancho|hook|story|história|historias|historia|desenvolvimento|oferta|offer|chamada para ação|chamada para acao|cta|introdução|introducao|fechamento|roteiro|fala|apresentador|narrador|dica|cena\s*\d+|scene\s*\d+)\*\*?\s*(:|:|-|—)?\s*/gmi, '')
+        .replace(/\n\s*\*\*?(gancho|hook|story|história|historias|historia|desenvolvimento|oferta|offer|chamada para ação|chamada para acao|cta|introdução|introducao|fechamento|roteiro|fala|apresentador|narrador|dica|cena\s*\d+|scene\s*\d+)\*\*?\s*(:|:|-|—)?\s*/gmi, '\n')
+        // General clean for any bold words at start of line followed by a colon or dash, e.g., **Apresentador**:
+        .replace(/^\s*\*\*?[\w\sÀ-ÿ\-\(\)]+\*\*?\s*(:|:|-|—)\s*/gm, '')
+        // Clean leftover bracket notations like [Cena 1] or [Música]
+        .replace(/\[[^\]]+\]/g, '')
+        // Clean parenthesized remarks like (sorrindo) or (aponta para tela)
+        .replace(/\([^)]+\)/g, '')
+        // Remove three or more newlines
+        .replace(/\n{3,}/g, '\n\n')
+        .trim();
+    }
+    navigator.clipboard.writeText(cleanText);
     setCopiedInsta(true);
     setTimeout(() => setCopiedInsta(false), 2000);
   };
@@ -5992,7 +6009,7 @@ Adapte o conteúdo das copys do Reels e do Feed para despertar simultaneamente e
 3. "Isso é muito verdade" (Sinceridade e autoridade nua e crua): Seja honesto ao revelar que leilão NÃO é dinheiro fácil. Diga que sem profissionais especializados (como a equipe da TJ INVEST) o risco de perder dinheiro é real, mostrando as dores e pegadinhas reais do processo em análise.
 4. "Isso eu consigo fazer" (Praticidade total por delegação): Deixe claro que para colocar isso em prática ele NÃO precisa adquirir cursos ou estudar leis, mas sim delegar a operação total: "Isso eu consigo realizar de forma impecável: apenas agendando uma reunião com a equipe da TJ INVEST para que eles analisem, arrematem e cuidem de tudo por mim."
 
-- ATENÇÃO CRÍTICA PARA O SCRIPT DO VÍDEO (REELS/STORIES): Não inclua NENHUMA marcação de cena, gestos, indicação de câmera, efeitos sonoros ou blocos como "[Cena 1]", "[Corte para o imóvel]", "[Música sobe]", "Cena 2:", ou qualquer instrução de direção de vídeo. O script do vídeo deve ser redigido APENAS como um TEXTO CORRIDO, direto e fluido da fala completa que o apresentador irá ler/falar na gravação, sem interrupções nem marcas descritivas.
+- ATENÇÃO CRÍTICA PARA O SCRIPT DO VÍDEO (REELS/STORIES): Não inclua NENHUMA marcação de cena, gestos, indicação de câmera, efeitos sonoros ou blocos como "[Cena 1]", "[Corte para o imóvel]", "[Música sobe]", "Cena 2:", ou qualquer instrução de direção de vídeo, nem títulos/etiquetas das etapas (como "Gancho:", "Desenvolvimento:", "História:", "Chamada para ação:", "CTA:", "Oferta:", etc.). O script do vídeo deve ser redigido APENAS como um TEXTO CORRIDO, direto e fluido da fala completa que o apresentador irá falar na gravação, sem interrupções nem marcas descritivas, contendo unicamente o áudio a ser gravado para facilitar a leitura automática da IA ou teleprompter.
 - NÃO dê dicas educativas de como o espectador fazer isso "sozinho".
 - NÃO foque em ensinar conteúdo. Foque em gerar desejo, comodidade e alertar sobre os riscos graves que apenas especialistas sabem contornar.
 - Posicione a Assessoria TJ INVEST como a solução definitiva fim-a-fim ("turnkey"): desde a triagem minuciosa de riscos do processo, simulação de lucros, lances no leilão, defesa em recursos pós-arrematação, até a desocupação rápida amigável e entrega das chaves prontas na mão.
@@ -6332,6 +6349,13 @@ Retorne a resposta estritamente formatada em formato JSON válido com as seguint
                   ? processStory.instagram_content.video_script 
                   : processStory.instagram_content.feed_post}
               </div>
+
+              {activeInstaTab === 'video' && (
+                <div className="mt-4 pt-3 border-t border-brand-border/30 text-[10px] text-brand-primary/60 flex items-center gap-1.5 select-none">
+                  <Sparkles size={11} className="text-brand-primary shrink-0" />
+                  <span>Nota: Ao copiar, os títulos de etapas (Gancho, História, CTA, etc.) e marcações de cena são automaticamente removidos para colagem direta em ferramentas de narração/geração de vídeo.</span>
+                </div>
+              )}
             </div>
             
             {/* Advice badge */}
