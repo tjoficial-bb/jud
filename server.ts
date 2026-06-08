@@ -315,6 +315,28 @@ try {
 
   // Migrations for strategic_brain
   try {
+    console.log("Verificando migrações para ai_analyses...");
+    const tableInfo: any[] = db.prepare("PRAGMA table_info(ai_analyses)").all();
+    const columns = tableInfo.map(c => c.name);
+    
+    if (!columns.includes('edital_analysis')) {
+      console.log("Adicionando coluna 'edital_analysis' em ai_analyses...");
+      db.prepare("ALTER TABLE ai_analyses ADD COLUMN edital_analysis TEXT").run();
+    }
+    if (!columns.includes('matricula_analysis')) {
+      console.log("Adicionando coluna 'matricula_analysis' em ai_analyses...");
+      db.prepare("ALTER TABLE ai_analyses ADD COLUMN matricula_analysis TEXT").run();
+    }
+    if (!columns.includes('process_analysis')) {
+      console.log("Adicionando coluna 'process_analysis' em ai_analyses...");
+      db.prepare("ALTER TABLE ai_analyses ADD COLUMN process_analysis TEXT").run();
+    }
+  } catch (err: any) {
+    console.error("Erro ao aplicar migrações em ai_analyses:", err);
+  }
+
+  // Migrations for strategic_brain
+  try {
     console.log("Verificando migrações para strategic_brain...");
     const tableInfo: any[] = db.prepare("PRAGMA table_info(strategic_brain)").all();
     const columns = tableInfo.map(c => c.name);
@@ -994,12 +1016,24 @@ async function startServer() {
   app.post("/api/ai-analyses", authenticateToken, (req, res) => {
     try {
       const id = Math.random().toString(36).substring(7);
-      const { property_id, exec_summary, legal_analysis, financial_analysis, legal_risks, operational_risks, recommended_bid, roi, tir, estimated_profit, ia_used } = req.body;
+      const { 
+        property_id, exec_summary, legal_analysis, financial_analysis, 
+        legal_risks, operational_risks, recommended_bid, roi, tir, 
+        estimated_profit, ia_used, edital_analysis, matricula_analysis, process_analysis 
+      } = req.body;
       
       db.prepare(`
-        INSERT INTO ai_analyses (id, property_id, exec_summary, legal_analysis, financial_analysis, legal_risks, operational_risks, recommended_bid, roi, tir, estimated_profit, ia_used)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(id, property_id, exec_summary, legal_analysis, financial_analysis, legal_risks, operational_risks, recommended_bid, roi, tir, estimated_profit, ia_used);
+        INSERT INTO ai_analyses (
+          id, property_id, exec_summary, legal_analysis, financial_analysis, 
+          legal_risks, operational_risks, recommended_bid, roi, tir, 
+          estimated_profit, ia_used, edital_analysis, matricula_analysis, process_analysis
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        id, property_id, exec_summary, legal_analysis, financial_analysis, 
+        legal_risks, operational_risks, recommended_bid, roi, tir, 
+        estimated_profit, ia_used, edital_analysis || null, matricula_analysis || null, process_analysis || null
+      );
       
       res.json({ id });
     } catch (error: any) {
@@ -1020,7 +1054,10 @@ async function startServer() {
 
   app.put("/api/ai-analyses/:id", authenticateToken, (req, res) => {
     try {
-      const { exec_summary, financial_analysis, recommended_bid, roi, tir, estimated_profit } = req.body;
+      const { 
+        exec_summary, financial_analysis, recommended_bid, roi, tir, 
+        estimated_profit, edital_analysis, matricula_analysis, process_analysis 
+      } = req.body;
       
       const fields: string[] = [];
       const values: any[] = [];
@@ -1048,6 +1085,18 @@ async function startServer() {
       if (estimated_profit !== undefined) {
         fields.push("estimated_profit = ?");
         values.push(estimated_profit);
+      }
+      if (edital_analysis !== undefined) {
+        fields.push("edital_analysis = ?");
+        values.push(edital_analysis);
+      }
+      if (matricula_analysis !== undefined) {
+        fields.push("matricula_analysis = ?");
+        values.push(matricula_analysis);
+      }
+      if (process_analysis !== undefined) {
+        fields.push("process_analysis = ?");
+        values.push(process_analysis);
       }
       
       if (fields.length > 0) {

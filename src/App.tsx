@@ -76,6 +76,9 @@ const SimulationContext = React.createContext<{
   analysisId?: string | null,
   token?: string,
   report?: string | null,
+  editalAnalysis?: string | null,
+  matriculaAnalysis?: string | null,
+  processAnalysis?: string | null,
   handleSaveAsProperty?: () => Promise<void>
 }>({
   simulationData: null,
@@ -461,6 +464,8 @@ export default function App() {
     activeSubTab: 'report' | 'processos' | 'documents' | 'simulations' | 'cnj' | 'investors' | 'edital' | 'matricula';
     selectedPropertyId: string;
     report: string | null;
+    editalAnalysis: string | null;
+    matriculaAnalysis: string | null;
     adHocDocs: any[];
     cnjNumber: string;
     cnjResult: any;
@@ -488,6 +493,8 @@ export default function App() {
       activeSubTab: 'report',
       selectedPropertyId: '',
       report: null,
+      editalAnalysis: null,
+      matriculaAnalysis: null,
       adHocDocs: [],
       cnjNumber: '',
       cnjResult: null,
@@ -3103,6 +3110,9 @@ function InteractiveSimulationTable() {
     analysisId, 
     token, 
     report,
+    editalAnalysis,
+    matriculaAnalysis,
+    processAnalysis,
     handleSaveAsProperty
   } = React.useContext(SimulationContext);
   if (!simulationData) return null;
@@ -3154,8 +3164,43 @@ function InteractiveSimulationTable() {
         }
       }
 
-      // 2. If a document analysis exists, update it in `/api/ai-analyses/:id`
-      if (analysisId) {
+      // 2. If a document analysis exists, update it in `/api/ai-analyses/:id`, otherwise create it for the property
+      if (selectedPropertyId && !analysisId) {
+        const otherExpenses = currentMetrics.totalUpfrontExpenses;
+        const downPaymentPercent = simulationData.downPaymentPercent || 100;
+        const installments = simulationData.installments || 1;
+        const interestRate = simulationData.interestRate || 0;
+        const holdingMonths = simulationData.holdingMonths || 12;
+        const computedTir = calculateTIR(bidVal, saleVal, otherExpenses, downPaymentPercent, installments, interestRate, holdingMonths);
+
+        const createRes = await fetch(`/api/ai-analyses`, {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            property_id: selectedPropertyId,
+            exec_summary: "Simulação Manual do Usuário (Sem Relatório IA)",
+            financial_analysis: JSON.stringify(simulationData),
+            recommended_bid: bidVal,
+            roi: currentMetrics.roi,
+            tir: computedTir,
+            estimated_profit: currentMetrics.netProfit,
+            edital_analysis: editalAnalysis || null,
+            matricula_analysis: matriculaAnalysis || null,
+            process_analysis: processAnalysis || null,
+            ia_used: "Manual"
+          })
+        });
+
+        if (createRes.ok) {
+          const createData = await parseJsonResponse(createRes);
+          updateState({ analysisId: createData.id });
+        } else {
+          throw new Error("Erro ao criar registro da simulação financeira.");
+        }
+      } else if (analysisId) {
         const otherExpenses = currentMetrics.totalUpfrontExpenses;
         const downPaymentPercent = simulationData.downPaymentPercent || 100;
         const installments = simulationData.installments || 1;
@@ -3174,7 +3219,10 @@ function InteractiveSimulationTable() {
             recommended_bid: bidVal,
             roi: currentMetrics.roi,
             tir: computedTir,
-            estimated_profit: currentMetrics.netProfit
+            estimated_profit: currentMetrics.netProfit,
+            edital_analysis: editalAnalysis || null,
+            matricula_analysis: matriculaAnalysis || null,
+            process_analysis: processAnalysis || null
           })
         });
 
@@ -6874,10 +6922,36 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
             report: latest.exec_summary, 
             selectedModel: latest.ia_used,
             analysisId: latest.id,
+            editalAnalysis: latest.edital_analysis || null,
+            matriculaAnalysis: latest.matricula_analysis || null,
+            processAnalysis: latest.process_analysis || null,
             ...(parsedSimulationData ? { simulationData: parsedSimulationData } : {})
           });
         } else {
-          updateState({ analysisId: null, report: null });
+          const prop = properties.find(p => p.id === id);
+          if (prop) {
+            updateState((prev: any) => ({
+              analysisId: null,
+              report: null,
+              editalAnalysis: null,
+              matriculaAnalysis: null,
+              processAnalysis: null,
+              simulationData: {
+                ...(prev.simulationData || {}),
+                valuation: { value: prop.valuation_value || 0, type: 'BRL' },
+                bid: { value: prop.min_bid || 0, type: 'BRL' },
+                saleValue: { value: prop.expected_sale_value || 0, type: 'BRL' }
+              }
+            }));
+          } else {
+            updateState({ 
+              analysisId: null, 
+              report: null,
+              editalAnalysis: null,
+              matriculaAnalysis: null,
+              processAnalysis: null
+            });
+          }
         }
       }
       if (storyRes.ok) {
@@ -7626,7 +7700,10 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
                   getV(extractedData.debtsIPTU) + getV(extractedData.debtsCondo) +
                   getV(extractedData.costs)
                 );
-              })()
+              })(),
+              edital_analysis: editalAnalysis,
+              matricula_analysis: matriculaAnalysis,
+              process_analysis: processAnalysis
             })
           });
           if (saveRes.ok) {
@@ -8955,6 +9032,9 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
                       analysisId: state.analysisId,
                       token,
                       report: state.report,
+                      editalAnalysis: state.editalAnalysis,
+                      matriculaAnalysis: state.matriculaAnalysis,
+                      processAnalysis: state.processAnalysis,
                       handleSaveAsProperty
                     }}
                   >
