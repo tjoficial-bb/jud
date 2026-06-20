@@ -331,6 +331,10 @@ try {
       console.log("Adicionando coluna 'process_analysis' em ai_analyses...");
       db.prepare("ALTER TABLE ai_analyses ADD COLUMN process_analysis TEXT").run();
     }
+    if (!columns.includes('dossier_analysis')) {
+      console.log("Adicionando coluna 'dossier_analysis' em ai_analyses...");
+      db.prepare("ALTER TABLE ai_analyses ADD COLUMN dossier_analysis TEXT").run();
+    }
   } catch (err: any) {
     console.error("Erro ao aplicar migrações em ai_analyses:", err);
   }
@@ -1019,20 +1023,20 @@ async function startServer() {
       const { 
         property_id, exec_summary, legal_analysis, financial_analysis, 
         legal_risks, operational_risks, recommended_bid, roi, tir, 
-        estimated_profit, ia_used, edital_analysis, matricula_analysis, process_analysis 
+        estimated_profit, ia_used, edital_analysis, matricula_analysis, process_analysis, dossier_analysis 
       } = req.body;
       
       db.prepare(`
         INSERT INTO ai_analyses (
           id, property_id, exec_summary, legal_analysis, financial_analysis, 
           legal_risks, operational_risks, recommended_bid, roi, tir, 
-          estimated_profit, ia_used, edital_analysis, matricula_analysis, process_analysis
+          estimated_profit, ia_used, edital_analysis, matricula_analysis, process_analysis, dossier_analysis
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
         id, property_id, exec_summary, legal_analysis, financial_analysis, 
         legal_risks, operational_risks, recommended_bid, roi, tir, 
-        estimated_profit, ia_used, edital_analysis || null, matricula_analysis || null, process_analysis || null
+        estimated_profit, ia_used, edital_analysis || null, matricula_analysis || null, process_analysis || null, dossier_analysis || null
       );
       
       res.json({ id });
@@ -1056,7 +1060,7 @@ async function startServer() {
     try {
       const { 
         exec_summary, financial_analysis, recommended_bid, roi, tir, 
-        estimated_profit, edital_analysis, matricula_analysis, process_analysis 
+        estimated_profit, edital_analysis, matricula_analysis, process_analysis, dossier_analysis 
       } = req.body;
       
       const fields: string[] = [];
@@ -1097,6 +1101,10 @@ async function startServer() {
       if (process_analysis !== undefined) {
         fields.push("process_analysis = ?");
         values.push(process_analysis);
+      }
+      if (dossier_analysis !== undefined) {
+        fields.push("dossier_analysis = ?");
+        values.push(dossier_analysis);
       }
       
       if (fields.length > 0) {

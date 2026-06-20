@@ -64,6 +64,9 @@ import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { TIRCalculator } from './components/TIRCalculator';
 import { CashFlowChart } from './components/CashFlowChart';
+import { MatriculaReport } from './components/MatriculaReport';
+import { EditalReport } from './components/EditalReport';
+import { ProcessoReport } from './components/ProcessoReport';
 import { User, Property, Process, AIConfig, StrategicBrainItem } from './types';
 import { SYSTEM_PROMPT } from './constants';
 import { analyzeAuctionDocuments, generateProcessStory, sendChatMessage } from './services/aiService';
@@ -79,6 +82,8 @@ const SimulationContext = React.createContext<{
   editalAnalysis?: string | null,
   matriculaAnalysis?: string | null,
   processAnalysis?: string | null,
+  dossierAnalysis?: string | null,
+  properties?: Property[],
   handleSaveAsProperty?: () => Promise<void>
 }>({
   simulationData: null,
@@ -461,11 +466,12 @@ export default function App() {
 
   // AI Analysis Persistent State
   const [aiAnalysisState, setAiAnalysisState] = useState<{
-    activeSubTab: 'report' | 'processos' | 'documents' | 'simulations' | 'cnj' | 'investors' | 'edital' | 'matricula';
+    activeSubTab: 'report' | 'processos' | 'documents' | 'simulations' | 'cnj' | 'investors' | 'edital' | 'matricula' | 'dossier' | 'instagram';
     selectedPropertyId: string;
     report: string | null;
     editalAnalysis: string | null;
     matriculaAnalysis: string | null;
+    dossierAnalysis: string | null;
     adHocDocs: any[];
     cnjNumber: string;
     cnjResult: any;
@@ -495,6 +501,7 @@ export default function App() {
       report: null,
       editalAnalysis: null,
       matriculaAnalysis: null,
+      dossierAnalysis: null,
       adHocDocs: [],
       cnjNumber: '',
       cnjResult: null,
@@ -3113,6 +3120,8 @@ function InteractiveSimulationTable() {
     editalAnalysis,
     matriculaAnalysis,
     processAnalysis,
+    dossierAnalysis,
+    properties,
     handleSaveAsProperty
   } = React.useContext(SimulationContext);
   if (!simulationData) return null;
@@ -3190,6 +3199,7 @@ function InteractiveSimulationTable() {
             edital_analysis: editalAnalysis || null,
             matricula_analysis: matriculaAnalysis || null,
             process_analysis: processAnalysis || null,
+            dossier_analysis: dossierAnalysis || null,
             ia_used: "Manual"
           })
         });
@@ -3222,7 +3232,8 @@ function InteractiveSimulationTable() {
             estimated_profit: currentMetrics.netProfit,
             edital_analysis: editalAnalysis || null,
             matricula_analysis: matriculaAnalysis || null,
-            process_analysis: processAnalysis || null
+            process_analysis: processAnalysis || null,
+            dossier_analysis: dossierAnalysis || null
           })
         });
 
@@ -3581,6 +3592,51 @@ function InteractiveSimulationTable() {
                     * Ao salvar como Novo Imóvel, esta simulação financeira será gravada em um novo cadastro no sistema.
                   </p>
                 )}
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const getVal = (field: any) => {
+                      if (!field) return 0;
+                      if (field.type === 'BRL') return field.value || 0;
+                      const bidVal = simulationData.bid?.value || 0;
+                      return ((field.value || 0) * bidVal / 100);
+                    };
+
+                    const params = new URLSearchParams();
+                    params.append("valuation", (simulationData.valuation?.value || 0).toString());
+                    params.append("bid", (simulationData.bid?.value || 0).toString());
+                    params.append("saleValue", (simulationData.saleValue?.value || 0).toString());
+                    params.append("holdingMonths", (simulationData.holdingMonths || 12).toString());
+                    params.append("downPaymentPercent", (simulationData.downPaymentPercent || 100).toString());
+                    params.append("interestRate", (simulationData.interestRate || 0).toString());
+                    params.append("installments", (simulationData.installments || 1).toString());
+                    params.append("strategy", (simulationData.strategy || "Venda").toString());
+
+                    // Individual Expense values (pre-calculated to BRL)
+                    params.append("desocupacaoAcordo", getVal(simulationData.desocupacaoAcordo).toString());
+                    params.append("reforma", getVal(simulationData.reforma).toString());
+                    params.append("transfRegistro", getVal(simulationData.transfRegistro).toString());
+                    params.append("comissaoLeiloeiro", getVal(simulationData.comissaoLeiloeiro).toString());
+                    params.append("transfITBI", getVal(simulationData.transfITBI).toString());
+                    params.append("assessoria", getVal(simulationData.assessoria).toString());
+                    params.append("desocupacaoHonorarios", getVal(simulationData.desocupacaoHonorarios).toString());
+                    params.append("despesasVenda", getVal(simulationData.despesasVenda).toString());
+                    params.append("holdingCosts", getVal(simulationData.holdingCosts).toString());
+
+                    // Metrics
+                    const currentMetrics = calculateSimulationMetrics(simulationData);
+                    params.append("netProfit", currentMetrics.netProfit.toString());
+                    params.append("roi", roi.toFixed(2));
+
+                    const targetUrl = `https://calculadora.tjinvest.com.br/?${params.toString()}`;
+                    window.open(targetUrl, '_blank', 'noopener,noreferrer');
+                  }}
+                  className="w-full mt-3 py-4 px-6 rounded-2xl font-bold text-xs uppercase tracking-widest flex items-center justify-center gap-2 transition-all border border-brand-border hover:bg-brand-ink/5 text-brand-ink cursor-pointer"
+                >
+                  <Calculator size={14} />
+                  <span>Exportar p/ Calculadora</span>
+                </button>
               </div>
             </div>
           </div>
@@ -6740,6 +6796,49 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
     }
   };
 
+  const handleAnalyzeDossier = async () => {
+    const docs = analysisDocs;
+    if (docs.length === 0) {
+      alert("Nenhum documento encontrado. Envie a matrícula, edital e processos primeiro.");
+      return;
+    }
+    setAnalyzing(true);
+    try {
+      const fileParts = docs.map(doc => {
+        const hasText = doc.extracted_text && doc.extracted_text.trim().length > 0;
+        return {
+          id: doc.id,
+          filename: doc.filename,
+          data: !hasText && doc.data ? doc.data : "",
+          mimeType: 'application/pdf',
+          extractedText: doc.extracted_text || ""
+        };
+      });
+      const userApiKey = resolveApiKey(state.selectedKeySource, state.aiConfig, state.selectedModel || 'gemini-2.5-flash') || "";
+      const analysis = await analyzeAuctionDocuments(fileParts, "Gere o Dossiê de Arrematação Inteligente", state.selectedModel || 'gemini-2.5-flash', userApiKey || undefined, state.auctionUrls, 'dossier');
+      setState(prev => ({ ...prev, dossierAnalysis: analysis }));
+
+      // Auto-save if there's an active analysis and property
+      if (state.selectedPropertyId && state.analysisId) {
+        await fetch(`/api/ai-analyses/${state.analysisId}`, {
+          method: 'PUT',
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            dossier_analysis: analysis
+          })
+        });
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Erro ao gerar Dossiê de Arrematação.");
+    } finally {
+      setAnalyzing(false);
+    }
+  };
+
   const [pasteTitle, setPasteTitle] = useState('');
 
   // Local state for property-specific data (still fetched on mount/change)
@@ -6925,6 +7024,7 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
             editalAnalysis: latest.edital_analysis || null,
             matriculaAnalysis: latest.matricula_analysis || null,
             processAnalysis: latest.process_analysis || null,
+            dossierAnalysis: latest.dossier_analysis || null,
             ...(parsedSimulationData ? { simulationData: parsedSimulationData } : {})
           });
         } else {
@@ -6936,6 +7036,7 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
               editalAnalysis: null,
               matriculaAnalysis: null,
               processAnalysis: null,
+              dossierAnalysis: null,
               simulationData: {
                 ...(prev.simulationData || {}),
                 valuation: { value: prop.valuation_value || 0, type: 'BRL' },
@@ -6949,7 +7050,8 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
               report: null,
               editalAnalysis: null,
               matriculaAnalysis: null,
-              processAnalysis: null
+              processAnalysis: null,
+              dossierAnalysis: null
             });
           }
         }
@@ -7530,12 +7632,14 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
       const editalPromise = analyzeAuctionDocuments(editalFileParts, "Analise o Edital", selectedModel, finalApiKey || undefined, [], 'edital');
       const matriculaPromise = analyzeAuctionDocuments(matriculaFileParts, "Analise a Matrícula", selectedModel, finalApiKey || undefined, [], 'matricula');
       const processPromise = analyzeAuctionDocuments(processFileParts, processesPrompt, selectedModel, finalApiKey || undefined, [], 'processo');
+      const dossierPromise = analyzeAuctionDocuments(fileParts, "Gere o Dossiê de Arrematação Inteligente", selectedModel, finalApiKey || undefined, aggregatedUrls, 'dossier');
 
-      const [analysis, editalAnalysis, matriculaAnalysis, processAnalysis] = await Promise.all([
+      const [analysis, editalAnalysis, matriculaAnalysis, processAnalysis, dossierAnalysisResult] = await Promise.all([
         reportPromise,
         editalPromise.catch(err => { console.error("Erro ao analisar edital automaticamente:", err); return "Falha ao gerar análise automática de Edital."; }),
         matriculaPromise.catch(err => { console.error("Erro ao analisar certidão de matrícula automaticamente:", err); return "Falha ao gerar análise automática de Certidão de Matrícula."; }),
-        processPromise.catch(err => { console.error("Erro ao analisar processos judiciais automaticamente:", err); return "Falha ao gerar análise de riscos processuais."; })
+        processPromise.catch(err => { console.error("Erro ao analisar processos judiciais automaticamente:", err); return "Falha ao gerar análise de riscos processuais."; }),
+        dossierPromise.catch(err => { console.error("Erro ao gerar dossiê inteligente automaticamente:", err); return "Falha ao gerar Dossiê de Arrematação Inteligente correlacionado."; })
       ]);
       
       let finalReport = analysis || "Falha ao gerar relatório.";
@@ -7703,7 +7807,8 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
               })(),
               edital_analysis: editalAnalysis,
               matricula_analysis: matriculaAnalysis,
-              process_analysis: processAnalysis
+              process_analysis: processAnalysis,
+              dossier_analysis: dossierAnalysisResult
             })
           });
           if (saveRes.ok) {
@@ -7722,6 +7827,7 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
         editalAnalysis: editalAnalysis,
         matriculaAnalysis: matriculaAnalysis,
         processAnalysis: processAnalysis,
+        dossierAnalysis: dossierAnalysisResult,
         chatMessages: [{ role: 'assistant', content: "Análise concluída. Como posso ajudar a aprofundar algum ponto?" }],
         simulationData: extractedData
       });
@@ -8215,6 +8321,7 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
             {/* Tabs Header */}
             <div className="flex border-b border-brand-primary/10 bg-brand-bg/30 overflow-x-auto no-print">
               <AnalysisTab active={activeSubTab === 'report'} onClick={() => updateState({ activeSubTab: 'report' })} icon={<Brain size={16} />} label="Relatório" />
+              <AnalysisTab active={activeSubTab === 'dossier'} onClick={() => updateState({ activeSubTab: 'dossier' })} icon={<Clipboard size={16} />} label="Dossiê de Arrematação" />
               <AnalysisTab active={activeSubTab === 'edital'} onClick={() => updateState({ activeSubTab: 'edital' })} icon={<FileText size={16} />} label="Edital" />
               <AnalysisTab active={activeSubTab === 'matricula'} onClick={() => updateState({ activeSubTab: 'matricula' })} icon={<BookOpen size={16} />} label="Matrícula" />
               <AnalysisTab active={activeSubTab === 'processos'} onClick={() => updateState({ activeSubTab: 'processos' })} icon={<Search size={16} />} label="Processos" />
@@ -8237,6 +8344,141 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
                   token={token}
                 />
               )}
+              {activeSubTab === 'dossier' && (
+                <div className="space-y-6">
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div>
+                      <h3 className="text-2xl font-bold text-brand-primary">Dossiê de Arrematação Inteligente</h3>
+                      <p className="text-sm text-brand-ink/50 mt-1">
+                        Sintetiza de forma automatizada e cruzada os dados da Matrícula, Edital e Processos para preenchimento de sistemas de arrematação.
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <button 
+                        onClick={handleAnalyzeDossier} 
+                        disabled={analyzing} 
+                        className="bg-brand-primary text-black px-6 py-3 rounded-xl font-bold hover:bg-brand-primary/90 transition-all disabled:opacity-50 flex items-center gap-2 shadow-md shadow-brand-primary/10"
+                      >
+                        {analyzing ? <Loader2 className="animate-spin" size={16} /> : <Sparkles size={16} />}
+                        {state.dossierAnalysis ? 'Atualizar Dossiê com IA' : 'Gerar Dossiê com IA'}
+                      </button>
+                    </div>
+                  </div>
+
+                  {!state.dossierAnalysis && !analyzing && (
+                    <div className="bg-brand-bg/10 rounded-3xl border border-brand-primary/10 p-8 sm:p-12 text-center max-w-2xl mx-auto space-y-6 mt-6">
+                      <div className="w-16 h-16 bg-brand-primary/10 rounded-2xl flex items-center justify-center text-brand-primary mx-auto border border-brand-primary/10">
+                        <Clipboard size={32} />
+                      </div>
+                      <div className="space-y-2">
+                        <h4 className="text-xl font-bold text-brand-primary">Gerar Dossiê de Arrematação</h4>
+                        <p className="text-sm text-brand-ink/60">
+                          Este recurso inovador reúne e analisa os documentos de Matrícula, Edital e Processos Judiciais juntos para gerar um dossiê integrado completo de viabilidade, jurídico e financeiro.
+                        </p>
+                      </div>
+                      <button 
+                        onClick={handleAnalyzeDossier}
+                        className="bg-brand-primary text-black px-8 py-3.5 rounded-xl font-bold hover:bg-brand-primary/90 transition-all font-sans"
+                      >
+                        Iniciar Compilação Inteligente
+                      </button>
+                    </div>
+                  )}
+
+                  {analyzing && !state.dossierAnalysis && (
+                    <div className="py-20 flex flex-col items-center justify-center space-y-4">
+                      <Loader2 className="animate-spin text-brand-primary" size={48} />
+                      <div className="text-center">
+                        <p className="font-bold text-lg text-brand-primary">Gerando Dossiê Integrado...</p>
+                        <p className="text-xs text-brand-ink/40 mt-1">Nossos agentes de IA estão analisando matrícula, edital e o processo para extrair o dossiê consolidado.</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {state.dossierAnalysis && (
+                    <div className="space-y-6">
+                      {/* Integrabilidade com a Calculadora TJInvest */}
+                      <div className="bg-brand-primary/5 rounded-3xl border border-brand-primary/10 p-6 space-y-4">
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 bg-brand-primary/10 rounded-xl text-brand-primary">
+                            <Calculator size={20} />
+                          </div>
+                          <div>
+                            <h4 className="font-bold text-brand-primary"> Integração d'Arremate (Calculadora TJInvest)</h4>
+                            <p className="text-xs text-brand-ink/50">Transmita facilmente estes dados para sua calculadora externa em <code className="text-brand-primary font-mono text-[11px]">calculadora.tjinvest.com.br</code></p>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+                          <div className="bg-brand-bg/40 p-4 rounded-2xl border border-brand-primary/5 space-y-2">
+                            <span className="text-[10px] font-bold text-brand-primary uppercase tracking-wider">Cópia Rápida para Cadastro</span>
+                            <p className="text-xs text-brand-ink/60">Use a cópia rápida abaixo para copiar os dados limpos em formato estruturado pronto para colar em tabelas e calculadoras de lances.</p>
+                            <button 
+                              onClick={() => {
+                                navigator.clipboard.writeText(state.dossierAnalysis || '');
+                                alert("Dossiê copiado com sucesso em Markdown!");
+                              }}
+                              className="text-xs bg-brand-primary/10 hover:bg-brand-primary/20 text-brand-primary px-3 py-1.5 rounded-lg font-bold transition-all flex items-center gap-2"
+                            >
+                              <Copy size={12} /> Copiar Dossiê Completo
+                            </button>
+                          </div>
+                          <div className="bg-brand-bg/40 p-4 rounded-2xl border border-brand-primary/5 space-y-2">
+                            <span className="text-[10px] font-bold text-brand-primary uppercase tracking-wider">Cópia Rápida dos Valores Chave</span>
+                            <p className="text-xs text-brand-ink/60">Copia de uma vez as variáveis numéricas tratadas (Valor Mercado, Lance Mínimo, Lance Máximo Sugerido) para alimentar a calculadora.</p>
+                            <button 
+                              onClick={() => {
+                                const numericPayload = {
+                                  valuation: metrics?.valuation || 0,
+                                  min_bid: metrics?.bid || 0,
+                                  suggested_max_bid: (metrics?.bid || 0) * 1.3,
+                                  condominium_debts: metrics?.debtsCondo || 0,
+                                  iptu_debts: metrics?.debtsIPTU || 0,
+                                  address: selectedProperty?.address || "",
+                                  city: selectedProperty?.city || "",
+                                  state: selectedProperty?.state || ""
+                                };
+                                navigator.clipboard.writeText(JSON.stringify(numericPayload, null, 2));
+                                alert("Valores numéricos copiados no formato JSON!");
+                              }}
+                              className="text-xs bg-brand-primary/10 hover:bg-brand-primary/20 text-brand-primary px-3 py-1.5 rounded-lg font-bold transition-all flex items-center gap-2"
+                            >
+                              <Copy size={12} /> Copiar JSON de Integração
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      <Card title="Resultado do Dossiê Integrado">
+                        <div className="flex justify-between items-center mb-6 border-b border-brand-primary/10 pb-4 no-print gap-4 flex-wrap">
+                          <span className="text-xs font-mono text-brand-ink/40">Análise gerada via {selectedModel}</span>
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                navigator.clipboard.writeText(state.dossierAnalysis || '');
+                                alert("Copiado!");
+                              }}
+                              className="flex items-center gap-2 bg-brand-bg hover:bg-brand-primary/10 border border-brand-primary/10 text-brand-primary px-4 py-2 rounded-xl text-xs font-bold transition-all"
+                            >
+                              <Copy size={14} /> Copiar Texto
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => window.print()}
+                              className="flex items-center gap-2 bg-brand-bg hover:bg-brand-primary/10 border border-brand-primary/10 text-brand-primary px-4 py-2 rounded-xl text-xs font-bold transition-all"
+                            >
+                              <Printer size={14} /> Imprimir Dossiê
+                            </button>
+                          </div>
+                        </div>
+                        <div className="markdown-body font-sans text-brand-ink/90 leading-relaxed text-sm antialiased space-y-4">
+                          <ReactMarkdown remarkPlugins={[remarkGfm]}>{state.dossierAnalysis}</ReactMarkdown>
+                        </div>
+                      </Card>
+                    </div>
+                  )}
+                </div>
+              )}
               {activeSubTab === 'edital' && (
                 <div className="space-y-6">
                   <h3 className="text-2xl font-bold text-brand-primary">Análise de Edital</h3>
@@ -8248,8 +8490,8 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
                     </Card>
                     {state.editalAnalysis && (
                       <Card title="Resultado da Análise de Edital">
-                        <div className="flex justify-end gap-3 mb-4 no-print">
-                          {!isPublicView && (
+                        {!isPublicView && (
+                          <div className="flex justify-end gap-3 mb-4 no-print">
                             <button
                               type="button"
                               onClick={handleShare}
@@ -8257,25 +8499,16 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
                             >
                               <Globe size={14} /> Compartilhar / Gerar Link Público
                             </button>
-                          )}
-                          <button
-                            type="button"
-                            onClick={() => handleCopyText(state.editalAnalysis || '', setCopiedEdital)}
-                            className="flex items-center gap-2 bg-brand-bg hover:bg-brand-bg/80 text-brand-primary border border-brand-primary/20 px-4 py-2 rounded-xl text-xs font-bold transition-all"
-                          >
-                            {copiedEdital ? (
-                              <>
-                                <Check size={14} className="text-emerald-500" /> Copiado!
-                              </>
-                            ) : (
-                              <>
-                                <Copy size={14} /> Copiar Análise
-                              </>
-                            )}
-                          </button>
-                        </div>
-                        <div className="p-4 sm:p-8 bg-brand-paper rounded-3xl border border-brand-border shadow-lg overflow-x-auto markdown-body">
-                          <ReactMarkdown remarkPlugins={[remarkGfm]}>{state.editalAnalysis}</ReactMarkdown>
+                          </div>
+                        )}
+                        <div className="p-1 sm:p-2 bg-brand-paper rounded-3xl border border-brand-border shadow-lg">
+                          <EditalReport 
+                            rawAnalysis={state.editalAnalysis} 
+                            propertyAddress={selectedProperty?.address}
+                            propertyCity={selectedProperty?.city}
+                            propertyState={selectedProperty?.state}
+                            valuation={metrics?.valuation}
+                          />
                         </div>
                       </Card>
                     )}
@@ -8293,8 +8526,8 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
                     </Card>
                     {state.matriculaAnalysis && (
                       <Card title="Resultado da Análise de Matrícula">
-                        <div className="flex justify-end gap-3 mb-4 no-print">
-                          {!isPublicView && (
+                        {!isPublicView && (
+                          <div className="flex justify-end gap-3 mb-4 no-print">
                             <button
                               type="button"
                               onClick={handleShare}
@@ -8302,25 +8535,17 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
                             >
                               <Globe size={14} /> Compartilhar / Gerar Link Público
                             </button>
-                          )}
-                          <button
-                            type="button"
-                            onClick={() => handleCopyText(state.matriculaAnalysis || '', setCopiedMatricula)}
-                            className="flex items-center gap-2 bg-brand-bg hover:bg-brand-bg/80 text-brand-primary border border-brand-primary/20 px-4 py-2 rounded-xl text-xs font-bold transition-all"
-                          >
-                            {copiedMatricula ? (
-                              <>
-                                <Check size={14} className="text-emerald-500" /> Copiado!
-                              </>
-                            ) : (
-                              <>
-                                <Copy size={14} /> Copiar Análise
-                              </>
-                            )}
-                          </button>
-                        </div>
-                        <div className="p-4 sm:p-8 bg-brand-paper rounded-3xl border border-brand-border shadow-lg overflow-x-auto markdown-body">
-                          <ReactMarkdown remarkPlugins={[remarkGfm]}>{state.matriculaAnalysis}</ReactMarkdown>
+                          </div>
+                        )}
+                        <div className="p-1 sm:p-2 bg-brand-paper rounded-3xl border border-brand-border shadow-lg">
+                          <MatriculaReport 
+                            rawAnalysis={state.matriculaAnalysis} 
+                            propertyAddress={selectedProperty?.address}
+                            propertyCity={selectedProperty?.city}
+                            propertyState={selectedProperty?.state}
+                            valuation={metrics?.valuation}
+                            bidValue={metrics?.bid}
+                          />
                         </div>
                       </Card>
                     )}
@@ -8345,8 +8570,8 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
                   </div>
                   {state.processAnalysis && (
                     <Card title="Resultado da Análise de Processos">
-                      <div className="flex justify-end gap-3 mb-4 no-print">
-                        {!isPublicView && (
+                      {!isPublicView && (
+                        <div className="flex justify-end gap-3 mb-4 no-print">
                           <button
                             type="button"
                             onClick={handleShare}
@@ -8354,25 +8579,16 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
                           >
                             <Globe size={14} /> Compartilhar / Gerar Link Público
                           </button>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => handleCopyText(state.processAnalysis || '', setCopiedProcessos)}
-                          className="flex items-center gap-2 bg-brand-bg hover:bg-brand-bg/80 text-brand-primary border border-brand-primary/20 px-4 py-2 rounded-xl text-xs font-bold transition-all"
-                        >
-                          {copiedProcessos ? (
-                            <>
-                              <Check size={14} className="text-emerald-500" /> Copiado!
-                            </>
-                          ) : (
-                            <>
-                              <Copy size={14} /> Copiar Análise
-                            </>
-                          )}
-                        </button>
-                      </div>
-                      <div className="p-4 sm:p-8 bg-brand-paper rounded-3xl border border-brand-border shadow-lg overflow-x-auto markdown-body">
-                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{state.processAnalysis}</ReactMarkdown>
+                        </div>
+                      )}
+                      <div className="p-1 sm:p-2 bg-brand-paper rounded-3xl border border-brand-border shadow-lg">
+                        <ProcessoReport 
+                          rawAnalysis={state.processAnalysis} 
+                          propertyAddress={selectedProperty?.address}
+                          propertyCity={selectedProperty?.city}
+                          propertyState={selectedProperty?.state}
+                          valuation={metrics?.valuation}
+                        />
                       </div>
                     </Card>
                   )}
@@ -9035,7 +9251,9 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
                       editalAnalysis: state.editalAnalysis,
                       matriculaAnalysis: state.matriculaAnalysis,
                       processAnalysis: state.processAnalysis,
-                      handleSaveAsProperty
+                      dossierAnalysis: state.dossierAnalysis,
+                      handleSaveAsProperty,
+                      properties: properties
                     }}
                   >
                     <InteractiveSimulationTable />

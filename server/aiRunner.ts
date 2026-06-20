@@ -502,6 +502,100 @@ export const runBackendAnalysis = async (
   if (analysisType === 'edital') {
     specializedInstruction += "\n\nFOCO COMPLEMENTAR DE ALTÍSSIMA PRIORIDADE: Analise estritamente o EDITAL linha por linha. Dedique atenção extrema aos débitos de IPTU (dívida ativa municipal) e Condomínio, alertando se o arrematante assume os débitos anteriores ou se há sub-rogação pelo lance nos termos do Art. 130 do CTN. Identifique obrigações adicionais, prazos de pagamento, leiloeiro, comissão, descrição física do imóvel e condições e prazos para a desocupação de forma explícita.";
     specializedInstruction += "\n\n" + BB_AND_CAIXA_KNOWLEDGE;
+    specializedInstruction += "\n\nCRUCIAL - RETORNO DE DADOS ESTRUTURADOS (MANDATÓRIO):" +
+      "\nNo final do seu texto de análise do edital, adicione OBRIGATORIAMENTE um bloco com a tag `<analysis_data>` contendo um objeto JSON válido correspondente às informações extraídas do edital do leilão." +
+      "\nNão invente nem use placeholders se a informação não constar; retorne valores em branco ou omitidos." +
+      "\nImportante: Certifique-se de fechar a tag `</analysis_data>` após o JSON." +
+      "\nUse exatamente o seguinte esquema JSON:" +
+      "\n{" +
+      "\n  \"kpis\": {" +
+      "\n    \"avaliacao\": \"R$ ...\"," +
+      "\n    \"lance_minimo\": \"...%\"," +
+      "\n    \"lance_minimo_subtexto\": \"...%\"," +
+      "\n    \"comissao_leiloeiro\": \"5%\"," +
+      "\n    \"primeira_praca\": \"YYYY-MM-DD\"," +
+      "\n    \"segunda_praca\": \"YYYY-MM-DD\"" +
+      "\n  }," +
+      "\n  \"valores_lances\": {" +
+      "\n    \"valor_avaliacao\": \"R$ ...\"," +
+      "\n    \"lance_minimo_1a_praca\": \"...%\"," +
+      "\n    \"lance_minimo_2a_praca\": \"...%\"," +
+      "\n    \"percentual_minimo_2a_praca\": \"...%\"," +
+      "\n    \"forma_leilao\": \"Eletrônico|Presencial|Misto\"" +
+      "\n  }," +
+      "\n  \"condicoes_pagamento\": {" +
+      "\n    \"permite_parcelamento\": \"Sim|Não\"," +
+      "\n    \"entrada_minima\": \"...%\"," +
+      "\n    \"num_max_parcelas\": \"...\"," +
+      "\n    \"correcao_parcelas\": \"...\"," +
+      "\n    \"garantias_exigidas\": \"...\"," +
+      "\n    \"formas_pagamento\": \"... YYYY-MM-DD ou À vista ...\"," +
+      "\n    \"prazo_pagamento\": \"...\"," +
+      "\n    \"parcelamento_especifico\": \"...\"," +
+      "\n    \"condicoes_diferenciadas\": \"...\"" +
+      "\n  }," +
+      "\n  \"comissao_leiloeiro_detalhe\": {" +
+      "\n    \"percentual\": \"...%\"," +
+      "\n    \"quem_paga\": \"Arrematante|Comitente\"," +
+      "\n    \"momento_pagamento\": \"...\"" +
+      "\n  }," +
+      "\n  \"responsabilidade_dividas\": {" +
+      "\n    \"propter_rem_no_edital\": \"Sim|Não\"," +
+      "\n    \"sub_rogacao_no_preco\": \"Sim|Não\"," +
+      "\n    \"responsabilidade_propter_rem\": \"...\"" +
+      "\n  }," +
+      "\n  \"situacao_juridica\": {" +
+      "\n    \"onus_reais\": [\"...\"]" +
+      "\n  }," +
+      "\n  \"penalidades_desistencia\": {" +
+      "\n    \"multa_inadimplencia\": \"...%\"," +
+      "\n    \"perda_sinal\": \"...\"," +
+      "\n    \"permite_desistencia\": \"Sim|Não|...\"," +
+      "\n    \"penalidades_desistencia_detalhe\": \"...\"" +
+      "\n  }," +
+      "\n  \"datas_importantes\": {" +
+      "\n    \"publicacao_edital\": \"YYYY-MM-DD\"," +
+      "\n    \"primeira_praca\": \"YYYY-MM-DD\"," +
+      "\n    \"segunda_praca\": \"YYYY-MM-DD\"," +
+      "\n    \"inicio_lances\": \"YYYY-MM-DD HH:MM\"," +
+      "\n    \"fim_lances\": \"YYYY-MM-DD HH:MM\"" +
+      "\n  }," +
+      "\n  \"identificacao_leilao\": {" +
+      "\n    \"titulo\": \"...\", " +
+      "\n    \"tipo_leilao\": \"Judicial|Extrajudicial|Administrativo\"," +
+      "\n    \"modalidade\": \"Eletrônico|Presencial\"," +
+      "\n    \"orgao_origem\": \"...\", " +
+      "\n    \"processo\": \"...\", " +
+      "\n    \"vara\": \"...\", " +
+      "\n    \"comarca\": \"...\", " +
+      "\n    \"tribunal\": \"...\"" +
+      "\n  }," +
+      "\n  \"leiloeiro_plataforma\": {" +
+      "\n    \"leiloeiro\": \"...\", " +
+      "\n    \"matricula_leiloeiro\": \"...\", " +
+      "\n    \"telefone\": \"...\", " +
+      "\n    \"email\": \"...\", " +
+      "\n    \"site\": \"...\", " +
+      "\n    \"plataforma\": \"...\", " +
+      "\n    \"url_plataforma\": \"...\"" +
+      "\n  }," +
+      "\n  \"caracteristicas_imovel_edital\": {" +
+      "\n    \"tipo_imovel\": \"...\", " +
+      "\n    \"area_total\": \"...\", " +
+      "\n    \"quartos\": \"...\", " +
+      "\n    \"andar\": \"...\", " +
+      "\n    \"uso_destinado\": \"Residencial|Comercial\", " +
+      "\n    \"descricao_edital\": \"...\", " +
+      "\n    \"endereco\": \"...\", " +
+      "\n    \"matricula\": \"...\", " +
+      "\n    \"cartorio\": \"...\", " +
+      "\n    \"comarca_matricula\": \"...\"" +
+      "\n  }," +
+      "\n  \"clausulas_observacoes\": {" +
+      "\n    \"clausulas_relevantes\": [\"...\"]," +
+      "\n    \"observacoes_edital\": [\"...\"]" +
+      "\n  }" +
+      "\n}";
   } else if (analysisType === 'matricula') {
     specializedInstruction += "\n\nFOCO COMPLEMENTAR DE ALTÍSSIMA PRIORIDADE (MANDATÓRIO):" +
       "\nAnalise estritamente toda a MATRÍCULA DO IMÓVEL folha por folha, prestando atenção prioritária aos atos registrados sob as siglas 'R-' (Registro) e 'AV-' (Averbação)." +
@@ -512,9 +606,137 @@ export const runBackendAnalysis = async (
       "\n4. ÔNUS, BLOQUEIOS E PENHORAS: Liste toda e qualquer penhora ativa, indisponibilidade de bens, hipotecas ou processos averbados." +
       "\n\nESTRUTURA DE RETORNO OBRIGATÓRIA:" +
       "\n- **Apresente uma Tabela Cronológica de Registros e Averbações (R e AV)** contendo: Código (Ex: R-4, AV-7), Ato (Compra e Venda, Alienação, Consolidação), Partes Envolvidas (com todos os CPFs, profissões e endereços identificados) e Detalhes Importantes." +
-      "\n- **Apresente uma Segunda Tabela Resumo dos Proprietários Atuais e de Direito**, deixando claro quem é o proprietário fiduciante executado e quem é o credor titular de direito (Ex: Banco do Brasil S/A). Qualquer lacuna de dados devido a digitalização fraca deve ser indicada expressamente em vez de silenciada.";
+      "\n- **Apresente uma Segunda Tabela Resumo dos Proprietários Atuais e de Direito**, deixando claro quem é o proprietário fiduciante executado e quem é o credor titular de direito (Ex: Banco do Brasil S/A). Qualquer lacuna de dados devido a digitalização fraca deve ser indicada expressamente em vez de silenciada." +
+      "\n\nCRUCIAL - RETORNO DE DADOS ESTRUTURADOS (MANDATÓRIO):" +
+      "\nNo final do seu texto de análise da matrícula, adicione OBRIGATORIAMENTE um bloco com a tag `<analysis_data>` contendo um objeto JSON válido correspondente às informações extraídas do imóvel." +
+      "\nNão invente nem use placeholders se a informação não constar; retorne valores em branco ou omitidos." +
+      "\nImportante: Certifique-se de fechar a tag `</analysis_data>` após o JSON." +
+      "\nUse exatamente o seguinte esquema JSON:" +
+      "\n{" +
+      "\n  \"kpis\": {" +
+      "\n    \"num_vendas\": 2," +
+      "\n    \"ultimo_venda_valor\": \"R$ 1.800.000,00\"," +
+      "\n    \"num_onus_ativos\": 1," +
+      "\n    \"num_processos_judiciais\": 1" +
+      "\n  }," +
+      "\n  \"proprietario_atual\": [\"Nome(s) Completo(s)\"]," +
+      "\n  \"proprietarios_anteriores\": [" +
+      "\n    {\"nome\": \"Nome Anterior\", \"documento\": \"CPF/CNPJ\"}" +
+      "\n  ]," +
+      "\n  \"valores_transacao\": [" +
+      "\n    {\"valor\": \"R$ ...\", \"data\": \"dia-mes-ano\"}" +
+      "\n  ]," +
+      "\n  \"imovel_tipo\": \"Tipo do Imóvel\"," +
+      "\n  \"localizacao_resumo\": \"Cidade/UF\"," +
+      "\n  \"identificacao_matricula\": {" +
+      "\n    \"numero_matricula\": \"...\", " +
+      "\n    \"cartorio\": \"...\", " +
+      "\n    \"comarca\": \"...\", " +
+      "\n    \"uf\": \"...\", " +
+      "\n    \"livro\": \"...\"" +
+      "\n  }," +
+      "\n  \"caracteristicas_fisicas\": {" +
+      "\n    \"tipo_imovel\": \"...\", " +
+      "\n    \"categoria\": \"RESIDENCIAL|COMERCIAL|etc\"," +
+      "\n    \"endereco\": \"...\", " +
+      "\n    \"area_total\": \"...\", " +
+      "\n    \"fracao_ideal\": \"...\", " +
+      "\n    \"unidade_autonoma\": \"...\", " +
+      "\n    \"descricao_completa\": \"...\"" +
+      "\n  }," +
+      "\n  \"condominio\": {" +
+      "\n    \"nome\": \"...\"" +
+      "\n  }," +
+      "\n  \"cadeia_registral\": [" +
+      "\n    {\"tipo\": \"REGISTRO|AVERBACAO\", \"data\": \"...\", \"valor\": \"R$ ...\", \"descricao\": \"...\", \"partes\": \"...\", \"natureza\": \"...\", \"impacto\": \"...\"}" +
+      "\n  ]," +
+      "\n  \"proprietarios_e_partes\": {" +
+      "\n    \"atuais\": [{\"nome\": \"...\", \"documento\": \"...\", \"tipo\": \"PF|PJ\", \"participacao\": \"...\", \"estado_civil\": \"...\", \"regime\": \"...\", \"detalhes\": \"...\"}]," +
+      "\n    \"anteriores\": [{\"nome\": \"...\", \"documento\": \"...\", \"tipo\": \"PF|PJ\", \"detalhes\": \"...\"}]," +
+      "\n    \"credores\": [{\"nome\": \"...\", \"documento\": \"...\", \"tipo\": \"PF|PJ\", \"detalhes\": \"...\"}]" +
+      "\n  }," +
+      "\n  \"onus_gravames\": [" +
+      "\n    {\"tipo\": \"PENHORA|HIPOTECA|ALIENACAO|OUTROS\", \"status\": \"ATIVO|BAIXADO\", \"subtipo\": \"LEILÃO|etc\", \"prioridade\": \"ALTO|MEDIO|BAIXO\", \"valor\": \"R$ ...\", \"credor\": \"...\", \"devedor\": \"...\", \"data_constituicao\": \"...\"}" +
+      "\n  ]," +
+      "\n  \"restricoes_clausulas\": {" +
+      "\n    \"inalienabilidade\": \"Sim|Não\", \"impenhorabilidade\": \"Sim|Não\", \"incomunicabilidade\": \"Sim|Não\"" +
+      "\n  }," +
+      "\n  \"eventos_leilao\": [" +
+      "\n    {\"tipo\": \"...\", \"data\": \"...\", \"status\": \"...\", \"descricao\": \"...\", \"impacto_atual\": \"...\"}" +
+      "\n  ]," +
+      "\n  \"processos_judiciais\": [" +
+      "\n    {\"numero\": \"...\", \"natureza\": \"...\", \"vara_comarca\": \"...\", \"fase\": \"...\", \"partes\": \"...\", \"impacto\": \"...\"}" +
+      "\n  ]," +
+      "\n  \"alertas\": {" +
+      "\n    \"problemas_arrematacao\": \"...\", \"pendencias_juridicas\": \"...\", \"pontos_atencao\": \"...\"" +
+      "\n  }," +
+      "\n  \"qualidade_analise\": {" +
+      "\n    \"qualidade_ocr\": \"BOA|REGULAR|RUIM\", \"confianca_extracao\": \"ALTO|MEDIO|BAIXO\", \"data_analise\": \"...\", \"arquivo_analisado\": \"...\"" +
+      "\n  }" +
+      "\n}";
   } else if (analysisType === 'processo') {
     specializedInstruction += "\n\nFOCO COMPLEMENTAR DE ALTÍSSIMA PRIORIDADE: Analise estritamente os PROCESSOS JUDICIAIS de ponta a ponta. Identifique todos os CPF/CNPJ, nomes completos e endereços de réus, autores, executados, credores hipotecários, e cônjuges. Identifique e relate todos os processos correlacionados ou incidentes judiciais ativos, o número completo da ação judicial, a vara/juiz correspondente, e faça uma avaliação minuciosa de risco quanto a vício de citação/intimação ou recursos pendentes do executado.";
+    specializedInstruction += "\n\nCRUCIAL - RETORNO DE DADOS ESTRUTURADOS (MANDATÓRIO):" +
+      "\nNo final do seu texto de análise do processo, adicione OBRIGATORIAMENTE um bloco com a tag `<analysis_data>` contendo um objeto JSON válido correspondente às informações extraídas do processo judicial." +
+      "\nNão invente nem use placeholders se a informação não constar; retorne valores em branco ou omitidos." +
+      "\nImportante: Certifique-se de fechar a tag `</analysis_data>` após o JSON." +
+      "\nUse exatamente o seguinte esquema JSON:" +
+      "\n{" +
+      "\n  \"processo_principal\": {" +
+      "\n    \"numero_processo\": \"...\"," +
+      "\n    \"executante\": \"... Código / Nome / CPF-CNPJ / Advogados ...\"," +
+      "\n    \"executado\": \"... Código / Nome / CPF-CNPJ / Advogados / Cônjuge ...\"," +
+      "\n    \"terceiros_interessados\": \"...\"," +
+      "\n    \"motivacao_judicial\": \"... Cobrança de condomínio | Execução de contrato | Execução fiscal ...\"," +
+      "\n    \"segredo_justica\": \"Sim|Não\"," +
+      "\n    \"principais_pecas\": [" +
+      "\n      { \"peca\": \"...\", \"pagina\": \"...\", \"descricao\": \"...\" }" +
+      "\n    ]" +
+      "\n  }," +
+      "\n  \"acoes_ex_mutuario\": {" +
+      "\n    \"acoes_localizadas\": [" +
+      "\n      { \"processo\": \"...\", \"tribunal\": \"...\", \"tipo\": \"...\", \"risco\": \"ALTO|MÉDIO|BAIXO\", \"motivacao_risco\": \"...\", \"status\": \"...\" }" +
+      "\n    ]," +
+      "\n    \"risco_geral_acoes\": \"ALTO|MÉDIO|BAIXO\"," +
+      "\n    \"comentarios_pesquisa\": \"...\"" +
+      "\n  }," +
+      "\n  \"gravames_matricula_processo\": {" +
+      "\n    \"gravames_analisados\": [" +
+      "\n      { \"gravame\": \"... R-4 ou R-5 / Hipoteca / Penhora ...\", \"possui_risco\": \"Sim|Não\", \"analise\": \"...\" }" +
+      "\n    ]" +
+      "\n  }," +
+      "\n  \"averbacao_area_construida\": {" +
+      "\n    \"imovel_e_casa\": true|false," +
+      "\n    \"status_averbacao\": \"Totalmente averbada|Parcialmente averbada|Não averbada|Não aplicável (apartamento)\"," +
+      "\n    \"idade_construcao_anos\": \"...\"," +
+      "\n    \"prescricao_iss_5_anos\": \"Sim (Prescreveu - sem ISS)|Não|Pendente de verificação\"," +
+      "\n    \"estimativa_custos_regularizacao\": \"... R$ ...\"," +
+      "\n    \"detalhes_regularizacao\": \"... Custos com engenheiro, taxas da prefeitura, etc ...\"" +
+      "\n  }" +
+      "\n}";
+  } else if (analysisType === 'dossier') {
+    specializedInstruction += "\n\nFOCO COMPLEMENTAR DE ALTÍSSIMA PRIORIDADE: Você é um ASSESSOR DE ARREMATAÇÃO E INTELIGÊNCIA JURÍDICO-FINANCEIRA SÊNIOR." +
+      "\nSeu objetivo é gerar um DOSSIÊ DE ARREMATAÇÃO INTEGRADO E ALTAMENTE INTELIGENTE a partir de todos os documentos anexados (Edital, Matrícula, Processo e links/conteúdos extras)." +
+      "\nSua resposta DEVE ser estruturada de forma impecável, usando Markdown rico e tabelas bonitas, cobrindo com precisão absoluta as 3 grandes seções descritas abaixo:" +
+      "\n\n### 1. SEÇÃO DE VIABILIDADE" +
+      "\n- **Cadastro do Leiloeiro**: Consultar e relatar informações do site/lista do leiloeiro ou edital, verificando se há sinais óbvios de golpe, se o leiloeiro é oficial/registrado e link de acesso direto para auditoria." +
+      "\n- **Cadastro do Arrematante**: Prazos de habilitação prévia exigidos pelo leiloeiro (ex: habilitar com 24h ou 48h de antecedência) e regras de segurança." +
+      "\n- **Forma de Pagamento**: Detalhar se permite à vista ou parcelado (sinal mínimo, parcelamento em até quantas vezes, incidência de correção monetária ou juros) e se há algum desconto percentual explícito." +
+      "\n- **Comissão do Leiloeiro**: Porcentagem exata (geralmente 5%) e outras taxas de intermediação." +
+      "\n- **Evicção**: Análise expressa se o edital prevê explicitamente a renúncia ou a garantia pelo direito de evicção (risco em caso de anulação do leilão)." +
+      "\n- **Coerência da Descrição do Bem**: Fazer o cruzamento exato das informações do edital, do site do leiloeiro e da matrícula. Reporte qualquer incompatibilidade física de áreas, numeração ou logradouro." +
+      "\n- **Vaga de Garagem**: Identificar na matrícula se a vaga possui matrícula própria ou se está integrada, se há custos associados ou se há pendência de identificação (geralmente necessitando validação com síndico)." +
+      "\n- **Débitos Proponente e Responsabilidade**: Quem responde pelo condomínio, IPTU e outras pendências pretéritas de forma explícita? Há cláusula de sub-rogação dos débitos no preço do lance (CTN art 130)?" +
+      "\n- **Análise sobre a Localização e Vizinhança**: Faça uma síntese inteligente sobre o endereço do imóvel mapeado nos documentos, avaliando em aproximadamente 20 linhas a região, facilidades de transporte, comércio, segurança, escolas, saúde, lazer e outros prós e contras visíveis." +
+      "\n\n### 2. SEÇÃO FINANCEIRA" +
+      "\n- **Análise de Mercado**: Compilado sugerido de valores com base em amostras encontradas em portais ou relatórios, liquidez estimada e preço sugerido de revenda/mercado." +
+      "\n- **Sugestão de Lances e ROIs (Calculadora Smart)**: Estimar limites seguros para lance inicial, intermediário e teto máximo de arrematação. Apresentar os ROIs simulados comparando a modalidade de assessoria tradicional vs modelo estratégico 'caixa forte'." +
+      "\n\n### 3. SEÇÃO JURÍDICA" +
+      "\n- **Processo Principal / Execução**: Mapear o número do processo que originou a execução, Vara/Comarca judiciária, partes envolvidas (Executante, Executado/Ex-Mutuário, Terceiros interessados), motivação do leilão (ex: cobrança de cotas condominiais, execução de hipoteca) e páginas/peças principais que documentam a regularidade processual." +
+      "\n- **Pesquisa Processual de Distribuidores (TRF/TJ)**: Analisar ocorrência de outras ações ativas contra o executado/ex-mutuário (TJ local, TRF correspondente), CPFs/CNPJs localizados, e se essas demandas trazem riscos reais ou reflexos de penhoras no bem arrematado." +
+      "\n- **Gravames de Matrícula**: Identificar detalhadamente os principais gravames ativos (penhoras, hipotecas, indisponibilidades, servidões) com sua respectiva classificação de risco para o arrematante." +
+      "\n- **Averbação do Imóvel**: Detalhar se a construção está totalmente averbada na matrícula. Se houver divergência entre a área construída do edital municipal e a matrícula, calcular a estimativa de custos de regularização prévia perante o cartório e incidência de ISS." +
+      "\n\nSiga estritamente estes pontos para dar ao investidor de arrematação uma visão clara e cirúrgica para que ele possa alimentar o sistema de cadastro e lances com 100% de firmeza.";
   }
 
   // Inject critical bidder checklist and strategic brain consultation
