@@ -6708,12 +6708,17 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
     setAnalyzing(true);
     try {
       const fileParts = docs.map(doc => {
+        let mimeType = 'application/pdf';
+        if (doc.filename.toLowerCase().endsWith('.jpg') || doc.filename.toLowerCase().endsWith('.jpeg')) mimeType = 'image/jpeg';
+        else if (doc.filename.toLowerCase().endsWith('.png')) mimeType = 'image/png';
+        else if (doc.filename.toLowerCase().endsWith('.webp')) mimeType = 'image/webp';
+
         const hasText = doc.extracted_text && doc.extracted_text.trim().length > 0;
         return {
           id: doc.id,
           filename: doc.filename,
-          data: !hasText && doc.data ? doc.data : "",
-          mimeType: 'application/pdf',
+          data: !hasText && doc.data ? (doc.data.startsWith('data:') ? doc.data : `data:${mimeType};base64,${doc.data}`) : "",
+          mimeType: mimeType,
           extractedText: doc.extracted_text || ""
         };
       });
@@ -6729,12 +6734,17 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
     setAnalyzing(true);
     try {
       const fileParts = docs.map(doc => {
+        let mimeType = 'application/pdf';
+        if (doc.filename.toLowerCase().endsWith('.jpg') || doc.filename.toLowerCase().endsWith('.jpeg')) mimeType = 'image/jpeg';
+        else if (doc.filename.toLowerCase().endsWith('.png')) mimeType = 'image/png';
+        else if (doc.filename.toLowerCase().endsWith('.webp')) mimeType = 'image/webp';
+
         const hasText = doc.extracted_text && doc.extracted_text.trim().length > 0;
         return {
           id: doc.id,
           filename: doc.filename,
-          data: !hasText && doc.data ? doc.data : "",
-          mimeType: 'application/pdf',
+          data: !hasText && doc.data ? (doc.data.startsWith('data:') ? doc.data : `data:${mimeType};base64,${doc.data}`) : "",
+          mimeType: mimeType,
           extractedText: doc.extracted_text || ""
         };
       });
@@ -6745,21 +6755,36 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
   };
 
   const handleAnalyzeProcesses = async () => {
-    const processDocs = analysisDocs.filter(d => d.doc_type === 'Processo Judicial');
+    let processDocs = analysisDocs.filter(d => d.doc_type === 'Processo Judicial');
+    
+    // Fallback: use other documents (like Edital/Matrícula) which usually describe process details
     if (processDocs.length === 0) {
-      alert("Nenhum processo judicial encontrado.");
+      processDocs = analysisDocs.filter(d => d.doc_type === 'Edital' || d.doc_type === 'Matrícula');
+    }
+    if (processDocs.length === 0) {
+      processDocs = analysisDocs;
+    }
+    
+    // Only block if we have absolutely nothing uploaded at all
+    if (processDocs.length === 0) {
+      alert("Nenhum documento (Edital, Matrícula ou Processo) disponível para análise. Envie pelo menos um documento.");
       return;
     }
     
     setAnalyzing(true);
     try {
       const fileParts = processDocs.map(doc => {
+        let mimeType = 'application/pdf';
+        if (doc.filename.toLowerCase().endsWith('.jpg') || doc.filename.toLowerCase().endsWith('.jpeg')) mimeType = 'image/jpeg';
+        else if (doc.filename.toLowerCase().endsWith('.png')) mimeType = 'image/png';
+        else if (doc.filename.toLowerCase().endsWith('.webp')) mimeType = 'image/webp';
+
         const hasText = doc.extracted_text && doc.extracted_text.trim().length > 0;
         return {
           id: doc.id,
           filename: doc.filename,
-          data: !hasText && doc.data ? doc.data : "",
-          mimeType: 'application/pdf',
+          data: !hasText && doc.data ? (doc.data.startsWith('data:') ? doc.data : `data:${mimeType};base64,${doc.data}`) : "",
+          mimeType: mimeType,
           extractedText: doc.extracted_text || ""
         };
       });
@@ -6805,12 +6830,17 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
     setAnalyzing(true);
     try {
       const fileParts = docs.map(doc => {
+        let mimeType = 'application/pdf';
+        if (doc.filename.toLowerCase().endsWith('.jpg') || doc.filename.toLowerCase().endsWith('.jpeg')) mimeType = 'image/jpeg';
+        else if (doc.filename.toLowerCase().endsWith('.png')) mimeType = 'image/png';
+        else if (doc.filename.toLowerCase().endsWith('.webp')) mimeType = 'image/webp';
+
         const hasText = doc.extracted_text && doc.extracted_text.trim().length > 0;
         return {
           id: doc.id,
           filename: doc.filename,
-          data: !hasText && doc.data ? doc.data : "",
-          mimeType: 'application/pdf',
+          data: !hasText && doc.data ? (doc.data.startsWith('data:') ? doc.data : `data:${mimeType};base64,${doc.data}`) : "",
+          mimeType: mimeType,
           extractedText: doc.extracted_text || ""
         };
       });
@@ -7626,21 +7656,55 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
       }
       aggregatedUrls = aggregatedUrls.filter(u => u && u.trim().length > 5);
 
-      console.log("DEBUG: Iniciando análise simultânea em paralelo para Relatório, Edital, Matrícula e Processo...");
+      console.log("DEBUG: Iniciando análise simultânea em série para Relatório, Edital, Matrícula, Processo e Dossiê...");
 
-      const reportPromise = analyzeAuctionDocuments(fileParts, promptWithBrain, selectedModel, finalApiKey || undefined, aggregatedUrls);
-      const editalPromise = analyzeAuctionDocuments(editalFileParts, "Analise o Edital", selectedModel, finalApiKey || undefined, [], 'edital');
-      const matriculaPromise = analyzeAuctionDocuments(matriculaFileParts, "Analise a Matrícula", selectedModel, finalApiKey || undefined, [], 'matricula');
-      const processPromise = analyzeAuctionDocuments(processFileParts, processesPrompt, selectedModel, finalApiKey || undefined, [], 'processo');
-      const dossierPromise = analyzeAuctionDocuments(fileParts, "Gere o Dossiê de Arrematação Inteligente", selectedModel, finalApiKey || undefined, aggregatedUrls, 'dossier');
+      updateState({ 
+        report: "### 🔄 [Passo 1/5] Gerando Relatório de Viabilidade Geral...\n\nSincronizando com as diretrizes e estratégias extraídas do seu Cérebro Estratégico...", 
+        editalAnalysis: "### ⏳ Aguardando análise do Relatório Geral...",
+        matriculaAnalysis: "### ⏳ Aguardando...",
+        processAnalysis: "### ⏳ Aguardando...",
+        dossierAnalysis: "### ⏳ Aguardando..."
+      });
+      const analysis = await analyzeAuctionDocuments(fileParts, promptWithBrain, selectedModel, finalApiKey || undefined, aggregatedUrls);
 
-      const [analysis, editalAnalysis, matriculaAnalysis, processAnalysis, dossierAnalysisResult] = await Promise.all([
-        reportPromise,
-        editalPromise.catch(err => { console.error("Erro ao analisar edital automaticamente:", err); return "Falha ao gerar análise automática de Edital."; }),
-        matriculaPromise.catch(err => { console.error("Erro ao analisar certidão de matrícula automaticamente:", err); return "Falha ao gerar análise automática de Certidão de Matrícula."; }),
-        processPromise.catch(err => { console.error("Erro ao analisar processos judiciais automaticamente:", err); return "Falha ao gerar análise de riscos processuais."; }),
-        dossierPromise.catch(err => { console.error("Erro ao gerar dossiê inteligente automaticamente:", err); return "Falha ao gerar Dossiê de Arrematação Inteligente correlacionado."; })
-      ]);
+      updateState({ 
+        report: analysis,
+        editalAnalysis: "### 🔄 [Passo 2/5] Analisando Edital do Leilão...\n\nMapeando datas de leilão, débitos condomínio/IPTU, impostos e multas judiciais...",
+        matriculaAnalysis: "### ⏳ Aguardando..."
+      });
+      const editalAnalysis = await analyzeAuctionDocuments(editalFileParts, "Analise o Edital", selectedModel, finalApiKey || undefined, [], 'edital').catch(err => { 
+        console.error("Erro ao analisar edital automaticamente:", err); 
+        return "Falha ao gerar análise automática de Edital."; 
+      });
+
+      updateState({ 
+        editalAnalysis: editalAnalysis,
+        matriculaAnalysis: "### 🔄 [Passo 3/5] Analisando Certidão de Matrícula...\n\nMapeando cadeia de proprietários de direito e alienações fiduciárias registradas...",
+        processAnalysis: "### ⏳ Aguardando..."
+      });
+      const matriculaAnalysis = await analyzeAuctionDocuments(matriculaFileParts, "Analise a Matrícula", selectedModel, finalApiKey || undefined, [], 'matricula').catch(err => { 
+        console.error("Erro ao analisar certidão de matrícula automaticamente:", err); 
+        return "Falha ao gerar análise automática de Certidão de Matrícula."; 
+      });
+
+      updateState({ 
+        matriculaAnalysis: matriculaAnalysis,
+        processAnalysis: "### 🔄 [Passo 4/5] Analisando Riscos de Processos Judiciais...\n\nRelacionando CPFs dos envolvidos e buscando possíveis nulidades processuais...",
+        dossierAnalysis: "### ⏳ Aguardando..."
+      });
+      const processAnalysis = await analyzeAuctionDocuments(processFileParts, processesPrompt, selectedModel, finalApiKey || undefined, [], 'processo').catch(err => { 
+        console.error("Erro ao analisar processos judiciais automaticamente:", err); 
+        return "Falha ao gerar análise de riscos processuais."; 
+      });
+
+      updateState({ 
+        processAnalysis: processAnalysis,
+        dossierAnalysis: "### 🔄 [Passo 5/5] Compilando Dossiê Estratégico Consolidado...\n\nSistematizando riscos de desocupação e gerando recomendações executivas..."
+      });
+      const dossierAnalysisResult = await analyzeAuctionDocuments(fileParts, "Gere o Dossiê de Arrematação Inteligente", selectedModel, finalApiKey || undefined, aggregatedUrls, 'dossier').catch(err => { 
+        console.error("Erro ao gerar dossiê inteligente automaticamente:", err); 
+        return "Falha ao gerar Dossiê de Arrematação Inteligente correlacionado."; 
+      });
       
       let finalReport = analysis || "Falha ao gerar relatório.";
       
