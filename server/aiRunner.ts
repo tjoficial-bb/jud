@@ -125,31 +125,31 @@ const mapModelId = (model: string): string => {
 const getPayloadBudget = (model: string): number => {
   // Keep the payload budget optimized yet generous since text-based files take almost 0 bytes.
   if (model && (model.includes('flash') || model.includes('gemini') || model.includes('claude') || model.includes('gpt-4') || model.includes('o1') || model.includes('deepseek'))) {
-    return 30 * 1024 * 1024; // 30MB budget of base64 data (~22MB raw files)
+    return 15 * 1024 * 1024; // 15MB budget of base64 data to guarantee response under 60 seconds
   }
-  return 12 * 1024 * 1024; // 12MB budget of base64 data (~9MB raw files)
+  return 6 * 1024 * 1024; // 6MB budget of base64 data
 };
 
 const optimizePayload = (files: any[], budget: number, model?: string) => {
   const isMultiModalProvider = model ? (model.startsWith('gemini') || model.startsWith('claude')) : true;
 
   let currentFiles = files.map(f => {
-    const hasText = !!f.extractedText && f.extractedText.trim().length > 0;
+    const hasText = !!f.extractedText && f.extractedText.trim().length > 200;
     
     // We check if it is a heavy binary (PDF or Image).
     // PDFs without text are processed visually by top-tier models using deep multi-modal features.
-    // Up to 26MB base64 (~19MB raw) is fully supported for heavy scanned registry files.
-    let limit = 8.0 * 1024 * 1024; // 8.0MB limit for images (approx 6MB raw)
+    // Up to 6MB base64 (~4.5MB raw) is fully supported for heavy scanned registry files.
+    let limit = 4.0 * 1024 * 1024; // 4.0MB limit for images (approx 3MB raw)
     if (f.mimeType === 'application/pdf') {
-      limit = 26.0 * 1024 * 1024; // 26.0MB limit for PDFs without text (approx 19MB raw)
+      limit = 6.0 * 1024 * 1024; // 6.0MB limit for PDFs without text (approx 4.5MB raw)
     }
     
     const isBase64TooLarge = f.data && f.data.length > limit;
     
     // Determine whether to use plain text fallback or send the binary (PDF/Image) visually.
-    // For multimodal models, we always prefer sending the actual PDF/Image visually unless it's too large,
-    // so they can read scanned text, see handwriting, stamps, signatures, and complete page layouts.
-    let useText = !f.data || f.data === "" || f.data === "null" || isBase64TooLarge;
+    // If the file already has substantial extracted text, we ALWAYS prefer sending the text
+    // rather than the heavy binary, which avoids huge visual processing overhead and timeouts.
+    let useText = !f.data || f.data === "" || f.data === "null" || isBase64TooLarge || hasText;
     
     // If it's a non-multimodal model (e.g. deepseek, old models) or if it's a text-based format,
     // use extracted text if available.
