@@ -70,6 +70,7 @@ import { ProcessoReport } from './components/ProcessoReport';
 import { User, Property, Process, AIConfig, StrategicBrainItem } from './types';
 import { SYSTEM_PROMPT } from './constants';
 import { analyzeAuctionDocuments, generateProcessStory, sendChatMessage } from './services/aiService';
+import SmartAnalysisTab, { SmartAnalysisData, getEmptySmartAnalysis } from './components/SmartAnalysisTab';
 
 const SimulationContext = React.createContext<{ 
   simulationData: any, 
@@ -466,12 +467,13 @@ export default function App() {
 
   // AI Analysis Persistent State
   const [aiAnalysisState, setAiAnalysisState] = useState<{
-    activeSubTab: 'report' | 'processos' | 'documents' | 'simulations' | 'cnj' | 'investors' | 'edital' | 'matricula' | 'dossier' | 'instagram';
+    activeSubTab: 'report' | 'processos' | 'documents' | 'simulations' | 'cnj' | 'investors' | 'edital' | 'matricula' | 'dossier' | 'instagram' | 'smart_analysis';
     selectedPropertyId: string;
     report: string | null;
     editalAnalysis: string | null;
     matriculaAnalysis: string | null;
     dossierAnalysis: string | null;
+    smartAnalysis: SmartAnalysisData | null;
     adHocDocs: any[];
     cnjNumber: string;
     cnjResult: any;
@@ -502,6 +504,7 @@ export default function App() {
       editalAnalysis: null,
       matriculaAnalysis: null,
       dossierAnalysis: null,
+      smartAnalysis: null,
       adHocDocs: [],
       cnjNumber: '',
       cnjResult: null,
@@ -6652,6 +6655,7 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
         selectedPropertyId: '',
         report: null,
         adHocDocs: [],
+        smartAnalysis: null,
         cnjNumber: '',
         cnjResult: null,
         chatMessages: [],
@@ -6699,6 +6703,197 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
         isEditingReport: false,
         isEditingStory: false
       }));
+    }
+  };
+
+  const [analyzingSmart, setAnalyzingSmart] = useState(false);
+
+  const handleSaveSmartAnalysis = async (updatedData: SmartAnalysisData) => {
+    try {
+      const selectedPropertyId = state.selectedPropertyId;
+      const analysisId = state.analysisId;
+      
+      if (!selectedPropertyId) {
+        updateState({ smartAnalysis: updatedData });
+        if ((window as any).customToast) {
+          (window as any).customToast("Análise Smart salva temporariamente (vincule a um imóvel para persistir)!", "info");
+        }
+        return;
+      }
+      
+      const smartJson = JSON.stringify(updatedData);
+      
+      if (!analysisId) {
+        const createRes = await fetch(`/api/ai-analyses`, {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            property_id: selectedPropertyId,
+            exec_summary: "Análise Smart - Preenchido pelo Usuário",
+            financial_analysis: JSON.stringify(state.simulationData),
+            smart_analysis_json: smartJson,
+            ia_used: "Manual"
+          })
+        });
+
+        if (createRes.ok) {
+          const createData = await parseJsonResponse(createRes);
+          updateState({ analysisId: createData.id, smartAnalysis: updatedData });
+          fetchPropertyData(selectedPropertyId);
+        } else {
+          throw new Error("Erro ao criar registro da análise.");
+        }
+      } else {
+        const updateRes = await fetch(`/api/ai-analyses/${analysisId}`, {
+          method: 'PUT',
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            smart_analysis_json: smartJson
+          })
+        });
+
+        if (updateRes.ok) {
+          updateState({ smartAnalysis: updatedData });
+          fetchPropertyData(selectedPropertyId);
+        } else {
+          throw new Error("Erro ao atualizar análise.");
+        }
+      }
+      
+      if ((window as any).customToast) {
+        (window as any).customToast("Análise Smart salva com sucesso!", "success");
+      }
+    } catch (err: any) {
+      console.error(err);
+      alert("Erro ao salvar Análise Smart: " + err.message);
+    }
+  };
+
+  const handleAnalyzeSmart = async () => {
+    setAnalyzingSmart(true);
+    try {
+      if (analysisDocs.length === 0) {
+        throw new Error("Nenhum documento encontrado para análise. Faça o upload de pelo menos um documento.");
+      }
+      
+      const fileParts = analysisDocs.map((doc: any) => {
+        let mimeType = 'application/pdf';
+        if (doc.filename.toLowerCase().endsWith('.jpg') || doc.filename.toLowerCase().endsWith('.jpeg')) mimeType = 'image/jpeg';
+        else if (doc.filename.toLowerCase().endsWith('.png')) mimeType = 'image/png';
+        else if (doc.filename.toLowerCase().endsWith('.webp')) mimeType = 'image/webp';
+
+        const hasText = doc.extracted_text && doc.extracted_text.trim().length > 0;
+        return {
+          id: doc.id,
+          filename: doc.filename,
+          data: !hasText && doc.data ? (doc.data.startsWith('data:') ? doc.data : `data:${mimeType};base64,${doc.data}`) : "",
+          mimeType: mimeType,
+          extractedText: doc.extracted_text || ""
+        };
+      });
+
+      const userApiKey = resolveApiKey(state.selectedKeySource, state.aiConfig, state.selectedModel || 'gemini-2.5-flash') || "";
+      const finalApiKey = userApiKey || undefined;
+      
+      const prompt = `Você é um advogado imobiliário sênior e especialista em leilões de imóveis (judiciais e extrajudiciais) no Brasil.
+Sua tarefa é analisar minuciosamente todos os documentos fornecidos do leilão (Edital, Matrícula de Cartório de Registro de Imóveis, e peças do processo judicial correspondente) e preencher um relatório estruturado em formato JSON contendo as informações jurídicas, de ocupação, financeiras e de riscos do leilão.
+
+Você deve responder APENAS com um objeto JSON válido, sem texto explicativo antes ou depois, seguindo estritamente este esquema de chaves e tipos de valores:
+
+{
+  "risco_geral": "Baixo" | "Médio" | "Alto",
+  "recomendacao": "Recomendo arrematar" | "Recomendo com ressalvas" | "Não recomendo arrematar",
+  "justificativa": "Texto explicativo detalhado de até 5 linhas sobre o motivo da sua recomendação e os pontos de atenção",
+  
+  "tipo_leilao": "Judicial" | "Extrajudicial",
+  "responsabilidade_iptu": "Vendedor (Banco)" | "Comprador" | "Sub-rogado no preço",
+  "responsabilidade_condominio": "Vendedor (Banco)" | "Comprador" | "Sub-rogado no preço",
+  "observacoes_edital": "Observações sobre datas, regras do edital, parcelamentos autorizados, etc. Seja minucioso.",
+  
+  "iptu_atraso": 1500.00,
+  "condominio_atraso": 3000.00,
+  "outros_debitos": 0.00,
+  "observacoes_debitos": "Detalhamento das dívidas de IPTU, Condomínio, foro/laudêmio, etc.",
+  
+  "nivel_risco_desocupacao": "Baixo" | "Médio" | "Alto",
+  "liminar_bloqueando": false,
+  "acao_anulatoria": false,
+  "embargos_pendentes": false,
+  "recurso_pendente": false,
+  "prazo_estimado_desocupacao": "6 a 12 meses" | "3 a 6 meses" | "mais de 12 meses",
+  "observacoes_desocupacao": "Análise da dificuldade esperada de desocupação baseada no tipo de ocupante e nos recursos vigentes",
+  
+  "risco_geral_nulidade": "Baixo" | "Médio" | "Alto",
+  "vicio_citacao": false,
+  "vicio_avaliacao": false,
+  "vicio_publicacao": false,
+  "vicio_procedimental": false,
+  "observacoes_nulidade": "Análise crítica dos riscos de nulidade ou anulação do leilão pelas defesas do executado",
+  
+  "status_consolidacao": "Regular" | "Irregular" | "Pendente" | "Não verificado",
+  "intimacao_purga_mora": false,
+  "intimacao_leiloes": false,
+  "averbacao_consolidacao": false,
+  "observacoes_consolidacao": "Análise de regularidade do procedimento de consolidação extrajudicial (Lei 9.514/97)",
+  
+  "matricula_atualizada": false,
+  "tem_onus": false,
+  "tem_penhora": false,
+  "tem_hipoteca": false,
+  "alienacao_fiduciaria": false,
+  "indisponibilidade": false,
+  "acao_reipersecutoria": false,
+  "observacoes_matricula": "Destaque todos os ônus, penhoras e restrições encontrados na matrícula e seus respectivos cancelamentos ou riscos",
+  
+  "status_ocupacao": "Ocupado pelo ex-mutuário" | "Ocupado por terceiro" | "Invasão" | "Desocupado",
+  "relacao_ex_mutuario": "O próprio" | "Parente" | "Inquilino" | "Desconhecido",
+  "nome_ocupante": "Nome completo do ocupante se mencionado nos autos ou edital, senão vazio",
+  "cpf_ocupante": "CPF do ocupante se mencionado, senão vazio",
+  "telefone_ocupante": "Telefone ou contato se mencionado, senão vazio",
+  "tempo_ocupacao": "Tempo estimado que o ocupante já está no imóvel se puder ser deduzido, senão vazio",
+  "risco_usucapiao": "Baixo" | "Médio" | "Alto",
+  "observacoes_ocupacao": "Histórico de tentativas de desocupação amigável ou imissões de posse anteriores se houver"
+}
+
+Importante: se uma informação não for encontrada nos documentos, use o valor correspondente neutro (como false para booleanos, 0 para números, "Não avaliado"/"Selecione"/"Não verificado" para dropdowns, ou texto vazio/explicando que não foi encontrado para campos de texto). Seja extremamente técnico e preciso em suas observações legais baseadas no Direito brasileiro.`;
+      
+      const rawResult = await analyzeAuctionDocuments(
+        fileParts, 
+        prompt, 
+        state.selectedModel || 'gemini-2.5-flash', 
+        finalApiKey, 
+        state.auctionUrls, 
+        'dossier'
+      );
+      
+      let parsedData: SmartAnalysisData;
+      try {
+        let cleanJson = rawResult || "";
+        if (cleanJson.includes("```json")) {
+          cleanJson = cleanJson.split("```json")[1].split("```")[0].trim();
+        } else if (cleanJson.includes("```")) {
+          cleanJson = cleanJson.split("```")[1].split("```")[0].trim();
+        }
+        parsedData = JSON.parse(cleanJson);
+      } catch (err) {
+        console.error("Erro ao parsear JSON do resultado da IA:", rawResult, err);
+        throw new Error("A IA não retornou um formato JSON estruturado compatível. Tente novamente.");
+      }
+      
+      const mergedData = { ...getEmptySmartAnalysis(), ...parsedData };
+      await handleSaveSmartAnalysis(mergedData);
+      
+    } catch (err: any) {
+      console.error(err);
+      alert("Erro ao realizar Análise Smart: " + err.message);
+    } finally {
+      setAnalyzingSmart(false);
     }
   };
 
@@ -7047,6 +7242,14 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
               console.error("Erro ao parsear simulationData de banco:", e);
             }
           }
+          let parsedSmartAnalysis = null;
+          if (latest.smart_analysis_json) {
+            try {
+              parsedSmartAnalysis = JSON.parse(latest.smart_analysis_json);
+            } catch (e) {
+              console.error("Erro ao parsear smart_analysis_json de banco:", e);
+            }
+          }
           updateState({ 
             report: latest.exec_summary, 
             selectedModel: latest.ia_used,
@@ -7055,6 +7258,7 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
             matriculaAnalysis: latest.matricula_analysis || null,
             processAnalysis: latest.process_analysis || null,
             dossierAnalysis: latest.dossier_analysis || null,
+            smartAnalysis: parsedSmartAnalysis || getEmptySmartAnalysis(),
             ...(parsedSimulationData ? { simulationData: parsedSimulationData } : {})
           });
         } else {
@@ -7067,6 +7271,7 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
               matriculaAnalysis: null,
               processAnalysis: null,
               dossierAnalysis: null,
+              smartAnalysis: getEmptySmartAnalysis(),
               simulationData: {
                 ...(prev.simulationData || {}),
                 valuation: { value: prop.valuation_value || 0, type: 'BRL' },
@@ -7081,7 +7286,8 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
               editalAnalysis: null,
               matriculaAnalysis: null,
               processAnalysis: null,
-              dossierAnalysis: null
+              dossierAnalysis: null,
+              smartAnalysis: getEmptySmartAnalysis()
             });
           }
         }
@@ -8377,6 +8583,7 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
             {/* Tabs Header */}
             <div className="flex border-b border-brand-primary/10 bg-brand-bg/30 overflow-x-auto no-print">
               <AnalysisTab active={activeSubTab === 'report'} onClick={() => updateState({ activeSubTab: 'report' })} icon={<Brain size={16} />} label="Relatório" />
+              <AnalysisTab active={activeSubTab === 'smart_analysis'} onClick={() => updateState({ activeSubTab: 'smart_analysis' })} icon={<Cpu size={16} />} label="Análise Smart" />
               <AnalysisTab active={activeSubTab === 'dossier'} onClick={() => updateState({ activeSubTab: 'dossier' })} icon={<Clipboard size={16} />} label="Dossiê de Arrematação" />
               <AnalysisTab active={activeSubTab === 'edital'} onClick={() => updateState({ activeSubTab: 'edital' })} icon={<FileText size={16} />} label="Edital" />
               <AnalysisTab active={activeSubTab === 'matricula'} onClick={() => updateState({ activeSubTab: 'matricula' })} icon={<BookOpen size={16} />} label="Matrícula" />
@@ -9047,6 +9254,16 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
                     </div>
                   )}
                 </div>
+              )}
+
+              {activeSubTab === 'smart_analysis' && (
+                <SmartAnalysisTab 
+                  data={state.smartAnalysis}
+                  onSave={handleSaveSmartAnalysis}
+                  onTriggerAI={handleAnalyzeSmart}
+                  isAnalyzing={analyzingSmart}
+                  hasDocuments={analysisDocs.length > 0}
+                />
               )}
 
               {activeSubTab === 'investors' && (

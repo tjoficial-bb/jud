@@ -254,6 +254,7 @@ try {
     tir REAL,
     estimated_profit REAL,
     ia_used TEXT,
+    smart_analysis_json TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY(property_id) REFERENCES properties(id)
   );
@@ -334,6 +335,10 @@ try {
     if (!columns.includes('dossier_analysis')) {
       console.log("Adicionando coluna 'dossier_analysis' em ai_analyses...");
       db.prepare("ALTER TABLE ai_analyses ADD COLUMN dossier_analysis TEXT").run();
+    }
+    if (!columns.includes('smart_analysis_json')) {
+      console.log("Adicionando coluna 'smart_analysis_json' em ai_analyses...");
+      db.prepare("ALTER TABLE ai_analyses ADD COLUMN smart_analysis_json TEXT").run();
     }
   } catch (err: any) {
     console.error("Erro ao aplicar migrações em ai_analyses:", err);
@@ -1023,20 +1028,23 @@ async function startServer() {
       const { 
         property_id, exec_summary, legal_analysis, financial_analysis, 
         legal_risks, operational_risks, recommended_bid, roi, tir, 
-        estimated_profit, ia_used, edital_analysis, matricula_analysis, process_analysis, dossier_analysis 
+        estimated_profit, ia_used, edital_analysis, matricula_analysis, process_analysis, dossier_analysis,
+        smart_analysis_json
       } = req.body;
       
       db.prepare(`
         INSERT INTO ai_analyses (
           id, property_id, exec_summary, legal_analysis, financial_analysis, 
           legal_risks, operational_risks, recommended_bid, roi, tir, 
-          estimated_profit, ia_used, edital_analysis, matricula_analysis, process_analysis, dossier_analysis
+          estimated_profit, ia_used, edital_analysis, matricula_analysis, process_analysis, dossier_analysis,
+          smart_analysis_json
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
         id, property_id, exec_summary, legal_analysis, financial_analysis, 
         legal_risks, operational_risks, recommended_bid, roi, tir, 
-        estimated_profit, ia_used, edital_analysis || null, matricula_analysis || null, process_analysis || null, dossier_analysis || null
+        estimated_profit, ia_used, edital_analysis || null, matricula_analysis || null, process_analysis || null, dossier_analysis || null,
+        smart_analysis_json || null
       );
       
       res.json({ id });
@@ -1060,7 +1068,8 @@ async function startServer() {
     try {
       const { 
         exec_summary, financial_analysis, recommended_bid, roi, tir, 
-        estimated_profit, edital_analysis, matricula_analysis, process_analysis, dossier_analysis 
+        estimated_profit, edital_analysis, matricula_analysis, process_analysis, dossier_analysis,
+        smart_analysis_json
       } = req.body;
       
       const fields: string[] = [];
@@ -1105,6 +1114,10 @@ async function startServer() {
       if (dossier_analysis !== undefined) {
         fields.push("dossier_analysis = ?");
         values.push(dossier_analysis);
+      }
+      if (smart_analysis_json !== undefined) {
+        fields.push("smart_analysis_json = ?");
+        values.push(smart_analysis_json);
       }
       
       if (fields.length > 0) {
