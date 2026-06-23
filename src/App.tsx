@@ -7953,7 +7953,7 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
         errorMessage = "O volume de dados é muito grande para uma única análise. Tente reduzir o número de páginas ou arquivos.";
       }
       
-      updateState({ report: `### Erro na Análise\n${errorMessage}\n\n*Dica: Se o erro persistir, tente mudar o modelo para 'Flash' nas configurações laterais.*` });
+      updateState({ report: `### Erro na Análise\n${errorMessage}\n\n*Dica: Se você atualizou seu plano, selecione **Padrão do Sistema** no provedor de IA (no menu lateral esquerdo) para usar o motor integrado de alta velocidade do seu plano atual sem limitações de chave própria.*` });
     } finally {
       setAnalyzing(false);
     }
@@ -8261,18 +8261,10 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
                   {/* Status Indicator Badge */}
                   <div className="mt-2 ml-1 text-[10px] font-medium transition-all">
                     {state.selectedKeySource === 'system_default' && (
-                      !window.location.hostname.includes('run.app') && !window.location.hostname.includes('localhost') ? (
-                        <div className="text-amber-500 font-bold flex flex-col gap-1">
-                          <span className="flex items-center gap-1.5">
-                            <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span> Chave Integrada Desativada
-                          </span>
-                          <span className="text-[9px] text-brand-ink/40 font-normal leading-normal">
-                            Em domínios próprios/produção, selecione <strong>Gemini (Minha Chave)</strong> e cadastre sua chave na aba Configurações.
-                          </span>
-                        </div>
-                      ) : (
-                        <span className="text-emerald-500 font-bold flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-500"></span> Chave Integrada Ativa</span>
-                      )
+                      <span className="text-emerald-500 font-bold flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> 
+                        Chave Integrada Ativa (Plano Atual Ativo)
+                      </span>
                     )}
                   {state.selectedKeySource === 'openai_custom' && (
                     state.aiConfig?.openai_key?.trim() ? (
