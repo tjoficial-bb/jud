@@ -123,11 +123,10 @@ const mapModelId = (model: string): string => {
 };
 
 const getPayloadBudget = (model: string): number => {
-  // Keep the payload budget optimized yet generous since text-based files take almost 0 bytes.
-  if (model && (model.includes('flash') || model.includes('gemini') || model.includes('claude') || model.includes('gpt-4') || model.includes('o1') || model.includes('deepseek'))) {
-    return 15 * 1024 * 1024; // 15MB budget of base64 data to guarantee response under 60 seconds
-  }
-  return 6 * 1024 * 1024; // 6MB budget of base64 data
+  // To avoid 504 Gateway Timeout (60-second ceiling on the proxy), we strictly limit 
+  // the base64 payload budget to 6MB. Text-based content takes almost 0 bytes and processes
+  // in seconds, while heavy images/PDFs are optimized.
+  return 6 * 1024 * 1024;
 };
 
 const optimizePayload = (files: any[], budget: number, model?: string) => {

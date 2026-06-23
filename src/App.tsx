@@ -6886,7 +6886,7 @@ Importante: se uma informação não for encontrada nos documentos, use o valor 
         state.selectedModel || 'gemini-2.5-flash', 
         finalApiKey, 
         state.auctionUrls, 
-        'dossier'
+        'smart_analysis'
       );
       
       let parsedData: SmartAnalysisData;

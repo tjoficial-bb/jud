@@ -12,7 +12,7 @@ export const analyzeAuctionDocuments = async (
   model: string = "gemini-2.5-flash", 
   apiKey?: string,
   auctionUrls?: string[],
-  analysisType?: 'geral' | 'edital' | 'matricula' | 'processo' | 'dossier'
+  analysisType?: 'geral' | 'edital' | 'matricula' | 'processo' | 'dossier' | 'smart_analysis'
 ) => {
   const token = localStorage.getItem("token") || "";
   const res = await fetch("/api/ai/analyze", {
