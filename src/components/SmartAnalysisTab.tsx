@@ -58,6 +58,25 @@ export interface SmartAnalysisData {
   tempo_ocupacao: string;
   risco_usucapiao: 'Não avaliado' | 'Baixo' | 'Médio' | 'Alto';
   observacoes_ocupacao: string;
+
+  // Informações do Imóvel
+  tipo_imovel: 'Selecione' | 'Casa' | 'Apartamento' | 'Terreno' | 'Comercial' | 'Outros';
+  numero_matricula: string;
+  cartorio_registro: string;
+  area_terreno: number;
+  area_privativa: number;
+  area_util: number;
+  area_construida: number;
+  observacoes_imovel: string;
+
+  // Dados dos Ex-Mutuários
+  nome_ex_mutuario: string;
+  cpf_ex_mutuario: string;
+  estado_civil_ex_mutuario: string;
+  profissao_ex_mutuario: string;
+  conjuge_ex_mutuario: string;
+  endereco_ex_mutuario: string;
+  observacoes_ex_mutuario: string;
 }
 
 export const getEmptySmartAnalysis = (): SmartAnalysisData => ({
@@ -106,6 +125,25 @@ export const getEmptySmartAnalysis = (): SmartAnalysisData => ({
   tempo_ocupacao: '',
   risco_usucapiao: 'Não avaliado',
   observacoes_ocupacao: '',
+
+  // Informações do Imóvel
+  tipo_imovel: 'Selecione',
+  numero_matricula: '',
+  cartorio_registro: '',
+  area_terreno: 0,
+  area_privativa: 0,
+  area_util: 0,
+  area_construida: 0,
+  observacoes_imovel: '',
+
+  // Dados dos Ex-Mutuários
+  nome_ex_mutuario: '',
+  cpf_ex_mutuario: '',
+  estado_civil_ex_mutuario: '',
+  profissao_ex_mutuario: '',
+  conjuge_ex_mutuario: '',
+  endereco_ex_mutuario: '',
+  observacoes_ex_mutuario: '',
 });
 
 interface SmartAnalysisTabProps {
@@ -215,6 +253,27 @@ export default function SmartAnalysisTab({
     return { current: count, total: 7 };
   };
 
+  const countImovel = () => {
+    let count = 0;
+    if (localData.tipo_imovel !== 'Selecione') count++;
+    if (localData.numero_matricula && localData.numero_matricula.trim() !== '') count++;
+    if (localData.cartorio_registro && localData.cartorio_registro.trim() !== '') count++;
+    if (localData.area_terreno > 0) count++;
+    if (localData.area_privativa > 0) count++;
+    if (localData.area_util > 0) count++;
+    return { current: count, total: 6 };
+  };
+
+  const countExMutuario = () => {
+    let count = 0;
+    if (localData.nome_ex_mutuario && localData.nome_ex_mutuario.trim() !== '') count++;
+    if (localData.cpf_ex_mutuario && localData.cpf_ex_mutuario.trim() !== '') count++;
+    if (localData.estado_civil_ex_mutuario && localData.estado_civil_ex_mutuario.trim() !== '') count++;
+    if (localData.profissao_ex_mutuario && localData.profissao_ex_mutuario.trim() !== '') count++;
+    if (localData.endereco_ex_mutuario && localData.endereco_ex_mutuario.trim() !== '') count++;
+    return { current: count, total: 5 };
+  };
+
   const renderProgressBadge = (current: number, total: number) => {
     const isCompleted = current === total && total > 0;
     return (
@@ -293,6 +352,206 @@ export default function SmartAnalysisTab({
 
       {/* Bento Grid layout */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8" id="smart-analysis-bento-grid">
+        
+        {/* CARD: Informações do Imóvel */}
+        <div className="bg-brand-paper p-6 rounded-3xl border border-brand-border space-y-5 shadow-sm hover:shadow-md transition-all lg:col-span-2">
+          <div className="flex justify-between items-center border-b border-black/5 pb-3">
+            <h5 className="font-serif font-medium text-lg flex items-center gap-2 text-brand-primary">
+              <Home size={18} className="text-brand-primary/70" />
+              Informações do Imóvel (Extraídas do Edital/Matrícula)
+            </h5>
+            {renderProgressBadge(countImovel().current, countImovel().total)}
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Tipo de Imóvel</label>
+              <select 
+                value={localData.tipo_imovel} 
+                onChange={e => handleChange('tipo_imovel', e.target.value)}
+                className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium focus:border-brand-primary"
+              >
+                <option value="Selecione">Selecione</option>
+                <option value="Casa">Casa</option>
+                <option value="Apartamento">Apartamento</option>
+                <option value="Terreno">Terreno</option>
+                <option value="Comercial">Comercial</option>
+                <option value="Outros">Outros</option>
+              </select>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Matrícula</label>
+              <input
+                type="text"
+                value={localData.numero_matricula || ''}
+                onChange={e => handleChange('numero_matricula', e.target.value)}
+                placeholder="Ex: 140105"
+                className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium focus:border-brand-primary"
+              />
+            </div>
+
+            <div className="flex flex-col gap-1.5 sm:col-span-2">
+              <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Cartório de Registro de Imóveis (CRI)</label>
+              <input
+                type="text"
+                value={localData.cartorio_registro || ''}
+                onChange={e => handleChange('cartorio_registro', e.target.value)}
+                placeholder="Ex: Oficial de Registro de Imóveis da Comarca..."
+                className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium focus:border-brand-primary"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Área do Terreno (m²)</label>
+              <input
+                type="number"
+                value={localData.area_terreno || ''}
+                onChange={e => handleChange('area_terreno', parseFloat(e.target.value) || 0)}
+                placeholder="Ex: 250"
+                className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium focus:border-brand-primary"
+              />
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Área Privativa (m²)</label>
+              <input
+                type="number"
+                value={localData.area_privativa || ''}
+                onChange={e => handleChange('area_privativa', parseFloat(e.target.value) || 0)}
+                placeholder="Ex: 69"
+                className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium focus:border-brand-primary"
+              />
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Área Útil (m²)</label>
+              <input
+                type="number"
+                value={localData.area_util || ''}
+                onChange={e => handleChange('area_util', parseFloat(e.target.value) || 0)}
+                placeholder="Ex: 69"
+                className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium focus:border-brand-primary"
+              />
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Área Construída (m²)</label>
+              <input
+                type="number"
+                value={localData.area_construida || ''}
+                onChange={e => handleChange('area_construida', parseFloat(e.target.value) || 0)}
+                placeholder="Ex: 110"
+                className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium focus:border-brand-primary"
+              />
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Descrição / Observações do Imóvel</label>
+            <textarea
+              value={localData.observacoes_imovel || ''}
+              onChange={e => handleChange('observacoes_imovel', e.target.value)}
+              placeholder="Descreva as características físicas do imóvel, divisões internas, vagas de garagem, etc. constantes da matrícula ou edital..."
+              rows={2}
+              className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium resize-none focus:border-brand-primary"
+            />
+          </div>
+        </div>
+
+        {/* CARD: Dados dos Ex-Mutuários / Proprietários */}
+        <div className="bg-brand-paper p-6 rounded-3xl border border-brand-border space-y-5 shadow-sm hover:shadow-md transition-all lg:col-span-2">
+          <div className="flex justify-between items-center border-b border-black/5 pb-3">
+            <h5 className="font-serif font-medium text-lg flex items-center gap-2 text-brand-primary">
+              <User size={18} className="text-brand-primary/70" />
+              Dados do Ex-Mutuário / Proprietário Anterior (Devedores/Executados)
+            </h5>
+            {renderProgressBadge(countExMutuario().current, countExMutuario().total)}
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="flex flex-col gap-1.5 sm:col-span-2">
+              <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Nome Completo do Ex-Mutuário</label>
+              <input
+                type="text"
+                value={localData.nome_ex_mutuario || ''}
+                onChange={e => handleChange('nome_ex_mutuario', e.target.value)}
+                placeholder="Nome do mutuário ou executado principal..."
+                className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium focus:border-brand-primary"
+              />
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">CPF / CNPJ</label>
+              <input
+                type="text"
+                value={localData.cpf_ex_mutuario || ''}
+                onChange={e => handleChange('cpf_ex_mutuario', e.target.value)}
+                placeholder="000.000.000-00"
+                className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium focus:border-brand-primary"
+              />
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Estado Civil</label>
+              <input
+                type="text"
+                value={localData.estado_civil_ex_mutuario || ''}
+                onChange={e => handleChange('estado_civil_ex_mutuario', e.target.value)}
+                placeholder="Casado, solteiro, divorciado..."
+                className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium focus:border-brand-primary"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Profissão</label>
+              <input
+                type="text"
+                value={localData.profissao_ex_mutuario || ''}
+                onChange={e => handleChange('profissao_ex_mutuario', e.target.value)}
+                placeholder="Profissão descrita na matrícula..."
+                className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium focus:border-brand-primary"
+              />
+            </div>
+
+            <div className="flex flex-col gap-1.5 lg:col-span-2">
+              <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Cônjuge / Coproprietário</label>
+              <input
+                type="text"
+                value={localData.conjuge_ex_mutuario || ''}
+                onChange={e => handleChange('conjuge_ex_mutuario', e.target.value)}
+                placeholder="Nome e CPF do cônjuge ou outros coproprietários citados na matrícula..."
+                className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium focus:border-brand-primary"
+              />
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Endereço Completo e Minucioso</label>
+            <textarea
+              value={localData.endereco_ex_mutuario || ''}
+              onChange={e => handleChange('endereco_ex_mutuario', e.target.value)}
+              placeholder="Endereço residencial e endereço comercial do ex-mutuário, incluindo referências..."
+              rows={2}
+              className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium resize-none focus:border-brand-primary"
+            />
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Histórico / Observações dos Ex-Mutuários</label>
+            <textarea
+              value={localData.observacoes_ex_mutuario || ''}
+              onChange={e => handleChange('observacoes_ex_mutuario', e.target.value)}
+              placeholder="Informações sobre herdeiros, óbitos, divórcios que afetem a propriedade ou outras anotações relevantes da matrícula..."
+              rows={2}
+              className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium resize-none focus:border-brand-primary"
+            />
+          </div>
+        </div>
         
         {/* CARD 1: Parecer Final do Investidor */}
         <div className="bg-brand-paper p-6 rounded-3xl border border-brand-border space-y-5 shadow-sm hover:shadow-md transition-all">

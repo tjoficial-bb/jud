@@ -6858,7 +6858,24 @@ Você deve responder APENAS com um objeto JSON válido, sem texto explicativo an
   "telefone_ocupante": "Telefone ou contato se mencionado, senão vazio",
   "tempo_ocupacao": "Tempo estimado que o ocupante já está no imóvel se puder ser deduzido, senão vazio",
   "risco_usucapiao": "Baixo" | "Médio" | "Alto",
-  "observacoes_ocupacao": "Histórico de tentativas de desocupação amigável ou imissões de posse anteriores se houver"
+  "observacoes_ocupacao": "Histórico de tentativas de desocupação amigável ou imissões de posse anteriores se houver",
+
+  "tipo_imovel": "Casa" | "Apartamento" | "Terreno" | "Comercial" | "Outros" | "Selecione",
+  "numero_matricula": "Número de matrícula do imóvel se encontrado, senão vazio",
+  "cartorio_registro": "Nome do Cartório de Registro de Imóveis (ex: 1º CRI de São Paulo) se encontrado, senão vazio",
+  "area_terreno": 250.00,
+  "area_privativa": 69.00,
+  "area_util": 69.00,
+  "area_construida": 110.00,
+  "observacoes_imovel": "Descrição física detalhada do imóvel encontrada na matrícula (ex: número de quartos, garagens, confrontações, etc.)",
+
+  "nome_ex_mutuario": "Nome completo do devedor / ex-mutuário / executado principal",
+  "cpf_ex_mutuario": "CPF ou CNPJ do devedor / ex-mutuário / executado principal",
+  "estado_civil_ex_mutuario": "Estado civil do devedor / ex-mutuário / executado principal se mencionado, senão vazio",
+  "profissao_ex_mutuario": "Profissão do devedor / ex-mutuário / executado principal se mencionada, senão vazio",
+  "conjuge_ex_mutuario": "Nome e CPF/CNPJ do cônjuge, companheiro(a) ou outros coproprietários devedores, se houver",
+  "endereco_ex_mutuario": "Endereço completo e detalhado do ex-mutuário / devedor mencionado nos documentos (ex: residência anterior, endereço citado no processo judicial ou notificação)",
+  "observacoes_ex_mutuario": "Histórico e anotações adicionais sobre os ex-mutuários e devedores (ex: herdeiros, óbito, processos relacionados, tentativas de intimação)"
 }
 
 Importante: se uma informação não for encontrada nos documentos, use o valor correspondente neutro (como false para booleanos, 0 para números, "Não avaliado"/"Selecione"/"Não verificado" para dropdowns, ou texto vazio/explicando que não foi encontrado para campos de texto). Seja extremamente técnico e preciso em suas observações legais baseadas no Direito brasileiro.`;
