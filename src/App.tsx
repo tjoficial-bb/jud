@@ -7788,8 +7788,8 @@ Importante: se uma informação não for encontrada nos documentos, use o valor 
           }).filter(Boolean).join('\n\n')
         : "";
 
-      if (brainContextText.length > 80000) {
-        brainContextText = brainContextText.substring(0, 80000) + "\n\n... [AVISO: O contexto acumulado do Cérebro Estratégico foi limitado a 80 mil caracteres para garantir estabilidade, evitar erros de processamento (Timeout) e manter excelente velocidade de análise] ...";
+      if (brainContextText.length > 40000) {
+        brainContextText = brainContextText.substring(0, 40000) + "\n\n... [AVISO: O contexto acumulado do Cérebro Estratégico foi limitado a 40 mil caracteres para garantir estabilidade, evitar erros de processamento (Timeout) e manter excelente velocidade de análise] ...";
       }
 
       let promptWithBrain = `${SYSTEM_PROMPT}\n\nCONTEXTO ESTRATÉGICO DO USUÁRIO (CÉREBRO ESTRATÉGICO):\n${brainContextText}\n\nUse o contexto acima para guiar sua análise e recomendações.`;
@@ -7879,55 +7879,41 @@ Importante: se uma informação não for encontrada nos documentos, use o valor 
       }
       aggregatedUrls = aggregatedUrls.filter(u => u && u.trim().length > 5);
 
-      console.log("DEBUG: Iniciando análise simultânea em série para Relatório, Edital, Matrícula, Processo e Dossiê...");
+      console.log("DEBUG: Iniciando análise simultânea em paralelo para Relatório, Edital, Matrícula, Processo e Dossiê...");
 
       updateState({ 
-        report: "### 🔄 [Passo 1/5] Gerando Relatório de Viabilidade Geral...\n\nSincronizando com as diretrizes e estratégias extraídas do seu Cérebro Estratégico...", 
-        editalAnalysis: "### ⏳ Aguardando análise do Relatório Geral...",
-        matriculaAnalysis: "### ⏳ Aguardando...",
-        processAnalysis: "### ⏳ Aguardando...",
-        dossierAnalysis: "### ⏳ Aguardando..."
-      });
-      const analysis = await analyzeAuctionDocuments(fileParts, promptWithBrain, selectedModel, finalApiKey || undefined, aggregatedUrls);
-
-      updateState({ 
-        report: analysis,
-        editalAnalysis: "### 🔄 [Passo 2/5] Analisando Edital do Leilão...\n\nMapeando datas de leilão, débitos condomínio/IPTU, impostos e multas judiciais...",
-        matriculaAnalysis: "### ⏳ Aguardando..."
-      });
-      const editalAnalysis = await analyzeAuctionDocuments(editalFileParts, "Analise o Edital", selectedModel, finalApiKey || undefined, [], 'edital').catch(err => { 
-        console.error("Erro ao analisar edital automaticamente:", err); 
-        return "Falha ao gerar análise automática de Edital."; 
+        report: "### 🔄 [Passo 1/1] Analisando todos os documentos de forma integrada...\n\nO sistema está processando o Edital, a Matrícula, os Processos e o Dossiê em paralelo para máxima velocidade. Sincronizando com as diretrizes e estratégias extraídas do seu Cérebro Estratégico...", 
+        editalAnalysis: "### 🔄 Analisando Edital do Leilão em paralelo...\n\nMapeando datas de leilão, débitos condomínio/IPTU, impostos e multas judiciais...",
+        matriculaAnalysis: "### 🔄 Analisando Certidão de Matrícula em paralelo...\n\nMapeando cadeia de proprietários de direito e alienações fiduciárias registradas...",
+        processAnalysis: "### 🔄 Analisando Riscos de Processos Judiciais em paralelo...\n\nRelacionando CPFs dos envolvidos e buscando possíveis nulidades processuais...",
+        dossierAnalysis: "### 🔄 Compilando Dossiê Estratégico Consolidado em paralelo...\n\nSistematizando riscos de desocupação e gerando recomendações executivas..."
       });
 
-      updateState({ 
-        editalAnalysis: editalAnalysis,
-        matriculaAnalysis: "### 🔄 [Passo 3/5] Analisando Certidão de Matrícula...\n\nMapeando cadeia de proprietários de direito e alienações fiduciárias registradas...",
-        processAnalysis: "### ⏳ Aguardando..."
-      });
-      const matriculaAnalysis = await analyzeAuctionDocuments(matriculaFileParts, "Analise a Matrícula", selectedModel, finalApiKey || undefined, [], 'matricula').catch(err => { 
-        console.error("Erro ao analisar certidão de matrícula automaticamente:", err); 
-        return "Falha ao gerar análise automática de Certidão de Matrícula."; 
-      });
-
-      updateState({ 
-        matriculaAnalysis: matriculaAnalysis,
-        processAnalysis: "### 🔄 [Passo 4/5] Analisando Riscos de Processos Judiciais...\n\nRelacionando CPFs dos envolvidos e buscando possíveis nulidades processuais...",
-        dossierAnalysis: "### ⏳ Aguardando..."
-      });
-      const processAnalysis = await analyzeAuctionDocuments(processFileParts, processesPrompt, selectedModel, finalApiKey || undefined, [], 'processo').catch(err => { 
-        console.error("Erro ao analisar processos judiciais automaticamente:", err); 
-        return "Falha ao gerar análise de riscos processuais."; 
-      });
-
-      updateState({ 
-        processAnalysis: processAnalysis,
-        dossierAnalysis: "### 🔄 [Passo 5/5] Compilando Dossiê Estratégico Consolidado...\n\nSistematizando riscos de desocupação e gerando recomendações executivas..."
-      });
-      const dossierAnalysisResult = await analyzeAuctionDocuments(fileParts, "Gere o Dossiê de Arrematação Inteligente", selectedModel, finalApiKey || undefined, aggregatedUrls, 'dossier').catch(err => { 
-        console.error("Erro ao gerar dossiê inteligente automaticamente:", err); 
-        return "Falha ao gerar Dossiê de Arrematação Inteligente correlacionado."; 
-      });
+      const [
+        analysis,
+        editalAnalysis,
+        matriculaAnalysis,
+        processAnalysis,
+        dossierAnalysisResult
+      ] = await Promise.all([
+        analyzeAuctionDocuments(fileParts, promptWithBrain, selectedModel, finalApiKey || undefined, aggregatedUrls),
+        analyzeAuctionDocuments(editalFileParts, "Analise o Edital", selectedModel, finalApiKey || undefined, [], 'edital').catch(err => { 
+          console.error("Erro ao analisar edital automaticamente:", err); 
+          return "Falha ao gerar análise automática de Edital."; 
+        }),
+        analyzeAuctionDocuments(matriculaFileParts, "Analise a Matrícula", selectedModel, finalApiKey || undefined, [], 'matricula').catch(err => { 
+          console.error("Erro ao analisar certidão de matrícula automaticamente:", err); 
+          return "Falha ao gerar análise automática de Certidão de Matrícula."; 
+        }),
+        analyzeAuctionDocuments(processFileParts, processesPrompt, selectedModel, finalApiKey || undefined, [], 'processo').catch(err => { 
+          console.error("Erro ao analisar processos judiciais automaticamente:", err); 
+          return "Falha ao gerar análise de riscos processuais."; 
+        }),
+        analyzeAuctionDocuments(fileParts, "Gere o Dossiê de Arrematação Inteligente", selectedModel, finalApiKey || undefined, aggregatedUrls, 'dossier').catch(err => { 
+          console.error("Erro ao gerar dossiê inteligente automaticamente:", err); 
+          return "Falha ao gerar Dossiê de Arrematação Inteligente correlacionado."; 
+        })
+      ]);
       
       let finalReport = analysis || "Falha ao gerar relatório.";
       
@@ -8138,7 +8124,8 @@ Importante: se uma informação não for encontrada nos documentos, use o valor 
         const keyPreview = userApiKey ? `CHAVE CUSTOMIZADA (${userApiKey.substring(0, 4)}...${userApiKey.substring(userApiKey.length - 4)})` : "CHAVE PADRÃO DO SISTEMA";
         
         updateState({ 
-          report: `### ERRO NA ANÁLISE (404)\n\n${errorMessage}\n\n**Chave em uso:** \`${keyPreview}\`\n\n**Log Técnico:** \`${err.message}\`\n\n---\n\n### Como resolver:\n\n1. **Verifique o Tier da Conta:** Algumas chaves de API novas (Tier 0) não têm acesso a modelos avançados até que o primeiro depósito de créditos seja feito.\n2. **Use o Gemini:** Os modelos Gemini Flash estão disponíveis gratuitamente no sistema e são excelentes para esta tarefa.\n3. **Limpe a Chave:** Clique no botão abaixo para usar a chave padrão do sistema.` 
+          report: `### ERRO NA ANÁLISE (404)\n\n${errorMessage}\n\n**Chave em uso:** \`${keyPreview}\`\n\n**Log Técnico:** \`${err.message}\`\n\n---\n\n### Como resolver:\n\n1. **Verifique o Tier da Conta:** Algumas chaves de API novas (Tier 0) não têm acesso a modelos avançados até que o primeiro depósito de créditos seja feito.\n2. **Use o Gemini:** Os modelos Gemini Flash estão disponíveis gratuitamente no sistema e são excelentes para esta tarefa.\n3. **Limpe a Chave:** Clique no botão abaixo para usar a chave padrão do sistema.`,
+          isGeneratingStory: false
         });
         return;
       } else if (err.message?.includes('403') || err.message?.includes('PERMISSION_DENIED')) {
@@ -8167,7 +8154,8 @@ Importante: se uma informação não for encontrada nos documentos, use o valor 
                           selectedModel.startsWith('gemini') ? 'AIza...' : 'sk-...';
 
         updateState({ 
-          report: `### ERRO NA ANÁLISE (403)\n\n${errorMessage}${detailedError}\n\n**Log Técnico:** \`${rawError}\`\n\n---\n\n### Como resolver definitivamente:\n\n1. **Verifique sua Chave:** Vá em Configuração IA e confirme se sua chave começa com '${keyPrefix}'.\n2. **Saldo/Créditos:** Verifique no console do provedor se você possui saldo disponível.\n3. **Use o Padrão:** Clique no botão laranja abaixo para limpar sua chave e usar o motor padrão do sistema.` 
+          report: `### ERRO NA ANÁLISE (403)\n\n${errorMessage}${detailedError}\n\n**Log Técnico:** \`${rawError}\`\n\n---\n\n### Como resolver definitivamente:\n\n1. **Verifique sua Chave:** Vá em Configuração IA e confirme se sua chave começa com '${keyPrefix}'.\n2. **Saldo/Créditos:** Verifique no console do provedor se você possui saldo disponível.\n3. **Use o Padrão:** Clique no botão laranja abaixo para limpar sua chave e usar o motor padrão do sistema.`,
+          isGeneratingStory: false
         });
         return;
       } else if (err.message?.includes('API_KEY_INVALID')) {
@@ -8176,7 +8164,10 @@ Importante: se uma informação não for encontrada nos documentos, use o valor 
         errorMessage = "O volume de dados é muito grande para uma única análise. Tente reduzir o número de páginas ou arquivos.";
       }
       
-      updateState({ report: `### Erro na Análise\n${errorMessage}\n\n*Dica: Se você atualizou seu plano, selecione **Padrão do Sistema** no provedor de IA (no menu lateral esquerdo) para usar o motor integrado de alta velocidade do seu plano atual sem limitações de chave própria.*` });
+      updateState({ 
+        report: `### Erro na Análise\n${errorMessage}\n\n*Dica: Se você atualizou seu plano, selecione **Padrão do Sistema** no provedor de IA (no menu lateral esquerdo) para usar o motor integrado de alta velocidade do seu plano atual sem limitações de chave própria.*`,
+        isGeneratingStory: false
+      });
     } finally {
       setAnalyzing(false);
     }

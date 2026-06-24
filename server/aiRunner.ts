@@ -162,8 +162,8 @@ const optimizePayload = (files: any[], budget: number, model?: string) => {
     let optimizedText = "";
     
     if (hasText) {
-      optimizedText = f.extractedText.length > 800000 
-        ? f.extractedText.substring(0, 800000) + "\n... [Texto truncado por tamanho] ..." 
+      optimizedText = f.extractedText.length > 120000 
+        ? f.extractedText.substring(0, 120000) + "\n... [Texto truncado por tamanho] ..." 
         : f.extractedText;
     } else if (isBase64TooLarge) {
       if (f.mimeType === 'application/pdf') {
