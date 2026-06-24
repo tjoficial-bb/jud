@@ -6925,13 +6925,12 @@ Importante: se uma informação não for encontrada nos documentos, use o valor 
         else if (doc.filename.toLowerCase().endsWith('.png')) mimeType = 'image/png';
         else if (doc.filename.toLowerCase().endsWith('.webp')) mimeType = 'image/webp';
 
-        const hasText = doc.extracted_text && doc.extracted_text.trim().length > 0;
         return {
           id: doc.id,
           filename: doc.filename,
-          data: !hasText && doc.data ? (doc.data.startsWith('data:') ? doc.data : `data:${mimeType};base64,${doc.data}`) : "",
+          data: doc.id ? "" : (!doc.extracted_text && doc.data ? (doc.data.startsWith('data:') ? doc.data : `data:${mimeType};base64,${doc.data}`) : ""),
           mimeType: mimeType,
-          extractedText: doc.extracted_text || ""
+          extractedText: doc.id ? "" : (doc.extracted_text || "")
         };
       });
       const userApiKey = resolveApiKey(state.selectedKeySource, state.aiConfig, state.selectedModel || 'gemini-2.5-flash') || "";
@@ -6951,13 +6950,12 @@ Importante: se uma informação não for encontrada nos documentos, use o valor 
         else if (doc.filename.toLowerCase().endsWith('.png')) mimeType = 'image/png';
         else if (doc.filename.toLowerCase().endsWith('.webp')) mimeType = 'image/webp';
 
-        const hasText = doc.extracted_text && doc.extracted_text.trim().length > 0;
         return {
           id: doc.id,
           filename: doc.filename,
-          data: !hasText && doc.data ? (doc.data.startsWith('data:') ? doc.data : `data:${mimeType};base64,${doc.data}`) : "",
+          data: doc.id ? "" : (!doc.extracted_text && doc.data ? (doc.data.startsWith('data:') ? doc.data : `data:${mimeType};base64,${doc.data}`) : ""),
           mimeType: mimeType,
-          extractedText: doc.extracted_text || ""
+          extractedText: doc.id ? "" : (doc.extracted_text || "")
         };
       });
       const userApiKey = resolveApiKey(state.selectedKeySource, state.aiConfig, state.selectedModel || 'gemini-2.5-flash') || "";
@@ -6991,13 +6989,12 @@ Importante: se uma informação não for encontrada nos documentos, use o valor 
         else if (doc.filename.toLowerCase().endsWith('.png')) mimeType = 'image/png';
         else if (doc.filename.toLowerCase().endsWith('.webp')) mimeType = 'image/webp';
 
-        const hasText = doc.extracted_text && doc.extracted_text.trim().length > 0;
         return {
           id: doc.id,
           filename: doc.filename,
-          data: !hasText && doc.data ? (doc.data.startsWith('data:') ? doc.data : `data:${mimeType};base64,${doc.data}`) : "",
+          data: doc.id ? "" : (!doc.extracted_text && doc.data ? (doc.data.startsWith('data:') ? doc.data : `data:${mimeType};base64,${doc.data}`) : ""),
           mimeType: mimeType,
-          extractedText: doc.extracted_text || ""
+          extractedText: doc.id ? "" : (doc.extracted_text || "")
         };
       });
       
@@ -7047,13 +7044,12 @@ Importante: se uma informação não for encontrada nos documentos, use o valor 
         else if (doc.filename.toLowerCase().endsWith('.png')) mimeType = 'image/png';
         else if (doc.filename.toLowerCase().endsWith('.webp')) mimeType = 'image/webp';
 
-        const hasText = doc.extracted_text && doc.extracted_text.trim().length > 0;
         return {
           id: doc.id,
           filename: doc.filename,
-          data: !hasText && doc.data ? (doc.data.startsWith('data:') ? doc.data : `data:${mimeType};base64,${doc.data}`) : "",
+          data: doc.id ? "" : (!doc.extracted_text && doc.data ? (doc.data.startsWith('data:') ? doc.data : `data:${mimeType};base64,${doc.data}`) : ""),
           mimeType: mimeType,
-          extractedText: doc.extracted_text || ""
+          extractedText: doc.id ? "" : (doc.extracted_text || "")
         };
       });
       const userApiKey = resolveApiKey(state.selectedKeySource, state.aiConfig, state.selectedModel || 'gemini-2.5-flash') || "";
@@ -7804,13 +7800,12 @@ Importante: se uma informação não for encontrada nos documentos, use o valor 
         else if (doc.filename.toLowerCase().endsWith('.png')) mimeType = 'image/png';
         else if (doc.filename.toLowerCase().endsWith('.webp')) mimeType = 'image/webp';
 
-        const hasText = doc.extracted_text && doc.extracted_text.trim().length > 0;
         return {
           id: doc.id,
           filename: doc.filename,
-          data: !hasText && doc.data ? (doc.data.startsWith('data:') ? doc.data : `data:${mimeType};base64,${doc.data}`) : "",
+          data: doc.id ? "" : (!doc.extracted_text && doc.data ? (doc.data.startsWith('data:') ? doc.data : `data:${mimeType};base64,${doc.data}`) : ""),
           mimeType: mimeType,
-          extractedText: doc.extracted_text || ""
+          extractedText: doc.id ? "" : (doc.extracted_text || "")
         };
       });
 
@@ -7831,13 +7826,12 @@ Importante: se uma informação não for encontrada nos documentos, use o valor 
           else if (doc.filename.toLowerCase().endsWith('.png')) mType = 'image/png';
           else if (doc.filename.toLowerCase().endsWith('.webp')) mType = 'image/webp';
 
-          const hasTxt = doc.extracted_text && doc.extracted_text.trim().length > 0;
           return {
             id: doc.id,
             filename: doc.filename,
-            data: !hasTxt && doc.data ? (doc.data.startsWith('data:') ? doc.data : `data:${mType};base64,${doc.data}`) : "",
+            data: doc.id ? "" : (!doc.extracted_text && doc.data ? (doc.data.startsWith('data:') ? doc.data : `data:${mType};base64,${doc.data}`) : ""),
             mimeType: mType,
-            extractedText: doc.extracted_text || ""
+            extractedText: doc.id ? "" : (doc.extracted_text || "")
           };
         });
       };
@@ -7879,42 +7873,65 @@ Importante: se uma informação não for encontrada nos documentos, use o valor 
       }
       aggregatedUrls = aggregatedUrls.filter(u => u && u.trim().length > 5);
 
-      console.log("DEBUG: Iniciando análise simultânea em paralelo para Relatório, Edital, Matrícula, Processo e Dossiê...");
+      console.log("DEBUG: Iniciando análise sequencial passo a passo para evitar timeouts e fornecer feedback em tempo real...");
 
       updateState({ 
-        report: "### 🔄 [Passo 1/1] Analisando todos os documentos de forma integrada...\n\nO sistema está processando o Edital, a Matrícula, os Processos e o Dossiê em paralelo para máxima velocidade. Sincronizando com as diretrizes e estratégias extraídas do seu Cérebro Estratégico...", 
-        editalAnalysis: "### 🔄 Analisando Edital do Leilão em paralelo...\n\nMapeando datas de leilão, débitos condomínio/IPTU, impostos e multas judiciais...",
-        matriculaAnalysis: "### 🔄 Analisando Certidão de Matrícula em paralelo...\n\nMapeando cadeia de proprietários de direito e alienações fiduciárias registradas...",
-        processAnalysis: "### 🔄 Analisando Riscos de Processos Judiciais em paralelo...\n\nRelacionando CPFs dos envolvidos e buscando possíveis nulidades processuais...",
-        dossierAnalysis: "### 🔄 Compilando Dossiê Estratégico Consolidado em paralelo...\n\nSistematizando riscos de desocupação e gerando recomendações executivas..."
+        report: "### 🔄 [Passo 1/5] Gerando Relatório de Viabilidade Geral...\n\nAnalisando todas as informações agregadas e integrando as diretrizes de proteção de patrimônio do seu Cérebro Estratégico...", 
+        editalAnalysis: "### ⏳ Aguardando conclusão do Relatório de Viabilidade Geral...",
+        matriculaAnalysis: "### ⏳ Aguardando conclusão do Relatório de Viabilidade Geral...",
+        processAnalysis: "### ⏳ Aguardando conclusão do Relatório de Viabilidade Geral...",
+        dossierAnalysis: "### ⏳ Aguardando conclusão do Relatório de Viabilidade Geral..."
       });
 
-      const [
-        analysis,
-        editalAnalysis,
-        matriculaAnalysis,
-        processAnalysis,
-        dossierAnalysisResult
-      ] = await Promise.all([
-        analyzeAuctionDocuments(fileParts, promptWithBrain, selectedModel, finalApiKey || undefined, aggregatedUrls),
-        analyzeAuctionDocuments(editalFileParts, "Analise o Edital", selectedModel, finalApiKey || undefined, [], 'edital').catch(err => { 
-          console.error("Erro ao analisar edital automaticamente:", err); 
-          return "Falha ao gerar análise automática de Edital."; 
-        }),
-        analyzeAuctionDocuments(matriculaFileParts, "Analise a Matrícula", selectedModel, finalApiKey || undefined, [], 'matricula').catch(err => { 
-          console.error("Erro ao analisar certidão de matrícula automaticamente:", err); 
-          return "Falha ao gerar análise automática de Certidão de Matrícula."; 
-        }),
-        analyzeAuctionDocuments(processFileParts, processesPrompt, selectedModel, finalApiKey || undefined, [], 'processo').catch(err => { 
-          console.error("Erro ao analisar processos judiciais automaticamente:", err); 
-          return "Falha ao gerar análise de riscos processuais."; 
-        }),
-        analyzeAuctionDocuments(fileParts, "Gere o Dossiê de Arrematação Inteligente", selectedModel, finalApiKey || undefined, aggregatedUrls, 'dossier').catch(err => { 
-          console.error("Erro ao gerar dossiê inteligente automaticamente:", err); 
-          return "Falha ao gerar Dossiê de Arrematação Inteligente correlacionado."; 
-        })
-      ]);
-      
+      const analysis = await analyzeAuctionDocuments(fileParts, promptWithBrain, selectedModel, finalApiKey || undefined, aggregatedUrls);
+
+      updateState({ 
+        report: analysis || "Falha ao gerar relatório geral de viabilidade.",
+        editalAnalysis: "### 🔄 [Passo 2/5] Analisando o Edital do Leilão...\n\nMapeando datas de praças, leiloeiro oficial, débitos de condomínio/IPTU de responsabilidade do arrematante e multas judiciais...",
+        matriculaAnalysis: "### ⏳ Aguardando conclusão da Análise do Edital..."
+      });
+
+      const editalAnalysis = await analyzeAuctionDocuments(editalFileParts, "Analise o Edital", selectedModel, finalApiKey || undefined, [], 'edital').catch(err => { 
+        console.error("Erro ao analisar edital automaticamente:", err); 
+        return "Falha ao gerar análise automática de Edital."; 
+      });
+
+      updateState({ 
+        editalAnalysis: editalAnalysis,
+        matriculaAnalysis: "### 🔄 [Passo 3/5] Analisando a Certidão de Matrícula...\n\nMapeando cadeia de direito real, registro de alienações fiduciárias, hipotecas e gravames de penhoras ativos...",
+        processAnalysis: "### ⏳ Aguardando conclusão da Análise da Matrícula..."
+      });
+
+      const matriculaAnalysis = await analyzeAuctionDocuments(matriculaFileParts, "Analise a Matrícula", selectedModel, finalApiKey || undefined, [], 'matricula').catch(err => { 
+        console.error("Erro ao analisar certidão de matrícula automaticamente:", err); 
+        return "Falha ao gerar análise automática de Certidão de Matrícula."; 
+      });
+
+      updateState({ 
+        matriculaAnalysis: matriculaAnalysis,
+        processAnalysis: "### 🔄 [Passo 4/5] Analisando Riscos de Processos Judiciais...\n\nMapeando CPFs dos executados e buscando recursos pendentes ou discussões de nulidades na execução originária...",
+        dossierAnalysis: "### ⏳ Aguardando conclusão da Análise Processual..."
+      });
+
+      const processAnalysis = await analyzeAuctionDocuments(processFileParts, processesPrompt, selectedModel, finalApiKey || undefined, [], 'processo').catch(err => { 
+        console.error("Erro ao analisar processos judiciais automaticamente:", err); 
+        return "Falha ao gerar análise de riscos processuais."; 
+      });
+
+      updateState({ 
+        processAnalysis: processAnalysis,
+        dossierAnalysis: "### 🔄 [Passo 5/5] Compilando Dossiê de Arrematação Inteligente...\n\nSistematizando o cruzamento das lições aprendidas, riscos judiciais, custos e recomendações executivas..."
+      });
+
+      const dossierAnalysisResult = await analyzeAuctionDocuments(fileParts, "Gere o Dossiê de Arrematação Inteligente", selectedModel, finalApiKey || undefined, aggregatedUrls, 'dossier').catch(err => { 
+        console.error("Erro ao gerar dossiê inteligente automaticamente:", err); 
+        return "Falha ao gerar Dossiê de Arrematação Inteligente correlacionado."; 
+      });
+
+      updateState({
+        dossierAnalysis: dossierAnalysisResult
+      });
+
       let finalReport = analysis || "Falha ao gerar relatório.";
       
       let extractedData = {
