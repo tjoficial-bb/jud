@@ -7873,57 +7873,113 @@ Importante: se uma informação não for encontrada nos documentos, use o valor 
       }
       aggregatedUrls = aggregatedUrls.filter(u => u && u.trim().length > 5);
 
-      console.log("DEBUG: Iniciando análise sequencial passo a passo para evitar timeouts e fornecer feedback em tempo real...");
+      console.log("DEBUG: Iniciando análise sequencial otimizada passo a passo...");
 
       updateState({ 
-        report: "### 🔄 [Passo 1/5] Gerando Relatório de Viabilidade Geral...\n\nAnalisando todas as informações agregadas e integrando as diretrizes de proteção de patrimônio do seu Cérebro Estratégico...", 
-        editalAnalysis: "### ⏳ Aguardando conclusão do Relatório de Viabilidade Geral...",
-        matriculaAnalysis: "### ⏳ Aguardando conclusão do Relatório de Viabilidade Geral...",
-        processAnalysis: "### ⏳ Aguardando conclusão do Relatório de Viabilidade Geral...",
-        dossierAnalysis: "### ⏳ Aguardando conclusão do Relatório de Viabilidade Geral..."
+        report: "### ⏳ Aguardando conclusão das análises preliminares...",
+        editalAnalysis: "### 🔄 [Passo 1/5] Analisando o Edital do Leilão...\n\nMapeando datas de praças, leiloeiro oficial, débitos de condomínio/IPTU de responsabilidade do arrematante e multas judiciais...",
+        matriculaAnalysis: "### ⏳ Aguardando conclusão da Análise do Edital...",
+        processAnalysis: "### ⏳ Aguardando conclusão da Análise do Edital...",
+        dossierAnalysis: "### ⏳ Aguardando conclusão da Análise do Edital..."
       });
 
-      const analysis = await analyzeAuctionDocuments(fileParts, promptWithBrain, selectedModel, finalApiKey || undefined, aggregatedUrls);
-
-      updateState({ 
-        report: analysis || "Falha ao gerar relatório geral de viabilidade.",
-        editalAnalysis: "### 🔄 [Passo 2/5] Analisando o Edital do Leilão...\n\nMapeando datas de praças, leiloeiro oficial, débitos de condomínio/IPTU de responsabilidade do arrematante e multas judiciais...",
-        matriculaAnalysis: "### ⏳ Aguardando conclusão da Análise do Edital..."
-      });
-
-      const editalAnalysis = await analyzeAuctionDocuments(editalFileParts, "Analise o Edital", selectedModel, finalApiKey || undefined, [], 'edital').catch(err => { 
-        console.error("Erro ao analisar edital automaticamente:", err); 
-        return "Falha ao gerar análise automática de Edital."; 
-      });
+      // Passo 1: Edital
+      const editalAnalysis = editalFileParts.length > 0 
+        ? await analyzeAuctionDocuments(editalFileParts, "Analise o Edital detalhadamente linha por linha, extraindo todas as informações financeiras, datas, leiloeiro, e débitos de IPTU e condomínio.", selectedModel, finalApiKey || undefined, [], 'edital').catch(err => { 
+            console.error("Erro ao analisar edital automaticamente:", err); 
+            return "Falha ao gerar análise automática de Edital."; 
+          })
+        : "Nenhum documento de Edital foi anexado. Prosseguindo análise com base nos demais dados fornecidos.";
 
       updateState({ 
         editalAnalysis: editalAnalysis,
-        matriculaAnalysis: "### 🔄 [Passo 3/5] Analisando a Certidão de Matrícula...\n\nMapeando cadeia de direito real, registro de alienações fiduciárias, hipotecas e gravames de penhoras ativos...",
+        matriculaAnalysis: "### 🔄 [Passo 2/5] Analisando a Certidão de Matrícula...\n\nMapeando cadeia de direito real, registro de alienações fiduciárias, hipotecas e gravames de penhoras ativos...",
         processAnalysis: "### ⏳ Aguardando conclusão da Análise da Matrícula..."
       });
 
-      const matriculaAnalysis = await analyzeAuctionDocuments(matriculaFileParts, "Analise a Matrícula", selectedModel, finalApiKey || undefined, [], 'matricula').catch(err => { 
-        console.error("Erro ao analisar certidão de matrícula automaticamente:", err); 
-        return "Falha ao gerar análise automática de Certidão de Matrícula."; 
-      });
+      // Passo 2: Matrícula
+      const matriculaAnalysis = matriculaFileParts.length > 0
+        ? await analyzeAuctionDocuments(matriculaFileParts, "Analise a Matrícula detalhadamente, identificando proprietários, alienações, consolidação, gravames e ônus.", selectedModel, finalApiKey || undefined, [], 'matricula').catch(err => { 
+            console.error("Erro ao analisar certidão de matrícula automaticamente:", err); 
+            return "Falha ao gerar análise automática de Certidão de Matrícula."; 
+          })
+        : "Nenhuma certidão de matrícula foi anexada. Prosseguindo análise com base nos demais dados fornecidos.";
 
       updateState({ 
         matriculaAnalysis: matriculaAnalysis,
-        processAnalysis: "### 🔄 [Passo 4/5] Analisando Riscos de Processos Judiciais...\n\nMapeando CPFs dos executados e buscando recursos pendentes ou discussões de nulidades na execução originária...",
-        dossierAnalysis: "### ⏳ Aguardando conclusão da Análise Processual..."
+        processAnalysis: "### 🔄 [Passo 3/5] Analisando Riscos de Processos Judiciais...\n\nMapeando CPFs dos executados e buscando recursos pendentes ou discussões de nulidades na execução originária...",
+        report: "### ⏳ Aguardando conclusão da Análise Processual..."
       });
 
-      const processAnalysis = await analyzeAuctionDocuments(processFileParts, processesPrompt, selectedModel, finalApiKey || undefined, [], 'processo').catch(err => { 
-        console.error("Erro ao analisar processos judiciais automaticamente:", err); 
-        return "Falha ao gerar análise de riscos processuais."; 
-      });
+      // Passo 3: Processo
+      const processAnalysis = processFileParts.length > 0
+        ? await analyzeAuctionDocuments(processFileParts, processesPrompt, selectedModel, finalApiKey || undefined, [], 'processo').catch(err => { 
+            console.error("Erro ao analisar processos judiciais automaticamente:", err); 
+            return "Falha ao gerar análise de riscos processuais."; 
+          })
+        : "Nenhum processo judicial foi anexado. Prosseguindo análise com base nos demais dados fornecidos.";
 
       updateState({ 
         processAnalysis: processAnalysis,
-        dossierAnalysis: "### 🔄 [Passo 5/5] Compilando Dossiê de Arrematação Inteligente...\n\nSistematizando o cruzamento das lições aprendidas, riscos judiciais, custos e recomendações executivas..."
+        report: "### 🔄 [Passo 4/5] Gerando Relatório de Viabilidade Geral...\n\nSistematizando lições estratégicas e gerando parecer geral integrado com os padrões do seu Cérebro Estratégico...",
+        dossierAnalysis: "### ⏳ Aguardando conclusão do Relatório de Viabilidade Geral..."
       });
 
-      const dossierAnalysisResult = await analyzeAuctionDocuments(fileParts, "Gere o Dossiê de Arrematação Inteligente", selectedModel, finalApiKey || undefined, aggregatedUrls, 'dossier').catch(err => { 
+      // Passo 4: Relatório Geral (without sending binary files directly!)
+      const generalReportPrompt = `${promptWithBrain}
+
+Você é o Cérebro Estratégico TJ INVEST. Elabore o Parecer Geral de Viabilidade e Relatório Master para a arrematação deste lote, integrando as análises parciais já geradas com alta fidelidade.
+
+DADOS DO IMÓVEL: ${activeProperty?.title || 'Imóvel em Leilão'}
+DADOS DE CONTEXTO EXTRAÍDOS:
+
+---
+ANÁLISE PARCIAL DO EDITAL:
+${editalAnalysis}
+
+---
+ANÁLISE PARCIAL DA MATRÍCULA:
+${matriculaAnalysis}
+
+---
+ANÁLISE PARCIAL DO PROCESSO JUDICIAL:
+${processAnalysis}
+---
+
+Gere o Relatório de Viabilidade Geral completo seguindo rigorosamente as instruções de formato, checklist e o padrão de retorno JSON do prompt principal do sistema.
+OBRIGATORIAMENTE insira o bloco JSON de extração de dados no final do texto.`;
+
+      const analysis = await analyzeAuctionDocuments([], generalReportPrompt, selectedModel, finalApiKey || undefined, aggregatedUrls, 'geral').catch(err => {
+        console.error("Erro ao gerar relatório de viabilidade geral:", err);
+        return "Falha ao gerar o Relatório de Viabilidade Geral.";
+      });
+
+      updateState({ 
+        report: analysis,
+        dossierAnalysis: "### 🔄 [Passo 5/5] Compilando Dossiê de Arrematação Inteligente...\n\nEstruturando as 3 grandes seções do Dossiê executivo final e aplicando auditorias de segurança..."
+      });
+
+      // Passo 5: Dossiê de Arrematação Inteligente (without sending binary files directly!)
+      const dossierPrompt = `Gere o Dossiê de Arrematação Inteligente integrando com as seguintes análises preliminares:
+
+DADOS DO IMÓVEL: ${activeProperty?.title || 'Imóvel em Leilão'}
+
+---
+ANÁLISE PARCIAL DO EDITAL:
+${editalAnalysis}
+
+---
+ANÁLISE PARCIAL DA MATRÍCULA:
+${matriculaAnalysis}
+
+---
+ANÁLISE PARCIAL DO PROCESSO JUDICIAL:
+${processAnalysis}
+---
+
+Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'dossier' (Viabilidade, Seção Financeira e Seção Jurídica) com extrema riqueza de detalhes em Markdown.`;
+
+      const dossierAnalysisResult = await analyzeAuctionDocuments([], dossierPrompt, selectedModel, finalApiKey || undefined, [], 'dossier').catch(err => { 
         console.error("Erro ao gerar dossiê inteligente automaticamente:", err); 
         return "Falha ao gerar Dossiê de Arrematação Inteligente correlacionado."; 
       });

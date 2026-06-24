@@ -137,10 +137,9 @@ const optimizePayload = (files: any[], budget: number, model?: string) => {
     
     // We check if it is a heavy binary (PDF or Image).
     // PDFs without text are processed visually by top-tier models using deep multi-modal features.
-    // Up to 1.5MB base64 is supported for heavy scanned registry files.
     let limit = 0.8 * 1024 * 1024; // 0.8MB limit for images
     if (f.mimeType === 'application/pdf') {
-      limit = 1.5 * 1024 * 1024; // 1.5MB limit for PDFs without text
+      limit = 1.2 * 1024 * 1024; // 1.2MB limit for PDFs without text
     }
     
     const isBase64TooLarge = f.data && f.data.length > limit;
@@ -148,13 +147,8 @@ const optimizePayload = (files: any[], budget: number, model?: string) => {
     // Determine whether to use plain text fallback or send the binary (PDF/Image) visually.
     // If the file already has substantial extracted text, we ALWAYS prefer sending the text
     // rather than the heavy binary, which avoids huge visual processing overhead and timeouts.
-    let useText = !f.data || f.data === "" || f.data === "null" || isBase64TooLarge || hasText;
+    let useText = !f.data || f.data === "" || f.data === "null" || isBase64TooLarge || hasText || !isMultiModalProvider;
     
-    // If it's a non-multimodal model (e.g. deepseek, old models) or if it's a text-based format,
-    // use extracted text if available.
-    if (!isMultiModalProvider && hasText) {
-      useText = true;
-    }
     if ((f.mimeType?.startsWith('text/') || f.mimeType?.includes('txt')) && hasText) {
       useText = true;
     }
@@ -162,14 +156,14 @@ const optimizePayload = (files: any[], budget: number, model?: string) => {
     let optimizedText = "";
     
     if (hasText) {
-      optimizedText = f.extractedText.length > 120000 
-        ? f.extractedText.substring(0, 120000) + "\n... [Texto truncado por tamanho] ..." 
+      optimizedText = f.extractedText.length > 100000 
+        ? f.extractedText.substring(0, 100000) + "\n... [Texto truncado por tamanho] ..." 
         : f.extractedText;
     } else if (isBase64TooLarge) {
       if (f.mimeType === 'application/pdf') {
-        optimizedText = `[AVISO INTERNO: O arquivo PDF '${f.filename || 'Documento'}' excedeu o tamanho máximo suportado para análise rápida por imagem e foi temporariamente omitido para garantir a performance da rede. Por favor, forneça o melhor parecer técnico possível focando nas demais peças anexadas e regras gerais de leilões.]`;
+        optimizedText = `[AVISO INTERNO: O arquivo PDF '${f.filename || 'Documento'}' excedeu o tamanho máximo de ${(limit / (1024 * 1024)).toFixed(1)}MB para análise rápida por imagem e foi convertido para texto de aviso para evitar timeout da rede. Por favor, forneça o melhor parecer técnico possível focando nos demais documentos e regras gerais.]`;
       } else {
-        optimizedText = `[AVISO INTERNO: A imagem '${f.filename || 'Documento'}' é muito pesada e foi omitida para otimizar o tempo de resposta da rede. Prossiga fornecendo as orientações gerais possíveis com as informações disponíveis.]`;
+        optimizedText = `[AVISO INTERNO: A imagem '${f.filename || 'Documento'}' é muito pesada (${(f.data.length / (1024 * 1024)).toFixed(1)}MB) e foi omitida para otimizar o tempo de resposta da rede. Prossiga fornecendo as orientações gerais possíveis.]`;
       }
     }
     
@@ -190,17 +184,23 @@ const optimizePayload = (files: any[], budget: number, model?: string) => {
   let currentSize = calculateSize(currentFiles);
   if (currentSize <= budget) return currentFiles;
 
-  const sortedIndices = currentFiles
-    .map((f, i) => ({ index: i, size: f.data?.length || 0, hasText: !!f.optimizedText }))
-    .filter(f => f.hasText)
+  // 1. Convert heavy binary files (useText === false) to text placeholders first, from largest to smallest,
+  // to maximize the preservation of actual text content in text files.
+  const binaryFiles = currentFiles
+    .map((f, i) => ({ index: i, size: f.data?.length || 0, filename: f.filename, mimeType: f.mimeType }))
+    .filter(f => !currentFiles[f.index].useText)
     .sort((a, b) => b.size - a.size);
 
-  for (const item of sortedIndices) {
-    currentFiles[item.index].useText = true;
+  for (const item of binaryFiles) {
+    const f = currentFiles[item.index];
+    f.useText = true;
+    f.optimizedText = `[AVISO DO SISTEMA: O arquivo original '${item.filename || 'Documento'}' (${(item.size / (1024 * 1024)).toFixed(1)}MB) era muito grande e foi convertido para texto de aviso para evitar timeout na rede. Forneça o melhor parecer técnico possível focando nas demais informações.]`;
+    
     currentSize = calculateSize(currentFiles);
     if (currentSize <= budget) break;
   }
 
+  // 2. If we are STILL above the budget, truncate the largest text files until we fit.
   if (currentSize > budget) {
     const textOnlyIndices = currentFiles
       .map((f, i) => ({ index: i, size: f.optimizedText?.length || 0 }))
@@ -210,23 +210,10 @@ const optimizePayload = (files: any[], budget: number, model?: string) => {
     for (const item of textOnlyIndices) {
       const reductionNeeded = currentSize - budget;
       const currentTextSize = currentFiles[item.index].optimizedText.length;
+      if (currentTextSize <= 1000) continue;
+
       const newSize = Math.max(1000, currentTextSize - reductionNeeded);
-      
       currentFiles[item.index].optimizedText = currentFiles[item.index].optimizedText.substring(0, newSize) + "\n... [Texto truncado para caber no limite da API] ...";
-      currentSize = calculateSize(currentFiles);
-      if (currentSize <= budget) break;
-    }
-  }
-
-  if (currentSize > budget) {
-    const base64OnlyIndices = currentFiles
-      .map((f, i) => ({ index: i, size: f.data?.length || 0 }))
-      .filter(f => !currentFiles[f.index].useText)
-      .sort((a, b) => b.size - a.size);
-
-    for (const item of base64OnlyIndices) {
-      currentFiles[item.index].useText = true;
-      currentFiles[item.index].optimizedText = `[AVISO DO SISTEMA: O arquivo original '${currentFiles[item.index].filename || 'Documento'}' era muito grande (aprox. ${(item.size / (1024 * 1024)).toFixed(1)}MB) e não pôde ser enviado para a IA devido aos limites técnicos da API. O conteúdo deste arquivo foi omitido da análise.]`;
       
       currentSize = calculateSize(currentFiles);
       if (currentSize <= budget) break;
