@@ -7951,7 +7951,14 @@ OBRIGATORIAMENTE insira o bloco JSON de extração de dados no final do texto.`;
 
       const analysis = await analyzeAuctionDocuments([], generalReportPrompt, selectedModel, finalApiKey || undefined, aggregatedUrls, 'geral').catch(err => {
         console.error("Erro ao gerar relatório de viabilidade geral:", err);
-        return "Falha ao gerar o Relatório de Viabilidade Geral.";
+        return `### ⚠️ Erro na Geração do Relatório de Viabilidade Geral\n\n` +
+          `Ocorreu um problema ao obter o parecer do Cérebro Estratégico para esta etapa.\n\n` +
+          `**Detalhe Técnico:** \`${err.message || err}\`\n\n` +
+          `---\n\n` +
+          `### 💡 Como resolver:\n` +
+          `1. **Gargalo de Cota/Sobrecarga:** Se você está usando o *Padrão do Sistema (Google AI Studio)*, a cota de requisições sequenciais pode ter sido atingida temporariamente. Aguarde 30 segundos e clique em **Executar Análise IA** novamente.\n` +
+          `2. **Chave Própria de API:** Se você inseriu sua própria chave, confirme se ela está ativa, com saldo (créditos) e se o modelo selecionado é suportado.\n` +
+          `3. **Alternar Modelo:** Experimente mudar o modelo para **Gemini 3.5 Flash** (se estiver usando Pro) para evitar limites rígidos de cota.`;
       });
 
       updateState({ 
@@ -7981,7 +7988,12 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
 
       const dossierAnalysisResult = await analyzeAuctionDocuments([], dossierPrompt, selectedModel, finalApiKey || undefined, [], 'dossier').catch(err => { 
         console.error("Erro ao gerar dossiê inteligente automaticamente:", err); 
-        return "Falha ao gerar Dossiê de Arrematação Inteligente correlacionado."; 
+        return `### ⚠️ Erro na Geração do Dossiê de Arrematação\n\n` +
+          `Não foi possível consolidar as informações para compilar o Dossiê Final nesta rodada.\n\n` +
+          `**Detalhe Técnico:** \`${err.message || err}\`\n\n` +
+          `---\n\n` +
+          `### 💡 Como resolver:\n` +
+          `Aguarde cerca de 30 segundos para a cota de requisições ser liberada e execute a análise novamente para restaurar e consolidar todos os pareceres pendentes.`; 
       });
 
       updateState({
@@ -8034,6 +8046,7 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
           const trimmed = jsonStr.toLowerCase();
           if (trimmed.includes('<!doctype') || trimmed.includes('<html') || trimmed.includes('<body')) {
             console.error("AI retornou HTML em vez de JSON:", jsonStr);
+            setState(prev => ({ ...prev, isGeneratingStory: false }));
             throw new Error("Resposta da IA inválida (HTML retornado)");
           }
           try {
@@ -8070,10 +8083,14 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
             extractedData = mappedData;
           } catch (e) {
             console.warn("Falha ao parsear JSON estruturado da análise:", e);
+            setState(prev => ({ ...prev, isGeneratingStory: false }));
           }
+        } else {
+          setState(prev => ({ ...prev, isGeneratingStory: false }));
         }
       } catch (e) {
         console.warn("Falha ao extrair dados estruturados da análise:", e);
+        setState(prev => ({ ...prev, isGeneratingStory: false }));
       }
 
       // Save analysis to database if property is selected
