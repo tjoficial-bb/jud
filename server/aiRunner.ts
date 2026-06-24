@@ -124,9 +124,9 @@ const mapModelId = (model: string): string => {
 
 const getPayloadBudget = (model: string): number => {
   // To avoid 504 Gateway Timeout (60-second ceiling on the proxy), we strictly limit 
-  // the base64 payload budget to 6MB. Text-based content takes almost 0 bytes and processes
+  // the base64 payload budget to 2MB. Text-based content takes almost 0 bytes and processes
   // in seconds, while heavy images/PDFs are optimized.
-  return 6 * 1024 * 1024;
+  return 2 * 1024 * 1024;
 };
 
 const optimizePayload = (files: any[], budget: number, model?: string) => {
@@ -137,10 +137,10 @@ const optimizePayload = (files: any[], budget: number, model?: string) => {
     
     // We check if it is a heavy binary (PDF or Image).
     // PDFs without text are processed visually by top-tier models using deep multi-modal features.
-    // Up to 6MB base64 (~4.5MB raw) is fully supported for heavy scanned registry files.
-    let limit = 4.0 * 1024 * 1024; // 4.0MB limit for images (approx 3MB raw)
+    // Up to 1.5MB base64 is supported for heavy scanned registry files.
+    let limit = 0.8 * 1024 * 1024; // 0.8MB limit for images
     if (f.mimeType === 'application/pdf') {
-      limit = 6.0 * 1024 * 1024; // 6.0MB limit for PDFs without text (approx 4.5MB raw)
+      limit = 1.5 * 1024 * 1024; // 1.5MB limit for PDFs without text
     }
     
     const isBase64TooLarge = f.data && f.data.length > limit;
