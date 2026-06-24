@@ -6,6 +6,9 @@ import { parseJsonResponse } from './apiService';
  * and bypass browser CORS limits.
  */
 
+// Simple persistent session-wide flag to prevent sequential slow timeouts
+let hasDowngradedToFlash = false;
+
 export const analyzeAuctionDocuments = async (
   files: { data: string; mimeType: string; extractedText?: string }[], 
   systemInstruction: string, 
@@ -15,6 +18,14 @@ export const analyzeAuctionDocuments = async (
   analysisType?: 'geral' | 'edital' | 'matricula' | 'processo' | 'dossier' | 'smart_analysis'
 ) => {
   const token = localStorage.getItem("token") || "";
+  
+  // Use Gemini 3.5 Flash directly if we already downgraded to prevent multiple slow timeouts
+  let activeModel = model;
+  if (hasDowngradedToFlash && model.startsWith('gemini') && model !== 'gemini-3.5-flash') {
+    activeModel = 'gemini-3.5-flash';
+    console.log(`[AI SERVICE] Automatically using gemini-3.5-flash due to prior session downgrade.`);
+  }
+
   try {
     const res = await fetch("/api/ai/analyze", {
       method: "POST",
@@ -22,7 +33,7 @@ export const analyzeAuctionDocuments = async (
         "Content-Type": "application/json",
         "Authorization": `Bearer ${token}`
       },
-      body: JSON.stringify({ files, systemInstruction, model, apiKey, auctionUrls, analysisType })
+      body: JSON.stringify({ files, systemInstruction, model: activeModel, apiKey, auctionUrls, analysisType })
     });
 
     if (!res.ok) {
@@ -43,12 +54,21 @@ export const analyzeAuctionDocuments = async (
                         errMessage.toLowerCase().includes('timeout') ||
                         errMessage.toLowerCase().includes('quota') ||
                         errMessage.toLowerCase().includes('excedeu') ||
-                        errMessage.toLowerCase().includes('limite de requisições');
+                        errMessage.toLowerCase().includes('limite') ||
+                        errMessage.toLowerCase().includes('exhausted') ||
+                        errMessage.toLowerCase().includes('unregistered callers') ||
+                        errMessage.toLowerCase().includes('permission_denied') ||
+                        errMessage.toLowerCase().includes('rejeitado') ||
+                        errMessage.toLowerCase().includes('negado') ||
+                        errMessage.toLowerCase().includes('error 500') ||
+                        errMessage.toLowerCase().includes('500');
 
-    if (isOverloaded && model !== 'gemini-3.5-flash') {
-      console.warn(`[AI SERVICE FALLBACK] Model ${model} failed with overloading. Retrying automatically with gemini-3.5-flash...`);
+    if (isOverloaded && activeModel !== 'gemini-3.5-flash') {
+      console.warn(`[AI SERVICE FALLBACK] Model ${activeModel} failed with overloading/quota. Retrying automatically with gemini-3.5-flash...`);
+      hasDowngradedToFlash = true; // Downgrade session-wide
+      
       if (typeof window !== 'undefined' && (window as any).customToast) {
-        (window as any).customToast("O modelo Pro está instável. Mudamos automaticamente para o Gemini 3.5 Flash para concluir sua análise sem erros!", "success");
+        (window as any).customToast("O modelo Pro está instável ou atingiu o limite de cota. Mudamos automaticamente para o Gemini 3.5 Flash para concluir sua análise em alta velocidade!", "success");
       }
       
       const retryRes = await fetch("/api/ai/analyze", {
@@ -102,6 +122,13 @@ export const sendChatMessage = async (
   apiKey?: string
 ) => {
   const token = localStorage.getItem("token") || "";
+  
+  // Use Gemini 3.5 Flash directly if we already downgraded to prevent slow requests
+  let activeModel = model;
+  if (hasDowngradedToFlash && model.startsWith('gemini') && model !== 'gemini-3.5-flash') {
+    activeModel = 'gemini-3.5-flash';
+  }
+
   try {
     const res = await fetch("/api/ai/chat", {
       method: "POST",
@@ -109,7 +136,7 @@ export const sendChatMessage = async (
         "Content-Type": "application/json",
         "Authorization": `Bearer ${token}`
       },
-      body: JSON.stringify({ messages, systemInstruction, model, apiKey })
+      body: JSON.stringify({ messages, systemInstruction, model: activeModel, apiKey })
     });
 
     if (!res.ok) {
@@ -130,12 +157,21 @@ export const sendChatMessage = async (
                         errMessage.toLowerCase().includes('timeout') ||
                         errMessage.toLowerCase().includes('quota') ||
                         errMessage.toLowerCase().includes('excedeu') ||
-                        errMessage.toLowerCase().includes('limite de requisições');
+                        errMessage.toLowerCase().includes('limite') ||
+                        errMessage.toLowerCase().includes('exhausted') ||
+                        errMessage.toLowerCase().includes('unregistered callers') ||
+                        errMessage.toLowerCase().includes('permission_denied') ||
+                        errMessage.toLowerCase().includes('rejeitado') ||
+                        errMessage.toLowerCase().includes('negado') ||
+                        errMessage.toLowerCase().includes('error 500') ||
+                        errMessage.toLowerCase().includes('500');
 
-    if (isOverloaded && model !== 'gemini-3.5-flash') {
-      console.warn(`[AI SERVICE FALLBACK] Chat model ${model} failed with overloading. Retrying automatically with gemini-3.5-flash...`);
+    if (isOverloaded && activeModel !== 'gemini-3.5-flash') {
+      console.warn(`[AI SERVICE FALLBACK] Chat model ${activeModel} failed with overloading/quota. Retrying automatically with gemini-3.5-flash...`);
+      hasDowngradedToFlash = true; // Downgrade session-wide
+      
       if (typeof window !== 'undefined' && (window as any).customToast) {
-        (window as any).customToast("O modelo Pro está instável. Mudamos automaticamente para o Gemini 3.5 Flash para responder sua pergunta sem erros!", "success");
+        (window as any).customToast("O modelo Pro está instável ou com limite de cota. Mudamos para o Gemini 3.5 Flash para responder sua pergunta rapidamente sem erros!", "success");
       }
       
       const retryRes = await fetch("/api/ai/chat", {

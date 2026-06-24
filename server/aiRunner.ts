@@ -68,9 +68,15 @@ const callGeminiWithRetry = async <T>(
         errorStr.includes("high demand") ||
         errorStr.includes("temporary") ||
         errorStr.includes("overloaded") ||
+        errorStr.includes("exhausted") ||
+        errorStr.includes("quota") ||
+        errorStr.includes("limit") ||
         errorObjStr.includes("unavailable") ||
         errorObjStr.includes("503") ||
-        errorObjStr.includes("429");
+        errorObjStr.includes("429") ||
+        errorObjStr.includes("exhausted") ||
+        errorObjStr.includes("quota") ||
+        errorObjStr.includes("limit");
 
       if (isUnavailable && attempt < retries) {
         const sleepTime = delayMs * Math.pow(2, attempt - 1);
