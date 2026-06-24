@@ -7873,6 +7873,98 @@ Importante: se uma informação não for encontrada nos documentos, use o valor 
       }
       aggregatedUrls = aggregatedUrls.filter(u => u && u.trim().length > 5);
 
+      // Iniciar a Análise Smart em paralelo para preenchimento automático sem atrasos adicionais
+      const smartAnalysisPrompt = `Você é um advogado imobiliário sênior e especialista em leilões de imóveis (judiciais e extrajudiciais) no Brasil.
+Sua tarefa é analisar minuciosamente todos os documentos fornecidos do leilão (Edital, Matrícula de Cartório de Registro de Imóveis, e peças do processo judicial correspondente) e preencher um relatório estruturado em formato JSON contendo as informações jurídicas, de ocupação, financeiras e de riscos do leilão.
+
+Você deve responder APENAS com um objeto JSON válido, sem texto explicativo antes ou depois, seguindo estritamente este esquema de chaves e tipos de valores:
+
+{
+  "risco_geral": "Baixo" | "Médio" | "Alto",
+  "recomendacao": "Recomendo arrematar" | "Recomendo com ressalvas" | "Não recomendo arrematar",
+  "justificativa": "Texto explicativo detalhado de até 5 linhas sobre o motivo da sua recomendação e os pontos de atenção",
+  
+  "tipo_leilao": "Judicial" | "Extrajudicial",
+  "responsabilidade_iptu": "Vendedor (Banco)" | "Comprador" | "Sub-rogado no preço",
+  "responsabilidade_condominio": "Vendedor (Banco)" | "Comprador" | "Sub-rogado no preço",
+  "observacoes_edital": "Observações sobre datas, regras do edital, parcelamentos autorizados, etc. Seja minucioso.",
+  
+  "iptu_atraso": 1500.00,
+  "condominio_atraso": 3000.00,
+  "outros_debitos": 0.00,
+  "observacoes_debitos": "Detalhamento das dívidas de IPTU, Condomínio, foro/laudêmio, etc.",
+  
+  "nivel_risco_desocupacao": "Baixo" | "Médio" | "Alto",
+  "liminar_bloqueando": false,
+  "acao_anulatoria": false,
+  "embargos_pendentes": false,
+  "recurso_pendente": false,
+  "prazo_estimado_desocupacao": "6 a 12 meses" | "3 a 6 meses" | "mais de 12 meses",
+  "observacoes_desocupacao": "Análise da dificuldade esperada de desocupação baseada no tipo de ocupante e nos recursos vigentes",
+  
+  "risco_geral_nulidade": "Baixo" | "Médio" | "Alto",
+  "vicio_citacao": false,
+  "vicio_avaliacao": false,
+  "vicio_publicacao": false,
+  "vicio_procedimental": false,
+  "observacoes_nulidade": "Análise crítica dos riscos de nulidade ou anulação do leilão pelas defesas do executado",
+  
+  "status_consolidacao": "Regular" | "Irregular" | "Pendente" | "Não verificado",
+  "intimacao_purga_mora": false,
+  "intimacao_leiloes": false,
+  "averbacao_consolidacao": false,
+  "observacoes_consolidacao": "Análise de regularidade do procedimento de consolidação extrajudicial (Lei 9.514/97)",
+  
+  "matricula_atualizada": false,
+  "tem_onus": false,
+  "tem_penhora": false,
+  "tem_hipoteca": false,
+  "alienacao_fiduciaria": false,
+  "indisponibilidade": false,
+  "acao_reipersecutoria": false,
+  "observacoes_matricula": "Destaque todos os ônus, penhoras e restrições encontrados na matrícula e seus respectivos cancelamentos ou riscos",
+  
+  "status_ocupacao": "Ocupado pelo ex-mutuário" | "Ocupado por terceiro" | "Invasão" | "Desocupado",
+  "relacao_ex_mutuario": "O próprio" | "Parente" | "Inquilino" | "Desconhecido",
+  "nome_ocupante": "Nome completo do ocupante se mencionado nos autos ou edital, senão vazio",
+  "cpf_ocupante": "CPF do ocupante se mencionado, senão vazio",
+  "telefone_ocupante": "Telefone ou contato se mencionado, senão vazio",
+  "tempo_ocupacao": "Tempo estimado que o ocupante já está no imóvel se puder ser deduzido, senão vazio",
+  "risco_usucapiao": "Baixo" | "Médio" | "Alto",
+  "observacoes_ocupacao": "Histórico de tentativas de desocupação amigável ou imissões de posse anteriores se houver",
+
+  "tipo_imovel": "Casa" | "Apartamento" | "Terreno" | "Comercial" | "Outros" | "Selecione",
+  "numero_matricula": "Número de matrícula do imóvel se encontrado, senão vazio",
+  "cartorio_registro": "Nome do Cartório de Registro de Imóveis (ex: 1º CRI de São Paulo) se encontrado, senão vazio",
+  "area_terreno": 250.00,
+  "area_privativa": 69.00,
+  "area_util": 69.00,
+  "area_construida": 110.00,
+  "observacoes_imovel": "Descrição física detalhada do imóvel encontrada na matrícula (ex: número de quartos, garagens, confrontações, etc.)",
+
+  "nome_ex_mutuario": "Nome completo do devedor / ex-mutuário / executado principal",
+  "cpf_ex_mutuario": "CPF ou CNPJ do devedor / ex-mutuário / executado principal",
+  "estado_civil_ex_mutuario": "Estado civil do devedor / ex-mutuário / executado principal se mencionado, senão vazio",
+  "profissao_ex_mutuario": "Profissão do devedor / ex-mutuário / executado principal se mencionada, senão vazio",
+  "conjuge_ex_mutuario": "Nome e CPF/CNPJ do cônjuge, companheiro(a) ou outros coproprietários devedores, se houver",
+  "endereco_ex_mutuario": "Endereço completo e detalhado do ex-mutuário / devedor mencionado nos documentos (ex: residência anterior, endereço citado no processo judicial ou notificação)",
+  "observacoes_ex_mutuario": "Histórico e anotações adicionais sobre os ex-mutuários e devedores (ex: herdeiros, óbito, processos relacionados, tentativas de intimação)"
+}
+
+Importante: se uma informação não for encontrada nos documentos, use o valor correspondente neutro (como false para booleanos, 0 para números, "Não avaliado"/"Selecione"/"Não verificado" para dropdowns, ou texto vazio/explicando que não foi encontrado para campos de texto). Seja extremamente técnico e preciso em suas observações legais baseadas no Direito brasileiro.`;
+
+      const smartAnalysisPromise = analyzeAuctionDocuments(
+        fileParts, 
+        smartAnalysisPrompt, 
+        selectedModel || 'gemini-2.5-flash', 
+        finalApiKey || undefined, 
+        aggregatedUrls, 
+        'smart_analysis'
+      ).catch(err => {
+        console.error("Erro na geração da Análise Smart durante análise geral:", err);
+        return null;
+      });
+
       console.log("DEBUG: Iniciando análise sequencial otimizada passo a passo...");
 
       updateState({ 
@@ -8093,6 +8185,24 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
         setState(prev => ({ ...prev, isGeneratingStory: false }));
       }
 
+      // Aguardar e parsear a Análise Smart iniciada em paralelo para preencher todos os campos
+      let smartAnalysisData: SmartAnalysisData | null = null;
+      try {
+        const smartResult = await smartAnalysisPromise;
+        if (smartResult) {
+          let cleanJson = smartResult;
+          if (cleanJson.includes("```json")) {
+            cleanJson = cleanJson.split("```json")[1].split("```")[0].trim();
+          } else if (cleanJson.includes("```")) {
+            cleanJson = cleanJson.split("```")[1].split("```")[0].trim();
+          }
+          const parsed = JSON.parse(cleanJson);
+          smartAnalysisData = { ...getEmptySmartAnalysis(), ...parsed };
+        }
+      } catch (err) {
+        console.error("Erro ao resolver ou parsear Análise Smart em paralelo:", err);
+      }
+
       // Save analysis to database if property is selected
       if (selectedPropertyId) {
         try {
@@ -8171,7 +8281,8 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
               edital_analysis: editalAnalysis,
               matricula_analysis: matriculaAnalysis,
               process_analysis: processAnalysis,
-              dossier_analysis: dossierAnalysisResult
+              dossier_analysis: dossierAnalysisResult,
+              smart_analysis_json: smartAnalysisData ? JSON.stringify(smartAnalysisData) : null
             })
           });
           if (saveRes.ok) {
@@ -8192,7 +8303,8 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
         processAnalysis: processAnalysis,
         dossierAnalysis: dossierAnalysisResult,
         chatMessages: [{ role: 'assistant', content: "Análise concluída. Como posso ajudar a aprofundar algum ponto?" }],
-        simulationData: extractedData
+        simulationData: extractedData,
+        smartAnalysis: smartAnalysisData || state.smartAnalysis || getEmptySmartAnalysis()
       });
       
     } catch (err: any) {
