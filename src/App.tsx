@@ -7708,6 +7708,7 @@ Importante: se uma informação não for encontrada nos documentos, use o valor 
   };
 
   const handleAnalyze = async () => {
+    const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
     setAnalyzing(true);
     updateState({ 
       report: "### 🔄 Iniciando Análise Estratégica...\n\nO sistema está processando seus documentos e consultando o **Cérebro Estratégico** para gerar um parecer completo.\n\n**Isso pode levar de 30 a 60 segundos.** Por favor, não feche esta aba ou mude de aba para garantir a conclusão.", 
@@ -7983,6 +7984,8 @@ Importante: se uma informação não for encontrada nos documentos, use o valor 
           })
         : "Nenhum documento de Edital foi anexado. Prosseguindo análise com base nos demais dados fornecidos.";
 
+      await sleep(1200);
+
       updateState({ 
         editalAnalysis: editalAnalysis,
         matriculaAnalysis: "### 🔄 [Passo 2/5] Analisando a Certidão de Matrícula...\n\nMapeando cadeia de direito real, registro de alienações fiduciárias, hipotecas e gravames de penhoras ativos...",
@@ -7997,6 +8000,8 @@ Importante: se uma informação não for encontrada nos documentos, use o valor 
           })
         : "Nenhuma certidão de matrícula foi anexada. Prosseguindo análise com base nos demais dados fornecidos.";
 
+      await sleep(1200);
+
       updateState({ 
         matriculaAnalysis: matriculaAnalysis,
         processAnalysis: "### 🔄 [Passo 3/5] Analisando Riscos de Processos Judiciais...\n\nMapeando CPFs dos executados e buscando recursos pendentes ou discussões de nulidades na execução originária...",
@@ -8010,6 +8015,8 @@ Importante: se uma informação não for encontrada nos documentos, use o valor 
             return "Falha ao gerar análise de riscos processuais."; 
           })
         : "Nenhum processo judicial foi anexado. Prosseguindo análise com base nos demais dados fornecidos.";
+
+      await sleep(1200);
 
       updateState({ 
         processAnalysis: processAnalysis,
@@ -8052,6 +8059,8 @@ OBRIGATORIAMENTE insira o bloco JSON de extração de dados no final do texto.`;
           `2. **Chave Própria de API:** Se você inseriu sua própria chave, confirme se ela está ativa, com saldo (créditos) e se o modelo selecionado é suportado.\n` +
           `3. **Alternar Modelo:** Experimente mudar o modelo para **Gemini 3.5 Flash** (se estiver usando Pro) para evitar limites rígidos de cota.`;
       });
+
+      await sleep(1200);
 
       updateState({ 
         report: analysis,

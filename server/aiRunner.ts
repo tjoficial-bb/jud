@@ -47,8 +47,8 @@ const fetchUrlContent = async (url: string): Promise<string> => {
 
 const callGeminiWithRetry = async <T>(
   fn: () => Promise<T>,
-  retries = 3,
-  delayMs = 2000
+  retries = 4,
+  delayMs = 2500
 ): Promise<T> => {
   let attempt = 0;
   while (true) {
@@ -59,36 +59,64 @@ const callGeminiWithRetry = async <T>(
       const errorStr = (error?.message || String(error)).toLowerCase();
       const errorObjStr = JSON.stringify(error || {}).toLowerCase();
       
-      const isUnavailable = 
-        error?.status === 503 || 
+      const isAuthError = 
+        errorStr.includes("api key not valid") || 
+        errorStr.includes("invalid api key") || 
+        errorStr.includes("unregistered callers") || 
+        errorStr.includes("key_invalid") || 
+        errorStr.includes("api_key_invalid") || 
+        errorStr.includes("not authorized") ||
+        errorObjStr.includes("api key not valid") ||
+        errorObjStr.includes("invalid_key") ||
+        errorObjStr.includes("unregistered");
+
+      const isQuotaError = 
         error?.status === 429 ||
-        errorStr.includes("503") || 
         errorStr.includes("429") || 
-        errorStr.includes("unavailable") || 
-        errorStr.includes("high demand") ||
-        errorStr.includes("temporary") ||
-        errorStr.includes("overloaded") ||
-        errorStr.includes("exhausted") ||
-        errorStr.includes("quota") ||
+        errorStr.includes("exhausted") || 
+        errorStr.includes("quota") || 
         errorStr.includes("limit") ||
-        errorObjStr.includes("unavailable") ||
-        errorObjStr.includes("503") ||
         errorObjStr.includes("429") ||
         errorObjStr.includes("exhausted") ||
         errorObjStr.includes("quota") ||
         errorObjStr.includes("limit");
 
-      if (isUnavailable && attempt < retries) {
+      const isUnavailable = 
+        error?.status === 503 || 
+        errorStr.includes("503") || 
+        errorStr.includes("unavailable") || 
+        errorStr.includes("high demand") ||
+        errorStr.includes("temporary") ||
+        errorStr.includes("overloaded") ||
+        errorObjStr.includes("unavailable") ||
+        errorObjStr.includes("503") ||
+        errorObjStr.includes("overloaded");
+
+      // Attempt retry only for transient network/server overloads or temporary quotas (429)
+      if ((isUnavailable || isQuotaError) && !isAuthError && attempt < retries) {
         const sleepTime = delayMs * Math.pow(2, attempt - 1);
-        console.warn(`[Gemini API Retry] Modelo indisponível ou sob alta demanda (Tentativa ${attempt}/${retries}). Tentando novamente em ${sleepTime}ms...`);
+        console.warn(`[Gemini API Retry] Chamada sob alta demanda ou limite temporário (Tentativa ${attempt}/${retries}). Aguardando ${sleepTime}ms para tentar novamente...`);
         await new Promise(resolve => setTimeout(resolve, sleepTime));
         continue;
       }
       
-      if (isUnavailable) {
-        throw new Error("O modelo Gemini está com demanda temporária extremamente alta nos servidores da Google (Erro 503: Service Unavailable).\n\n" +
-          "Por favor, tente novamente em alguns instantes ou, se persistir, experimente selecionar outro provedor/modelo de inteligência artificial (como Anthropic Claude ou OpenAI) no menu superior ou configurações.");
+      if (isAuthError) {
+        throw new Error(`A chave de API do Gemini configurada é inválida ou não foi autorizada (Erro original: ${error.message || error}). Por favor, verifique se inseriu a chave de API correta nas Configurações da aplicação ou se definiu a variável de ambiente GEMINI_API_KEY corretamente no seu servidor de produção.`);
       }
+
+      if (isQuotaError) {
+        throw new Error(`A chave de API do Gemini atingiu o limite de cota de requisições ou créditos esgotados (Erro original: ${error.message || error}).\n\n` +
+          `Como resolver em seu domínio de produção:\n` +
+          `1. Verifique se sua chave de API possui um plano de faturamento ativo (Pay-as-you-go) no console do Google AI Studio para remover as restrições rígidas da cota gratuita.\n` +
+          `2. Alternativamente, alterne o modelo para "Gemini 3.5 Flash", que possui limites de cota muito mais brandos e menor custo de processamento.`);
+      }
+
+      if (isUnavailable) {
+        throw new Error(`O modelo Gemini está com demanda temporária extremamente alta nos servidores da Google (Erro 503: Service Unavailable).\n\n` +
+          `Erro original: ${error.message || error}.\n\n` +
+          `Por favor, aguarde alguns instantes e tente novamente ou experimente selecionar outro modelo/provedor nas Configurações.`);
+      }
+      
       throw error;
     }
   }
