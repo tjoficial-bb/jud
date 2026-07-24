@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { SessionException } from './lib/exceptions';
+import { SessionException } from './lib/appErrors';
 import { 
   LayoutDashboard, 
   Home, 
@@ -41,6 +41,7 @@ import {
   Save,
   Printer,
   ChevronDown,
+  ChevronUp,
   Info,
   Calculator,
   Sparkles,
@@ -62,15 +63,19 @@ import remarkGfm from 'remark-gfm';
 import rehypeRaw from 'rehype-raw';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { MarketComparables } from './components/MarketComparables';
+import { LegalGlossaryForLaypeople } from './components/LegalGlossaryForLaypeople';
 import { TIRCalculator } from './components/TIRCalculator';
 import { CashFlowChart } from './components/CashFlowChart';
 import { MatriculaReport } from './components/MatriculaReport';
 import { EditalReport } from './components/EditalReport';
-import { ProcessoReport } from './components/ProcessoReport';
+import { ProcessoReport, detectCityAndStateFromText } from './components/ProcessoReport';
+import { SmartResetPanel } from './components/SmartResetPanel';
 import { User, Property, Process, AIConfig, StrategicBrainItem } from './types';
 import { SYSTEM_PROMPT } from './constants';
 import { analyzeAuctionDocuments, generateProcessStory, sendChatMessage } from './services/aiService';
 import SmartAnalysisTab, { SmartAnalysisData, getEmptySmartAnalysis } from './components/SmartAnalysisTab';
+import AssessoriaReport, { AssessoriaAnalysisData, getEmptyAssessoriaAnalysis } from './components/AssessoriaReport';
 
 const SimulationContext = React.createContext<{ 
   simulationData: any, 
@@ -97,6 +102,35 @@ import { uploadDocuments } from './services/documentService';
 import { Sidebar } from './components/layout/Sidebar';
 
 type Tab = 'dashboard' | 'properties' | 'processes' | 'documents' | 'debts' | 'ai-analysis' | 'simulations' | 'brain' | 'ai-config' | 'users' | 'settings' | 'datajud';
+
+function getCustomInstructionsPrompt(state: any): string {
+  let prompt = "";
+  if (state && (state.aiDepth || state.aiFocus || state.analysisFocusKeyword)) {
+    prompt += "\n\n=== DIRETRIZES PERSONALIZADAS DA IA (AJUSTADAS PELO USUÁRIO) ===\n";
+    if (state.analysisFocusKeyword) {
+      prompt += `- FOCO DE ANÁLISE MANDATÓRIO: Este documento ou catálogo de leilão pode conter múltiplas propriedades, lotes ou cidades. Você DEVE focar estritamente na propriedade relacionada ao termo de busca/foco: "${state.analysisFocusKeyword}". Ignore as demais propriedades e extraia/analise APENAS os dados referentes à propriedade de "${state.analysisFocusKeyword}".\n`;
+    }
+    if (state.aiDepth === 'fast') {
+      prompt += "- Mantenha a resposta concisa, focada exclusivamente em KPIs imediatos e conclusões executivas diretas, evitando textos longos.\n";
+    } else if (state.aiDepth === 'detailed') {
+      prompt += "- Forneça uma análise equilibrada e detalhada, estruturada de forma clara com justificativas sólidas para cada ponto.\n";
+    } else if (state.aiDepth === 'ultra') {
+      prompt += "- Execute um mapeamento 'Ultra Deep' minucioso, analisando exaustivamente todos os aspectos jurídicos, jurisprudências e minúcias técnicas, linha por linha.\n";
+    }
+
+    if (state.aiFocus === 'general') {
+      prompt += "- Mantenha o foco em uma visão holística e comercial do leilão.\n";
+    } else if (state.aiFocus === 'nulidades') {
+      prompt += "- Dê extrema prioridade aos riscos de nulidade processual, vícios de citação, falha de intimação e chances de anulação do certame.\n";
+    } else if (state.aiFocus === 'fiscal') {
+      prompt += "- Dê extrema prioridade aos passivos fiscais, tributos (IPTU, condomínio, taxas), e regras de sub-rogação de débitos.\n";
+    } else if (state.aiFocus === 'desocupacao') {
+      prompt += "- Foque na facilidade de imissão de posse, estratégias para desocupação rápida (amigável ou forçada) e resistência de posse por ex-proprietários/inquilinos.\n";
+    }
+    prompt += "===============================================================\n";
+  }
+  return prompt;
+}
 
 type AIModel = 
   | 'gemini-3.5-flash'
@@ -151,6 +185,62 @@ const parseJsonResponse = async (res: Response) => {
     throw new Error(`Resposta do servidor não é JSON para ${res.url} (Status: ${res.status})`);
   }
 };
+
+export function robustParseJSON(raw: string): any {
+  if (!raw) return null;
+  let clean = raw.trim();
+
+  // Strip markdown code block wrappers if they exist
+  if (clean.includes("```json")) {
+    clean = clean.split("```json")[1].split("```")[0].trim();
+  } else if (clean.includes("```")) {
+    clean = clean.split("```")[1].split("```")[0].trim();
+  }
+  clean = clean.trim();
+
+  // Remove control characters except space, tab, newline, carriage return
+  clean = clean.replace(/[\x00-\x1F\x7F-\x9F]/g, (match) => {
+    if (match === '\n') return '\n';
+    if (match === '\r') return '\r';
+    if (match === '\t') return '\t';
+    return '';
+  });
+
+  try {
+    return JSON.parse(clean);
+  } catch (err) {
+    try {
+      // Remove trailing commas before closing braces/brackets
+      const fixed = clean.replace(/,\s*([}\]])/g, '$1');
+      return JSON.parse(fixed);
+    } catch (err2) {
+      const firstBrace = clean.indexOf('{');
+      const lastBrace = clean.lastIndexOf('}');
+      if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+        try {
+          const candidate = clean.slice(firstBrace, lastBrace + 1);
+          return JSON.parse(candidate.replace(/,\s*([}\]])/g, '$1'));
+        } catch (err3) {
+          console.warn("[robustParseJSON] All standard parses failed. Falling back to key/value recovery.");
+          const result: any = {};
+          const keys = ["cnj_number", "court", "class", "subject", "chamber", "parties", "last_movement"];
+          for (const key of keys) {
+            const regex = new RegExp(`"${key}"\\s*:\\s*"([^"]*)"`, 'i');
+            const match = clean.match(regex);
+            if (match) {
+              result[key] = match[1];
+            }
+          }
+          if (Object.keys(result).length > 0) {
+            return result;
+          }
+          throw err2;
+        }
+      }
+      throw err;
+    }
+  }
+}
 
 const formatErrorMessage = (err: any) => {
   if (err instanceof TypeError && err.message === 'Failed to fetch') {
@@ -335,6 +425,20 @@ export default function App() {
     onConfirm: () => {}
   });
 
+  const [promptDialog, setPromptDialog] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    value: string;
+    onConfirm: (val: string) => void;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    value: '',
+    onConfirm: () => {}
+  });
+
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
   useEffect(() => {
@@ -346,6 +450,19 @@ export default function App() {
         onConfirm: () => {
           onConfirmAction();
           setConfirmDialog(prev => ({ ...prev, isOpen: false }));
+        }
+      });
+    };
+
+    (window as any).customPrompt = (title: string, message: string, defaultValue: string, onConfirmAction: (val: string) => void) => {
+      setPromptDialog({
+        isOpen: true,
+        title,
+        message,
+        value: defaultValue,
+        onConfirm: (val: string) => {
+          onConfirmAction(val);
+          setPromptDialog(prev => ({ ...prev, isOpen: false }));
         }
       });
     };
@@ -467,13 +584,14 @@ export default function App() {
 
   // AI Analysis Persistent State
   const [aiAnalysisState, setAiAnalysisState] = useState<{
-    activeSubTab: 'report' | 'processos' | 'documents' | 'simulations' | 'cnj' | 'investors' | 'edital' | 'matricula' | 'dossier' | 'instagram' | 'smart_analysis';
+    activeSubTab: 'report' | 'processos' | 'documents' | 'simulations' | 'cnj' | 'investors' | 'edital' | 'matricula' | 'dossier' | 'instagram' | 'smart_analysis' | 'assessoria';
     selectedPropertyId: string;
     report: string | null;
     editalAnalysis: string | null;
     matriculaAnalysis: string | null;
     dossierAnalysis: string | null;
     smartAnalysis: SmartAnalysisData | null;
+    assessoriaAnalysis: AssessoriaAnalysisData | null;
     adHocDocs: any[];
     cnjNumber: string;
     cnjResult: any;
@@ -495,6 +613,9 @@ export default function App() {
     isGeneratingStory: boolean;
     isEditingStory: boolean;
     selectedKeySource: 'system_default' | 'openai_custom' | 'gemini_custom' | 'claude_custom' | 'deepseek_custom';
+    aiDepth?: string;
+    aiFocus?: string;
+    analysisFocusKeyword: string;
   }>(() => {
     const masterDefaults = getMasterBudgetConfigs();
     return {
@@ -505,10 +626,13 @@ export default function App() {
       matriculaAnalysis: null,
       dossierAnalysis: null,
       smartAnalysis: null,
+      assessoriaAnalysis: null,
       adHocDocs: [],
+      aiDepth: 'detailed',
+      aiFocus: 'general',
       cnjNumber: '',
       cnjResult: null,
-      selectedModel: (localStorage.getItem('saved_selected_model') || 'gemini-2.5-flash') as AIModel,
+      selectedModel: (localStorage.getItem('saved_selected_model') || 'gemini-3.5-flash') as AIModel,
       chatMessages: [],
       simulationData: {
         valuation: { value: 0, type: 'BRL' },
@@ -593,6 +717,7 @@ export default function App() {
       isGeneratingStory: false,
       isEditingStory: false,
       selectedKeySource: (localStorage.getItem('saved_selected_key_source') || 'system_default') as any,
+      analysisFocusKeyword: '',
     };
   });
 
@@ -989,7 +1114,10 @@ export default function App() {
                 <AIAnalysisView 
                   token={token!} 
                   properties={properties} 
-                  onPropertyCreated={fetchProperties}
+                  onPropertyCreated={() => {
+                    fetchProperties();
+                    setActiveTab('properties');
+                  }}
                   state={aiAnalysisState}
                   setState={setAiAnalysisState}
                   setIsShareModalOpen={setIsShareModalOpen}
@@ -1128,6 +1256,46 @@ export default function App() {
               <button 
                 onClick={confirmDialog.onConfirm}
                 className="px-5 py-3 bg-red-600 hover:bg-red-700 rounded-xl text-xs font-bold uppercase tracking-widest text-white cursor-pointer transition-all shadow-lg shadow-red-900/30"
+              >
+                Confirmar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Custom Prompt Dialog Modal */}
+      {promptDialog.isOpen && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[250] p-4">
+          <div className="bg-brand-paper border border-brand-primary/20 p-8 rounded-3xl max-w-md w-full space-y-6 shadow-2xl">
+            <h3 className="text-xl font-serif font-bold text-brand-primary">
+              {promptDialog.title}
+            </h3>
+            <p className="text-sm font-medium text-brand-ink/70">
+              {promptDialog.message}
+            </p>
+            <input 
+              type="text" 
+              className="w-full bg-brand-bg border border-brand-primary/10 rounded-2xl py-4 px-6 focus:ring-2 focus:ring-brand-primary text-brand-ink text-sm"
+              value={promptDialog.value} 
+              onChange={e => setPromptDialog(prev => ({ ...prev, value: e.target.value }))}
+              onKeyDown={e => {
+                if (e.key === 'Enter') {
+                  promptDialog.onConfirm(promptDialog.value);
+                }
+              }}
+              autoFocus
+            />
+            <div className="flex gap-4 justify-end">
+              <button 
+                onClick={() => setPromptDialog(prev => ({ ...prev, isOpen: false }))}
+                className="px-5 py-3 bg-brand-bg hover:bg-brand-ink/5 border border-brand-primary/10 rounded-xl text-xs font-bold uppercase tracking-widest text-brand-ink cursor-pointer transition-all"
+              >
+                Cancelar
+              </button>
+              <button 
+                onClick={() => promptDialog.onConfirm(promptDialog.value)}
+                className="px-5 py-3 bg-brand-primary hover:bg-brand-primary/90 rounded-xl text-xs font-bold uppercase tracking-widest text-black cursor-pointer transition-all shadow-lg shadow-brand-primary/20"
               >
                 Confirmar
               </button>
@@ -1378,6 +1546,7 @@ function BrainView({ token, onRefresh }: { token: string, onRefresh: () => void 
   const [loading, setLoading] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isReadingFile, setIsReadingFile] = useState(false);
+  const [selectedBrainFiles, setSelectedBrainFiles] = useState<File[]>([]);
   const [form, setForm] = useState({ 
     title: '', 
     category: 'Estratégia', 
@@ -1403,60 +1572,123 @@ function BrainView({ token, onRefresh }: { token: string, onRefresh: () => void 
     }
   };
 
+  const handleDownloadFile = (base64Data: string, filename: string) => {
+    try {
+      if (!base64Data.startsWith('data:')) {
+        window.open(base64Data, '_blank');
+        return;
+      }
+      const parts = base64Data.split(',');
+      const contentType = parts[0].match(/data:(.*?);/)?.[1] || 'application/octet-stream';
+      const raw = window.atob(parts[1]);
+      const rawLength = raw.length;
+      const uInt8Array = new Uint8Array(rawLength);
+
+      for (let i = 0; i < rawLength; ++i) {
+        uInt8Array[i] = raw.charCodeAt(i);
+      }
+
+      const blob = new Blob([uInt8Array], { type: contentType });
+      const url = URL.createObjectURL(blob);
+      
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("Erro ao baixar arquivo:", err);
+      // Fallback
+      const newWindow = window.open();
+      if (newWindow) {
+        newWindow.document.write(`<iframe src="${base64Data}" frameborder="0" style="border:0; top:0px; left:0px; bottom:0px; right:0px; width:100%; height:100%;" allowfullscreen></iframe>`);
+      }
+    }
+  };
+
   const handleStrategicBrainFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setIsReadingFile(true);
-    const reader = new FileReader();
-    reader.onload = () => {
-      setForm({ ...form, data: reader.result as string, title: file.name });
-      setIsReadingFile(false);
-    };
-    reader.onerror = () => {
-      setIsReadingFile(false);
-      alert("Erro ao ler o arquivo no navegador.");
-    };
-    reader.readAsDataURL(file);
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    const newFiles = Array.from(files);
+    setSelectedBrainFiles(prev => [...prev, ...newFiles]);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     try {
-      const res = await fetch('/api/strategic-brain', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify(form)
-      });
-      if (res.ok) {
-        setIsModalOpen(false);
-        fetchBrain();
-        onRefresh();
-        setForm({ 
-          title: '', 
-          category: 'Leis', 
-          source: '', 
-          data: '',
-          url: '',
-          username: '',
-          password: '',
-          is_automated: false,
-          module: '',
-          lesson: ''
+      if (selectedBrainFiles.length > 0) {
+        const formData = new FormData();
+        formData.append('category', form.category);
+        selectedBrainFiles.forEach(file => {
+          formData.append('files', file);
         });
-      } else {
-        const errText = await res.text();
-        let errData;
-        try {
-          const trimmed = errText.trim().toLowerCase();
-          if (trimmed.includes('<!doctype') || trimmed.includes('<html') || trimmed.includes('<body')) {
-            throw new Error("Resposta do servidor é HTML");
-          }
-          errData = JSON.parse(errText);
-        } catch (e) {
-          errData = { error: errText || res.statusText };
+
+        const res = await fetch('/api/strategic-brain/upload', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` },
+          body: formData
+        });
+
+        if (res.ok) {
+          setIsModalOpen(false);
+          setSelectedBrainFiles([]);
+          fetchBrain();
+          onRefresh();
+          setForm({ 
+            title: '', 
+            category: 'Leis', 
+            source: '', 
+            data: '',
+            url: '',
+            username: '',
+            password: '',
+            is_automated: false,
+            module: '',
+            lesson: ''
+          });
+        } else {
+          const errText = await res.text();
+          alert(`Erro ao salvar arquivos: ${errText}`);
         }
-        alert(`Erro ao salvar: ${errData.error || errText || res.statusText}`);
+      } else {
+        const res = await fetch('/api/strategic-brain', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify(form)
+        });
+        if (res.ok) {
+          setIsModalOpen(false);
+          fetchBrain();
+          onRefresh();
+          setForm({ 
+            title: '', 
+            category: 'Leis', 
+            source: '', 
+            data: '',
+            url: '',
+            username: '',
+            password: '',
+            is_automated: false,
+            module: '',
+            lesson: ''
+          });
+        } else {
+          const errText = await res.text();
+          let errData;
+          try {
+            const trimmed = errText.trim().toLowerCase();
+            if (trimmed.includes('<!doctype') || trimmed.includes('<html') || trimmed.includes('<body')) {
+              throw new Error("Resposta do servidor é HTML");
+            }
+            errData = JSON.parse(errText);
+          } catch (e) {
+            errData = { error: errText || res.statusText };
+          }
+          alert(`Erro ao salvar: ${errData.error || errText || res.statusText}`);
+        }
       }
     } catch (err: any) {
       console.error(err);
@@ -1520,7 +1752,13 @@ function BrainView({ token, onRefresh }: { token: string, onRefresh: () => void 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
               {categoryItems.map(item => (
                   <div key={item.id} className="relative premium-card p-8 group cursor-pointer bg-brand-paper border-brand-primary/10"
-                    onClick={() => { if (item.data) window.open(item.data, '_blank'); }}
+                    onClick={() => {
+                      if (item.data) {
+                        handleDownloadFile(item.data, item.title);
+                      } else if (item.url) {
+                        window.open(item.url, '_blank');
+                      }
+                    }}
                   >
                     <button
                       onClick={async (e) => {
@@ -1605,9 +1843,11 @@ function BrainView({ token, onRefresh }: { token: string, onRefresh: () => void 
                   <label className="block text-[10px] font-bold uppercase tracking-[0.2em] text-brand-ink/30 mb-1.5 sm:mb-2 ml-1">Título</label>
                   <input 
                     type="text" 
-                    required
-                    className="w-full bg-brand-bg border border-brand-primary/10 rounded-xl sm:rounded-2xl py-3 px-4 sm:py-4 sm:px-6 md:py-5 md:px-8 focus:ring-2 focus:ring-brand-primary transition-all font-medium text-sm sm:text-base md:text-lg text-brand-ink outline-none"
-                    value={form.title}
+                    required={selectedBrainFiles.length === 0}
+                    disabled={selectedBrainFiles.length > 0}
+                    placeholder={selectedBrainFiles.length > 0 ? "Preservando nomes dos arquivos..." : "Ex: Lei de Leilões"}
+                    className="w-full bg-brand-bg border border-brand-primary/10 rounded-xl sm:rounded-2xl py-3 px-4 sm:py-4 sm:px-6 md:py-5 md:px-8 focus:ring-2 focus:ring-brand-primary transition-all font-medium text-sm sm:text-base md:text-lg text-brand-ink outline-none disabled:opacity-50"
+                    value={selectedBrainFiles.length > 0 ? "" : form.title}
                     onChange={e => setForm({...form, title: e.target.value})}
                   />
                 </div>
@@ -1721,6 +1961,7 @@ function BrainView({ token, onRefresh }: { token: string, onRefresh: () => void 
                   <div className="border-2 border-dashed border-brand-primary/15 rounded-xl sm:rounded-3xl p-6 sm:p-10 md:p-12 text-center hover:bg-brand-primary/5 transition-all cursor-pointer relative group">
                     <input 
                       type="file" 
+                      multiple
                       onChange={handleStrategicBrainFileUpload}
                       accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png,.gif"
                       className="absolute inset-0 opacity-0 cursor-pointer"
@@ -1732,14 +1973,32 @@ function BrainView({ token, onRefresh }: { token: string, onRefresh: () => void 
                     <p className="text-base sm:text-lg md:text-xl font-serif font-medium mb-1.5 sm:mb-2 max-w-full truncate px-4">
                       {isReadingFile ? (
                         <span className="text-brand-primary">Lendo e otimizando arquivo...</span>
-                      ) : form.data ? (
-                        form.title
+                      ) : selectedBrainFiles.length > 0 ? (
+                        `Selecionados ${selectedBrainFiles.length} arquivo(s)`
                       ) : (
-                        'Arraste ou clique para upload'
+                        'Arraste ou clique para selecionar arquivos'
                       )}
                     </p>
-                    <p className="text-xs sm:text-sm text-brand-ink/30">PDF, DOC, TXT ou Imagens (Máx 50MB)</p>
+                    <p className="text-xs sm:text-sm text-brand-ink/30">PDF, DOC, TXT ou Imagens (Multi-upload suportado)</p>
                   </div>
+
+                  {selectedBrainFiles.length > 0 && (
+                    <div className="mt-4 space-y-2 max-h-48 overflow-y-auto border border-brand-border/40 rounded-xl p-3 bg-brand-bg/50">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-brand-ink/40 mb-2">Arquivos selecionados ({selectedBrainFiles.length})</p>
+                      {selectedBrainFiles.map((file, idx) => (
+                        <div key={idx} className="flex items-center justify-between text-xs bg-brand-paper/50 p-2 rounded-lg border border-brand-border/30">
+                          <span className="truncate max-w-[80%] font-medium text-brand-ink">{file.name}</span>
+                          <button 
+                            type="button" 
+                            onClick={() => setSelectedBrainFiles(prev => prev.filter((_, i) => i !== idx))}
+                            className="text-red-500 hover:text-red-700 text-[10px] font-bold uppercase tracking-wider cursor-pointer"
+                          >
+                            Remover
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </>
               )}
 
@@ -1818,8 +2077,8 @@ function AIConfigView({ token, aiConfig, onConfigUpdate }: { token: string, aiCo
       keyToTest = keyToTest.split(' • ')[1].trim();
     }
 
-    if (provider === 'gemini' && !keyToTest.startsWith('AIza')) {
-      setTestResult({ success: false, message: "A chave parece inválida. Uma chave Gemini válida deve começar com 'AIza'." });
+    if (provider === 'gemini' && !keyToTest.startsWith('AIza') && !keyToTest.startsWith('AQ')) {
+      setTestResult({ success: false, message: "A chave parece inválida. Uma chave Gemini válida deve começar com 'AIza' ou 'AQ'." });
       return;
     }
 
@@ -5599,6 +5858,66 @@ function MasterReportView({
   const [copiedInsta, setCopiedInsta] = useState(false);
   const [isGeneratingInsta, setIsGeneratingInsta] = useState(false);
 
+  const [isAdminOpen, setIsAdminOpen] = useState(false);
+  const [formTitle, setFormTitle] = useState(property?.title || '');
+  const [formAddress, setFormAddress] = useState(property?.address || '');
+  const [formCity, setFormCity] = useState(property?.city || '');
+  const [formState, setFormState] = useState(property?.state || '');
+  const [formValuation, setFormValuation] = useState(property?.valuation_value || 0);
+  const [formMinBid, setFormMinBid] = useState(property?.min_bid || 0);
+  const [formExpectedSale, setFormExpectedSale] = useState(property?.expected_sale_value || 0);
+  const [formAnonymize, setFormAnonymize] = useState(property?.anonymize_property || 0);
+  const [isUpdatingProperty, setIsUpdatingProperty] = useState(false);
+
+  // Sync form state when property changes
+  React.useEffect(() => {
+    if (property) {
+      setFormTitle(property.title || '');
+      setFormAddress(property.address || '');
+      setFormCity(property.city || '');
+      setFormState(property.state || '');
+      setFormValuation(property.valuation_value || 0);
+      setFormMinBid(property.min_bid || 0);
+      setFormExpectedSale(property.expected_sale_value || 0);
+      setFormAnonymize(property.anonymize_property || 0);
+    }
+  }, [property]);
+
+  const handleUpdateProperty = async () => {
+    if (!property?.id) return;
+    setIsUpdatingProperty(true);
+    try {
+      const res = await fetch(`/api/properties/${property.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          title: formTitle,
+          address: formAddress,
+          city: formCity,
+          state: formState,
+          valuation_value: Number(formValuation) || 0,
+          min_bid: Number(formMinBid) || 0,
+          expected_sale_value: Number(formExpectedSale) || 0,
+          anonymize_property: Number(formAnonymize) || 0
+        })
+      });
+      if (res.ok) {
+        alert("Dados cadastrais salvos com sucesso! A página será atualizada para recalcular os cenários de investimento.");
+        window.location.reload();
+      } else {
+        alert("Erro ao atualizar dados cadastrais.");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Erro de conexão ao salvar.");
+    } finally {
+      setIsUpdatingProperty(false);
+    }
+  };
+
   const handleCopyInsta = (text: string) => {
     navigator.clipboard.writeText(text);
     setCopiedInsta(true);
@@ -5799,6 +6118,133 @@ Responda APENAS um objeto JSON válido, sem aspas adicionais, sem bloco de códi
       <div className="print-footer hidden">
         <span>Emitido em: {new Date().toLocaleDateString('pt-BR')}</span>
         <span>Documento Confidencial - Uso Restrito</span>
+      </div>
+
+      {/* PAINEL ADMINISTRATIVO COLLAPSIBLE CARD */}
+      <div className="no-print bg-brand-paper rounded-[2rem] border border-brand-primary/20 shadow-sm overflow-hidden">
+        <button
+          onClick={() => setIsAdminOpen(!isAdminOpen)}
+          className="w-full px-8 py-5 flex items-center justify-between text-left hover:bg-brand-primary/5 transition-all outline-none"
+        >
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-brand-primary/10 text-brand-primary rounded-xl">
+              <Settings size={20} />
+            </div>
+            <div>
+              <h4 className="text-sm sm:text-base font-bold text-brand-primary font-sans">
+                Painel Administrativo do Imóvel
+              </h4>
+              <p className="text-[11px] text-brand-ink/40 font-sans">
+                Ajuste os parâmetros cadastrais, valores financeiros, localização ou anonimização para recalcular o estudo
+              </p>
+            </div>
+          </div>
+          <div className="text-brand-primary">
+            {isAdminOpen ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+          </div>
+        </button>
+
+        {isAdminOpen && (
+          <div className="px-8 pb-8 pt-4 border-t border-brand-primary/10 space-y-6 bg-brand-bg/5 animate-in fade-in duration-300">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="flex flex-col gap-1.5 col-span-1 md:col-span-2">
+                <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Título do Imóvel / Apelido</label>
+                <input
+                  type="text"
+                  value={formTitle}
+                  onChange={(e) => setFormTitle(e.target.value)}
+                  className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium focus:border-brand-primary"
+                  placeholder="Ex: Apartamento 3 Q Carlos Prates"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1.5 col-span-1 md:col-span-2">
+                <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Endereço Completo</label>
+                <input
+                  type="text"
+                  value={formAddress}
+                  onChange={(e) => setFormAddress(e.target.value)}
+                  className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium focus:border-brand-primary"
+                  placeholder="Ex: Rua Uberlândia, 254"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Cidade</label>
+                <input
+                  type="text"
+                  value={formCity}
+                  onChange={(e) => setFormCity(e.target.value)}
+                  className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium focus:border-brand-primary"
+                  placeholder="Ex: Belo Horizonte"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Estado (UF)</label>
+                <input
+                  type="text"
+                  value={formState}
+                  onChange={(e) => setFormState(e.target.value)}
+                  className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium focus:border-brand-primary"
+                  placeholder="Ex: MG"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider font-sans">Valor de Avaliação (R$)</label>
+                <input
+                  type="number"
+                  value={formValuation || ''}
+                  onChange={(e) => setFormValuation(Number(e.target.value) || 0)}
+                  className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium focus:border-brand-primary font-mono"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider font-sans">Lance Mínimo Exigido (R$)</label>
+                <input
+                  type="number"
+                  value={formMinBid || ''}
+                  onChange={(e) => setFormMinBid(Number(e.target.value) || 0)}
+                  className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium focus:border-brand-primary font-mono"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider font-sans">Valor de Revenda Estimado (R$)</label>
+                <input
+                  type="number"
+                  value={formExpectedSale || ''}
+                  onChange={(e) => setFormExpectedSale(Number(e.target.value) || 0)}
+                  className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium focus:border-brand-primary font-mono"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Anonimizar nas Visualizações Públicas?</label>
+                <select
+                  value={formAnonymize}
+                  onChange={(e) => setFormAnonymize(Number(e.target.value) || 0)}
+                  className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium focus:border-brand-primary"
+                >
+                  <option value={0}>Não (Exibir dados reais do imóvel)</option>
+                  <option value={1}>Sim (Ocultar dados confidenciais)</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-4">
+              <button
+                onClick={handleUpdateProperty}
+                disabled={isUpdatingProperty}
+                className="flex items-center gap-2 bg-brand-primary text-black px-8 py-3 rounded-xl text-xs font-bold uppercase tracking-wider hover:bg-brand-primary/90 transition-all disabled:opacity-50"
+              >
+                {isUpdatingProperty ? 'Salvando...' : 'Salvar Alterações e Atualizar'}
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Executive Report Print Header */}
@@ -6552,6 +6998,12 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
   const [pasteText, setPasteText] = useState('');
 
   // Sub-tab chats states
+  const [editalChatMessages, setEditalChatMessages] = useState<ChatMessage[]>([
+    { role: 'assistant', content: 'Olá! Compartilhe suas dúvidas sobre as cláusulas, datas, condições de pagamento ou regras estabelecidas no edital deste leilão.' }
+  ]);
+  const [editalChatInput, setEditalChatInput] = useState('');
+  const [sendingEditalChat, setSendingEditalChat] = useState(false);
+
   const [matriculaChatMessages, setMatriculaChatMessages] = useState<ChatMessage[]>([
     { role: 'assistant', content: 'Olá! Compartilhe suas dúvidas sobre o registro da matrícula, proprietários anteriores, gravames e indisponibilidades deste imóvel.' }
   ]);
@@ -6564,11 +7016,29 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
   const [processosChatInput, setProcessosChatInput] = useState('');
   const [sendingProcessosChat, setSendingProcessosChat] = useState(false);
 
+  const [dossierChatMessages, setDossierChatMessages] = useState<ChatMessage[]>([
+    { role: 'assistant', content: 'Olá! Este é o chat do Dossiê de Arrematação Inteligente. Vamos debater as conclusões consolidadas do laudo, finanças e aspectos de segurança jurídica.' }
+  ]);
+  const [dossierChatInput, setDossierChatInput] = useState('');
+  const [sendingDossierChat, setSendingDossierChat] = useState(false);
+
   const [documentsChatMessages, setDocumentsChatMessages] = useState<ChatMessage[]>([
     { role: 'assistant', content: 'Olá! Sou seu assistente de gestão documental. Pergunte qualquer informação de dados ou incoerências nas peças enviadas.' }
   ]);
   const [documentsChatInput, setDocumentsChatInput] = useState('');
   const [sendingDocumentsChat, setSendingDocumentsChat] = useState(false);
+
+  const [smartAnalysisChatMessages, setSmartAnalysisChatMessages] = useState<ChatMessage[]>([
+    { role: 'assistant', content: 'Olá! Este é o chat da Análise Smart de Riscos. Você pode perguntar sobre a pontuação de risco geral, ocupação do imóvel, histórico de ex-mutuários e mais.' }
+  ]);
+  const [smartAnalysisChatInput, setSmartAnalysisChatInput] = useState('');
+  const [sendingSmartAnalysisChat, setSendingSmartAnalysisChat] = useState(false);
+
+  const [assessoriaChatMessages, setAssessoriaChatMessages] = useState<ChatMessage[]>([
+    { role: 'assistant', content: 'Olá! Este é o chat de Assessoria Jurídica Avançada. Fique à vontade para debater o parecer estratégico, riscos, ressalvas de evicção ou recomendações finais.' }
+  ]);
+  const [assessoriaChatInput, setAssessoriaChatInput] = useState('');
+  const [sendingAssessoriaChat, setSendingAssessoriaChat] = useState(false);
 
   // Copy state variables
   const [copiedReport, setCopiedReport] = useState(false);
@@ -6639,12 +7109,223 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
       alert("Erro ao copiar.");
     }
   };
+
+  const [copiedAllAnalyses, setCopiedAllAnalyses] = useState(false);
+
+  const getCompiledReportText = () => {
+    let compiled = `# RELATÓRIO INTEGRADO DE ANÁLISE DE LEILÃO\n`;
+    compiled += `Gerado automaticamente via Inteligência Artificial\n`;
+    compiled += `Data: ${new Date().toLocaleDateString('pt-BR')}\n`;
+    compiled += `===============================================\n\n`;
+
+    if (selectedProperty) {
+      compiled += `## IMÓVEL ANALISADO\n`;
+      compiled += `- **Título:** ${selectedProperty.title || 'Não Informado'}\n`;
+      compiled += `- **Endereço:** ${selectedProperty.address || 'Não Informado'}\n`;
+      compiled += `- **Valor de Avaliação:** R$ ${(selectedProperty.valuation_value || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}\n`;
+      compiled += `-----------------------------------------------\n\n`;
+    }
+
+    if (state.report) {
+      compiled += `## 1. PARECER GERAL E RECOMENDAÇÃO\n\n${state.report}\n\n`;
+    }
+
+    if (state.smartAnalysis) {
+      compiled += `## 2. ANÁLISE SMART DE RISCOS\n`;
+      compiled += `- **Score de Risco:** ${state.smartAnalysis.score_risco || 'N/A'}/10\n`;
+      compiled += `- **Classificação:** ${state.smartAnalysis.classificacao || 'N/A'}\n`;
+      compiled += `- **Viabilidade:** ${state.smartAnalysis.parecer_viabilidade || 'N/A'}\n\n`;
+      if (state.smartAnalysis.fatores_risco?.length) {
+        compiled += `### Fatores de Risco Identificados:\n`;
+        state.smartAnalysis.fatores_risco.forEach((f: any) => {
+          compiled += `- **[${f.categoria}]** ${f.descricao} (Severidade: ${f.severidade})\n`;
+        });
+        compiled += `\n`;
+      }
+    }
+
+    if (state.assessoriaAnalysis) {
+      compiled += `## 3. PARECER JURÍDICO DE ASSESSORIA\n`;
+      compiled += `- **Veredito:** ${state.assessoriaAnalysis.decisao_recomendada || 'N/A'}\n`;
+      compiled += `- **Ressalvas de Evicção:** ${state.assessoriaAnalysis.ressalvas_eviccao || 'N/A'}\n\n`;
+      if (state.assessoriaAnalysis.recomendacoes?.length) {
+        compiled += `### Recomendações Estratégicas:\n`;
+        state.assessoriaAnalysis.recomendacoes.forEach((r: any) => {
+          compiled += `- ${r}\n`;
+        });
+        compiled += `\n`;
+      }
+    }
+
+    if (state.dossierAnalysis) {
+      compiled += `## 4. DOSSIÊ DE ARREMATAÇÃO INTEGRADO\n\n${state.dossierAnalysis}\n\n`;
+    }
+
+    if (state.editalAnalysis) {
+      compiled += `## 5. ANÁLISE DETALHADA DO EDITAL\n\n${state.editalAnalysis}\n\n`;
+    }
+
+    if (state.matriculaAnalysis) {
+      compiled += `## 6. ANÁLISE DETALHADA DA MATRÍCULA\n\n${state.matriculaAnalysis}\n\n`;
+    }
+
+    if (state.processAnalysis) {
+      compiled += `## 7. ANÁLISE DE PROCESSOS JUDICIAIS\n\n${typeof state.processAnalysis === 'string' ? state.processAnalysis : JSON.stringify(state.processAnalysis, null, 2)}\n\n`;
+    }
+
+    return compiled;
+  };
+
+  const handleCopyAllAnalyses = async () => {
+    const text = getCompiledReportText();
+    await handleCopyText(text, setCopiedAllAnalyses);
+  };
+
+  const handleExportAllAnalyses = () => {
+    const text = getCompiledReportText();
+    const blob = new Blob([text], { type: 'text/markdown;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `Analise_Integrada_Leilao_${selectedProperty?.title?.replace(/\s+/g, '_') || 'Geral'}.md`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleResetAnalysis = (fullReset: boolean) => {
+    const message = fullReset 
+      ? "Tem certeza que deseja limpar todos os relatórios, análises, chats e documentos enviados? Esta ação não pode ser desfeita."
+      : "Tem certeza que deseja apagar as análises geradas por IA? Os arquivos enviados serão mantidos, mas os relatórios serão limpos.";
+      
+    if (confirm(message)) {
+      if (fullReset) {
+        const masterDefaults = getMasterBudgetConfigs();
+        updateState({
+          selectedPropertyId: '',
+          report: null,
+          editalAnalysis: null,
+          matriculaAnalysis: null,
+          dossierAnalysis: null,
+          smartAnalysis: null,
+          assessoriaAnalysis: null,
+          processAnalysis: null,
+          processStory: null,
+          adHocDocs: [],
+          cnjNumber: '',
+          cnjResult: null,
+          chatMessages: [],
+          simulationData: {
+            valuation: { value: 0, type: 'BRL' },
+            bid: { value: 0, type: 'BRL' },
+            saleValue: { value: 0, type: 'BRL' },
+            holdingMonths: 12,
+            strategy: 'venda',
+            expectedReturn: 15,
+            customExpenses: [],
+            assessoria: { value: masterDefaults.assessoria?.value ?? 6, type: masterDefaults.assessoria?.type ?? 'PERCENT', base: 'bid' },
+            entrada: { value: masterDefaults.entrada?.value ?? 1500, type: masterDefaults.entrada?.type ?? 'BRL' },
+            desocupacaoAcordo: { value: masterDefaults.desocupacaoAcordo?.value ?? 0, type: masterDefaults.desocupacaoAcordo?.type ?? 'BRL' },
+            desocupacaoDespesas: { value: 0, type: 'BRL' },
+            reformaMin: { value: masterDefaults.reforma?.value ?? 0, type: masterDefaults.reforma?.type ?? 'BRL' },
+            iptuAtraso: { value: 0, type: 'BRL' },
+            condominioAtraso: { value: 0, type: 'BRL' },
+            outrosAtraso: { value: 0, type: 'BRL' },
+            itbi: { value: masterDefaults.itbi?.value ?? 3, type: masterDefaults.itbi?.type ?? 'PERCENT', base: 'bid' },
+            escritura: { value: 1000, type: 'BRL' },
+            registro: { value: masterDefaults.transfRegistro?.value ?? 1.5, type: masterDefaults.transfRegistro?.type ?? 'PERCENT', base: 'bid' },
+            comissaoVenda: { value: 5, type: 'PERCENT', base: 'saleValue' },
+            outrosCustos: { value: masterDefaults.extraFees?.value ?? 0, type: masterDefaults.extraFees?.type ?? 'BRL' },
+            vendaHoldingMonths: { value: 0, type: 'BRL' },
+            vendaCondominioMonths: { value: 0, type: 'BRL' },
+            vendaIptuMonths: { value: 0, type: 'BRL' },
+            vendaOutrosMonths: { value: 0, type: 'BRL' },
+            downPaymentPercent: 100,
+            installments: 1,
+            interestRate: 0,
+            comparisonData: {
+              tesouro: { tir: 11.5, roi: 11.5 },
+              cdb: { tir: 12.0, roi: 12.0 },
+              poupanca: { tir: 6.5, roi: 6.5 }
+            }
+          },
+          activeSubTab: 'report'
+        });
+        setEditalChatMessages([{ role: 'assistant', content: 'Olá! Compartilhe suas dúvidas sobre as cláusulas, datas, condições de pagamento ou regras estabelecidas no edital deste leilão.' }]);
+        setMatriculaChatMessages([{ role: 'assistant', content: 'Olá! Compartilhe suas dúvidas sobre o registro da matrícula, proprietários anteriores, gravames e indisponibilidades deste imóvel.' }]);
+        setProcessosChatMessages([{ role: 'assistant', content: 'Olá! Estudo processual iniciado. Pergunte sobre os prazos de recursos, penhoras no processo ou riscos de suspensão do leilão.' }]);
+        setDossierChatMessages([{ role: 'assistant', content: 'Olá! Este é o chat do Dossiê de Arrematação Inteligente. Vamos debater as conclusões consolidadas do laudo, finanças e aspectos de segurança jurídica.' }]);
+        setDocumentsChatMessages([{ role: 'assistant', content: 'Olá! Sou seu assistente de gestão documental. Pergunte qualquer informação de dados ou incoerências nas peças enviadas.' }]);
+        setSmartAnalysisChatMessages([{ role: 'assistant', content: 'Olá! Este é o chat da Análise Smart de Riscos. Você pode perguntar sobre a pontuação de risco geral, ocupação do imóvel, histórico de ex-mutuários e mais.' }]);
+        setAssessoriaChatMessages([{ role: 'assistant', content: 'Olá! Este é o chat de Assessoria Jurídica Avançada. Fique à voltar para debater o parecer estratégico, riscos, ressalvas de evicção ou recomendações finais.' }]);
+      } else {
+        updateState({
+          report: null,
+          editalAnalysis: null,
+          matriculaAnalysis: null,
+          dossierAnalysis: null,
+          smartAnalysis: null,
+          assessoriaAnalysis: null,
+          processAnalysis: null,
+          processStory: null,
+          cnjResult: null,
+          chatMessages: [],
+          activeSubTab: 'report'
+        });
+        setEditalChatMessages([{ role: 'assistant', content: 'Olá! Compartilhe suas dúvidas sobre as cláusulas, datas, condições de pagamento ou regras estabelecidas no edital deste leilão.' }]);
+        setMatriculaChatMessages([{ role: 'assistant', content: 'Olá! Compartilhe suas dúvidas sobre o registro da matrícula, proprietários anteriores, gravames e indisponibilidades deste imóvel.' }]);
+        setProcessosChatMessages([{ role: 'assistant', content: 'Olá! Estudo processual iniciado. Pergunte sobre os prazos de recursos, penhoras no processo ou riscos de suspensão do leilão.' }]);
+        setDossierChatMessages([{ role: 'assistant', content: 'Olá! Este é o chat do Dossiê de Arrematação Inteligente. Vamos debater as conclusões consolidadas do laudo, finanças e aspectos de segurança jurídica.' }]);
+        setDocumentsChatMessages([{ role: 'assistant', content: 'Olá! Sou seu assistente de gestão documental. Pergunte qualquer informação de dados ou incoerências nas peças enviadas.' }]);
+        setSmartAnalysisChatMessages([{ role: 'assistant', content: 'Olá! Este é o chat da Análise Smart de Riscos. Você pode perguntar sobre a pontuação de risco geral, ocupação do imóvel, histórico de ex-mutuários e mais.' }]);
+        setAssessoriaChatMessages([{ role: 'assistant', content: 'Olá! Este é o chat de Assessoria Jurídica Avançada. Fique à vontade para debater o parecer estratégico, riscos, ressalvas de evicção ou recomendações finais.' }]);
+      }
+    }
+  };
+
   const { 
     activeSubTab, 
     selectedPropertyId, 
   } = state;
   const analysisDocs = selectedPropertyId ? propertyDocs : state.adHocDocs; // Use the passed props
   const currentDebts = selectedPropertyId ? propertyDebts : [];
+
+  const smartAnalysisDocs = useMemo(() => {
+    return analysisDocs.filter(d => d.doc_type && d.doc_type.startsWith('smart_analysis:'));
+  }, [analysisDocs]);
+
+  const assessoriaDocs = useMemo(() => {
+    return analysisDocs.filter(d => d.doc_type && d.doc_type.startsWith('assessoria:'));
+  }, [analysisDocs]);
+
+  const dossierDocs = useMemo(() => {
+    return analysisDocs.filter(d => d.doc_type && d.doc_type.startsWith('dossier:'));
+  }, [analysisDocs]);
+
+  const editalDocsFiltered = useMemo(() => {
+    return analysisDocs.filter(d => d.doc_type && (d.doc_type.startsWith('edital:') || d.doc_type === 'Edital'));
+  }, [analysisDocs]);
+
+  const matriculaDocsFiltered = useMemo(() => {
+    return analysisDocs.filter(d => d.doc_type && (d.doc_type.startsWith('matricula:') || d.doc_type === 'Matrícula' || d.doc_type === 'Matricula'));
+  }, [analysisDocs]);
+
+  const processDocsFiltered = useMemo(() => {
+    return analysisDocs.filter(d => d.doc_type && (d.doc_type.startsWith('processos:') || d.doc_type === 'Processo Judicial'));
+  }, [analysisDocs]);
+
+  const documentsDocsFiltered = useMemo(() => {
+    return analysisDocs.filter(d => d.doc_type && (
+      d.doc_type.startsWith('documents:') || 
+      (!d.doc_type.includes(':') && (
+        d.doc_type === 'Edital' || 
+        d.doc_type === 'Matrícula' || 
+        d.doc_type === 'Matricula' || 
+        d.doc_type === 'Processo Judicial' || 
+        d.doc_type === 'Outros'
+      ))
+    ));
+  }, [analysisDocs]);
 
   const handleNewAnalysis = () => {
     if (window.confirm("Deseja iniciar uma nova análise? Todos os dados da análise atual serão redefinidos.")) {
@@ -6707,6 +7388,7 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
   };
 
   const [analyzingSmart, setAnalyzingSmart] = useState(false);
+  const [analyzingAssessoria, setAnalyzingAssessoria] = useState(false);
 
   const handleSaveSmartAnalysis = async (updatedData: SmartAnalysisData) => {
     try {
@@ -6775,24 +7457,91 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
     }
   };
 
-  const handleAnalyzeSmart = async () => {
-    setAnalyzingSmart(true);
+  const handleSaveAssessoriaAnalysis = async (updatedData: AssessoriaAnalysisData) => {
     try {
-      if (analysisDocs.length === 0) {
-        throw new Error("Nenhum documento encontrado para análise. Faça o upload de pelo menos um documento.");
+      const selectedPropertyId = state.selectedPropertyId;
+      const analysisId = state.analysisId;
+      
+      if (!selectedPropertyId) {
+        updateState({ assessoriaAnalysis: updatedData });
+        if ((window as any).customToast) {
+          (window as any).customToast("Análise de Assessoria salva temporariamente (vincule a um imóvel para persistir)!", "info");
+        }
+        return;
       }
       
-      const fileParts = analysisDocs.map((doc: any) => {
+      const assessoriaJson = JSON.stringify(updatedData);
+      
+      if (!analysisId) {
+        const createRes = await fetch(`/api/ai-analyses`, {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            property_id: selectedPropertyId,
+            exec_summary: "Análise de Assessoria - Preenchido pelo Usuário",
+            financial_analysis: JSON.stringify(state.simulationData),
+            assessoria_analysis_json: assessoriaJson,
+            ia_used: "Manual"
+          })
+        });
+
+        if (createRes.ok) {
+          const createData = await parseJsonResponse(createRes);
+          updateState({ analysisId: createData.id, assessoriaAnalysis: updatedData });
+          fetchPropertyData(selectedPropertyId);
+        } else {
+          throw new Error("Erro ao criar registro da análise.");
+        }
+      } else {
+        const updateRes = await fetch(`/api/ai-analyses/${analysisId}`, {
+          method: 'PUT',
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            assessoria_analysis_json: assessoriaJson
+          })
+        });
+
+        if (updateRes.ok) {
+          updateState({ assessoriaAnalysis: updatedData });
+          fetchPropertyData(selectedPropertyId);
+        } else {
+          throw new Error("Erro ao atualizar análise.");
+        }
+      }
+      
+      if ((window as any).customToast) {
+        (window as any).customToast("Análise de Assessoria salva com sucesso!", "success");
+      }
+    } catch (err: any) {
+      console.error(err);
+      alert("Erro ao salvar Análise de Assessoria: " + err.message);
+    }
+  };
+
+  const handleAnalyzeSmart = async (docsToUse?: any[]) => {
+    setAnalyzingSmart(true);
+    try {
+      const activeDocs = (Array.isArray(docsToUse) ? docsToUse : null) || smartAnalysisDocs;
+      if (activeDocs.length === 0) {
+        throw new Error("Nenhum documento encontrado para a Análise Smart nesta aba. Por favor, envie os documentos nesta aba primeiro.");
+      }
+      
+      const fileParts = activeDocs.map((doc: any) => {
         let mimeType = 'application/pdf';
         if (doc.filename.toLowerCase().endsWith('.jpg') || doc.filename.toLowerCase().endsWith('.jpeg')) mimeType = 'image/jpeg';
         else if (doc.filename.toLowerCase().endsWith('.png')) mimeType = 'image/png';
         else if (doc.filename.toLowerCase().endsWith('.webp')) mimeType = 'image/webp';
 
-        const hasText = doc.extracted_text && doc.extracted_text.trim().length > 0;
         return {
           id: doc.id,
           filename: doc.filename,
-          data: !hasText && doc.data ? (doc.data.startsWith('data:') ? doc.data : `data:${mimeType};base64,${doc.data}`) : "",
+          data: doc.data ? (doc.data.startsWith('data:') ? doc.data : `data:${mimeType};base64,${doc.data}`) : "",
           mimeType: mimeType,
           extractedText: doc.extracted_text || ""
         };
@@ -6803,6 +7552,10 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
       
       const prompt = `Você é um advogado imobiliário sênior e especialista em leilões de imóveis (judiciais e extrajudiciais) no Brasil.
 Sua tarefa é analisar minuciosamente todos os documentos fornecidos do leilão (Edital, Matrícula de Cartório de Registro de Imóveis, e peças do processo judicial correspondente) e preencher um relatório estruturado em formato JSON contendo as informações jurídicas, de ocupação, financeiras e de riscos do leilão.
+
+DIRETRIZ CRÍTICA DE PREENCHIMENTO AUTOMÁTICO DOS CHECKLISTS:
+- Na Análise da Matrícula (CRI): analise todas as averbações (AV-) e registros (R-). Marque true para matricula_atualizada, tem_onus, tem_penhora, tem_hipoteca, alienacao_fiduciaria, indisponibilidade ou acao_reipersecutoria se identificados na leitura das páginas da matrícula.
+- No Risco de Nulidade do Leilão: verifique o processo e o edital e marque true para os requisitos preenchidos/válidos: citacao_regular, intimacao_penhora, intimacao_leilao_executado, intimacao_credor_fiduciario, coproprietario_intimado, publicacao_edital_ok, e preco_vil (quando lance mínimo for >50% ou dentro do limite legal).
 
 Você deve responder APENAS com um objeto JSON válido, sem texto explicativo antes ou depois, seguindo estritamente este esquema de chaves e tipos de valores:
 
@@ -6830,6 +7583,13 @@ Você deve responder APENAS com um objeto JSON válido, sem texto explicativo an
   "observacoes_desocupacao": "Análise da dificuldade esperada de desocupação baseada no tipo de ocupante e nos recursos vigentes",
   
   "risco_geral_nulidade": "Baixo" | "Médio" | "Alto",
+  "citacao_regular": false,
+  "intimacao_penhora": false,
+  "intimacao_leilao_executado": false,
+  "intimacao_credor_fiduciario": false,
+  "coproprietario_intimado": false,
+  "publicacao_edital_ok": false,
+  "preco_vil": false,
   "vicio_citacao": false,
   "vicio_avaliacao": false,
   "vicio_publicacao": false,
@@ -6849,7 +7609,7 @@ Você deve responder APENAS com um objeto JSON válido, sem texto explicativo an
   "alienacao_fiduciaria": false,
   "indisponibilidade": false,
   "acao_reipersecutoria": false,
-  "observacoes_matricula": "Destaque todos os ônus, penhoras e restrições encontrados na matrícula e seus respectivos cancelamentos ou riscos",
+  "observacoes_matricula": "Destaque exaustivamente todos os ônus, penhoras e restrições encontrados na matrícula e seus respectivos cancelamentos ou riscos",
   
   "status_ocupacao": "Ocupado pelo ex-mutuário" | "Ocupado por terceiro" | "Invasão" | "Desocupado",
   "relacao_ex_mutuario": "O próprio" | "Parente" | "Inquilino" | "Desconhecido",
@@ -6862,12 +7622,12 @@ Você deve responder APENAS com um objeto JSON válido, sem texto explicativo an
 
   "tipo_imovel": "Casa" | "Apartamento" | "Terreno" | "Comercial" | "Outros" | "Selecione",
   "numero_matricula": "Número de matrícula do imóvel se encontrado, senão vazio",
-  "cartorio_registro": "Nome do Cartório de Registro de Imóveis (ex: 1º CRI de São Paulo) se encontrado, senão vazio",
-  "area_terreno": 250.00,
-  "area_privativa": 69.00,
-  "area_util": 69.00,
-  "area_construida": 110.00,
-  "observacoes_imovel": "Descrição física detalhada do imóvel encontrada na matrícula (ex: número de quartos, garagens, confrontações, etc.)",
+  "cartorio_registro": "Nome do Cartório de Registro de Imóveis (ex: 1º CRI da Comarca do Imóvel) se encontrado, senão vazio",
+  "area_terreno": 0.00,
+  "area_privativa": 0.00,
+  "area_util": 0.00,
+  "area_construida": 0.00,
+  "observacoes_imovel": "Descrição física detalhada do imóvel e metragens exatas encontradas na matrícula (ex: número de quartos, garagens, confrontações, etc.)",
 
   "nome_ex_mutuario": "Nome completo do devedor / ex-mutuário / executado principal",
   "cpf_ex_mutuario": "CPF ou CNPJ do devedor / ex-mutuário / executado principal",
@@ -6891,32 +7651,157 @@ Importante: se uma informação não for encontrada nos documentos, use o valor 
       
       let parsedData: SmartAnalysisData;
       try {
-        let cleanJson = rawResult || "";
-        if (cleanJson.includes("```json")) {
-          cleanJson = cleanJson.split("```json")[1].split("```")[0].trim();
-        } else if (cleanJson.includes("```")) {
-          cleanJson = cleanJson.split("```")[1].split("```")[0].trim();
-        }
-        parsedData = JSON.parse(cleanJson);
+        parsedData = robustParseJSON(rawResult || "");
       } catch (err) {
         console.error("Erro ao parsear JSON do resultado da IA:", rawResult, err);
         throw new Error("A IA não retornou um formato JSON estruturado compatível. Tente novamente.");
       }
       
-      const mergedData = { ...getEmptySmartAnalysis(), ...parsedData };
+      const mergedData = { 
+        ...getEmptySmartAnalysis(), 
+        justificativa_pessoal: state.smartAnalysis?.justificativa_pessoal || '',
+        ...parsedData 
+      };
       await handleSaveSmartAnalysis(mergedData);
       
     } catch (err: any) {
       console.error(err);
-      alert("Erro ao realizar Análise Smart: " + err.message);
+      if ((window as any).customToast) {
+        (window as any).customToast("Erro ao realizar Análise Smart: " + err.message, "error");
+      }
     } finally {
       setAnalyzingSmart(false);
     }
   };
 
-  const handleAnalyzeEdital = async () => {
-    const docs = analysisDocs.filter(d => d.doc_type === 'Edital');
-    if (docs.length === 0) { alert("Nenhum Edital encontrado."); return; }
+  const handleAnalyzeAssessoria = async () => {
+    setAnalyzingAssessoria(true);
+    try {
+      if (assessoriaDocs.length === 0) {
+        throw new Error("Nenhum documento encontrado para a Análise de Assessoria nesta aba. Por favor, envie os documentos nesta aba primeiro.");
+      }
+      
+      const fileParts = assessoriaDocs.map((doc: any) => {
+        let mimeType = 'application/pdf';
+        if (doc.filename.toLowerCase().endsWith('.jpg') || doc.filename.toLowerCase().endsWith('.jpeg')) mimeType = 'image/jpeg';
+        else if (doc.filename.toLowerCase().endsWith('.png')) mimeType = 'image/png';
+        else if (doc.filename.toLowerCase().endsWith('.webp')) mimeType = 'image/webp';
+
+        const hasText = doc.extracted_text && doc.extracted_text.trim().length > 0;
+        return {
+          id: doc.id,
+          filename: doc.filename,
+          data: !hasText && doc.data ? (doc.data.startsWith('data:') ? doc.data : `data:${mimeType};base64,${doc.data}`) : "",
+          mimeType: mimeType,
+          extractedText: doc.extracted_text || ""
+        };
+      });
+
+      const userApiKey = resolveApiKey(state.selectedKeySource, state.aiConfig, state.selectedModel || 'gemini-2.5-flash') || "";
+      const finalApiKey = userApiKey || undefined;
+      
+      const prompt = `Você é um advogado imobiliário especialista sênior em assessoria e pareceres de leilões de imóveis judiciais e extrajudiciais no Brasil.
+Analise detalhadamente todos os documentos fornecidos do leilão (Edital, Matrícula do Imóvel, e peças do processo judicial) e extraia um relatório estruturado de assessoria jurídica em formato JSON.
+
+Sua resposta deve ser APENAS um objeto JSON válido, sem qualquer bloco de código markdown ou texto explicativo extra. Siga estritamente este esquema e tipos de dados:
+{
+  "responsabilidade_debitos": "Arrematante" ou "Comitente vendedor/sub-rogação de preço",
+  "direito_eviccao": "Sim" ou "Não",
+  "ressalvas_eviccao": "Detalhe as ressalvas ou cláusulas regulamentares de evicção do edital",
+  "divida_condominio": "Sim" ou "Não",
+  "divida_iptu": "Sim" ou "Não",
+  "comentarios_debitos": "Análise técnica detalhada das dívidas de IPTU e condomínio mencionadas",
+  "itens_matricula": [
+    { "item": "Ex: R.03", "descricao": "Ex: Alienação fiduciária cancelada ou averbação de penhora" }
+  ],
+  "comentarios_matricula": "Consolidação e análise técnica dos ônus encontrados na matrícula",
+  "data_matricula": "Data do documento da matrícula ou última averbação no formato AAAA-MM-DD",
+  "tamanho_cidade": "20 a 50 mil hab." ou "50 a 300 mil hab." ou "+300 mil hab.",
+  "entorno_imovel": "Estagnado" ou "Em crescimento" ou "Consolidado",
+  "bairro": "Razoável" ou "Bom" ou "Desejado",
+  "e_casa": "Sim" ou "Não",
+  "e_condominio": "Sim" ou "Não",
+  "lance_maximo_sugerido": "Valor sugerido ou estimado com base nos dados do edital, ex: 350.000,00",
+  "ocupacao": "Ocupado" ou "Desocupado",
+  "intimacao_registro": "Sim" ou "Não",
+  "forma_intimacao": "Pessoal" ou "Por edital" ou "Condomínio" ou "Não se sabe",
+  "notificacao_datas": "Sim" ou "Não" ou "Não se sabe",
+  "observacoes_purga_mora": "Observações sobre a regularidade da intimação para a purga de mora",
+  "leiloes_negativos_averbados": "Sim" ou "Não",
+  "observacoes_leiloes_negativos": "Histórico de leilões negativos passados",
+  "comentarios_viabilidade": "Análise geral de viabilidade jurídica do leilão e riscos processuais",
+  "acoes_judiciais": ["Cobrança de débitos tributários", "Cobrança de dívidas condominiais", "Ação anulatória", "Execução fiscal"],
+  "risco_juridico": "Nulo" ou "Baixo" ou "Médio" ou "Alto",
+  "comentarios_adicionais": "Qualquer observação processual adicional sobre as ações judiciais",
+  "comentarios_recomendacoes_finais": "Parecer conclusivo com recomendações detalhadas para o investidor / arrematante"
+}`;
+      
+      const rawResult = await analyzeAuctionDocuments(
+        fileParts, 
+        prompt, 
+        state.selectedModel || 'gemini-2.5-flash', 
+        finalApiKey, 
+        state.auctionUrls, 
+        'assessoria_analysis'
+      );
+      
+      let parsedData: AssessoriaAnalysisData;
+      try {
+        parsedData = robustParseJSON(rawResult || "");
+      } catch (err) {
+        console.error("Erro ao parsear JSON do resultado da assessoria:", rawResult, err);
+        throw new Error("A IA não retornou um formato JSON de assessoria válido. Tente novamente.");
+      }
+      
+      const mergedData = { ...getEmptyAssessoriaAnalysis(), ...parsedData };
+      await handleSaveAssessoriaAnalysis(mergedData);
+      
+    } catch (err: any) {
+      console.error(err);
+      alert("Erro ao realizar Análise de Assessoria: " + err.message);
+    } finally {
+      setAnalyzingAssessoria(false);
+    }
+  };
+
+  const savePartialAnalysisToDb = async (fields: Record<string, any>) => {
+    if (!selectedPropertyId) return;
+    try {
+      if (state.analysisId) {
+        await fetch(`/api/ai-analyses/${state.analysisId}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(fields)
+        });
+      } else {
+        const res = await fetch(`/api/ai-analyses`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            property_id: selectedPropertyId,
+            ia_used: state.selectedModel || "gemini-2.5-flash",
+            ...fields
+          })
+        });
+        if (res.ok) {
+          const data = await parseJsonResponse(res);
+          updateState({ analysisId: data.id });
+        }
+      }
+    } catch (err) {
+      console.error("Erro ao persistir análise parcial no banco de dados:", err);
+    }
+  };
+
+  const triggerAutomaticEditalAnalysis = async (docsToUse: any[]) => {
+    const docs = docsToUse.filter(d => d.doc_type && (d.doc_type === 'Edital' || d.doc_type.toLowerCase() === 'edital' || d.doc_type.endsWith(':Edital') || d.doc_type.endsWith(':edital')));
+    if (docs.length === 0) return;
     setAnalyzing(true);
     try {
       const fileParts = docs.map(doc => {
@@ -6928,20 +7813,150 @@ Importante: se uma informação não for encontrada nos documentos, use o valor 
         return {
           id: doc.id,
           filename: doc.filename,
-          data: doc.id ? "" : (!doc.extracted_text && doc.data ? (doc.data.startsWith('data:') ? doc.data : `data:${mimeType};base64,${doc.data}`) : ""),
+          data: doc.data ? (doc.data.startsWith('data:') ? doc.data : `data:${mimeType};base64,${doc.data}`) : "",
           mimeType: mimeType,
-          extractedText: doc.id ? "" : (doc.extracted_text || "")
+          extractedText: doc.extracted_text || doc.extractedText || ""
         };
       });
       const userApiKey = resolveApiKey(state.selectedKeySource, state.aiConfig, state.selectedModel || 'gemini-2.5-flash') || "";
-      const analysis = await analyzeAuctionDocuments(fileParts, "Analise o Edital", state.selectedModel || 'gemini-2.5-flash', userApiKey || undefined, [], 'edital');
+      const editalPrompt = "Analise o Edital detalhadamente linha por linha, extraindo todas as informações financeiras, datas, leiloeiro, e débitos de IPTU e condomínio." + getCustomInstructionsPrompt(state);
+      const analysis = await analyzeAuctionDocuments(fileParts, editalPrompt, state.selectedModel || 'gemini-2.5-flash', userApiKey || undefined, [], 'edital');
+      setState(prev => ({ ...prev, editalAnalysis: analysis }));
+      
+      if (selectedPropertyId) {
+        await savePartialAnalysisToDb({ edital_analysis: analysis });
+      }
+    } catch (err) { 
+      console.error("Erro ao analisar Edital automaticamente:", err); 
+    } finally { 
+      setAnalyzing(false); 
+    }
+  };
+
+  const triggerAutomaticMatriculaAnalysis = async (docsToUse: any[]) => {
+    const docs = docsToUse.filter(d => d.doc_type && (d.doc_type === 'Matrícula' || d.doc_type === 'Matricula' || d.doc_type.toLowerCase() === 'matricula' || d.doc_type.endsWith(':Matrícula') || d.doc_type.endsWith(':Matricula') || d.doc_type.endsWith(':matricula')));
+    if (docs.length === 0) return;
+    setAnalyzing(true);
+    try {
+      const fileParts = docs.map(doc => {
+        let mimeType = 'application/pdf';
+        if (doc.filename.toLowerCase().endsWith('.jpg') || doc.filename.toLowerCase().endsWith('.jpeg')) mimeType = 'image/jpeg';
+        else if (doc.filename.toLowerCase().endsWith('.png')) mimeType = 'image/png';
+        else if (doc.filename.toLowerCase().endsWith('.webp')) mimeType = 'image/webp';
+
+        return {
+          id: doc.id,
+          filename: doc.filename,
+          data: doc.data ? (doc.data.startsWith('data:') ? doc.data : `data:${mimeType};base64,${doc.data}`) : "",
+          mimeType: mimeType,
+          extractedText: doc.extracted_text || doc.extractedText || ""
+        };
+      });
+      const userApiKey = resolveApiKey(state.selectedKeySource, state.aiConfig, state.selectedModel || 'gemini-2.5-flash') || "";
+      const matriculaPrompt = "Analise a Matrícula detalhadamente, identificando proprietários, alienações, consolidação, gravames e ônus." + getCustomInstructionsPrompt(state);
+      const analysis = await analyzeAuctionDocuments(fileParts, matriculaPrompt, state.selectedModel || 'gemini-2.5-flash', userApiKey || undefined, [], 'matricula');
+      setState(prev => ({ ...prev, matriculaAnalysis: analysis }));
+      
+      if (selectedPropertyId) {
+        await savePartialAnalysisToDb({ matricula_analysis: analysis });
+      }
+    } catch (err) { 
+      console.error("Erro ao analisar Matrícula automaticamente:", err); 
+    } finally { 
+      setAnalyzing(false); 
+    }
+  };
+
+  const triggerAutomaticProcessAnalysis = async (docsToUse: any[]) => {
+    let processDocs = docsToUse.filter(d => d.doc_type && (d.doc_type === 'Processo Judicial' || d.doc_type.toLowerCase() === 'processo judicial' || d.doc_type.endsWith(':Processo Judicial') || d.doc_type.endsWith(':processo judicial')));
+    if (processDocs.length === 0) {
+      processDocs = docsToUse.filter(d => d.doc_type && (d.doc_type === 'Edital' || d.doc_type?.toLowerCase() === 'edital' || d.doc_type.endsWith(':Edital') || d.doc_type === 'Matrícula' || d.doc_type?.toLowerCase() === 'matricula' || d.doc_type?.toLowerCase() === 'matrícula' || d.doc_type.endsWith(':Matrícula') || d.doc_type.endsWith(':Matricula')));
+    }
+    if (processDocs.length === 0) {
+      processDocs = docsToUse;
+    }
+    if (processDocs.length === 0) return;
+    
+    setAnalyzing(true);
+    try {
+      const fileParts = processDocs.map(doc => {
+        let mimeType = 'application/pdf';
+        if (doc.filename.toLowerCase().endsWith('.jpg') || doc.filename.toLowerCase().endsWith('.jpeg')) mimeType = 'image/jpeg';
+        else if (doc.filename.toLowerCase().endsWith('.png')) mimeType = 'image/png';
+        else if (doc.filename.toLowerCase().endsWith('.webp')) mimeType = 'image/webp';
+
+        return {
+          id: doc.id,
+          filename: doc.filename,
+          data: doc.data ? (doc.data.startsWith('data:') ? doc.data : `data:${mimeType};base64,${doc.data}`) : "",
+          mimeType: mimeType,
+          extractedText: doc.extracted_text || doc.extractedText || ""
+        };
+      });
+      const selectedProperty = properties.find(p => p.id === selectedPropertyId);
+      const propertyContext = selectedProperty ? `\n\nIMÓVEL EM LEILÃO: ${selectedProperty.title}` : "\n\nIMÓVEL EM LEILÃO: Não especificado.";
+      const processesPrompt = `Analise detalhadamente cada documento ou peça do processo judicial anexado para identificar e resumir quaisquer riscos relacionados à arrematação do imóvel.
+
+      ${propertyContext}
+
+      Para cada documento analisado, identifique os seguintes pontos de impacto:
+      1. NOME DETALHADO DO DOCUMENTO (Petição, Decisão, Recurso, Certidão, etc.).
+      2. OBJETIVO PRINCIPAL: Qual a pretensão da peça ou o teor da decisão?
+      3. DISCUSSÕES SOBRE NULIDADES: Há alguma alegação de falta de intimação regular (de cônjuge, coproprietário, credor hipotecário, etc.), preço vil ou irregularidade processual?
+      4. RECURSOS PENDENTES: Quais recursos estão tramitando ou podem ser interpostos? Há pedidos de suspensão do leilão em andamento?
+      5. IMPACTO POTENCIAL NA POSSE: Qual o efeito da peça na imissão/obtenção da posse pelo arrematante (ex: resistência activa dos ocupantes, embargos à adjudicação ou à execução)?
+
+      Ao final, apresente um PARECER CONSOLIDADO DE RISCO PROCESSUAL:
+      - Classificação Geral de Risco (Baixo, Médio ou Alto).
+      - Risco de Anulação do Leilão (Sim/Não - Justificado).
+      - Estimativa de Tempo de Desocupação / Ganho de Posse.
+      - Recomendação Estratégica Executiva (Se vale a pena arrematar e quais cautelas adotar).
+
+      Formate toda a resposta em português do Brasil, utilizando uma estrutura visual rica e limpa em Markdown, destacando os alertas cruciais.` + getCustomInstructionsPrompt(state);
+      
+      const userApiKey = resolveApiKey(state.selectedKeySource, state.aiConfig, state.selectedModel || 'gemini-2.5-flash') || "";
+      const analysis = await analyzeAuctionDocuments(fileParts, processesPrompt, state.selectedModel || 'gemini-2.5-flash', userApiKey || undefined, [], 'processo');
+      setState(prev => ({ ...prev, processAnalysis: analysis }));
+      
+      if (selectedPropertyId) {
+        await savePartialAnalysisToDb({ process_analysis: analysis });
+      }
+    } catch (err) { 
+      console.error("Erro ao analisar Processo automaticamente:", err); 
+    } finally { 
+      setAnalyzing(false); 
+    }
+  };
+
+  const handleAnalyzeEdital = async () => {
+    const docs = editalDocsFiltered;
+    if (docs.length === 0) { alert("Nenhum Edital encontrado nesta aba. Por favor, envie o Edital nesta aba primeiro."); return; }
+    setAnalyzing(true);
+    try {
+      const fileParts = docs.map(doc => {
+        let mimeType = 'application/pdf';
+        if (doc.filename.toLowerCase().endsWith('.jpg') || doc.filename.toLowerCase().endsWith('.jpeg')) mimeType = 'image/jpeg';
+        else if (doc.filename.toLowerCase().endsWith('.png')) mimeType = 'image/png';
+        else if (doc.filename.toLowerCase().endsWith('.webp')) mimeType = 'image/webp';
+
+        return {
+          id: doc.id,
+          filename: doc.filename,
+          data: doc.data ? (doc.data.startsWith('data:') ? doc.data : `data:${mimeType};base64,${doc.data}`) : "",
+          mimeType: mimeType,
+          extractedText: doc.extracted_text || doc.extractedText || ""
+        };
+      });
+      const userApiKey = resolveApiKey(state.selectedKeySource, state.aiConfig, state.selectedModel || 'gemini-2.5-flash') || "";
+      const editalPrompt = "Analise o Edital detalhadamente linha por linha, extraindo todas as informações financeiras, datas, leiloeiro, e débitos de IPTU e condomínio." + getCustomInstructionsPrompt(state);
+      const analysis = await analyzeAuctionDocuments(fileParts, editalPrompt, state.selectedModel || 'gemini-2.5-flash', userApiKey || undefined, [], 'edital');
       setState(prev => ({ ...prev, editalAnalysis: analysis }));
     } catch (err) { console.error(err); alert("Erro ao analisar Edital."); } finally { setAnalyzing(false); }
   };
 
   const handleAnalyzeMatricula = async () => {
-    const docs = analysisDocs.filter(d => d.doc_type === 'Matrícula');
-    if (docs.length === 0) { alert("Nenhuma Matrícula encontrada."); return; }
+    const docs = matriculaDocsFiltered;
+    if (docs.length === 0) { alert("Nenhuma Matrícula encontrada nesta aba. Por favor, envie a Matrícula nesta aba primeiro."); return; }
     setAnalyzing(true);
     try {
       const fileParts = docs.map(doc => {
@@ -6953,31 +7968,24 @@ Importante: se uma informação não for encontrada nos documentos, use o valor 
         return {
           id: doc.id,
           filename: doc.filename,
-          data: doc.id ? "" : (!doc.extracted_text && doc.data ? (doc.data.startsWith('data:') ? doc.data : `data:${mimeType};base64,${doc.data}`) : ""),
+          data: doc.data ? (doc.data.startsWith('data:') ? doc.data : `data:${mimeType};base64,${doc.data}`) : "",
           mimeType: mimeType,
-          extractedText: doc.id ? "" : (doc.extracted_text || "")
+          extractedText: doc.extracted_text || doc.extractedText || ""
         };
       });
       const userApiKey = resolveApiKey(state.selectedKeySource, state.aiConfig, state.selectedModel || 'gemini-2.5-flash') || "";
-      const analysis = await analyzeAuctionDocuments(fileParts, "Analise a Matrícula", state.selectedModel || 'gemini-2.5-flash', userApiKey || undefined, [], 'matricula');
+      const matriculaPrompt = "Analise a Matrícula detalhadamente, identificando proprietários, alienações, consolidação, gravames e ônus." + getCustomInstructionsPrompt(state);
+      const analysis = await analyzeAuctionDocuments(fileParts, matriculaPrompt, state.selectedModel || 'gemini-2.5-flash', userApiKey || undefined, [], 'matricula');
       setState(prev => ({ ...prev, matriculaAnalysis: analysis }));
     } catch (err) { console.error(err); alert("Erro ao analisar Matrícula."); } finally { setAnalyzing(false); }
   };
 
   const handleAnalyzeProcesses = async () => {
-    let processDocs = analysisDocs.filter(d => d.doc_type === 'Processo Judicial');
+    let processDocs = processDocsFiltered;
     
-    // Fallback: use other documents (like Edital/Matrícula) which usually describe process details
+    // Only block if we have absolutely nothing uploaded at all in the procesos tab
     if (processDocs.length === 0) {
-      processDocs = analysisDocs.filter(d => d.doc_type === 'Edital' || d.doc_type === 'Matrícula');
-    }
-    if (processDocs.length === 0) {
-      processDocs = analysisDocs;
-    }
-    
-    // Only block if we have absolutely nothing uploaded at all
-    if (processDocs.length === 0) {
-      alert("Nenhum documento (Edital, Matrícula ou Processo) disponível para análise. Envie pelo menos um documento.");
+      alert("Nenhum documento de Processo Judicial encontrado nesta aba. Por favor, envie os documentos processuais nesta aba primeiro.");
       return;
     }
     
@@ -6992,9 +8000,9 @@ Importante: se uma informação não for encontrada nos documentos, use o valor 
         return {
           id: doc.id,
           filename: doc.filename,
-          data: doc.id ? "" : (!doc.extracted_text && doc.data ? (doc.data.startsWith('data:') ? doc.data : `data:${mimeType};base64,${doc.data}`) : ""),
+          data: doc.data ? (doc.data.startsWith('data:') ? doc.data : `data:${mimeType};base64,${doc.data}`) : "",
           mimeType: mimeType,
-          extractedText: doc.id ? "" : (doc.extracted_text || "")
+          extractedText: doc.extracted_text || doc.extractedText || ""
         };
       });
       
@@ -7017,7 +8025,7 @@ Importante: se uma informação não for encontrada nos documentos, use o valor 
       - Estimativa de Tempo de Desocupação / Ganho de Posse.
       - Recomendação Estratégica Executiva (Se vale a pena arrematar e quais cautelas adotar).
 
-      Formate toda a resposta em português do Brasil, utilizando uma estrutura visual rica e limpa em Markdown, destacando os alertas cruciais.`;
+      Formate toda a resposta em português do Brasil, utilizando uma estrutura visual rica e limpa em Markdown, destacando os alertas cruciais.` + getCustomInstructionsPrompt(state);
       
       const userApiKey = resolveApiKey(state.selectedKeySource, state.aiConfig, state.selectedModel || 'gemini-2.5-flash') || "";
       const analysis = await analyzeAuctionDocuments(fileParts, prompt, state.selectedModel || 'gemini-2.5-flash', userApiKey || undefined, [], 'processo');
@@ -7031,9 +8039,9 @@ Importante: se uma informação não for encontrada nos documentos, use o valor 
   };
 
   const handleAnalyzeDossier = async () => {
-    const docs = analysisDocs;
+    const docs = dossierDocs;
     if (docs.length === 0) {
-      alert("Nenhum documento encontrado. Envie a matrícula, edital e processos primeiro.");
+      alert("Nenhum documento encontrado na aba Dossiê. Por favor, envie os documentos de Matrícula, Edital e Processos na aba Dossiê primeiro.");
       return;
     }
     setAnalyzing(true);
@@ -7047,13 +8055,14 @@ Importante: se uma informação não for encontrada nos documentos, use o valor 
         return {
           id: doc.id,
           filename: doc.filename,
-          data: doc.id ? "" : (!doc.extracted_text && doc.data ? (doc.data.startsWith('data:') ? doc.data : `data:${mimeType};base64,${doc.data}`) : ""),
+          data: doc.data ? (doc.data.startsWith('data:') ? doc.data : `data:${mimeType};base64,${doc.data}`) : "",
           mimeType: mimeType,
-          extractedText: doc.id ? "" : (doc.extracted_text || "")
+          extractedText: doc.extracted_text || doc.extractedText || ""
         };
       });
       const userApiKey = resolveApiKey(state.selectedKeySource, state.aiConfig, state.selectedModel || 'gemini-2.5-flash') || "";
-      const analysis = await analyzeAuctionDocuments(fileParts, "Gere o Dossiê de Arrematação Inteligente", state.selectedModel || 'gemini-2.5-flash', userApiKey || undefined, state.auctionUrls, 'dossier');
+      const dossierPrompt = "Gere o Dossiê de Arrematação Inteligente" + getCustomInstructionsPrompt(state);
+      const analysis = await analyzeAuctionDocuments(fileParts, dossierPrompt, state.selectedModel || 'gemini-2.5-flash', userApiKey || undefined, state.auctionUrls, 'dossier');
       setState(prev => ({ ...prev, dossierAnalysis: analysis }));
 
       // Auto-save if there's an active analysis and property
@@ -7148,6 +8157,32 @@ Importante: se uma informação não for encontrada nos documentos, use o valor 
     if (!propertyId) {
       try {
         const title = cnjResult ? `Leilão: ${cnjResult.cnj_number}` : `Análise IA: ${new Date().toLocaleDateString()}`;
+        
+        let shareCity = 'Cidade extraída';
+        let shareState = 'Estado';
+        if (cnjResult) {
+          const loc = detectCityAndStateFromText(`${cnjResult.chamber || ''} ${cnjResult.court || ''}`);
+          if (loc.city) shareCity = loc.city;
+          if (loc.state) shareState = loc.state;
+        }
+        if ((!shareCity || shareCity === 'Cidade extraída') && state.processStory?.full_story) {
+          const loc = detectCityAndStateFromText(state.processStory.full_story);
+          if (loc.city) shareCity = loc.city;
+          if (loc.state) shareState = loc.state;
+        }
+        if ((!shareCity || shareCity === 'Cidade extraída') && adHocDocs && adHocDocs.length > 0) {
+          for (const doc of adHocDocs) {
+            if (doc.extractedText) {
+              const loc = detectCityAndStateFromText(doc.extractedText);
+              if (loc.city) {
+                shareCity = loc.city;
+                if (loc.state) shareState = loc.state;
+                break;
+              }
+            }
+          }
+        }
+
         const res = await fetch('/api/properties', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
@@ -7156,8 +8191,8 @@ Importante: se uma informação não for encontrada nos documentos, use o valor 
             type: 'Apartamento',
             modality: 'Judicial',
             address: 'Endereço extraído do processo...',
-            city: 'Cidade extraída',
-            state: 'Estado',
+            city: shareCity,
+            state: shareState,
             valuation_value: simulationData.valuation?.value || 0,
             min_bid: simulationData.bid?.value || 0,
             expected_sale_value: simulationData.saleValue?.value || 0
@@ -7263,6 +8298,14 @@ Importante: se uma informação não for encontrada nos documentos, use o valor 
               console.error("Erro ao parsear smart_analysis_json de banco:", e);
             }
           }
+          let parsedAssessoriaAnalysis = null;
+          if (latest.assessoria_analysis_json) {
+            try {
+              parsedAssessoriaAnalysis = JSON.parse(latest.assessoria_analysis_json);
+            } catch (e) {
+              console.error("Erro ao parsear assessoria_analysis_json de banco:", e);
+            }
+          }
           updateState({ 
             report: latest.exec_summary, 
             selectedModel: latest.ia_used,
@@ -7272,6 +8315,7 @@ Importante: se uma informação não for encontrada nos documentos, use o valor 
             processAnalysis: latest.process_analysis || null,
             dossierAnalysis: latest.dossier_analysis || null,
             smartAnalysis: parsedSmartAnalysis || getEmptySmartAnalysis(),
+            assessoriaAnalysis: parsedAssessoriaAnalysis || getEmptyAssessoriaAnalysis(),
             ...(parsedSimulationData ? { simulationData: parsedSimulationData } : {})
           });
         } else {
@@ -7285,6 +8329,7 @@ Importante: se uma informação não for encontrada nos documentos, use o valor 
               processAnalysis: null,
               dossierAnalysis: null,
               smartAnalysis: getEmptySmartAnalysis(),
+              assessoriaAnalysis: getEmptyAssessoriaAnalysis(),
               simulationData: {
                 ...(prev.simulationData || {}),
                 valuation: { value: prop.valuation_value || 0, type: 'BRL' },
@@ -7300,7 +8345,8 @@ Importante: se uma informação não for encontrada nos documentos, use o valor 
               matriculaAnalysis: null,
               processAnalysis: null,
               dossierAnalysis: null,
-              smartAnalysis: getEmptySmartAnalysis()
+              smartAnalysis: getEmptySmartAnalysis(),
+              assessoriaAnalysis: getEmptyAssessoriaAnalysis()
             });
           }
         }
@@ -7357,32 +8403,66 @@ Importante: se uma informação não for encontrada nos documentos, use o valor 
   };
 
   const handleSaveAsProperty = async () => {
-    try {
-      const defaultTitle = cnjResult ? `Leilão: ${cnjResult.cnj_number}` : `Análise IA: ${new Date().toLocaleDateString('pt-BR')}`;
-      const titleInput = window.prompt("Escolha um nome para salvar a análise:", defaultTitle);
-      if (titleInput === null) return; // cancelado pelo usuário
+    const defaultTitle = cnjResult ? `Leilão: ${cnjResult.cnj_number}` : `Análise IA: ${new Date().toLocaleDateString('pt-BR')}`;
+    
+    const saveAction = async (titleInput: string) => {
       const title = titleInput.trim() || defaultTitle;
-      
-      const res = await fetch('/api/properties', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({
-          title: title,
-          type: 'Apartamento',
-          modality: 'Judicial',
-          address: 'Endereço extraído do processo...',
-          city: 'Cidade extraída',
-          state: 'Estado',
-          valuation_value: simulationData.valuation?.value || 0,
-          min_bid: simulationData.bid?.value || 0,
-          expected_sale_value: simulationData.saleValue?.value || 0
-        })
-      });
-      if (res.ok) {
+      try {
+        let saveCity = 'Cidade extraída';
+        let saveState = 'Estado';
+        if (cnjResult) {
+          const loc = detectCityAndStateFromText(`${cnjResult.chamber || ''} ${cnjResult.court || ''}`);
+          if (loc.city) saveCity = loc.city;
+          if (loc.state) saveState = loc.state;
+        }
+        if ((!saveCity || saveCity === 'Cidade extraída') && state.processStory?.full_story) {
+          const loc = detectCityAndStateFromText(state.processStory.full_story);
+          if (loc.city) saveCity = loc.city;
+          if (loc.state) saveState = loc.state;
+        }
+        if ((!saveCity || saveCity === 'Cidade extraída') && adHocDocs && adHocDocs.length > 0) {
+          for (const doc of adHocDocs) {
+            if (doc.extractedText) {
+              const loc = detectCityAndStateFromText(doc.extractedText);
+              if (loc.city) {
+                saveCity = loc.city;
+                if (loc.state) saveState = loc.state;
+                break;
+              }
+            }
+          }
+        }
+
+        const res = await fetch('/api/properties', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({
+            title: title,
+            type: 'Apartamento',
+            modality: 'Judicial',
+            address: 'Endereço extraído do processo...',
+            city: saveCity,
+            state: saveState,
+            valuation_value: simulationData.valuation?.value || 0,
+            min_bid: simulationData.bid?.value || 0,
+            expected_sale_value: simulationData.saleValue?.value || 0
+          })
+        });
+
+        if (!res.ok) {
+          let errorMsg = 'Erro ao salvar imóvel';
+          try {
+            const errText = await res.text();
+            const errData = JSON.parse(errText);
+            errorMsg = errData.error || errorMsg;
+          } catch (e) {}
+          throw new Error(errorMsg);
+        }
+
         const { id } = await parseJsonResponse(res);
         
         // Link documents
-        await fetch('/api/documents/link', {
+        const linkRes = await fetch('/api/documents/link', {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
             body: JSON.stringify({
@@ -7390,10 +8470,13 @@ Importante: se uma informação não for encontrada nos documentos, use o valor 
               property_id: id
             })
         });
+        if (!linkRes.ok) {
+          console.warn("Erro ao vincular documentos");
+        }
 
         // Save AI Analysis if exists
         if (state.report) {
-          await fetch('/api/ai-analyses', {
+          const aiRes = await fetch('/api/ai-analyses', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
             body: JSON.stringify({
@@ -7407,10 +8490,13 @@ Importante: se uma informação não for encontrada nos documentos, use o valor 
               })()
             })
           });
+          if (!aiRes.ok) {
+            console.warn("Erro ao salvar análise de IA associada");
+          }
         }
 
         if (cnjResult) {
-          const res = await fetch('/api/processes', {
+          const processRes = await fetch('/api/processes', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
             body: JSON.stringify({
@@ -7424,9 +8510,9 @@ Importante: se uma informação não for encontrada nos documentos, use o valor 
             })
           });
 
-          if (!res.ok) {
+          if (!processRes.ok) {
             let errorMsg = 'Erro ao criar processo';
-            const errorText = await res.text();
+            const errorText = await processRes.text();
             try {
               const trimmed = errorText.trim().toLowerCase();
               if (trimmed.includes('<!doctype') || trimmed.includes('<html') || trimmed.includes('<body')) {
@@ -7442,7 +8528,7 @@ Importante: se uma informação não for encontrada nos documentos, use o valor 
         }
 
         if (state.processStory) {
-          await fetch('/api/process-stories', {
+          const storyRes = await fetch('/api/process-stories', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
             body: JSON.stringify({
@@ -7455,14 +8541,39 @@ Importante: se uma informação não for encontrada nos documentos, use o valor 
               })
             })
           });
+          if (!storyRes.ok) {
+            console.warn("Erro ao salvar história do processo");
+          }
         }
 
         updateState({ selectedPropertyId: id, adHocDocs: [] });
+        if ((window as any).customToast) {
+          (window as any).customToast("Imóvel cadastrado com sucesso! Todos os documentos e relatórios foram vinculados.", "success");
+        } else {
+          alert("Imóvel cadastrado com sucesso! Todos os documentos e relatórios foram vinculados.");
+        }
         onPropertyCreated();
-        alert("Imóvel cadastrado com sucesso! Todos os documentos, análises e relatórios master foram vinculados.");
+      } catch (err: any) {
+        console.error(err);
+        if ((window as any).customToast) {
+          (window as any).customToast(`Erro ao salvar imóvel: ${err.message || err}`, "error");
+        } else {
+          alert(`Erro ao salvar imóvel: ${err.message || err}`);
+        }
       }
-    } catch (err) {
-      console.error(err);
+    };
+
+    if ((window as any).customPrompt) {
+      (window as any).customPrompt(
+        "Escolha um nome para salvar a análise:",
+        "Digite o título do imóvel para salvá-lo na sua Gestão de Imóveis.",
+        defaultTitle,
+        saveAction
+      );
+    } else {
+      const titleInput = window.prompt("Escolha um nome para salvar a análise:", defaultTitle);
+      if (titleInput === null) return;
+      saveAction(titleInput);
     }
   };
 
@@ -7488,40 +8599,42 @@ Importante: se uma informação não for encontrada nos documentos, use o valor 
           throw new Error("Sessão expirada. Por favor, faça o login novamente.");
         }
         
-        const newDocs = await uploadDocuments(files, docType, propertyId, token, (status) => {
+        // Isolate uploaded files by prefixing doc_type with activeSubTab
+        const tabPrefix = state.activeSubTab;
+        const prefixedDocType = (tabPrefix && tabPrefix !== 'report') 
+          ? `${tabPrefix}:${docType}` 
+          : docType;
+        
+        const newDocs = await uploadDocuments(files, prefixedDocType, propertyId, token, (status) => {
           setUploadProgressText(status);
         });
-        const newAdHocDocs = await Promise.all(
-          newDocs.map(async (doc: any, index: number) => {
-            const file = files[index];
-            let dataChunk = "";
-            if (file.size <= 30 * 1024 * 1024) {
-              const base64Data = await fileToBase64(file);
-              dataChunk = base64Data.split(',')[1];
-            }
-            return {
-              id: doc.id,
-              filename: file.name,
-              doc_type: docType,
-              data: dataChunk,
-              extracted_text: doc.extracted_text,
-              created_at: new Date().toISOString()
-            };
-          })
-        );
+        const newAdHocDocs = newDocs.map((doc: any, index: number) => {
+          const file = files[index];
+          return {
+            id: doc.id,
+            filename: file.name,
+            doc_type: prefixedDocType,
+            data: "", // Stored in DB, server hydrates on demand
+            extracted_text: doc.extracted_text || "",
+            created_at: new Date().toISOString()
+          };
+        });
       
+      let updatedDocs: any[] = [];
       if (!selectedPropertyId) {
+        updatedDocs = [...state.adHocDocs, ...newAdHocDocs];
         setState((prev: any) => ({
           ...prev,
-          adHocDocs: [...prev.adHocDocs, ...newAdHocDocs]
+          adHocDocs: updatedDocs
         }));
       } else {
+        updatedDocs = [...propertyDocs, ...newAdHocDocs];
         // Direct state update for propertyDocs instead of just re-fetching
-        setPropertyDocs(prev => [...prev, ...newAdHocDocs]);
+        setPropertyDocs(updatedDocs);
         // Also fetchPropertyData to ensure consistency (background)
         fetchPropertyData(selectedPropertyId);
       }
-      
+
       // Specifically handle Judicial Process document matching
       if (docType === 'Processo Judicial') {
         const cnjPattern = /\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4}/;
@@ -7529,18 +8642,58 @@ Importante: se uma informação não for encontrada nos documentos, use o valor 
           const match = file.name.match(cnjPattern);
           if (match) {
             updateState({ cnjNumber: match[0] });
-            await performCnjSearch(match[0]);
+            await performCnjSearch(match[0], false);
             break; // Just use the first one found
           }
         }
       }
+
+      // Automatic AI analysis triggering has been disabled to allow manual triggering after all documents are uploaded
     } catch (err) {
       console.error(err);
-      alert(`Erro ao enviar arquivos: ${formatErrorMessage(err)}`);
+      if ((window as any).customToast) {
+        (window as any).customToast(`Erro ao enviar arquivos: ${formatErrorMessage(err)}`, "error");
+      }
     } finally {
       setUploading(false);
       setUploadProgressText("");
       e.target.value = '';
+    }
+  };
+
+  const handleTranscribeDoc = async (docId: string) => {
+    if (!token) return;
+    setUploading(true);
+    setUploadProgressText("Executando transcrição OCR inteligente de imagem/PDF com Gemini Vision...");
+    try {
+      if ((window as any).customToast) {
+        (window as any).customToast("Iniciando transcrição OCR completa do documento via Gemini...", "info");
+      }
+      const res = await fetch(`/api/documents/${docId}/transcribe`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || "Erro ao transcrever documento com IA.");
+      }
+      const data = await parseJsonResponse(res);
+      if ((window as any).customToast) {
+        (window as any).customToast(data.message || "Documento transcrevido em Markdown com sucesso!", "success");
+      }
+      if (selectedPropertyId) {
+        await fetchPropertyData(selectedPropertyId);
+      }
+    } catch (err: any) {
+      console.error("Transcribe error:", err);
+      if ((window as any).customToast) {
+        (window as any).customToast(`Erro na transcrição: ${formatErrorMessage(err)}`, "error");
+      }
+    } finally {
+      setUploading(false);
+      setUploadProgressText("");
     }
   };
 
@@ -7559,7 +8712,7 @@ Importante: se uma informação não for encontrada nos documentos, use o valor 
     setPasteTitle('');
   };
 
-  const performCnjSearch = async (number: string) => {
+  const performCnjSearch = async (number: string, shouldRedirect = false) => {
     setSearchingCNJ(true);
     try {
       const res = await fetch('/api/datajud/search', {
@@ -7569,7 +8722,11 @@ Importante: se uma informação não for encontrada nos documentos, use o valor 
       });
       if (!res.ok) throw new Error("Erro na consulta CNJ");
       const data = await parseJsonResponse(res);
-      updateState({ cnjResult: data, activeSubTab: 'cnj' });
+      const updates: any = { cnjResult: data };
+      if (shouldRedirect) {
+        updates.activeSubTab = 'cnj';
+      }
+      updateState(updates);
       return data;
     } catch (err) {
       console.error(err);
@@ -7630,6 +8787,161 @@ Importante: se uma informação não for encontrada nos documentos, use o valor 
     } catch (err) {
       console.error(err);
       alert("Erro ao atualizar análise.");
+    }
+  };
+
+  const handleResetSubTab = async (tabKey: string) => {
+    try {
+      const updates: any = {};
+      const backendPayload: any = {};
+
+      if (tabKey === 'edital') {
+        updates.editalAnalysis = null;
+        backendPayload.edital_analysis = null;
+      } else if (tabKey === 'matricula') {
+        updates.matriculaAnalysis = null;
+        backendPayload.matricula_analysis = null;
+      } else if (tabKey === 'processos') {
+        updates.processAnalysis = null;
+        backendPayload.process_analysis = null;
+      } else if (tabKey === 'dossier') {
+        updates.dossierAnalysis = null;
+        backendPayload.dossier_analysis = null;
+      } else if (tabKey === 'smart_analysis') {
+        updates.smartAnalysis = null;
+      } else if (tabKey === 'assessoria') {
+        updates.assessoriaAnalysis = null;
+      } else if (tabKey === 'report') {
+        updates.report = null;
+        backendPayload.exec_summary = null;
+      } else if (tabKey === 'cnj') {
+        updates.cnjResult = null;
+        updates.cnjNumber = '';
+      } else if (tabKey === 'documents') {
+        updates.adHocDocs = [];
+      } else if (tabKey === 'simulations') {
+        updates.simulationData = {
+          valuation: { value: 0, type: 'BRL' },
+          bid: { value: 0, type: 'BRL' },
+          saleValue: { value: 0, type: 'BRL' },
+          holdingMonths: 12,
+          strategy: 'venda',
+          expectedReturn: 15,
+          customExpenses: [],
+          assessoria: { value: 6, type: 'PERCENT', base: 'bid' },
+          entrada: { value: 1500, type: 'BRL' },
+          desocupacaoAcordo: { value: 0, type: 'BRL' },
+          desocupacaoDespesas: { value: 0, type: 'BRL' },
+          desocupacaoHonorarios: { value: 0, type: 'PERCENT', base: 'bid' },
+          desocupacaoCustas: { value: 0, type: 'PERCENT', base: 'bid' },
+          preAnaliseImobiliaria: { value: 0, type: 'BRL' },
+          preAnaliseJuridica: { value: 0, type: 'BRL' },
+          preCopiaProcessos: { value: 0, type: 'BRL' },
+          preConsultas: { value: 0, type: 'BRL' },
+          preMatricula: { value: 0, type: 'BRL' },
+          reforma: { value: 0, type: 'BRL', base: 'bid' },
+          comissaoLeiloeiro: { value: 5, type: 'PERCENT', base: 'bid' },
+          commission: { value: 5, type: 'PERCENT', base: 'bid' },
+          despesasVenda: { value: 0, type: 'BRL' },
+          extraFees: { value: 0, type: 'BRL' },
+          mensalCondominio: { value: 0, type: 'BRL' },
+          mensalIPTU: { value: 0, type: 'BRL' },
+          mensalOutros: { value: 0, type: 'BRL' },
+          posTaxaPerformance: { value: 0, type: 'PERCENT', base: 'profit' },
+          posComissaoCorretor: { value: 5, type: 'PERCENT', base: 'saleValue' },
+          posIR: { value: 15, type: 'PERCENT', base: 'capitalGain' },
+          transfEscritura: { value: 1.5, type: 'PERCENT', base: 'bid' },
+          transfITBI: { value: 3, type: 'PERCENT', base: 'bid' },
+          itbi: { value: 3, type: 'PERCENT', base: 'bid' },
+          transfRegistro: { value: 1.5, type: 'PERCENT', base: 'bid' },
+          transfCartorio: { value: 0, type: 'BRL' },
+          transfAverbacoes: { value: 0, type: 'BRL' },
+          transfLaudemio: { value: 0, type: 'BRL' },
+          transfForo: { value: 0, type: 'BRL' },
+          downPaymentPercent: 100,
+          installments: 1,
+          interestRate: 0
+        };
+      }
+
+      // 1. Update state locally
+      updateState(updates);
+
+      // 2. Persist to database if we have an active analysisId
+      if (state.analysisId && Object.keys(backendPayload).length > 0) {
+        await fetch(`/api/ai-analyses/${state.analysisId}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(backendPayload)
+        });
+      }
+
+      if ((window as any).customToast) {
+        (window as any).customToast(`Análise de ${tabKey} limpa com sucesso.`);
+      } else {
+        alert(`Análise de ${tabKey} limpa com sucesso.`);
+      }
+    } catch (error) {
+      console.error("Erro ao resetar análise da aba:", error);
+    }
+  };
+
+  const handleResetAllPropertyData = async () => {
+    try {
+      // 1. Delete all documents for this property
+      const currentDocs = selectedPropertyId ? propertyDocs : state.adHocDocs;
+      for (const doc of currentDocs) {
+        await fetch(`/api/documents/${doc.id}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+      }
+      
+      // Clear docs state
+      setPropertyDocs([]);
+      updateState({ adHocDocs: [] });
+
+      // 2. Clear all analyses in database if analysisId exists
+      if (state.analysisId) {
+        await fetch(`/api/ai-analyses/${state.analysisId}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            edital_analysis: null,
+            matricula_analysis: null,
+            process_analysis: null,
+            dossier_analysis: null,
+            exec_summary: null
+          })
+        });
+      }
+
+      // 3. Clear all state values
+      updateState({
+        report: null,
+        editalAnalysis: null,
+        matriculaAnalysis: null,
+        dossierAnalysis: null,
+        smartAnalysis: null,
+        assessoriaAnalysis: null,
+        processAnalysis: null,
+        processStory: null
+      });
+
+      if ((window as any).customToast) {
+        (window as any).customToast("Todos os documentos e análises foram excluídos com sucesso.");
+      } else {
+        alert("Todos os documentos e análises foram excluídos com sucesso.");
+      }
+    } catch (error) {
+      console.error("Erro no reset master do imóvel:", error);
+      alert("Ocorreu um erro ao realizar a limpeza completa.");
     }
   };
 
@@ -7707,7 +9019,7 @@ Importante: se uma informação não for encontrada nos documentos, use o valor 
     }
   };
 
-  const handleAnalyze = async () => {
+  const handleAnalyze = async (docsOverride?: any) => {
     const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
     setAnalyzing(true);
     updateState({ 
@@ -7720,8 +9032,6 @@ Importante: se uma informação não for encontrada nos documentos, use o valor 
     
     try {
       console.log("DEBUG: Iniciando handleAnalyze");
-      
-      let userApiKey = "";
       
       // Force fetch the latest config to ensure we have the user's keys
       console.log("DEBUG: Buscando aiConfig atualizado antes da análise...");
@@ -7746,7 +9056,9 @@ Importante: se uma informação não for encontrada nos documentos, use o valor 
       console.log(`DEBUG FRONTEND (ANALYZE): Modelo ${selectedModel}. Chave (tamanho): ${userApiKey?.length || 0}. Usando customizada: ${isUsingCustomKey}`);
 
       let docs = [];
-      if (selectedPropertyId) {
+      if (docsOverride && Array.isArray(docsOverride) && docsOverride.length > 0) {
+        docs = docsOverride;
+      } else if (selectedPropertyId) {
         const docsRes = await fetch(`/api/documents/${selectedPropertyId}`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
@@ -7815,9 +9127,9 @@ Importante: se uma informação não for encontrada nos documentos, use o valor 
       }
 
       // Filter documents to pass only labeled ones when available, or fall back to all documents
-      const editalDocs = docs.filter(d => d.doc_type === 'Edital');
-      const matriculaDocs = docs.filter(d => d.doc_type === 'Matrícula');
-      const processDocs = docs.filter(d => d.doc_type === 'Processo Judicial');
+      const editalDocs = docs.filter(d => d.doc_type && (d.doc_type === 'Edital' || d.doc_type.toLowerCase() === 'edital' || d.doc_type.endsWith(':Edital') || d.doc_type.endsWith(':edital')));
+      const matriculaDocs = docs.filter(d => d.doc_type && (d.doc_type === 'Matrícula' || d.doc_type === 'Matricula' || d.doc_type.toLowerCase() === 'matricula' || d.doc_type.endsWith(':Matrícula') || d.doc_type.endsWith(':Matricula') || d.doc_type.endsWith(':matricula')));
+      const processDocs = docs.filter(d => d.doc_type && (d.doc_type === 'Processo Judicial' || d.doc_type.toLowerCase() === 'processo judicial' || d.doc_type.endsWith(':Processo Judicial') || d.doc_type.endsWith(':processo judicial')));
 
       const makeFileParts = (filteredDocs: any[]) => {
         const sourceDocs = filteredDocs.length > 0 ? filteredDocs : docs;
@@ -7830,9 +9142,9 @@ Importante: se uma informação não for encontrada nos documentos, use o valor 
           return {
             id: doc.id,
             filename: doc.filename,
-            data: doc.id ? "" : (!doc.extracted_text && doc.data ? (doc.data.startsWith('data:') ? doc.data : `data:${mType};base64,${doc.data}`) : ""),
+            data: doc.data ? (doc.data.startsWith('data:') ? doc.data : `data:${mType};base64,${doc.data}`) : "",
             mimeType: mType,
-            extractedText: doc.id ? "" : (doc.extracted_text || "")
+            extractedText: doc.extracted_text || doc.extractedText || ""
           };
         });
       };
@@ -7878,6 +9190,10 @@ Importante: se uma informação não for encontrada nos documentos, use o valor 
       const smartAnalysisPrompt = `Você é um advogado imobiliário sênior e especialista em leilões de imóveis (judiciais e extrajudiciais) no Brasil.
 Sua tarefa é analisar minuciosamente todos os documentos fornecidos do leilão (Edital, Matrícula de Cartório de Registro de Imóveis, e peças do processo judicial correspondente) e preencher um relatório estruturado em formato JSON contendo as informações jurídicas, de ocupação, financeiras e de riscos do leilão.
 
+DIRETRIZ CRÍTICA DE PREENCHIMENTO AUTOMÁTICO DOS CHECKLISTS:
+- Na Análise da Matrícula (CRI): analise todas as averbações (AV-) e registros (R-). Marque true para matricula_atualizada, tem_onus, tem_penhora, tem_hipoteca, alienacao_fiduciaria, indisponibilidade ou acao_reipersecutoria se identificados na leitura das páginas da matrícula.
+- No Risco de Nulidade do Leilão: verifique o processo e o edital e marque true para os requisitos preenchidos/válidos: citacao_regular, intimacao_penhora, intimacao_leilao_executado, intimacao_credor_fiduciario, coproprietario_intimado, publicacao_edital_ok, e preco_vil (quando lance mínimo for >50% ou dentro do limite legal).
+
 Você deve responder APENAS com um objeto JSON válido, sem texto explicativo antes ou depois, seguindo estritamente este esquema de chaves e tipos de valores:
 
 {
@@ -7904,6 +9220,13 @@ Você deve responder APENAS com um objeto JSON válido, sem texto explicativo an
   "observacoes_desocupacao": "Análise da dificuldade esperada de desocupação baseada no tipo de ocupante e nos recursos vigentes",
   
   "risco_geral_nulidade": "Baixo" | "Médio" | "Alto",
+  "citacao_regular": false,
+  "intimacao_penhora": false,
+  "intimacao_leilao_executado": false,
+  "intimacao_credor_fiduciario": false,
+  "coproprietario_intimado": false,
+  "publicacao_edital_ok": false,
+  "preco_vil": false,
   "vicio_citacao": false,
   "vicio_avaliacao": false,
   "vicio_publicacao": false,
@@ -7923,7 +9246,7 @@ Você deve responder APENAS com um objeto JSON válido, sem texto explicativo an
   "alienacao_fiduciaria": false,
   "indisponibilidade": false,
   "acao_reipersecutoria": false,
-  "observacoes_matricula": "Destaque todos os ônus, penhoras e restrições encontrados na matrícula e seus respectivos cancelamentos ou riscos",
+  "observacoes_matricula": "Destaque exaustivamente todos os ônus, penhoras e restrições encontrados na matrícula e seus respectivos cancelamentos ou riscos",
   
   "status_ocupacao": "Ocupado pelo ex-mutuário" | "Ocupado por terceiro" | "Invasão" | "Desocupado",
   "relacao_ex_mutuario": "O próprio" | "Parente" | "Inquilino" | "Desconhecido",
@@ -7936,12 +9259,12 @@ Você deve responder APENAS com um objeto JSON válido, sem texto explicativo an
 
   "tipo_imovel": "Casa" | "Apartamento" | "Terreno" | "Comercial" | "Outros" | "Selecione",
   "numero_matricula": "Número de matrícula do imóvel se encontrado, senão vazio",
-  "cartorio_registro": "Nome do Cartório de Registro de Imóveis (ex: 1º CRI de São Paulo) se encontrado, senão vazio",
-  "area_terreno": 250.00,
-  "area_privativa": 69.00,
-  "area_util": 69.00,
-  "area_construida": 110.00,
-  "observacoes_imovel": "Descrição física detalhada do imóvel encontrada na matrícula (ex: número de quartos, garagens, confrontações, etc.)",
+  "cartorio_registro": "Nome do Cartório de Registro de Imóveis (ex: 1º CRI da Comarca do Imóvel) se encontrado, senão vazio",
+  "area_terreno": 0.00,
+  "area_privativa": 0.00,
+  "area_util": 0.00,
+  "area_construida": 0.00,
+  "observacoes_imovel": "Descrição física detalhada do imóvel e metragens exatas encontradas na matrícula (ex: número de quartos, garagens, confrontações, etc.)",
 
   "nome_ex_mutuario": "Nome completo do devedor / ex-mutuário / executado principal",
   "cpf_ex_mutuario": "CPF ou CNPJ do devedor / ex-mutuário / executado principal",
@@ -7955,14 +9278,62 @@ Você deve responder APENAS com um objeto JSON válido, sem texto explicativo an
 Importante: se uma informação não for encontrada nos documentos, use o valor correspondente neutro (como false para booleanos, 0 para números, "Não avaliado"/"Selecione"/"Não verificado" para dropdowns, ou texto vazio/explicando que não foi encontrado para campos de texto). Seja extremamente técnico e preciso em suas observações legais baseadas no Direito brasileiro.`;
 
       const smartAnalysisPromise = analyzeAuctionDocuments(
-        fileParts, 
-        smartAnalysisPrompt, 
-        selectedModel || 'gemini-2.5-flash', 
-        finalApiKey || undefined, 
-        aggregatedUrls, 
+        makeFileParts(docs),
+        smartAnalysisPrompt + getCustomInstructionsPrompt(state),
+        selectedModel,
+        finalApiKey || undefined,
+        aggregatedUrls,
         'smart_analysis'
       ).catch(err => {
-        console.error("Erro na geração da Análise Smart durante análise geral:", err);
+        console.error("Erro na Análise Smart paralela:", err);
+        return null;
+      });
+
+      const assessoriaAnalysisPromptText = `Você é um advogado imobiliário especialista sênior em assessoria e pareceres de leilões de imóveis judiciais e extrajudiciais no Brasil.
+Analise detalhadamente todos os documentos fornecidos do leilão (Edital, Matrícula do Imóvel, e peças do processo judicial) e extraia um relatório estruturado de assessoria jurídica em formato JSON.
+
+Sua resposta deve ser APENAS um objeto JSON válido, sem qualquer bloco de código markdown ou texto explicativo extra. Siga estritamente este esquema e tipos de dados:
+{
+  "responsabilidade_debitos": "Arrematante" ou "Comitente vendedor/sub-rogação de preço",
+  "direito_eviccao": "Sim" ou "Não",
+  "ressalvas_eviccao": "Detalhe as ressalvas ou cláusulas regulamentares de evicção do edital",
+  "divida_condominio": "Sim" ou "Não",
+  "divida_iptu": "Sim" ou "Não",
+  "comentarios_debitos": "Análise técnica detalhada das dívidas de IPTU e condomínio mencionadas",
+  "itens_matricula": [
+    { "item": "Ex: R.03", "descricao": "Ex: Alienação fiduciária cancelada ou averbação de penhora" }
+  ],
+  "comentarios_matricula": "Consolidação e análise técnica dos ônus encontrados na matrícula",
+  "data_matricula": "Data do documento da matrícula ou última averbação no formato AAAA-MM-DD",
+  "tamanho_cidade": "20 a 50 mil hab." ou "50 a 300 mil hab." ou "+300 mil hab.",
+  "entorno_imovel": "Estagnado" ou "Em crescimento" ou "Consolidado",
+  "bairro": "Razoável" ou "Bom" ou "Desejado",
+  "e_casa": "Sim" ou "Não",
+  "e_condominio": "Sim" ou "Não",
+  "lance_maximo_sugerido": "Valor sugerido ou estimado com base nos dados do edital, ex: 350.000,00",
+  "ocupacao": "Ocupado" ou "Desocupado",
+  "intimacao_registro": "Sim" ou "Não",
+  "forma_intimacao": "Pessoal" ou "Por edital" ou "Condomínio" ou "Não se sabe",
+  "notificacao_datas": "Sim" ou "Não" ou "Não se sabe",
+  "observacoes_purga_mora": "Observações sobre a regularidade da intimação para a purga de mora",
+  "leiloes_negativos_averbados": "Sim" ou "Não",
+  "observacoes_leiloes_negativos": "Histórico de leilões negativos passados",
+  "comentarios_viabilidade": "Análise geral de viabilidade jurídica do leilão e riscos processuais",
+  "acoes_judiciais": ["Cobrança de débitos tributários", "Cobrança de dívidas condominiais", "Ação anulatória", "Execução fiscal"],
+  "risco_juridico": "Nulo" ou "Baixo" ou "Médio" ou "Alto",
+  "comentarios_adicionais": "Qualquer observação processual adicional sobre as ações judiciais",
+  "comentarios_recomendacoes_finais": "Parecer conclusivo com recomendações detalhadas para o investidor / arrematante"
+}`;
+
+      const assessoriaAnalysisPromise = analyzeAuctionDocuments(
+        makeFileParts(docs),
+        assessoriaAnalysisPromptText + getCustomInstructionsPrompt(state),
+        selectedModel,
+        finalApiKey || undefined,
+        aggregatedUrls,
+        'assessoria_analysis'
+      ).catch(err => {
+        console.error("Erro na Análise de Assessoria paralela:", err);
         return null;
       });
 
@@ -7970,58 +9341,70 @@ Importante: se uma informação não for encontrada nos documentos, use o valor 
 
       updateState({ 
         report: "### ⏳ Aguardando conclusão das análises preliminares...",
-        editalAnalysis: "### 🔄 [Passo 1/5] Analisando o Edital do Leilão...\n\nMapeando datas de praças, leiloeiro oficial, débitos de condomínio/IPTU de responsabilidade do arrematante e multas judiciais...",
-        matriculaAnalysis: "### ⏳ Aguardando conclusão da Análise do Edital...",
-        processAnalysis: "### ⏳ Aguardando conclusão da Análise do Edital...",
-        dossierAnalysis: "### ⏳ Aguardando conclusão da Análise do Edital..."
+        editalAnalysis: state.editalAnalysis || "### 🔄 [Passo 1/5] Analisando o Edital do Leilão...\n\nMapeando datas de praças, leiloeiro oficial, débitos de condomínio/IPTU de responsabilidade do arrematante e multas judiciais...",
+        matriculaAnalysis: state.matriculaAnalysis || "### ⏳ Aguardando conclusão da Análise do Edital...",
+        processAnalysis: state.processAnalysis || "### ⏳ Aguardando conclusão da Análise do Edital...",
+        dossierAnalysis: state.dossierAnalysis || "### ⏳ Aguardando conclusão da Análise do Edital..."
       });
 
       // Passo 1: Edital
-      const editalAnalysis = editalFileParts.length > 0 
-        ? await analyzeAuctionDocuments(editalFileParts, "Analise o Edital detalhadamente linha por linha, extraindo todas as informações financeiras, datas, leiloeiro, e débitos de IPTU e condomínio.", selectedModel, finalApiKey || undefined, [], 'edital').catch(err => { 
-            console.error("Erro ao analisar edital automaticamente:", err); 
-            return "Falha ao gerar análise automática de Edital."; 
-          })
-        : "Nenhum documento de Edital foi anexado. Prosseguindo análise com base nos demais dados fornecidos.";
+      let editalAnalysis = state.editalAnalysis;
+      const isEditalValid = editalAnalysis && !editalAnalysis.startsWith('### 🔄') && !editalAnalysis.startsWith('### ⏳') && !editalAnalysis.includes("Aguardando conclusão");
+      if (!isEditalValid) {
+        editalAnalysis = editalFileParts.length > 0 
+          ? await analyzeAuctionDocuments(editalFileParts, "Analise o Edital detalhadamente linha por linha, extraindo todas as informações financeiras, datas, leiloeiro, e débitos de IPTU e condomínio.", selectedModel, finalApiKey || undefined, [], 'edital').catch(err => { 
+              console.error("Erro ao analisar edital automaticamente:", err); 
+              return "Falha ao gerar análise automática de Edital."; 
+            })
+          : "Nenhum documento de Edital foi anexado. Prosseguindo análise com base nos demais dados fornecidos.";
+      }
 
       await sleep(1200);
 
       updateState({ 
         editalAnalysis: editalAnalysis,
-        matriculaAnalysis: "### 🔄 [Passo 2/5] Analisando a Certidão de Matrícula...\n\nMapeando cadeia de direito real, registro de alienações fiduciárias, hipotecas e gravames de penhoras ativos...",
-        processAnalysis: "### ⏳ Aguardando conclusão da Análise da Matrícula..."
+        matriculaAnalysis: state.matriculaAnalysis || "### 🔄 [Passo 2/5] Analisando a Certidão de Matrícula...\n\nMapeando cadeia de direito real, registro de alienações fiduciárias, hipotecas e gravames de penhoras ativos...",
+        processAnalysis: state.processAnalysis || "### ⏳ Aguardando conclusão da Análise da Matrícula..."
       });
 
       // Passo 2: Matrícula
-      const matriculaAnalysis = matriculaFileParts.length > 0
-        ? await analyzeAuctionDocuments(matriculaFileParts, "Analise a Matrícula detalhadamente, identificando proprietários, alienações, consolidação, gravames e ônus.", selectedModel, finalApiKey || undefined, [], 'matricula').catch(err => { 
-            console.error("Erro ao analisar certidão de matrícula automaticamente:", err); 
-            return "Falha ao gerar análise automática de Certidão de Matrícula."; 
-          })
-        : "Nenhuma certidão de matrícula foi anexada. Prosseguindo análise com base nos demais dados fornecidos.";
+      let matriculaAnalysis = state.matriculaAnalysis;
+      const isMatriculaValid = matriculaAnalysis && !matriculaAnalysis.startsWith('### 🔄') && !matriculaAnalysis.startsWith('### ⏳') && !matriculaAnalysis.includes("Aguardando conclusão");
+      if (!isMatriculaValid) {
+        matriculaAnalysis = matriculaFileParts.length > 0
+          ? await analyzeAuctionDocuments(matriculaFileParts, "Analise a Matrícula detalhadamente, identificando proprietários, alienações, consolidação, gravames e ônus.", selectedModel, finalApiKey || undefined, [], 'matricula').catch(err => { 
+              console.error("Erro ao analisar certidão de matrícula automaticamente:", err); 
+              return "Falha ao gerar análise automática de Certidão de Matrícula."; 
+            })
+          : "Nenhuma certidão de matrícula foi anexada. Prosseguindo análise com base nos demais dados fornecidos.";
+      }
 
       await sleep(1200);
 
       updateState({ 
         matriculaAnalysis: matriculaAnalysis,
-        processAnalysis: "### 🔄 [Passo 3/5] Analisando Riscos de Processos Judiciais...\n\nMapeando CPFs dos executados e buscando recursos pendentes ou discussões de nulidades na execução originária...",
+        processAnalysis: state.processAnalysis || "### 🔄 [Passo 3/5] Analisando Riscos de Processos Judiciais...\n\nMapeando CPFs dos executados e buscando recursos pendentes ou discussões de nulidades na execução originária...",
         report: "### ⏳ Aguardando conclusão da Análise Processual..."
       });
 
       // Passo 3: Processo
-      const processAnalysis = processFileParts.length > 0
-        ? await analyzeAuctionDocuments(processFileParts, processesPrompt, selectedModel, finalApiKey || undefined, [], 'processo').catch(err => { 
-            console.error("Erro ao analisar processos judiciais automaticamente:", err); 
-            return "Falha ao gerar análise de riscos processuais."; 
-          })
-        : "Nenhum processo judicial foi anexado. Prosseguindo análise com base nos demais dados fornecidos.";
+      let processAnalysis = state.processAnalysis;
+      const isProcessValid = processAnalysis && !processAnalysis.startsWith('### 🔄') && !processAnalysis.startsWith('### ⏳') && !processAnalysis.includes("Aguardando conclusão");
+      if (!isProcessValid) {
+        processAnalysis = processFileParts.length > 0
+          ? await analyzeAuctionDocuments(processFileParts, processesPrompt, selectedModel, finalApiKey || undefined, [], 'processo').catch(err => { 
+              console.error("Erro ao analisar processos judiciais automaticamente:", err); 
+              return "Falha ao gerar análise de riscos processuais."; 
+            })
+          : "Nenhum processo judicial foi anexado. Prosseguindo análise com base nos demais dados fornecidos.";
+      }
 
       await sleep(1200);
 
       updateState({ 
         processAnalysis: processAnalysis,
         report: "### 🔄 [Passo 4/5] Gerando Relatório de Viabilidade Geral...\n\nSistematizando lições estratégicas e gerando parecer geral integrado com os padrões do seu Cérebro Estratégico...",
-        dossierAnalysis: "### ⏳ Aguardando conclusão do Relatório de Viabilidade Geral..."
+        dossierAnalysis: state.dossierAnalysis || "### ⏳ Aguardando conclusão do Relatório de Viabilidade Geral..."
       });
 
       // Passo 4: Relatório Geral (without sending binary files directly!)
@@ -8206,10 +9589,31 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
             cleanJson = cleanJson.split("```")[1].split("```")[0].trim();
           }
           const parsed = JSON.parse(cleanJson);
-          smartAnalysisData = { ...getEmptySmartAnalysis(), ...parsed };
+          smartAnalysisData = { 
+            ...getEmptySmartAnalysis(), 
+            justificativa_pessoal: state.smartAnalysis?.justificativa_pessoal || '',
+            ...parsed 
+          };
         }
       } catch (err) {
         console.error("Erro ao resolver ou parsear Análise Smart em paralelo:", err);
+      }
+
+      let assessoriaAnalysisData: AssessoriaAnalysisData | null = null;
+      try {
+        const assessoriaResult = await assessoriaAnalysisPromise;
+        if (assessoriaResult) {
+          let cleanJson = assessoriaResult;
+          if (cleanJson.includes("```json")) {
+            cleanJson = cleanJson.split("```json")[1].split("```")[0].trim();
+          } else if (cleanJson.includes("```")) {
+            cleanJson = cleanJson.split("```")[1].split("```")[0].trim();
+          }
+          const parsed = JSON.parse(cleanJson);
+          assessoriaAnalysisData = { ...getEmptyAssessoriaAnalysis(), ...parsed };
+        }
+      } catch (err) {
+        console.error("Erro ao resolver ou parsear Análise de Assessoria em paralelo:", err);
       }
 
       // Save analysis to database if property is selected
@@ -8291,7 +9695,8 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
               matricula_analysis: matriculaAnalysis,
               process_analysis: processAnalysis,
               dossier_analysis: dossierAnalysisResult,
-              smart_analysis_json: smartAnalysisData ? JSON.stringify(smartAnalysisData) : null
+              smart_analysis_json: smartAnalysisData ? JSON.stringify(smartAnalysisData) : (state.smartAnalysis ? JSON.stringify(state.smartAnalysis) : null),
+              assessoria_analysis_json: assessoriaAnalysisData ? JSON.stringify(assessoriaAnalysisData) : (state.assessoriaAnalysis ? JSON.stringify(state.assessoriaAnalysis) : null)
             })
           });
           if (saveRes.ok) {
@@ -8313,7 +9718,8 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
         dossierAnalysis: dossierAnalysisResult,
         chatMessages: [{ role: 'assistant', content: "Análise concluída. Como posso ajudar a aprofundar algum ponto?" }],
         simulationData: extractedData,
-        smartAnalysis: smartAnalysisData || state.smartAnalysis || getEmptySmartAnalysis()
+        smartAnalysis: smartAnalysisData || state.smartAnalysis || getEmptySmartAnalysis(),
+        assessoriaAnalysis: assessoriaAnalysisData || state.assessoriaAnalysis || getEmptyAssessoriaAnalysis()
       });
       
     } catch (err: any) {
@@ -8362,7 +9768,7 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
         }
         
         const keyPrefix = selectedModel.startsWith('claude') ? 'sk-ant-...' : 
-                          selectedModel.startsWith('gemini') ? 'AIza...' : 'sk-...';
+                          selectedModel.startsWith('gemini') ? 'AIza... ou AQ...' : 'sk-...';
 
         updateState({ 
           report: `### ERRO NA ANÁLISE (403)\n\n${errorMessage}${detailedError}\n\n**Log Técnico:** \`${rawError}\`\n\n---\n\n### Como resolver definitivamente:\n\n1. **Verifique sua Chave:** Vá em Configuração IA e confirme se sua chave começa com '${keyPrefix}'.\n2. **Saldo/Créditos:** Verifique no console do provedor se você possui saldo disponível.\n3. **Use o Padrão:** Clique no botão laranja abaixo para limpar sua chave e usar o motor padrão do sistema.`,
@@ -8450,7 +9856,7 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
     }
   };
 
-  const handleSendTabChat = async (tab: 'matricula' | 'processos' | 'documents') => {
+  const handleSendTabChat = async (tab: 'edital' | 'matricula' | 'processos' | 'dossier' | 'documents' | 'smart_analysis' | 'assessoria' | 'cnj' | 'investors' | 'instagram' | 'simulations') => {
     let input = "";
     let chatMsgs: ChatMessage[] = [];
     let setInput: any = null;
@@ -8458,7 +9864,14 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
     let setSending: any = null;
     let promptContext = "";
 
-    if (tab === 'matricula') {
+    if (tab === 'edital') {
+      input = editalChatInput;
+      chatMsgs = editalChatMessages;
+      setInput = setEditalChatInput;
+      setMsgs = setEditalChatMessages;
+      setSending = setSendingEditalChat;
+      promptContext = `Análise de Edital Atual:\n${state.editalAnalysis || "Nenhuma análise de edital executada ainda."}`;
+    } else if (tab === 'matricula') {
       input = matriculaChatInput;
       chatMsgs = matriculaChatMessages;
       setInput = setMatriculaChatInput;
@@ -8472,6 +9885,13 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
       setMsgs = setProcessosChatMessages;
       setSending = setSendingProcessosChat;
       promptContext = `Análise de Processos Atual:\n${state.processAnalysis || "Nenhuma análise de processos executada ainda."}`;
+    } else if (tab === 'dossier') {
+      input = dossierChatInput;
+      chatMsgs = dossierChatMessages;
+      setInput = setDossierChatInput;
+      setMsgs = setDossierChatMessages;
+      setSending = setSendingDossierChat;
+      promptContext = `Dossiê de Arrematação Inteligente Atual:\n${state.dossierAnalysis || "Nenhum dossiê de arrematação gerado ainda."}`;
     } else if (tab === 'documents') {
       input = documentsChatInput;
       chatMsgs = documentsChatMessages;
@@ -8483,6 +9903,48 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
         return `[Documento ${i+1}: ${doc.filename} (Tipo: ${doc.doc_type})]\n${(doc.extracted_text || "").substring(0, 8000)}`;
       }).join("\n\n");
       promptContext = `Resumo dos documentos do Dossiê:\n${filesSummary || "Nenhum documento anexado ao dossiê."}`;
+    } else if (tab === 'smart_analysis') {
+      input = smartAnalysisChatInput;
+      chatMsgs = smartAnalysisChatMessages;
+      setInput = setSmartAnalysisChatInput;
+      setMsgs = setSmartAnalysisChatMessages;
+      setSending = setSendingSmartAnalysisChat;
+      promptContext = `Análise Smart de Riscos Atual (Dados Estruturados):\n${state.smartAnalysis ? JSON.stringify(state.smartAnalysis, null, 2) : "Nenhuma análise smart de risco executada ainda."}`;
+    } else if (tab === 'assessoria') {
+      input = assessoriaChatInput;
+      chatMsgs = assessoriaChatMessages;
+      setInput = setAssessoriaChatInput;
+      setMsgs = setAssessoriaChatMessages;
+      setSending = setSendingAssessoriaChat;
+      promptContext = `Relatório de Assessoria Jurídica Atual (Dados Estruturados):\n${state.assessoriaAnalysis ? JSON.stringify(state.assessoriaAnalysis, null, 2) : "Nenhuma análise de assessoria executada ainda."}`;
+    } else if (tab === 'cnj') {
+      input = processosChatInput;
+      chatMsgs = processosChatMessages;
+      setInput = setProcessosChatInput;
+      setMsgs = setProcessosChatMessages;
+      setSending = setSendingProcessosChat;
+      promptContext = `Processo CNJ Ativo:\n${state.cnjResult ? JSON.stringify(state.cnjResult, null, 2) : "Nenhuma consulta CNJ executada ainda."}`;
+    } else if (tab === 'investors') {
+      input = documentsChatInput;
+      chatMsgs = documentsChatMessages;
+      setInput = setDocumentsChatInput;
+      setMsgs = setDocumentsChatMessages;
+      setSending = setSendingDocumentsChat;
+      promptContext = `Relatório de Investidores:\n${state.report || "Nenhum relatório gerado ainda."}`;
+    } else if (tab === 'instagram') {
+      input = documentsChatInput;
+      chatMsgs = documentsChatMessages;
+      setInput = setDocumentsChatInput;
+      setMsgs = setDocumentsChatMessages;
+      setSending = setSendingDocumentsChat;
+      promptContext = `Material de Captação e Imóvel:\n${state.report || "Nenhum relatório gerado ainda."}`;
+    } else if (tab === 'simulations') {
+      input = documentsChatInput;
+      chatMsgs = documentsChatMessages;
+      setInput = setDocumentsChatInput;
+      setMsgs = setDocumentsChatMessages;
+      setSending = setSendingDocumentsChat;
+      promptContext = `Dados de Simulação Financeira:\n${state.simulationData ? JSON.stringify(state.simulationData, null, 2) : "Sem dados de simulação."}`;
     }
 
     if (!input.trim()) return;
@@ -8509,9 +9971,23 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
         }
       }
 
+      // Query any chat attachments uploaded in the active session for this specific tab
+      const attachmentType = `Anexo Chat ${tab}`;
+      const chatAttachments = analysisDocs.filter((d: any) => d.doc_type === attachmentType);
+      
+      let attachmentsCtx = "";
+      if (chatAttachments.length > 0) {
+        attachmentsCtx = `\n\nO usuário anexou os seguintes documentos adicionais a este chat da aba ${tab} para consulta/referência:\n`;
+        chatAttachments.forEach((doc: any, i: number) => {
+          attachmentsCtx += `--- INÍCIO DO ARQUIVO ANEXADO ${i + 1}: ${doc.filename || 'Sem Nome'} ---\n`;
+          attachmentsCtx += `Conteúdo extraído:\n${doc.extracted_text || '(Nenhum conteúdo de texto pôde ser extraído ou o arquivo está vazio)'}\n`;
+          attachmentsCtx += `--- FIM DO ARQUIVO ANEXADO ${i + 1} ---\n\n`;
+        });
+      }
+
       const response = await sendChatMessage(
         newMessages, 
-        `Contexto Relacionado à Aba ${tab.toUpperCase()}:\n${promptContext}\n\n${SYSTEM_PROMPT}\n\nPor favor, responda o assunto sobre ${tab} considerando com extrema atenção e integridade os dados jurídicos e os documentos acima. Responda sempre em português do Brasil e de forma direta.`, 
+        `Contexto Relacionado à Aba ${tab.toUpperCase()}:\n${promptContext}\n${attachmentsCtx}\n\n${SYSTEM_PROMPT}\n\nPor favor, responda o assunto sobre ${tab} considerando com extrema atenção e integridade os dados jurídicos e os documentos acima. Responda sempre em português do Brasil e de forma direta.`, 
         selectedModel, 
         userApiKey || undefined
       );
@@ -8529,7 +10005,7 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
     }
   };
 
-  const renderTabChat = (tab: 'matricula' | 'processos' | 'documents') => {
+  const renderTabChat = (tab: 'edital' | 'matricula' | 'processos' | 'dossier' | 'documents' | 'smart_analysis' | 'assessoria' | 'cnj' | 'investors' | 'instagram' | 'simulations') => {
     let title = "";
     let placeholder = "";
     let inputVal = "";
@@ -8537,7 +10013,14 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
     let msgs: ChatMessage[] = [];
     let sending = false;
 
-    if (tab === 'matricula') {
+    if (tab === 'edital') {
+      title = "Dúvidas sobre o Edital";
+      placeholder = "Pergunte algo sobre prazos, regras de lance, comissão do leiloeiro...";
+      inputVal = editalChatInput;
+      setInputVal = setEditalChatInput;
+      msgs = editalChatMessages;
+      sending = sendingEditalChat;
+    } else if (tab === 'matricula') {
       title = "Dúvidas sobre a Matrícula";
       placeholder = "Pergunte algo sobre gravames, adquirentes federais ou indisponibilidades...";
       inputVal = matriculaChatInput;
@@ -8551,6 +10034,13 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
       setInputVal = setProcessosChatInput;
       msgs = processosChatMessages;
       sending = sendingProcessosChat;
+    } else if (tab === 'dossier') {
+      title = "Debate sobre o Dossiê Integrado";
+      placeholder = "Discuta viabilidade jurídica, aspectos financeiros consolidados ou lances sugeridos...";
+      inputVal = dossierChatInput;
+      setInputVal = setDossierChatInput;
+      msgs = dossierChatMessages;
+      sending = sendingDossierChat;
     } else if (tab === 'documents') {
       title = "Análise de Documentos e Evidências";
       placeholder = "Pergunte sobre contradições de datas, falta de certidões ou termos ocultos...";
@@ -8558,7 +10048,52 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
       setInputVal = setDocumentsChatInput;
       msgs = documentsChatMessages;
       sending = sendingDocumentsChat;
+    } else if (tab === 'smart_analysis') {
+      title = "Debate sobre a Análise Smart";
+      placeholder = "Discuta os fatores de risco preenchidos, ocupação, desocupação e ex-mutuários...";
+      inputVal = smartAnalysisChatInput;
+      setInputVal = setSmartAnalysisChatInput;
+      msgs = smartAnalysisChatMessages;
+      sending = sendingSmartAnalysisChat;
+    } else if (tab === 'assessoria') {
+      title = "Parecer da Assessoria Jurídica";
+      placeholder = "Debata o parecer estratégico de assessoria, ressalvas de evicção ou recomendações...";
+      inputVal = assessoriaChatInput;
+      setInputVal = setAssessoriaChatInput;
+      msgs = assessoriaChatMessages;
+      sending = sendingAssessoriaChat;
+    } else if (tab === 'cnj') {
+      title = "Dúvidas sobre o Processo CNJ";
+      placeholder = "Pergunte sobre custas, réus, citações do processo consultado...";
+      inputVal = processosChatInput;
+      setInputVal = setProcessosChatInput;
+      msgs = processosChatMessages;
+      sending = sendingProcessosChat;
+    } else if (tab === 'investors') {
+      title = "Debate sobre Investidores";
+      placeholder = "Discuta sobre as projeções de taxas, lucros e apresentações...";
+      inputVal = documentsChatInput;
+      setInputVal = setDocumentsChatInput;
+      msgs = documentsChatMessages;
+      sending = sendingDocumentsChat;
+    } else if (tab === 'instagram') {
+      title = "Dúvidas sobre Captação (Instagram)";
+      placeholder = "Discuta o conteúdo de copy, hashtags, stories e artes geradas...";
+      inputVal = documentsChatInput;
+      setInputVal = setDocumentsChatInput;
+      msgs = documentsChatMessages;
+      sending = sendingDocumentsChat;
+    } else if (tab === 'simulations') {
+      title = "Debate sobre o Simulador Financeiro";
+      placeholder = "Pergunte sobre viabilidade, TIR, ROI ou composição de despesas...";
+      inputVal = documentsChatInput;
+      setInputVal = setDocumentsChatInput;
+      msgs = documentsChatMessages;
+      sending = sendingDocumentsChat;
     }
+
+    const attachmentType = `Anexo Chat ${tab}`;
+    const chatAttachments = analysisDocs.filter((d: any) => d.doc_type === attachmentType);
 
     return (
       <div className="space-y-6 pt-10 border-t border-black/5 no-print" id={`chat-section-${tab}`}>
@@ -8605,6 +10140,54 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
           )}
         </div>
 
+        {/* Attached files list */}
+        {chatAttachments.length > 0 && (
+          <div className="flex flex-wrap gap-2 mb-3 max-h-32 overflow-y-auto p-1 border-b border-brand-primary/5 pb-3">
+            {chatAttachments.map((doc: any) => (
+              <div 
+                key={doc.id} 
+                className="flex items-center gap-2 bg-brand-primary/10 border border-brand-primary/25 text-brand-primary rounded-xl px-3.5 py-2 text-xs font-semibold select-none shadow-sm animate-fade-in"
+              >
+                <FileText size={14} className="shrink-0 text-brand-primary/70" />
+                <span className="truncate max-w-[180px] text-brand-ink">{doc.filename}</span>
+                <button
+                  type="button"
+                  onClick={() => handleTranscribeDoc(doc.id)}
+                  className="flex items-center gap-1 px-2 py-0.5 bg-brand-primary/20 hover:bg-brand-primary/30 text-brand-primary rounded-md text-[10px] font-bold transition-all cursor-pointer ml-1"
+                  title="Transcrever texto completo com OCR IA (visão)"
+                >
+                  <Sparkles size={11} />
+                  <span>OCR IA</span>
+                </button>
+                <button 
+                  type="button"
+                  onClick={async () => {
+                    // Local optimistic delete
+                    setPropertyDocs((prev: any) => prev.filter((d: any) => d.id !== doc.id));
+                    setState((prev: any) => ({
+                      ...prev,
+                      adHocDocs: prev.adHocDocs.filter((d: any) => d.id !== doc.id)
+                    }));
+                    // Backend delete
+                    try {
+                      await fetch(`/api/documents/${doc.id}`, {
+                        method: 'DELETE',
+                        headers: { 'Authorization': `Bearer ${token}` }
+                      });
+                    } catch (e) {
+                      console.error("Erro ao deletar anexo:", e);
+                    }
+                  }}
+                  className="text-brand-ink/40 hover:text-red-500 cursor-pointer transition-colors p-0.5 rounded-full hover:bg-red-500/10 ml-1"
+                  title="Remover anexo do chat"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
         <div className="relative flex gap-3">
           <div className="relative flex-1">
             <input 
@@ -8623,7 +10206,25 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
               <Send size={20} />
             </button>
           </div>
+          <label className="w-14 h-14 bg-brand-bg border border-brand-primary/20 text-brand-primary rounded-2xl flex items-center justify-center cursor-pointer hover:bg-brand-primary/5 transition-all shrink-0">
+            {uploading ? (
+              <Loader2 size={24} className="animate-spin text-brand-primary" />
+            ) : (
+              <Plus size={24} />
+            )}
+            <input 
+              type="file" 
+              className="hidden" 
+              multiple 
+              disabled={uploading}
+              onChange={(e) => handleAnalysisFileUpload(e, attachmentType)} 
+            />
+          </label>
         </div>
+        <p className="text-[10px] text-brand-ink/40 font-semibold mt-1 flex items-center gap-1">
+          <Info size={12} className="text-brand-primary" />
+          <span>Envie novos documentos (+) para incluir no contexto desta conversa com a IA.</span>
+        </p>
       </div>
     );
   };
@@ -8774,6 +10375,20 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
                 </p>
               </div>
 
+              <div className="pt-2">
+                <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-brand-ink/30 mb-2 block font-sans">Foco da Análise (Opcional)</label>
+                <input 
+                  type="text" 
+                  placeholder="Ex: Águas de Lindóia, Lote 72" 
+                  className="w-full bg-brand-bg border-none rounded-2xl py-4 px-6 focus:ring-2 focus:ring-brand-primary text-xs text-brand-primary font-bold placeholder-brand-ink/30"
+                  value={state.analysisFocusKeyword || ''}
+                  onChange={e => updateState({ analysisFocusKeyword: e.target.value })}
+                />
+                <p className="text-[9px] text-brand-ink/30 italic mt-2 px-1">
+                  Recomendado para editais com múltiplos imóveis para guiar a IA ao lote desejado.
+                </p>
+              </div>
+
               {!selectedPropertyId && (
                 <div className="p-5 bg-brand-primary/5 rounded-2xl border border-brand-primary/10">
                   <p className="text-[10px] font-bold text-brand-primary uppercase tracking-widest leading-relaxed">
@@ -8803,6 +10418,7 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
             <div className="flex border-b border-brand-primary/10 bg-brand-bg/30 overflow-x-auto no-print">
               <AnalysisTab active={activeSubTab === 'report'} onClick={() => updateState({ activeSubTab: 'report' })} icon={<Brain size={16} />} label="Relatório" />
               <AnalysisTab active={activeSubTab === 'smart_analysis'} onClick={() => updateState({ activeSubTab: 'smart_analysis' })} icon={<Cpu size={16} />} label="Análise Smart" />
+              <AnalysisTab active={activeSubTab === 'assessoria'} onClick={() => updateState({ activeSubTab: 'assessoria' })} icon={<Scale size={16} />} label="Análise de Assessoria" />
               <AnalysisTab active={activeSubTab === 'dossier'} onClick={() => updateState({ activeSubTab: 'dossier' })} icon={<Clipboard size={16} />} label="Dossiê de Arrematação" />
               <AnalysisTab active={activeSubTab === 'edital'} onClick={() => updateState({ activeSubTab: 'edital' })} icon={<FileText size={16} />} label="Edital" />
               <AnalysisTab active={activeSubTab === 'matricula'} onClick={() => updateState({ activeSubTab: 'matricula' })} icon={<BookOpen size={16} />} label="Matrícula" />
@@ -8816,15 +10432,25 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
             {/* Tab Content */}
             <div className="flex-1 p-4 sm:p-6 md:p-10">
               {activeSubTab === 'report' && (
-                <MasterReportView 
-                  state={state} 
-                  setState={setState} 
-                  property={selectedProperty} 
-                  metrics={metrics} 
-                  tir={tir} 
-                  roi={roi}
-                  token={token}
-                />
+                <div className="space-y-8">
+                  <MasterReportView 
+                    state={state} 
+                    setState={setState} 
+                    property={selectedProperty} 
+                    metrics={metrics} 
+                    tir={tir} 
+                    roi={roi}
+                    token={token}
+                  />
+                  <SmartResetPanel
+                    tabName="Painel Principal"
+                    tabKey="report"
+                    hasAnalysis={!!state.report}
+                    onResetTab={() => handleResetSubTab('report')}
+                    onResetAll={handleResetAllPropertyData}
+                    onApplySettings={(settings) => updateState({ aiDepth: settings.depth, aiFocus: settings.focus })}
+                  />
+                </div>
               )}
               {activeSubTab === 'dossier' && (
                 <div className="space-y-6">
@@ -8846,6 +10472,43 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
                       </button>
                     </div>
                   </div>
+
+                  {/* Upload de Documentos Integrado */}
+                  {!isPublicView && (
+                    <div className="bg-brand-paper p-6 sm:p-8 rounded-[2.5rem] border border-brand-border shadow-sm space-y-6" id="dossier-documents-upload">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-brand-primary/10 pb-4">
+                        <div>
+                          <h5 className="text-sm font-bold text-brand-primary flex items-center gap-2 uppercase tracking-wider">
+                            <FileText size={18} className="text-brand-primary" />
+                            Documentos do Leilão para o Dossiê
+                          </h5>
+                          <p className="text-xs text-brand-ink/50 mt-1">
+                            Envie os arquivos do leilão diretamente nesta aba para preencher o dossiê integrado via Inteligência Artificial.
+                          </p>
+                        </div>
+                        {dossierDocs.length > 0 && (
+                          <span className="text-[10px] font-bold px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200/50 rounded-full shrink-0 self-start sm:self-center">
+                            Documentos Disponíveis para IA
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        {['Edital', 'Matrícula', 'Processo Judicial', 'Outros'].map(category => (
+                          <div key={category} className="bg-brand-bg/10 p-5 rounded-2xl border border-brand-border/30">
+                            <DocumentManager 
+                              label={category} 
+                              docs={dossierDocs} 
+                              onUpload={(e, type) => handleAnalysisFileUpload(e, type)}
+                              onDelete={handleDeleteDocument}
+                              onTranscribe={handleTranscribeDoc}
+                              uploading={uploading} 
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   {!state.dossierAnalysis && !analyzing && (
                     <div className="bg-brand-bg/10 rounded-3xl border border-brand-primary/10 p-8 sm:p-12 text-center max-w-2xl mx-auto space-y-6 mt-6">
@@ -8936,6 +10599,15 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
                           <div className="flex gap-2">
                             <button
                               type="button"
+                              onClick={handleAnalyzeDossier}
+                              disabled={analyzing}
+                              className="flex items-center gap-2 bg-brand-primary text-black px-4 py-2 rounded-xl text-xs font-bold hover:bg-brand-primary/90 transition-all disabled:opacity-50 shadow-sm"
+                            >
+                              {analyzing ? <Loader2 className="animate-spin" size={14} /> : <Cpu size={14} />}
+                              Recalcular Dossiê
+                            </button>
+                            <button
+                              type="button"
                               onClick={() => {
                                 navigator.clipboard.writeText(state.dossierAnalysis || '');
                                 alert("Copiado!");
@@ -8959,17 +10631,43 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
                       </Card>
                     </div>
                   )}
+                  {renderTabChat('dossier')}
+                  <SmartResetPanel
+                    tabName="Dossiê de Arrematação"
+                    tabKey="dossier"
+                    hasAnalysis={!!state.dossierAnalysis}
+                    onResetTab={() => handleResetSubTab('dossier')}
+                    onResetAll={handleResetAllPropertyData}
+                    onApplySettings={(settings) => updateState({ aiDepth: settings.depth, aiFocus: settings.focus })}
+                  />
                 </div>
               )}
               {activeSubTab === 'edital' && (
                 <div className="space-y-6">
-                  <h3 className="text-2xl font-bold text-brand-primary">Análise de Edital</h3>
+                  <h3 className="text-2xl font-bold text-brand-primary font-serif">Análise de Edital</h3>
                   <div className="grid grid-cols-1 gap-6">
-                    <Card title="Edital">
-                      <button onClick={handleAnalyzeEdital} disabled={analyzing} className="w-full bg-brand-primary text-black py-3 rounded-xl font-bold hover:bg-brand-primary/90 transition-all disabled:opacity-50">
-                        {analyzing ? 'Analisando...' : 'Executar Análise de Edital'}
-                      </button>
+                    <Card title="Upload e Gestão do Edital">
+                      <p className="text-sm text-brand-ink/60 mb-4 font-sans">Envie o documento do Edital de Leilão para que o Cérebro Estratégico possa extrair as datas importantes, regras de comissão, ônus e parcelamentos.</p>
+                      <DocumentManager 
+                        label="Edital" 
+                        docs={editalDocsFiltered} 
+                        onUpload={(e, type) => handleAnalysisFileUpload(e, type)}
+                        onDelete={handleDeleteDocument}
+                        onTranscribe={handleTranscribeDoc}
+                        uploading={uploading}
+                      />
+                      <div className="mt-6 pt-6 border-t border-brand-primary/10">
+                        <button 
+                          onClick={handleAnalyzeEdital} 
+                          disabled={analyzing} 
+                          className="w-full bg-brand-primary text-black py-4 rounded-xl font-bold hover:bg-brand-primary/90 transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-md shadow-brand-primary/10"
+                        >
+                          {analyzing ? <Loader2 className="animate-spin" size={16} /> : <Cpu size={16} />}
+                          {analyzing ? 'Analisando Edital...' : 'Executar Análise de Edital'}
+                        </button>
+                      </div>
                     </Card>
+                    
                     {state.editalAnalysis && (
                       <Card title="Resultado da Análise de Edital">
                         {!isPublicView && (
@@ -8995,17 +10693,46 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
                       </Card>
                     )}
                   </div>
+                  <div className="mt-8 no-print border-t border-brand-primary/10 pt-8">
+                    <LegalGlossaryForLaypeople />
+                  </div>
+                  {renderTabChat('edital')}
+                  <SmartResetPanel
+                    tabName="Análise de Edital"
+                    tabKey="edital"
+                    hasAnalysis={!!state.editalAnalysis}
+                    onResetTab={() => handleResetSubTab('edital')}
+                    onResetAll={handleResetAllPropertyData}
+                    onApplySettings={(settings) => updateState({ aiDepth: settings.depth, aiFocus: settings.focus })}
+                  />
                 </div>
               )}
               {activeSubTab === 'matricula' && (
                 <div className="space-y-6">
-                  <h3 className="text-2xl font-bold text-brand-primary">Análise de Matrícula</h3>
+                  <h3 className="text-2xl font-bold text-brand-primary font-serif">Análise de Matrícula</h3>
                   <div className="grid grid-cols-1 gap-6">
-                    <Card title="Matrícula">
-                      <button onClick={handleAnalyzeMatricula} disabled={analyzing} className="w-full bg-brand-primary text-black py-3 rounded-xl font-bold hover:bg-brand-primary/90 transition-all disabled:opacity-50">
-                        {analyzing ? 'Analisando...' : 'Executar Análise de Matrícula'}
-                      </button>
+                    <Card title="Upload e Gestão da Certidão de Matrícula">
+                      <p className="text-sm text-brand-ink/60 mb-4 font-sans">Envie o documento da Certidão de Matrícula do Imóvel para auditar a cadeia de proprietários, averbações de penhoras, hipotecas ou alienações fiduciárias ativas.</p>
+                      <DocumentManager 
+                        label="Matrícula" 
+                        docs={matriculaDocsFiltered} 
+                        onUpload={(e, type) => handleAnalysisFileUpload(e, type)}
+                        onDelete={handleDeleteDocument}
+                        onTranscribe={handleTranscribeDoc}
+                        uploading={uploading}
+                      />
+                      <div className="mt-6 pt-6 border-t border-brand-primary/10">
+                        <button 
+                          onClick={handleAnalyzeMatricula} 
+                          disabled={analyzing} 
+                          className="w-full bg-brand-primary text-black py-4 rounded-xl font-bold hover:bg-brand-primary/90 transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-md shadow-brand-primary/10"
+                        >
+                          {analyzing ? <Loader2 className="animate-spin" size={16} /> : <Cpu size={16} />}
+                          {analyzing ? 'Analisando Matrícula...' : 'Executar Análise de Matrícula'}
+                        </button>
+                      </div>
                     </Card>
+                    
                     {state.matriculaAnalysis && (
                       <Card title="Resultado da Análise de Matrícula">
                         {!isPublicView && (
@@ -9032,49 +10759,83 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
                       </Card>
                     )}
                   </div>
+                  <div className="mt-8 no-print border-t border-brand-primary/10 pt-8">
+                    <LegalGlossaryForLaypeople />
+                  </div>
                   {renderTabChat('matricula')}
+                  <SmartResetPanel
+                    tabName="Análise de Matrícula"
+                    tabKey="matricula"
+                    hasAnalysis={!!state.matriculaAnalysis}
+                    onResetTab={() => handleResetSubTab('matricula')}
+                    onResetAll={handleResetAllPropertyData}
+                    onApplySettings={(settings) => updateState({ aiDepth: settings.depth, aiFocus: settings.focus })}
+                  />
                 </div>
               )}
               {activeSubTab === 'processos' && (
                 <div className="space-y-6">
-                  <h3 className="text-2xl font-bold text-brand-primary">Análise de Processos</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <Card title="Upload de Processos">
-                      <p className="text-brand-ink/60 mb-4">Gerencie os processos judiciais vinculados a este imóvel.</p>
-                      <button 
-                        onClick={handleAnalyzeProcesses}
-                        disabled={analyzing}
-                        className="w-full bg-brand-primary text-black py-3 rounded-xl font-bold hover:bg-brand-primary/90 transition-all disabled:opacity-50"
-                      >
-                        {analyzing ? 'Analisando...' : 'Executar Análise de Processos'}
-                      </button>
-                    </Card>
-                  </div>
-                  {state.processAnalysis && (
-                    <Card title="Resultado da Análise de Processos">
-                      {!isPublicView && (
-                        <div className="flex justify-end gap-3 mb-4 no-print">
-                          <button
-                            type="button"
-                            onClick={handleShare}
-                            className="flex items-center gap-2 bg-brand-primary text-black px-4 py-2 rounded-xl text-xs font-bold hover:bg-brand-primary/90 transition-all shadow-sm"
-                          >
-                            <Globe size={14} /> Compartilhar / Gerar Link Público
-                          </button>
-                        </div>
-                      )}
-                      <div className="p-1 sm:p-2 bg-brand-paper rounded-3xl border border-brand-border shadow-lg">
-                        <ProcessoReport 
-                          rawAnalysis={state.processAnalysis} 
-                          propertyAddress={selectedProperty?.address}
-                          propertyCity={selectedProperty?.city}
-                          propertyState={selectedProperty?.state}
-                          valuation={metrics?.valuation}
-                        />
+                  <h3 className="text-2xl font-bold text-brand-primary font-serif">Análise de Processos</h3>
+                  <div className="grid grid-cols-1 gap-6">
+                    <Card title="Upload e Gestão de Processos Judiciais">
+                      <p className="text-sm text-brand-ink/60 mb-4 font-sans">Gerencie as petições, execuções de título extrajudicial ou processos originários vinculados a este imóvel para auditar o risco de nulidade.</p>
+                      <DocumentManager 
+                        label="Processo Judicial" 
+                        docs={processDocsFiltered} 
+                        onUpload={(e, type) => handleAnalysisFileUpload(e, type)}
+                        onDelete={handleDeleteDocument}
+                        onTranscribe={handleTranscribeDoc}
+                        uploading={uploading}
+                      />
+                      <div className="mt-6 pt-6 border-t border-brand-primary/10">
+                        <button 
+                          onClick={handleAnalyzeProcesses}
+                          disabled={analyzing}
+                          className="w-full bg-brand-primary text-black py-4 rounded-xl font-bold hover:bg-brand-primary/90 transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-md shadow-brand-primary/10"
+                        >
+                          {analyzing ? <Loader2 className="animate-spin" size={16} /> : <Cpu size={16} />}
+                          {analyzing ? 'Analisando Processos...' : 'Executar Análise de Processos'}
+                        </button>
                       </div>
                     </Card>
-                  )}
+                    
+                    {state.processAnalysis && (
+                      <Card title="Resultado da Análise de Processos">
+                        {!isPublicView && (
+                          <div className="flex justify-end gap-3 mb-4 no-print">
+                            <button
+                              type="button"
+                              onClick={handleShare}
+                              className="flex items-center gap-2 bg-brand-primary text-black px-4 py-2 rounded-xl text-xs font-bold hover:bg-brand-primary/90 transition-all shadow-sm"
+                            >
+                              <Globe size={14} /> Compartilhar / Gerar Link Público
+                            </button>
+                          </div>
+                        )}
+                        <div className="p-1 sm:p-2 bg-brand-paper rounded-3xl border border-brand-border shadow-lg">
+                          <ProcessoReport 
+                            rawAnalysis={state.processAnalysis} 
+                            propertyAddress={selectedProperty?.address}
+                            propertyCity={selectedProperty?.city}
+                            propertyState={selectedProperty?.state}
+                            valuation={metrics?.valuation}
+                          />
+                        </div>
+                      </Card>
+                    )}
+                  </div>
+                  <div className="mt-8 no-print border-t border-brand-primary/10 pt-8">
+                    <LegalGlossaryForLaypeople />
+                  </div>
                   {renderTabChat('processos')}
+                  <SmartResetPanel
+                    tabName="Análise de Processos"
+                    tabKey="processos"
+                    hasAnalysis={!!state.processAnalysis}
+                    onResetTab={() => handleResetSubTab('processos')}
+                    onResetAll={handleResetAllPropertyData}
+                    onApplySettings={(settings) => updateState({ aiDepth: settings.depth, aiFocus: settings.focus })}
+                  />
                 </div>
               )}
               {isPasteModalOpen && (
@@ -9476,29 +11237,99 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
               )}
 
               {activeSubTab === 'smart_analysis' && (
-                <SmartAnalysisTab 
-                  data={state.smartAnalysis}
-                  onSave={handleSaveSmartAnalysis}
-                  onTriggerAI={handleAnalyzeSmart}
-                  isAnalyzing={analyzingSmart}
-                  hasDocuments={analysisDocs.length > 0}
-                />
+                <div className="space-y-12">
+                  <SmartAnalysisTab 
+                    data={state.smartAnalysis}
+                    onSave={handleSaveSmartAnalysis}
+                    onTriggerAI={handleAnalyzeSmart}
+                    isAnalyzing={analyzingSmart}
+                    hasDocuments={smartAnalysisDocs.length > 0}
+                    docs={smartAnalysisDocs}
+                    onUpload={(e, type) => handleAnalysisFileUpload(e, type)}
+                    onDelete={handleDeleteDocument}
+                    onTranscribe={handleTranscribeDoc}
+                    uploading={uploading}
+                  />
+                  <div className="mt-8 no-print border-t border-brand-primary/10 pt-8">
+                    <LegalGlossaryForLaypeople />
+                  </div>
+                  {renderTabChat('smart_analysis')}
+                  <SmartResetPanel
+                    tabName="Análise Smart"
+                    tabKey="smart_analysis"
+                    hasAnalysis={!!state.smartAnalysis}
+                    onResetTab={() => handleResetSubTab('smart_analysis')}
+                    onResetAll={handleResetAllPropertyData}
+                    onApplySettings={(settings) => updateState({ aiDepth: settings.depth, aiFocus: settings.focus })}
+                  />
+                </div>
+              )}
+
+              {activeSubTab === 'assessoria' && (
+                <div className="space-y-12">
+                  <AssessoriaReport 
+                    data={state.assessoriaAnalysis}
+                    onSave={handleSaveAssessoriaAnalysis}
+                    onTriggerAI={handleAnalyzeAssessoria}
+                    isAnalyzing={analyzingAssessoria}
+                    isPublicView={state.isPublicView}
+                    docs={assessoriaDocs}
+                    onUpload={(e, type) => handleAnalysisFileUpload(e, type)}
+                    onDelete={handleDeleteDocument}
+                    onTranscribe={handleTranscribeDoc}
+                    uploading={uploading}
+                  />
+                  <div className="mt-8 no-print border-t border-brand-primary/10 pt-8">
+                    <LegalGlossaryForLaypeople />
+                  </div>
+                  {renderTabChat('assessoria')}
+                  <SmartResetPanel
+                    tabName="Análise de Assessoria"
+                    tabKey="assessoria"
+                    hasAnalysis={!!state.assessoriaAnalysis}
+                    onResetTab={() => handleResetSubTab('assessoria')}
+                    onResetAll={handleResetAllPropertyData}
+                    onApplySettings={(settings) => updateState({ aiDepth: settings.depth, aiFocus: settings.focus })}
+                  />
+                </div>
               )}
 
               {activeSubTab === 'investors' && (
-                <InvestorsTabContent simulationData={simulationData} report={report} />
+                <div className="space-y-12">
+                  <InvestorsTabContent simulationData={simulationData} report={report} />
+                  {renderTabChat('investors')}
+                  <SmartResetPanel
+                    tabName="Relatório de Investidores"
+                    tabKey="investors"
+                    hasAnalysis={!!report}
+                    onResetTab={() => handleResetSubTab('report')}
+                    onResetAll={handleResetAllPropertyData}
+                    onApplySettings={(settings) => updateState({ aiDepth: settings.depth, aiFocus: settings.focus })}
+                  />
+                </div>
               )}
 
               {activeSubTab === 'instagram' && (
-                <InstagramMarketingView 
-                  state={state} 
-                  setState={setState} 
-                  property={selectedProperty} 
-                  metrics={metrics} 
-                  tir={tir} 
-                  roi={roi}
-                  token={token}
-                />
+                <div className="space-y-12">
+                  <InstagramMarketingView 
+                    state={state} 
+                    setState={setState} 
+                    property={selectedProperty} 
+                    metrics={metrics} 
+                    tir={tir} 
+                    roi={roi}
+                    token={token}
+                  />
+                  {renderTabChat('instagram')}
+                  <SmartResetPanel
+                    tabName="Material de Captação (Instagram)"
+                    tabKey="instagram"
+                    hasAnalysis={true}
+                    onResetTab={() => {}}
+                    onResetAll={handleResetAllPropertyData}
+                    onApplySettings={(settings) => updateState({ aiDepth: settings.depth, aiFocus: settings.focus })}
+                  />
+                </div>
               )}
 
               {activeSubTab === 'cnj' && (
@@ -9571,6 +11402,15 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
                       <p className="font-bold uppercase tracking-widest text-xs">Realize uma consulta CNJ na barra lateral</p>
                     </div>
                   )}
+                  {renderTabChat('cnj')}
+                  <SmartResetPanel
+                    tabName="Consulta CNJ"
+                    tabKey="cnj"
+                    hasAnalysis={!!cnjResult}
+                    onResetTab={() => handleResetSubTab('cnj')}
+                    onResetAll={handleResetAllPropertyData}
+                    onApplySettings={(settings) => updateState({ aiDepth: settings.depth, aiFocus: settings.focus })}
+                  />
                 </div>
               )}
 
@@ -9706,19 +11546,40 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
                     <DocumentManager 
                       key={category} 
                       label={category} 
-                      docs={analysisDocs} 
+                      docs={documentsDocsFiltered} 
                       onUpload={(e, type) => handleAnalysisFileUpload(e, type)}
                       onDelete={handleDeleteDocument}
+                      onTranscribe={handleTranscribeDoc}
                       uploading={uploading}
                     />
                   ))}
                   
-                  {analysisDocs.length === 0 && (
+                  {documentsDocsFiltered.length === 0 && (
                     <div className="py-20 text-center text-black/20 font-bold uppercase tracking-widest text-xs">
                       Nenhum documento vinculado.
                     </div>
                   )}
+
+                  <div className="mt-6 pt-6 border-t border-brand-primary/10">
+                    <button 
+                      onClick={() => handleAnalyze()} 
+                      disabled={analyzing} 
+                      className="w-full bg-brand-primary text-black py-4 rounded-xl font-bold hover:bg-brand-primary/90 transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-md shadow-brand-primary/10 font-sans"
+                    >
+                      {analyzing ? <Loader2 className="animate-spin" size={16} /> : <Cpu size={16} />}
+                      {analyzing ? 'Analisando Documentos...' : 'Executar Análise de Relatório com IA'}
+                    </button>
+                  </div>
+
                   {renderTabChat('documents')}
+                  <SmartResetPanel
+                    tabName="Documentos do Leilão"
+                    tabKey="documents"
+                    hasAnalysis={documentsDocsFiltered.length > 0}
+                    onResetTab={() => handleResetSubTab('documents')}
+                    onResetAll={handleResetAllPropertyData}
+                    onApplySettings={(settings) => updateState({ aiDepth: settings.depth, aiFocus: settings.focus })}
+                  />
                 </div>
               )}
 
@@ -9750,8 +11611,155 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
                   >
                     <InteractiveSimulationTable />
                   </SimulationContext.Provider>
+                  {renderTabChat('simulations')}
+                  <SmartResetPanel
+                    tabName="Simulador de Custos"
+                    tabKey="simulations"
+                    hasAnalysis={true}
+                    onResetTab={() => handleResetSubTab('simulations')}
+                    onResetAll={handleResetAllPropertyData}
+                    onApplySettings={(settings) => updateState({ aiDepth: settings.depth, aiFocus: settings.focus })}
+                  />
                 </div>
                )}
+            </div>
+
+            {/* NOVO: Gerenciador Global de Análise e Reset Inteligente */}
+            <div className="bg-brand-primary/[0.02] border-t border-brand-primary/10 p-6 sm:p-8 space-y-6 font-sans no-print">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-brand-primary/10 pb-5">
+                <div className="flex items-start gap-3">
+                  <div className="p-2.5 bg-brand-primary/10 text-brand-primary rounded-2xl">
+                    <Sliders size={20} />
+                  </div>
+                  <div>
+                    <h4 className="text-md font-bold text-brand-ink">Painel de Controle e Reinicialização</h4>
+                    <p className="text-xs text-brand-ink/50 mt-0.5">
+                      Monitore o status do seu leilão atual, alterne o modelo de IA ou limpe os relatórios para iniciar novos estudos de viabilidade.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    onClick={handleExportAllAnalyses}
+                    className="flex items-center gap-2 text-xs font-bold text-brand-primary hover:text-white bg-brand-primary/5 hover:bg-brand-primary px-4 py-2.5 rounded-xl border border-brand-primary/20 hover:border-brand-primary transition-all shadow-sm"
+                    title="Exporta o compilado de todas as abas de análise em Markdown"
+                  >
+                    <Download size={14} />
+                    Exportar Relatório Geral
+                  </button>
+                  <button
+                    onClick={handleCopyAllAnalyses}
+                    className="flex items-center gap-2 text-xs font-bold text-brand-ink/70 hover:text-brand-ink bg-black/5 hover:bg-black/10 px-4 py-2.5 rounded-xl border border-brand-border/30 transition-all"
+                  >
+                    {copiedAllAnalyses ? <Check size={14} className="text-emerald-600" /> : <Copy size={14} />}
+                    {copiedAllAnalyses ? 'Copiado!' : 'Copiar Todas as Abas'}
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Lado Esquerdo: Diagnóstico e Checklist do Leilão Atual */}
+                <div className="space-y-3">
+                  <span className="text-[10px] font-bold text-brand-primary uppercase tracking-wider block">Status da Cobertura de Dados</span>
+                  
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-xs p-3 bg-white/50 rounded-xl border border-brand-border/30">
+                      <div className="flex items-center gap-2">
+                        <FileText size={14} className={analysisDocs.some((d: any) => d.doc_type === 'Edital' || d.doc_type?.toLowerCase() === 'edital') ? "text-emerald-500" : "text-brand-ink/40"} />
+                        <span className="font-semibold text-brand-ink/80">Análise de Edital</span>
+                      </div>
+                      {state.editalAnalysis ? (
+                        <span className="text-[10px] font-bold px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200/50 rounded-full">Pronto</span>
+                      ) : (
+                        <span className="text-[10px] font-bold px-2 py-0.5 bg-black/5 text-brand-ink/40 rounded-full">Ausente</span>
+                      )}
+                    </div>
+
+                    <div className="flex items-center justify-between text-xs p-3 bg-white/50 rounded-xl border border-brand-border/30">
+                      <div className="flex items-center gap-2">
+                        <BookOpen size={14} className={analysisDocs.some((d: any) => d.doc_type === 'Matrícula' || d.doc_type?.toLowerCase() === 'matricula' || d.doc_type?.toLowerCase() === 'matrícula') ? "text-emerald-500" : "text-brand-ink/40"} />
+                        <span className="font-semibold text-brand-ink/80">Análise de Matrícula</span>
+                      </div>
+                      {state.matriculaAnalysis ? (
+                        <span className="text-[10px] font-bold px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200/50 rounded-full">Pronto</span>
+                      ) : (
+                        <span className="text-[10px] font-bold px-2 py-0.5 bg-black/5 text-brand-ink/40 rounded-full">Ausente</span>
+                      )}
+                    </div>
+
+                    <div className="flex items-center justify-between text-xs p-3 bg-white/50 rounded-xl border border-brand-border/30">
+                      <div className="flex items-center gap-2">
+                        <Search size={14} className={analysisDocs.some((d: any) => d.doc_type === 'Processo Judicial' || d.doc_type?.toLowerCase() === 'processo judicial') ? "text-emerald-500" : "text-brand-ink/40"} />
+                        <span className="font-semibold text-brand-ink/80">Processos Judiciais</span>
+                      </div>
+                      {state.processAnalysis ? (
+                        <span className="text-[10px] font-bold px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200/50 rounded-full">Pronto</span>
+                      ) : (
+                        <span className="text-[10px] font-bold px-2 py-0.5 bg-black/5 text-brand-ink/40 rounded-full">Ausente</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Meio: Controle de Modelo de IA Rápido */}
+                <div className="space-y-4 bg-brand-primary/[0.01] p-4 rounded-2xl border border-brand-primary/5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold text-brand-primary uppercase tracking-wider block">Inteligência Artificial</span>
+                    <span className="text-[9px] font-bold px-1.5 py-0.5 bg-emerald-500/10 text-emerald-600 rounded-full uppercase">Conectado</span>
+                  </div>
+
+                  <div className="space-y-3 pt-1">
+                    <div>
+                      <label className="block text-[10px] font-bold uppercase tracking-wider text-brand-ink/50 mb-1">Modelo Selecionado</label>
+                      <select 
+                        value={state.selectedModel}
+                        onChange={(e) => updateState({ selectedModel: e.target.value as any })}
+                        className="w-full text-xs font-semibold px-3 py-2.5 rounded-xl border border-brand-border bg-white text-brand-ink focus:outline-none focus:border-brand-primary"
+                      >
+                        <option value="gemini-2.5-flash">Gemini 2.5 Flash (Veloz e Econômico)</option>
+                        <option value="gemini-2.5-pro">Gemini 2.5 Pro (Raciocínio Jurídico Avançado)</option>
+                        <option value="gemini-2.0-flash">Gemini 2.0 Flash (Legado)</option>
+                      </select>
+                    </div>
+
+                    <div className="bg-white p-2.5 rounded-xl border border-brand-border/30 text-[10px] text-brand-ink/60 flex items-start gap-2">
+                      <Cpu size={14} className="text-brand-primary shrink-0 mt-0.5" />
+                      <span>Selecione "Gemini 2.5 Pro" caso queira realizar interpretações extremamente profundas de matrículas extensas.</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Lado Direito: Ações de Reset com Explicação */}
+                <div className="space-y-3">
+                  <span className="text-[10px] font-bold text-rose-500 uppercase tracking-wider block">Zona de Limpeza e Reinício</span>
+                  
+                  <div className="grid grid-cols-1 gap-2.5">
+                    {/* Botão Refazer Análise Atual */}
+                    <button
+                      onClick={() => handleResetAnalysis(false)}
+                      className="w-full flex items-center justify-center gap-2.5 text-xs font-bold text-amber-600 hover:text-white bg-amber-500/5 hover:bg-amber-500 border border-amber-500/20 hover:border-amber-500 py-3 rounded-xl transition-all shadow-sm"
+                      title="Apaga as interpretações da IA, mas mantém seus arquivos carregados"
+                    >
+                      <RefreshCw size={14} />
+                      Refazer Análise Atual
+                    </button>
+
+                    {/* Botão Resetar Tudo (Novo Leilão) */}
+                    <button
+                      onClick={() => handleResetAnalysis(true)}
+                      className="w-full flex items-center justify-center gap-2.5 text-xs font-bold text-rose-600 hover:text-white bg-rose-500/5 hover:bg-rose-500 border border-rose-500/20 hover:border-rose-500 py-3 rounded-xl transition-all shadow-sm"
+                      title="Apaga permanentemente todos os relatórios, conversas e arquivos enviados"
+                    >
+                      <Trash2 size={14} />
+                      Limpar Tudo (Novo Leilão)
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-brand-ink/40 leading-relaxed text-center lg:text-left">
+                    * Ao limpar tudo, os arquivos temporários e relatórios não salvos serão removidos definitivamente.
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -9787,7 +11795,8 @@ function AnalysisTab({ active, onClick, icon, label }: { active: boolean, onClic
 
 
 function DossierCard({ title, description, icon, hasFile, onUpload, uploading }: { title: string, description: string, icon: React.ReactNode, hasFile: boolean, onUpload: (e: React.ChangeEvent<HTMLInputElement>) => void, uploading: boolean }) {
-  const id = `dossier-${title.toLowerCase().replace(/\s+/g, '-')}`;
+  const uniqueId = React.useId();
+  const id = `dossier-${title.toLowerCase().replace(/\s+/g, '-')}-${uniqueId.replace(/:/g, '')}`;
   return (
     <div className={cn(
       "bg-brand-paper p-8 rounded-[2rem] border transition-all flex flex-col h-full",
@@ -9828,6 +11837,7 @@ function DossierCard({ title, description, icon, hasFile, onUpload, uploading }:
 }
 
 function AIKeyInput({ label, value, onChange }: { label: string, value: string, onChange: (val: string) => void }) {
+  const isInvalidGemini = value && label.includes("Gemini") && !value.trim().startsWith("AIza") && !value.trim().startsWith("AQ");
   return (
     <div>
       <label className="block text-[10px] font-bold uppercase tracking-[0.2em] text-brand-ink/30 mb-3 ml-1">{label}</label>
@@ -9835,14 +11845,14 @@ function AIKeyInput({ label, value, onChange }: { label: string, value: string, 
         type="password" 
         className={cn(
           "w-full bg-brand-bg border-none rounded-2xl py-5 px-8 focus:ring-2 focus:ring-brand-primary font-mono text-sm text-brand-primary",
-          value && label.includes("Gemini") && !value.trim().startsWith("AIza") && "ring-2 ring-red-200"
+          isInvalidGemini && "ring-2 ring-red-200"
         )}
         value={value || ''}
         onChange={e => onChange(e.target.value)}
-        placeholder={label.includes("Gemini") ? "Insira a chave AIza..." : "Insira a chave sk-..."}
+        placeholder={label.includes("Gemini") ? "Insira a chave AIza ou AQ..." : "Insira a chave sk-..."}
       />
-      {value && label.includes("Gemini") && !value.trim().startsWith("AIza") && (
-        <p className="text-[10px] text-red-500 mt-2 ml-1 font-bold">Atenção: Chaves Gemini devem começar com 'AIza'</p>
+      {isInvalidGemini && (
+        <p className="text-[10px] text-red-500 mt-2 ml-1 font-bold">Atenção: Chaves Gemini devem começar com 'AIza' ou 'AQ'</p>
       )}
     </div>
   );

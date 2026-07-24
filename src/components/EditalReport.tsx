@@ -21,7 +21,10 @@ import {
   ChevronDown,
   Activity,
   PenTool,
-  MessageSquare
+  MessageSquare,
+  BookOpen,
+  Sparkles,
+  Calculator
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -52,6 +55,8 @@ export interface EditalReportData {
     formas_pagamento?: string;
     prazo_pagamento?: string;
     parcelamento_especifico?: string;
+    tem_desconto_vista?: string;
+    percentual_desconto_vista?: string;
     condicoes_diferenciadas?: string;
   };
   comissao_leiloeiro_detalhe: {
@@ -150,6 +155,16 @@ export const EditalReport: React.FC<EditalReportProps> = ({
   const [copiedRaw, setCopiedRaw] = useState(false);
   const [copiedData, setCopiedData] = useState<string | null>(null);
 
+  // Estados Interativos para as melhorias inteligentes sugeridas
+  const [customBid, setCustomBid] = useState<number>(valuation ? valuation * 0.5 : 150000);
+  const [preDiligenceChecklist, setPreDiligenceChecklist] = useState<Record<number, boolean>>({
+    1: false,
+    2: false,
+    3: false,
+    4: false,
+    5: false,
+  });
+
   const toggleAccordion = (key: string) => {
     setAccordionState(prev => ({ ...prev, [key]: !prev[key] }));
   };
@@ -160,6 +175,31 @@ export const EditalReport: React.FC<EditalReportProps> = ({
       updated[k] = open;
     });
     setAccordionState(updated);
+  };
+
+  // Helper to clean potential markdown wrappers from JSON string
+  const cleanJsonText = (str: string): string => {
+    let cleaned = str.trim();
+    if (cleaned.startsWith("```json")) {
+      cleaned = cleaned.substring(7);
+    } else if (cleaned.startsWith("```")) {
+      cleaned = cleaned.substring(3);
+    }
+    if (cleaned.endsWith("```")) {
+      cleaned = cleaned.substring(0, cleaned.length - 3);
+    }
+    cleaned = cleaned.trim();
+
+    // Extrai o bloco JSON que está entre a primeira chave aberta { e a última chave fechada }
+    const firstBrace = cleaned.indexOf('{');
+    const lastBrace = cleaned.lastIndexOf('}');
+    if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+      cleaned = cleaned.substring(firstBrace, lastBrace + 1);
+    }
+
+    // Remove vírgulas extras no final de arrays/objetos antes de fechar chaves/colchetes
+    cleaned = cleaned.replace(/,\s*([}\]])/g, '$1');
+    return cleaned;
   };
 
   // Convert raw analysis into structured JSON block or fall back to high-quality heuristics
@@ -178,10 +218,26 @@ export const EditalReport: React.FC<EditalReportProps> = ({
     const match = rawAnalysis.match(/<analysis_data>([\s\S]*?)<\/analysis_data>/);
     if (match) {
       try {
-        data = JSON.parse(match[1].trim());
+        const cleanedJson = cleanJsonText(match[1]);
+        data = JSON.parse(cleanedJson);
         cleanMarkdown = rawAnalysis.replace(/<analysis_data>[\s\S]*?<\/analysis_data>/g, '').trim();
       } catch (err) {
         console.error("Failed to parse structured JSON block in edital analysis:", err);
+      }
+    }
+
+    // Fall back to searching for raw JSON object if XML-style tags are missing
+    if (!data) {
+      const jsonRegex = /(\{[\s\S]*"kpis"[\s\S]*\})/i;
+      const jsonMatch = rawAnalysis.match(jsonRegex);
+      if (jsonMatch) {
+        try {
+          const cleanedJson = cleanJsonText(jsonMatch[1]);
+          data = JSON.parse(cleanedJson);
+          cleanMarkdown = rawAnalysis.replace(jsonMatch[1], '').trim();
+        } catch (err) {
+          console.error("Failed to parse fallback JSON block in edital analysis:", err);
+        }
       }
     }
 
@@ -268,8 +324,8 @@ export const EditalReport: React.FC<EditalReportProps> = ({
               <h2 className="text-lg font-bold tracking-tight">Resumo geral</h2>
             </div>
 
-            {/* Three Big Cards (Matching Image 10: Relatório do Edital) */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            {/* Four Big Cards (Including Discount for Cash Payment) */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
               {/* Avaliação Card */}
               <div className="bg-brand-bg/40 border border-brand-border rounded-2xl p-5 space-y-1">
                 <span className="text-[10px] font-bold text-brand-ink/40 uppercase tracking-widest block">AVALIAÇÃO</span>
@@ -295,6 +351,21 @@ export const EditalReport: React.FC<EditalReportProps> = ({
               <div className="bg-brand-bg/40 border border-brand-border rounded-2xl p-5 space-y-1">
                 <span className="text-[10px] font-bold text-brand-ink/40 uppercase tracking-widest block">COMISSÃO DO LEILOEIRO</span>
                 <span className="text-2xl sm:text-3xl font-extrabold text-brand-ink font-sans tracking-tight">{data.kpis.comissao_leiloeiro}</span>
+              </div>
+
+              {/* Desconto à Vista Card */}
+              <div className="bg-brand-bg/40 border border-brand-border rounded-2xl p-5 space-y-1">
+                <span className="text-[10px] font-bold text-brand-ink/40 uppercase tracking-widest block">DESCONTO À VISTA</span>
+                <div className="space-y-0.5">
+                  <span className="text-2xl sm:text-3xl font-extrabold text-brand-ink font-sans tracking-tight block text-brand-primary">
+                    {data.condicoes_pagamento.tem_desconto_vista === 'Sim' ? (data.condicoes_pagamento.percentual_desconto_vista || 'Sim') : (data.condicoes_pagamento.tem_desconto_vista || 'Não')}
+                  </span>
+                  {data.condicoes_pagamento.tem_desconto_vista === 'Sim' && (
+                    <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-bold font-sans">
+                      Desconto para pagamento à vista
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -382,6 +453,8 @@ export const EditalReport: React.FC<EditalReportProps> = ({
                 <GridRow label="Formas de pagamento" value={data.condicoes_pagamento.formas_pagamento} />
                 <GridRow label="Prazo de pagamento" value={data.condicoes_pagamento.prazo_pagamento} />
                 <GridRow label="Parcelamento específico" value={data.condicoes_pagamento.parcelamento_especifico} />
+                <GridRow label="Desconto para pagamento à vista" value={data.condicoes_pagamento.tem_desconto_vista} />
+                <GridRow label="Percentual de desconto à vista" value={data.condicoes_pagamento.percentual_desconto_vista} />
                 {data.condicoes_pagamento.condicoes_diferenciadas && (
                   <div className="py-3">
                     <span className="text-[10px] font-semibold text-brand-ink/40 block mb-1 uppercase tracking-wider">Condições diferenciadas</span>
@@ -594,6 +667,265 @@ export const EditalReport: React.FC<EditalReportProps> = ({
               </div>
             </AccordionSection>
 
+            {/* Cérebro Explicativo: Guia Jurídico e Exemplos Práticos */}
+            <div className="mt-8 p-6 bg-brand-primary/5 rounded-[2rem] border border-brand-primary/10 space-y-4 font-sans">
+              <div className="flex items-center gap-2 border-b border-brand-primary/10 pb-3">
+                <BookOpen size={18} className="text-brand-primary" />
+                <h4 className="text-xs font-bold uppercase tracking-widest text-brand-primary">
+                  Cérebro Explicativo: Guia de Regras do Edital & Exemplos Práticos
+                </h4>
+              </div>
+              <p className="text-xs text-brand-ink/70 leading-relaxed">
+                O edital é a "lei do leilão". Ele estabelece quem paga as contas, como pagar e quando. Veja as explicações dos principais conceitos extraídos deste edital:
+              </p>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+                {/* Condições de pagamento */}
+                <div className="bg-brand-bg p-4 rounded-xl border border-brand-border space-y-2">
+                  <h5 className="text-xs font-bold text-orange-400">💵 Parcelamento do Lance</h5>
+                  <p className="text-[11px] text-brand-ink/65 leading-relaxed">
+                    Determina se o investidor pode pagar o lance de forma parcelada ou se precisa pagar 100% à vista.
+                  </p>
+                  <div className="text-[11px] text-brand-ink/65 space-y-1 bg-brand-primary/5 p-2 rounded-lg">
+                    {data.condicoes_pagamento.permite_parcelamento?.toLowerCase().includes('sim') ? (
+                      <p className="text-emerald-400 font-medium">
+                        <strong>✓ Caso Prático Detectado:</strong> Este edital permite parcelamento ({data.condicoes_pagamento.num_max_parcelas || 'conforme as regras'}). Você pode oferecer um lance dando uma entrada (ex: {data.condicoes_pagamento.entrada_minima || '25%'}) e dividir o saldo em até {data.condicoes_pagamento.num_max_parcelas || 'parcelas'}.
+                      </p>
+                    ) : (
+                      <p>
+                        <strong>✗ Caso Prático Detectado:</strong> Parcelamento indisponível ou exige regras específicas. Lances à vista têm prioridade legal absoluta sobre lances parcelados de acordo com o Art. 895 do CPC.
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Dívidas do Imóvel */}
+                <div className="bg-brand-bg p-4 rounded-xl border border-brand-border space-y-2">
+                  <h5 className="text-xs font-bold text-brand-primary">⚖️ Responsabilidade por Dívidas (Propter Rem)</h5>
+                  <p className="text-[11px] text-brand-ink/65 leading-relaxed">
+                    Define quem arca com dívidas anteriores de IPTU e condomínio (propter rem, que acompanham o imóvel).
+                  </p>
+                  <div className="text-[11px] text-brand-ink/65 space-y-1 bg-brand-primary/5 p-2 rounded-lg">
+                    {data.responsabilidade_dividas.sub_rogacao_no_preco?.toLowerCase().includes('sim') || data.responsabilidade_dividas.propter_rem_no_edital?.toLowerCase().includes('não assume') ? (
+                      <p className="text-emerald-400 font-medium">
+                        <strong>✓ Caso Prático Detectado:</strong> Sub-rogação de preço ativa ou arrematante livre de dívidas. O dinheiro que você pagar pelo imóvel será usado para quitar o IPTU e o condomínio acumulados. Você receberá o imóvel limpo de débitos!
+                      </p>
+                    ) : (
+                      <p className="text-red-400 font-medium">
+                        <strong>⚠️ Caso Prático Detectado:</strong> Atenção! O edital aponta responsabilidade do arrematante pelas dívidas ou não especifica sub-rogação completa. Você precisará somar as dívidas conhecidas (IPTU/Condomínio) ao seu teto de lance máximo!
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* NOVO: Campo de Análise Geral do Edital e Impactos para o Arrematante */}
+            <div className="mt-8 bg-gradient-to-br from-brand-bg/40 to-brand-bg/10 rounded-3xl border border-brand-primary/20 p-6 space-y-6 font-sans">
+              <div className="flex items-center gap-3 border-b border-brand-primary/10 pb-4">
+                <div className="p-2 bg-brand-primary/10 text-brand-primary rounded-xl">
+                  <Sparkles size={20} />
+                </div>
+                <div>
+                  <h4 className="text-md font-bold text-brand-ink">Análise Geral do Edital & Impactos para o Arrematante</h4>
+                  <p className="text-xs text-brand-ink/50 mt-0.5">Visão consolidada de regras, facilidades financeiras, penalidades e teto de lances</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Lado Esquerdo: Diagnóstico e Resumo Financeiro */}
+                <div className="space-y-4">
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-bold text-brand-primary uppercase tracking-wider block">Análise de Viabilidade Financeira</span>
+                    <div className="flex items-center gap-2 mt-1.5">
+                      {data.condicoes_pagamento.permite_parcelamento?.toLowerCase().includes('sim') ? (
+                        <>
+                          <div className="w-2.5 h-2.5 rounded-full bg-emerald-500"></div>
+                          <span className="text-xs font-bold text-emerald-500 uppercase tracking-tight">Excelente Viabilidade (Alavancagem com Parcelamento Ativo)</span>
+                        </>
+                      ) : (
+                        <>
+                          <div className="w-2.5 h-2.5 rounded-full bg-amber-500"></div>
+                          <span className="text-xs font-bold text-amber-500 uppercase tracking-tight">Requer Capital à Vista (Sem Parcelamento Direto)</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="bg-brand-bg/20 p-4 rounded-2xl border border-brand-border/40 space-y-2">
+                    <h5 className="text-xs font-bold text-brand-ink/80">Parecer Geral das Datas e Lances:</h5>
+                    <p className="text-xs text-brand-ink/70 leading-relaxed">
+                      O leilão está estruturado em {data.datas_importantes.segunda_praca ? "duas praças" : "uma praça"}. 
+                      A primeira praça ocorre em <strong>{data.datas_importantes.primeira_praca || "data não especificada"}</strong> pelo valor total da avaliação de <strong>{data.kpis.avaliacao || "não informado"}</strong>. 
+                      A segunda praça, com desconto expressivo, está agendada para <strong>{data.datas_importantes.segunda_praca || "data não especificada"}</strong> com lance mínimo de <strong>{data.valores_lances.lance_minimo_2a_praca || data.kpis.lance_minimo || "não informado"}</strong>.
+                    </p>
+                  </div>
+
+                  {data.penalidades_desistencia.multa_inadimplencia && (
+                    <div className="bg-rose-500/5 p-4 rounded-2xl border border-rose-500/10 space-y-1">
+                      <h5 className="text-xs font-bold text-rose-500">Multas e Penalidades por Desistência:</h5>
+                      <p className="text-xs text-brand-ink/75 leading-relaxed font-medium">
+                        O edital prevê multa de <strong>{data.penalidades_desistencia.multa_inadimplencia}</strong> em caso de não pagamento ou de desistência imotivada do lance. Avalie com critério o seu limite antes de ofertar para evitar sanções judiciais graves.
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Lado Direito: Impactos Cruciais para o Arrematante */}
+                <div className="space-y-4">
+                  <span className="text-[10px] font-bold text-brand-primary uppercase tracking-wider block">Impactos Práticos para o Comprador</span>
+                  
+                  <div className="space-y-3">
+                    {/* Comissão */}
+                    <div className="flex gap-3 text-xs leading-relaxed">
+                      <div className="mt-1 flex-shrink-0 text-brand-primary">
+                        <CheckCircle2 size={14} />
+                      </div>
+                      <p className="text-brand-ink/80">
+                        <strong>Comissão do Leiloeiro:</strong> O arrematante deve pagar <strong>{data.kpis.comissao_leiloeiro || '5%'}</strong> sobre o valor do lance vencedor diretamente ao leiloeiro oficial. Este valor não está embutido no lance e deve ser pago imediatamente (geralmente em até 24h ou 48h).
+                      </p>
+                    </div>
+
+                    {/* Dívidas */}
+                    <div className="flex gap-3 text-xs leading-relaxed">
+                      <div className="mt-1 flex-shrink-0 text-brand-primary">
+                        <CheckCircle2 size={14} />
+                      </div>
+                      <p className="text-brand-ink/80">
+                        <strong>Dívidas de IPTU e Condomínio:</strong> {data.responsabilidade_dividas.sub_rogacao_no_preco?.toLowerCase().includes('sim') || data.responsabilidade_dividas.propter_rem_no_edital?.toLowerCase().includes('não assume')
+                          ? "Há previsão expressa de sub-rogação dos débitos anteriores sobre o preço do lance vencedor. O comprador adquire o imóvel livre de débitos anteriores de IPTU/Condomínio."
+                          : "Atenção redobrada! Caso as dívidas propter rem de condomínio e IPTU não fiquem sub-rogadas no preço conforme este edital, elas acompanharão o imóvel e serão cobradas do novo adquirente."}
+                      </p>
+                    </div>
+
+                    {/* Desocupação */}
+                    <div className="flex gap-3 text-xs leading-relaxed">
+                      <div className="mt-1 flex-shrink-0 text-brand-primary">
+                        <CheckCircle2 size={14} />
+                      </div>
+                      <p className="text-brand-ink/80">
+                        <strong>Desocupação e Posse:</strong> Caso o imóvel esteja ocupado por devedores ou inquilinos, a desocupação é de responsabilidade do arrematante. Em leilões judiciais, o juiz do processo emite uma <em>Imissão na Posse</em> facilitada. Em extrajudiciais, pode demandar ação própria de reintegração de posse.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* NOVO: Simulador de Lance Máximo e Checklist Pré-Leilão */}
+              <div className="border-t border-brand-primary/10 pt-6 space-y-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Simulador Inteligente de Margem de Lucro */}
+                  <div className="bg-brand-primary/[0.03] rounded-2xl border border-brand-primary/10 p-5 space-y-4">
+                    <div className="flex items-center gap-2">
+                      <Calculator size={16} className="text-brand-primary" />
+                      <h5 className="text-sm font-bold text-brand-ink">Simulador Inteligente de Margem de Lucro</h5>
+                    </div>
+                    <p className="text-xs text-brand-ink/65 leading-relaxed">
+                      Simule o desconto real em relação ao valor de avaliação e veja o custo total estimado de aquisição:
+                    </p>
+
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-[10px] font-bold uppercase tracking-wider text-brand-ink/50 mb-1">
+                          Seu Lance Proposto (R$)
+                        </label>
+                        <div className="relative">
+                          <span className="absolute left-3 top-2 text-xs font-bold text-brand-ink/40">R$</span>
+                          <input
+                            type="number"
+                            className="w-full pl-9 pr-3 py-1.5 text-xs font-semibold rounded-xl border border-brand-border bg-brand-bg text-brand-ink focus:outline-none focus:border-brand-primary"
+                            value={customBid}
+                            onChange={(e) => setCustomBid(Number(e.target.value))}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="divide-y divide-brand-border/30 text-xs pt-1">
+                        <div className="py-2 flex justify-between">
+                          <span className="text-brand-ink/60">Avaliação de Mercado:</span>
+                          <span className="font-mono font-medium">R$ {(valuation || 300000).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        </div>
+                        <div className="py-2 flex justify-between">
+                          <span className="text-brand-ink/60">Lance Simulado:</span>
+                          <span className="font-mono font-medium text-brand-primary font-bold">R$ {customBid.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        </div>
+                        <div className="py-2 flex justify-between">
+                          <span className="text-brand-ink/60">Desconto Bruto:</span>
+                          <span className="font-mono font-medium text-emerald-500 font-bold">
+                            {valuation ? `${(((valuation - customBid) / valuation) * 100).toFixed(1)}%` : '50.0%'} de desconto
+                          </span>
+                        </div>
+                        <div className="py-2 flex justify-between">
+                          <span className="text-brand-ink/60">Custos Iniciais (Comissão + ITBI + Registro 9.2%):</span>
+                          <span className="font-mono font-medium">R$ {(customBid * 0.092).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        </div>
+                        <div className="py-3 flex justify-between font-bold text-brand-primary border-t-2 border-brand-primary/20">
+                          <span>INVESTIMENTO TOTAL ESTIMADO:</span>
+                          <span className="font-mono">R$ {(customBid + (customBid * 0.092)).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Checklist Pré-Arrematação */}
+                  <div className="bg-brand-primary/[0.03] rounded-2xl border border-brand-primary/10 p-5 space-y-4">
+                    <div className="flex items-center gap-2">
+                      <Activity size={16} className="text-brand-primary" />
+                      <h5 className="text-sm font-bold text-brand-ink">Diligência Pré-Leilão (Checklist de Segurança)</h5>
+                    </div>
+                    <p className="text-xs text-brand-ink/65 leading-relaxed">
+                      Complete estas etapas de verificação cruciais antes do dia do leilão para evitar surpresas judiciais ou financeiras:
+                    </p>
+
+                    <div className="space-y-2.5">
+                      {[
+                        { id: 1, label: "Fazer vistoria externa da vizinhança e fachada do imóvel.", desc: "Avalie o estado de conservação, segurança da rua e se está ocupado." },
+                        { id: 2, label: "Verificar a existência de ações judiciais de defesa do devedor.", desc: "Checar se há Embargos à Execução ou Ações Anulatórias ativas de alto risco." },
+                        { id: 3, label: "Consultar débitos de IPTU na prefeitura municipal.", desc: "Descubra se há dívidas tributárias passadas que não estão sub-rogadas no edital." },
+                        { id: 4, label: "Solicitar declaração de inexistência de débitos ao condomínio.", desc: "Evita cobranças surpresa de cotas condominiais atrasadas de caráter propter rem." },
+                        { id: 5, label: "Confirmar edital com advogado especialista em leilões.", desc: "Garanta uma análise fria sobre a segurança jurídica global da venda." },
+                      ].map((step) => (
+                        <div key={step.id} className="flex items-start gap-3 text-xs">
+                          <input
+                            type="checkbox"
+                            id={`pre-step-check-${step.id}`}
+                            className="mt-1 h-3.5 w-3.5 rounded border-brand-border text-brand-primary focus:ring-brand-primary"
+                            checked={!!preDiligenceChecklist[step.id]}
+                            onChange={(e) => {
+                              setPreDiligenceChecklist(prev => ({ ...prev, [step.id]: e.target.checked }));
+                            }}
+                          />
+                          <label htmlFor={`pre-step-check-${step.id}`} className="cursor-pointer select-none">
+                            <span className={`font-semibold block ${preDiligenceChecklist[step.id] ? 'line-through text-brand-ink/40' : 'text-brand-ink'}`}>
+                              {step.id}. {step.label}
+                            </span>
+                            <span className={`text-[11px] block mt-0.5 ${preDiligenceChecklist[step.id] ? 'text-brand-ink/30' : 'text-brand-ink/50'}`}>
+                              {step.desc}
+                            </span>
+                          </label>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Sugestão Inteligente (Aumentando inteligência da análise) */}
+              <div className="mt-4 pt-4 border-t border-brand-primary/10 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-brand-primary/5 p-4 rounded-2xl border border-brand-primary/10">
+                <div className="flex items-start gap-3">
+                  <div className="mt-1 text-brand-primary">
+                    <Sparkles size={16} />
+                  </div>
+                  <div>
+                    <h5 className="text-xs font-bold text-brand-ink">💡 Sugestão Inteligente de Margem de Lucro</h5>
+                    <p className="text-[11px] text-brand-ink/70 leading-relaxed mt-0.5">
+                      Para uma arrematação segura, some ao valor máximo do seu lance: a comissão do leiloeiro (5%), o custo do ITBI (geralmente 2% a 4%), as taxas de registro cartorário e uma reserva de contingência (cerca de 5% a 10% para eventuais reformas ou desocupação).
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
           </div>
         </div>
       )}
@@ -720,104 +1052,104 @@ function getFallbackEditalData(
   state: string,
   valuation: number
 ): EditalReportData {
-  const formattedValuation = valuation > 0 ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valuation) : 'R$ 440.000,00';
+  const formattedValuation = valuation > 0 ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valuation) : 'Não informado';
+  const displayAddress = address || 'Não informado';
+  const displayLocation = (city && state) ? `${city}/${state}` : (city || state || 'Não informada');
 
   return {
     kpis: {
       avaliacao: formattedValuation,
-      lance_minimo: '50% da avaliação',
-      lance_minimo_subtexto: '~100% da avaliação',
+      lance_minimo: 'A definir (consulte edital)',
+      lance_minimo_subtexto: 'Sob consulta',
       comissao_leiloeiro: '5%',
-      primeira_praca: '2026-06-08',
-      segunda_praca: '2026-06-25'
+      primeira_praca: 'Não informada',
+      segunda_praca: 'Não informada'
     },
     valores_lances: {
       valor_avaliacao: formattedValuation,
-      lance_minimo_1a_praca: '80% da avaliação',
+      lance_minimo_1a_praca: '100% da avaliação',
       lance_minimo_2a_praca: '50% da avaliação',
       percentual_minimo_2a_praca: '50%',
       forma_leilao: 'Eletrônico'
     },
     condicoes_pagamento: {
-      permite_parcelamento: 'Sim',
-      entrada_minima: '25%',
-      num_max_parcelas: '30',
-      correcao_parcelas: 'fatores de atualização monetária do Tribunal de Justiça de Minas Gerais',
-      garantias_exigidas: 'hipoteca judicial gravada sobre o próprio imóvel',
-      formas_pagamento: 'À vista, Parcelado',
-      prazo_pagamento: 'Primeiro dia útil subsequente ao leilão',
-      parcelamento_especifico: 'Até 30 parcelas com sinal mínimo de 25%',
-      condicoes_diferenciadas: 'Caso no intercurso do leilão seja recebida oferta para pagamento à vista, esta prevalecerá sobre a parcelada'
+      permite_parcelamento: 'Não informado',
+      entrada_minima: 'Não informado',
+      num_max_parcelas: 'Não informado',
+      correcao_parcelas: 'Não informado',
+      garantias_exigidas: 'Não informado',
+      formas_pagamento: 'Não informado',
+      prazo_pagamento: 'Não informado',
+      parcelamento_especifico: 'Não informado',
+      tem_desconto_vista: 'Não informado',
+      percentual_desconto_vista: 'Não informado',
+      condicoes_diferenciadas: 'Não informado'
     },
     comissao_leiloeiro_detalhe: {
       percentual: '5%',
       quem_paga: 'Arrematante',
-      momento_pagamento: 'data do leilão ou dia subsequente'
+      momento_pagamento: 'Não informado'
     },
     responsabilidade_dividas: {
-      propter_rem_no_edital: 'Sim',
-      sub_rogacao_no_preco: 'Sim',
-      responsabilidade_propter_rem: 'Sub-rogado sobre o preço da alienação. Os créditos que recaem sobre o imóvel, inclusive os de natureza propter rem, serão sub-rogados sobre o preço da alienação'
+      propter_rem_no_edital: 'Não informado',
+      sub_rogacao_no_preco: 'Não informado',
+      responsabilidade_propter_rem: 'Mapeamento pendente. Verifique a análise textual.'
     },
     situacao_juridica: {
       onus_reais: [
-        'Hipoteca em favor a Fundação Banco Central de Previdência Privada Centrus (R-4)',
-        'Penhora autos 1743499-42.2015.8.13.0024 (R-5)'
+        'Mapeamento pendente. Verifique a análise textual.'
       ]
     },
     penalidades_desistencia: {
-      multa_inadimplencia: '10% sobre a soma da parcela inadimplida com as parcelas vincendas',
-      perda_sinal: 'Sim, em caso de inadimplemento ou desistência injustificada',
-      permite_desistencia: 'Não permitida sem autorização judicial',
-      penalidades_desistencia_detalhe: 'Reterá a comissão do leiloeiro e aplicação de multas, além de possíveis implicações civis e criminais'
+      multa_inadimplencia: 'Não informado',
+      perda_sinal: 'Não informado',
+      permite_desistencia: 'Não informado',
+      penalidades_desistencia_detalhe: 'Não informado'
     },
     datas_importantes: {
-      publicacao_edital: '2026-04-29',
-      primeira_praca: '2026-06-08',
-      segunda_praca: '2026-06-25',
-      inicio_lances: '2026-04-29',
-      fim_lances: '2026-06-08'
+      publicacao_edital: 'Não informada',
+      primeira_praca: 'Não informada',
+      segunda_praca: 'Não informada',
+      inicio_lances: 'Não informada',
+      fim_lances: 'Não informada'
     },
     identificacao_leilao: {
       titulo: 'EDITAL DE LEILÃO',
-      tipo_leilao: 'Judicial',
+      tipo_leilao: 'Não informado',
       modalidade: 'Eletrônico',
-      orgao_origem: '13ª VARA CÍVEL DA COMARCA DE BELO HORIZONTE /MG',
-      processo: '1743499-42.2015.8.13.0024',
-      vara: '13ª Vara Cível',
-      comarca: 'Belo Horizonte/MG',
-      tribunal: 'Poder Judiciário do Estado de Minas Gerais'
+      orgao_origem: 'Não informado',
+      processo: 'Não informado',
+      vara: 'Não informada',
+      comarca: displayLocation,
+      tribunal: 'Não informado'
     },
     leiloeiro_plataforma: {
-      leiloeiro: 'Angela Saraiva Portes Souza',
-      matricula_leiloeiro: '441 - JUCEMG',
-      telefone: '(31) 3207-3900',
-      email: 'financeiro@saraivaleiloes.com.br',
-      site: 'WWW.SARAIVALEILOES.COM.BR',
-      plataforma: 'Saraiva Leilões',
-      url_plataforma: 'WWW.SARAIVALEILOES.COM.BR'
+      leiloeiro: 'Não informado',
+      matricula_leiloeiro: 'Não informado',
+      telefone: 'Não informado',
+      email: 'Não informado',
+      site: 'Não informado',
+      plataforma: 'Não informado',
+      url_plataforma: 'Não informado'
     },
     caracteristicas_imovel_edital: {
-      tipo_imovel: 'Apartamento',
-      area_total: '95,27m²',
-      quartos: '3',
-      andar: '201',
-      uso_destinado: 'Residencial',
-      descricao_edital: 'Apartamento 201 situado na Rua Uberlândia, nº 254, Carlos Prates, Condomínio do Edifício Leonardo Augusto. Composto por uma sala, uma cozinha, um banheiro social, dois quartos comuns, uma suíte, uma área de serviço e DCE.',
-      endereco: address || 'Rua Uberlândia, 254 - Apartamento 201 - Carlos Prates - Belo Horizonte/MG',
-      matricula: '51936',
-      cartorio: '3º Ofício de Registro de Imóveis',
-      comarca_matricula: 'Belo Horizonte/MG'
+      tipo_imovel: 'Não informado',
+      area_total: 'Não informado',
+      quartos: 'Não informado',
+      andar: 'Não informado',
+      uso_destinado: 'Não informado',
+      descricao_edital: 'Mapeamento pendente. Verifique o texto completo da análise.',
+      endereco: displayAddress,
+      matricula: 'Não informado',
+      cartorio: 'Não informado',
+      comarca_matricula: displayLocation
     },
     clausulas_observacoes: {
       clausulas_relevantes: [
-        'Alienções feitas em caráter AD-CORPUS',
-        'Arrematação sujeita a homologação judicial',
-        'Possibilidade de alienação particular caso o leilão seja negativo'
+        'Mapeamento pendente. Verifique a análise textual.'
       ],
       observacoes_edital: [
-        'Síndico notificado quanto a débitos de condomínio, informação será juntada nos autos quando disponível',
-        'Áreas mencionadas são meramente enunciativas'
+        'Mapeamento pendente. Verifique a análise textual.'
       ]
     }
   };

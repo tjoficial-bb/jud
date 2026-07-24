@@ -4,11 +4,13 @@ import {
   HelpCircle, AlertTriangle, AlertCircle, RefreshCw,
   TrendingUp, Scale, Gavel, User, Home, DollarSign, Calendar
 } from 'lucide-react';
+import { DocumentManager } from './DocumentManager';
 
 export interface SmartAnalysisData {
   risco_geral: 'Não avaliado' | 'Baixo' | 'Médio' | 'Alto';
   recomendacao: 'Selecione' | 'Recomendo arrematar' | 'Recomendo com ressalvas' | 'Não recomendo arrematar';
   justificativa: string;
+  justificativa_pessoal?: string;
   
   tipo_leilao: 'Selecione' | 'Judicial' | 'Extrajudicial';
   responsabilidade_iptu: 'Selecione' | 'Vendedor (Banco)' | 'Comprador' | 'Sub-rogado no preço';
@@ -29,6 +31,13 @@ export interface SmartAnalysisData {
   observacoes_desocupacao: string;
   
   risco_geral_nulidade: 'Não avaliado' | 'Baixo' | 'Médio' | 'Alto';
+  citacao_regular?: boolean;
+  intimacao_penhora?: boolean;
+  intimacao_leilao_executado?: boolean;
+  intimacao_credor_fiduciario?: boolean;
+  coproprietario_intimado?: boolean;
+  publicacao_edital_ok?: boolean;
+  preco_vil?: boolean;
   vicio_citacao: boolean;
   vicio_avaliacao: boolean;
   vicio_publicacao: boolean;
@@ -83,6 +92,7 @@ export const getEmptySmartAnalysis = (): SmartAnalysisData => ({
   risco_geral: 'Não avaliado',
   recomendacao: 'Selecione',
   justificativa: '',
+  justificativa_pessoal: '',
   tipo_leilao: 'Selecione',
   responsabilidade_iptu: 'Selecione',
   responsabilidade_condominio: 'Selecione',
@@ -99,6 +109,13 @@ export const getEmptySmartAnalysis = (): SmartAnalysisData => ({
   prazo_estimado_desocupacao: '',
   observacoes_desocupacao: '',
   risco_geral_nulidade: 'Não avaliado',
+  citacao_regular: false,
+  intimacao_penhora: false,
+  intimacao_leilao_executado: false,
+  intimacao_credor_fiduciario: false,
+  coproprietario_intimado: false,
+  publicacao_edital_ok: false,
+  preco_vil: false,
   vicio_citacao: false,
   vicio_avaliacao: false,
   vicio_publicacao: false,
@@ -152,6 +169,11 @@ interface SmartAnalysisTabProps {
   onTriggerAI: () => Promise<void>;
   isAnalyzing: boolean;
   hasDocuments: boolean;
+  docs: any[];
+  onUpload: (e: React.ChangeEvent<HTMLInputElement>, type: string) => void;
+  onDelete: (id: string) => void;
+  onTranscribe?: (id: string) => void;
+  uploading: boolean;
 }
 
 export default function SmartAnalysisTab({
@@ -159,7 +181,12 @@ export default function SmartAnalysisTab({
   onSave,
   onTriggerAI,
   isAnalyzing,
-  hasDocuments
+  hasDocuments,
+  docs,
+  onUpload,
+  onDelete,
+  onTranscribe,
+  uploading
 }: SmartAnalysisTabProps) {
   const [localData, setLocalData] = React.useState<SmartAnalysisData>(data || getEmptySmartAnalysis());
   const [isSaving, setIsSaving] = React.useState(false);
@@ -221,7 +248,13 @@ export default function SmartAnalysisTab({
   const countNulidade = () => {
     let count = 0;
     if (localData.risco_geral_nulidade !== 'Não avaliado') count++;
-    return { current: count, total: 1 };
+    const items = [
+      localData.citacao_regular, localData.intimacao_penhora, localData.intimacao_leilao_executado,
+      localData.intimacao_credor_fiduciario, localData.coproprietario_intimado, localData.publicacao_edital_ok,
+      localData.preco_vil
+    ];
+    count += items.filter(Boolean).length;
+    return { current: count, total: 1 + items.length };
   };
 
   const countConsolidacao = () => {
@@ -350,11 +383,46 @@ export default function SmartAnalysisTab({
         </div>
       )}
 
+      {/* Upload de Documentos Integrado */}
+      <div className="bg-brand-paper p-6 sm:p-8 rounded-[2.5rem] border border-brand-border shadow-sm space-y-6" id="smart-analysis-documents-upload">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-brand-primary/10 pb-4">
+          <div>
+            <h5 className="text-md font-bold text-brand-primary flex items-center gap-2 uppercase tracking-wider">
+              <FileText size={18} className="text-brand-primary" />
+              Documentos do Leilão para Análise
+            </h5>
+            <p className="text-xs text-brand-ink/50 mt-1">
+              Envie os arquivos do leilão diretamente nesta aba para habilitar e calibrar a inteligência de auto-preenchimento.
+            </p>
+          </div>
+          {hasDocuments && (
+            <span className="text-[10px] font-bold px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200/50 rounded-full shrink-0 self-start sm:self-center">
+              Documentos Disponíveis para IA
+            </span>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {['Edital', 'Matrícula', 'Processo Judicial', 'Outros'].map(category => (
+            <div key={category} className="bg-brand-bg/10 p-5 rounded-2xl border border-brand-border/30">
+              <DocumentManager 
+                label={category} 
+                docs={docs} 
+                onUpload={onUpload} 
+                onDelete={onDelete} 
+                onTranscribe={onTranscribe}
+                uploading={uploading} 
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+
       {/* Bento Grid layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8" id="smart-analysis-bento-grid">
+      <div className="grid grid-cols-1 gap-8" id="smart-analysis-bento-grid">
         
         {/* CARD: Informações do Imóvel */}
-        <div className="bg-brand-paper p-6 rounded-3xl border border-brand-border space-y-5 shadow-sm hover:shadow-md transition-all lg:col-span-2">
+        <div className="bg-brand-paper p-6 rounded-3xl border border-brand-border space-y-5 shadow-sm hover:shadow-md transition-all">
           <div className="flex justify-between items-center border-b border-black/5 pb-3">
             <h5 className="font-serif font-medium text-lg flex items-center gap-2 text-brand-primary">
               <Home size={18} className="text-brand-primary/70" />
@@ -462,7 +530,7 @@ export default function SmartAnalysisTab({
         </div>
 
         {/* CARD: Dados dos Ex-Mutuários / Proprietários */}
-        <div className="bg-brand-paper p-6 rounded-3xl border border-brand-border space-y-5 shadow-sm hover:shadow-md transition-all lg:col-span-2">
+        <div className="bg-brand-paper p-6 rounded-3xl border border-brand-border space-y-5 shadow-sm hover:shadow-md transition-all">
           <div className="flex justify-between items-center border-b border-black/5 pb-3">
             <h5 className="font-serif font-medium text-lg flex items-center gap-2 text-brand-primary">
               <User size={18} className="text-brand-primary/70" />
@@ -552,415 +620,12 @@ export default function SmartAnalysisTab({
             />
           </div>
         </div>
-        
-        {/* CARD 1: Parecer Final do Investidor */}
+
+        {/* 1. CARD: Situação Ocupacional */}
         <div className="bg-brand-paper p-6 rounded-3xl border border-brand-border space-y-5 shadow-sm hover:shadow-md transition-all">
           <div className="flex justify-between items-center border-b border-black/5 pb-3">
             <h5 className="font-serif font-medium text-lg flex items-center gap-2 text-brand-primary">
-              <Shield size={18} className="text-brand-primary/70" />
-              Parecer Final do Investidor
-            </h5>
-            {renderProgressBadge(countParecer().current, countParecer().total)}
-          </div>
-          
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Risco Geral Avaliado</label>
-              <select 
-                value={localData.risco_geral} 
-                onChange={e => handleChange('risco_geral', e.target.value)}
-                className={`p-3 border rounded-xl outline-none text-xs font-medium transition-colors ${getRiskColor(localData.risco_geral)}`}
-              >
-                <option value="Não avaliado">Não avaliado</option>
-                <option value="Baixo">Baixo</option>
-                <option value="Médio">Médio</option>
-                <option value="Alto">Alto</option>
-              </select>
-            </div>
-            
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Recomendação</label>
-              <select 
-                value={localData.recomendacao} 
-                onChange={e => handleChange('recomendacao', e.target.value)}
-                className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium"
-              >
-                <option value="Selecione">Selecione</option>
-                <option value="Recomendo arrematar">Recomendo arrematar</option>
-                <option value="Recomendo com ressalvas">Recomendo com ressalvas</option>
-                <option value="Não recomendo arrematar">Não recomendo arrematar</option>
-              </select>
-            </div>
-          </div>
-          
-          <div className="flex flex-col gap-1.5">
-            <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Justificativa Comercial/Técnica</label>
-            <textarea
-              value={localData.justificativa}
-              onChange={e => handleChange('justificativa', e.target.value)}
-              placeholder="Explique os principais motivos e embasamentos para a sua recomendação final..."
-              rows={3}
-              className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium resize-none"
-            />
-          </div>
-        </div>
-
-        {/* CARD 2: Análise do Edital */}
-        <div className="bg-brand-paper p-6 rounded-3xl border border-brand-border space-y-5 shadow-sm hover:shadow-md transition-all">
-          <div className="flex justify-between items-center border-b border-black/5 pb-3">
-            <h5 className="font-serif font-medium text-lg flex items-center gap-2 text-brand-primary">
-              <FileText size={18} className="text-brand-primary/70" />
-              Análise do Edital
-            </h5>
-            {renderProgressBadge(countEdital().current, countEdital().total)}
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Tipo de Leilão</label>
-              <select 
-                value={localData.tipo_leilao} 
-                onChange={e => handleChange('tipo_leilao', e.target.value)}
-                className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium"
-              >
-                <option value="Selecione">Selecione</option>
-                <option value="Judicial">Judicial</option>
-                <option value="Extrajudicial">Extrajudicial</option>
-              </select>
-            </div>
-            
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Resp. IPTU</label>
-              <select 
-                value={localData.responsabilidade_iptu} 
-                onChange={e => handleChange('responsabilidade_iptu', e.target.value)}
-                className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium"
-              >
-                <option value="Selecione">Selecione</option>
-                <option value="Vendedor (Banco)">Vendedor (Banco)</option>
-                <option value="Comprador">Comprador</option>
-                <option value="Sub-rogado no preço">Sub-rogado no preço</option>
-              </select>
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Resp. Condomínio</label>
-              <select 
-                value={localData.responsabilidade_condominio} 
-                onChange={e => handleChange('responsabilidade_condominio', e.target.value)}
-                className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium"
-              >
-                <option value="Selecione">Selecione</option>
-                <option value="Vendedor (Banco)">Vendedor (Banco)</option>
-                <option value="Comprador">Comprador</option>
-                <option value="Sub-rogado no preço">Sub-rogado no preço</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Observações do Edital</label>
-            <textarea
-              value={localData.observacoes_edital}
-              onChange={e => handleChange('observacoes_edital', e.target.value)}
-              placeholder="Detalhamento das datas de praça, formas de parcelamento, eventuais encargos extras..."
-              rows={3}
-              className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium resize-none"
-            />
-          </div>
-        </div>
-
-        {/* CARD 3: Débitos do Imóvel */}
-        <div className="bg-brand-paper p-6 rounded-3xl border border-brand-border space-y-5 shadow-sm hover:shadow-md transition-all">
-          <div className="flex justify-between items-center border-b border-black/5 pb-3">
-            <h5 className="font-serif font-medium text-lg flex items-center gap-2 text-brand-primary">
-              <DollarSign size={18} className="text-brand-primary/70" />
-              Débitos do Imóvel
-            </h5>
-            {renderProgressBadge(countDebitos().current, countDebitos().total)}
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">IPTU em Atraso (R$)</label>
-              <input
-                type="number"
-                value={localData.iptu_atraso}
-                onChange={e => handleChange('iptu_atraso', parseFloat(e.target.value) || 0)}
-                className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium"
-              />
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Condomínio em Atraso (R$)</label>
-              <input
-                type="number"
-                value={localData.condominio_atraso}
-                onChange={e => handleChange('condominio_atraso', parseFloat(e.target.value) || 0)}
-                className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium"
-              />
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Outros Débitos (R$)</label>
-              <input
-                type="number"
-                value={localData.outros_debitos}
-                onChange={e => handleChange('outros_debitos', parseFloat(e.target.value) || 0)}
-                className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium"
-              />
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Observações / Detalhes de Débito</label>
-            <textarea
-              value={localData.observacoes_debitos}
-              onChange={e => handleChange('observacoes_debitos', e.target.value)}
-              placeholder="Descreva as fontes de débito, certidões negativas consultadas e se os débitos se sub-rogam..."
-              rows={3}
-              className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium resize-none"
-            />
-          </div>
-        </div>
-
-        {/* CARD 4: Risco de Desocupação */}
-        <div className="bg-brand-paper p-6 rounded-3xl border border-brand-border space-y-5 shadow-sm hover:shadow-md transition-all">
-          <div className="flex justify-between items-center border-b border-black/5 pb-3">
-            <h5 className="font-serif font-medium text-lg flex items-center gap-2 text-brand-primary">
-              <Home size={18} className="text-brand-primary/70" />
-              Risco de Desocupação
-            </h5>
-            {renderProgressBadge(countDesocupacao().current, countDesocupacao().total)}
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Nível de Risco</label>
-              <select 
-                value={localData.nivel_risco_desocupacao} 
-                onChange={e => handleChange('nivel_risco_desocupacao', e.target.value)}
-                className={`p-3 border rounded-xl outline-none text-xs font-medium transition-colors ${getRiskColor(localData.nivel_risco_desocupacao)}`}
-              >
-                <option value="Não avaliado">Não avaliado</option>
-                <option value="Baixo">Baixo</option>
-                <option value="Médio">Médio</option>
-                <option value="Alto">Alto</option>
-              </select>
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Prazo Estimado (meses)</label>
-              <input
-                type="text"
-                value={localData.prazo_estimado_desocupacao}
-                onChange={e => handleChange('prazo_estimado_desocupacao', e.target.value)}
-                placeholder="Ex: 3 a 6 meses, mais de 12 meses..."
-                className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium"
-              />
-            </div>
-          </div>
-
-          <div className="space-y-3 pt-2">
-            <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider block">Checklist Jurídico de Posse</label>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {[
-                { key: 'liminar_bloqueando', label: 'Liminar Bloqueando Posse' },
-                { key: 'acao_anulatoria', label: 'Ação Anulatória Judicial' },
-                { key: 'embargos_pendentes', label: 'Embargos Pendentes de Julgamento' },
-                { key: 'recurso_pendente', label: 'Recursos ou Agravos Ativos' }
-              ].map(item => (
-                <label key={item.key} className="flex items-center gap-3 p-3 bg-brand-bg hover:bg-black/5 rounded-xl border border-brand-border cursor-pointer transition-colors">
-                  <input
-                    type="checkbox"
-                    checked={!!(localData as any)[item.key]}
-                    onChange={e => handleChange(item.key as any, e.target.checked)}
-                    className="w-4 h-4 rounded text-brand-primary focus:ring-brand-primary"
-                  />
-                  <span className="text-xs font-medium">{item.label}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Observações de Desocupação</label>
-            <textarea
-              value={localData.observacoes_desocupacao}
-              onChange={e => handleChange('observacoes_desocupacao', e.target.value)}
-              placeholder="Estratégia para desocupação, perfil do ocupante atual, possíveis acordos amigáveis..."
-              rows={3}
-              className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium resize-none"
-            />
-          </div>
-        </div>
-
-        {/* CARD 5: Risco de Nulidade do Leilão */}
-        <div className="bg-brand-paper p-6 rounded-3xl border border-brand-border space-y-5 shadow-sm hover:shadow-md transition-all">
-          <div className="flex justify-between items-center border-b border-black/5 pb-3">
-            <h5 className="font-serif font-medium text-lg flex items-center gap-2 text-brand-primary">
-              <Scale size={18} className="text-brand-primary/70" />
-              Risco de Nulidade do Leilão
-            </h5>
-            {renderProgressBadge(countNulidade().current, countNulidade().total)}
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Risco Geral de Nulidade</label>
-            <select 
-              value={localData.risco_geral_nulidade} 
-              onChange={e => handleChange('risco_geral_nulidade', e.target.value)}
-              className={`p-3 border rounded-xl outline-none text-xs font-medium transition-colors ${getRiskColor(localData.risco_geral_nulidade)}`}
-            >
-              <option value="Não avaliado">Não avaliado</option>
-              <option value="Baixo">Baixo</option>
-              <option value="Médio">Médio</option>
-              <option value="Alto">Alto</option>
-            </select>
-          </div>
-
-          <div className="space-y-3 pt-2">
-            <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider block">Vícios Processuais Encontrados</label>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {[
-                { key: 'vicio_citacao', label: 'Falta ou Vício de Citação/Intimação' },
-                { key: 'vicio_avaliacao', label: 'Vício ou Falta de Avaliação Justa' },
-                { key: 'vicio_publicacao', label: 'Vício de Publicação dos Editais' },
-                { key: 'vicio_procedimental', label: 'Outro Vício Procedimental Relevante' }
-              ].map(item => (
-                <label key={item.key} className="flex items-center gap-3 p-3 bg-brand-bg hover:bg-black/5 rounded-xl border border-brand-border cursor-pointer transition-colors">
-                  <input
-                    type="checkbox"
-                    checked={!!(localData as any)[item.key]}
-                    onChange={e => handleChange(item.key as any, e.target.checked)}
-                    className="w-4 h-4 rounded text-brand-primary focus:ring-brand-primary"
-                  />
-                  <span className="text-xs font-medium">{item.label}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Observações de Nulidades</label>
-            <textarea
-              value={localData.observacoes_nulidade}
-              onChange={e => handleChange('observacoes_nulidade', e.target.value)}
-              placeholder="Analise a integridade dos atos processuais e o potencial de alegações de nulidade pelo executado..."
-              rows={3}
-              className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium resize-none"
-            />
-          </div>
-        </div>
-
-        {/* CARD 6: Consolidação de Propriedade */}
-        <div className="bg-brand-paper p-6 rounded-3xl border border-brand-border space-y-5 shadow-sm hover:shadow-md transition-all">
-          <div className="flex justify-between items-center border-b border-black/5 pb-3">
-            <h5 className="font-serif font-medium text-lg flex items-center gap-2 text-brand-primary">
-              <Gavel size={18} className="text-brand-primary/70" />
-              Consolidação de Propriedade (Extrajudicial)
-            </h5>
-            {renderProgressBadge(countConsolidacao().current, countConsolidacao().total)}
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Status da Consolidação</label>
-            <select 
-              value={localData.status_consolidacao} 
-              onChange={e => handleChange('status_consolidacao', e.target.value)}
-              className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium"
-            >
-              <option value="Não verificado">Não verificado</option>
-              <option value="Regular">Regular</option>
-              <option value="Irregular">Irregular</option>
-              <option value="Pendente">Pendente</option>
-            </select>
-          </div>
-
-          <div className="space-y-3 pt-2">
-            <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider block">Requisitos da Lei 9.514/97</label>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              {[
-                { key: 'intimacao_purga_mora', label: 'Intimação Purga Mora' },
-                { key: 'intimacao_leiloes', label: 'Intimação Leilões' },
-                { key: 'averbacao_consolidacao', label: 'Averbação Consolidação' }
-              ].map(item => (
-                <label key={item.key} className="flex items-center gap-2 p-3 bg-brand-bg hover:bg-black/5 rounded-xl border border-brand-border cursor-pointer transition-colors">
-                  <input
-                    type="checkbox"
-                    checked={!!(localData as any)[item.key]}
-                    onChange={e => handleChange(item.key as any, e.target.checked)}
-                    className="w-4 h-4 rounded text-brand-primary focus:ring-brand-primary"
-                  />
-                  <span className="text-[10px] font-medium">{item.label}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Observações da Consolidação</label>
-            <textarea
-              value={localData.observacoes_consolidacao}
-              onChange={e => handleChange('observacoes_consolidacao', e.target.value)}
-              placeholder="Detalhamento das datas de intimação cartorária, purgação de mora e averbação na matrícula..."
-              rows={3}
-              className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium resize-none"
-            />
-          </div>
-        </div>
-
-        {/* CARD 7: Análise da Matrícula */}
-        <div className="bg-brand-paper p-6 rounded-3xl border border-brand-border space-y-5 shadow-sm hover:shadow-md transition-all lg:col-span-2">
-          <div className="flex justify-between items-center border-b border-black/5 pb-3">
-            <h5 className="font-serif font-medium text-lg flex items-center gap-2 text-brand-primary">
-              <FileText size={18} className="text-brand-primary/70" />
-              Análise da Matrícula (CRI)
-            </h5>
-            {renderProgressBadge(countMatricula().current, countMatricula().total)}
-          </div>
-
-          <div className="space-y-4">
-            <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider block">Gravações, Ônus e Averbações Ativas</label>
-            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
-              {[
-                { key: 'matricula_atualizada', label: 'Matrícula Atualizada' },
-                { key: 'tem_onus', label: 'Tem Ônus Ativo' },
-                { key: 'tem_penhora', label: 'Tem Penhora' },
-                { key: 'tem_hipoteca', label: 'Tem Hipoteca' },
-                { key: 'alienacao_fiduciaria', label: 'Alienação Fiduciária' },
-                { key: 'indisponibilidade', label: 'Indisponibilidade' },
-                { key: 'acao_reipersecutoria', label: 'Ação Reipersecutória' }
-              ].map(item => (
-                <label key={item.key} className="flex flex-col items-center justify-center p-3 bg-brand-bg hover:bg-black/5 rounded-xl border border-brand-border cursor-pointer transition-colors text-center h-20">
-                  <input
-                    type="checkbox"
-                    checked={!!(localData as any)[item.key]}
-                    onChange={e => handleChange(item.key as any, e.target.checked)}
-                    className="w-4 h-4 rounded text-brand-primary focus:ring-brand-primary mb-2"
-                  />
-                  <span className="text-[10px] font-bold uppercase tracking-tight text-brand-ink/75 leading-tight">{item.label}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Observações da Matrícula</label>
-            <textarea
-              value={localData.observacoes_matricula}
-              onChange={e => handleChange('observacoes_matricula', e.target.value)}
-              placeholder="Descreva as penhoras registradas, restrições judiciais, registros de alienações e se haverá cancelamento automático com a arrematação..."
-              rows={3}
-              className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium resize-none"
-            />
-          </div>
-        </div>
-
-        {/* CARD 8: Situação Ocupacional */}
-        <div className="bg-brand-paper p-6 rounded-3xl border border-brand-border space-y-5 shadow-sm hover:shadow-md transition-all lg:col-span-2">
-          <div className="flex justify-between items-center border-b border-black/5 pb-3">
-            <h5 className="font-serif font-medium text-lg flex items-center gap-2 text-brand-primary">
+              <span className={`w-3 h-3 rounded-full shrink-0 ${localData.status_ocupacao === 'Desocupado' ? 'bg-emerald-500' : 'bg-red-500'}`} title={localData.status_ocupacao === 'Desocupado' ? 'Sem Pendência / Desocupado' : 'Pendência Ativa / Ocupado'}></span>
               <User size={18} className="text-brand-primary/70" />
               Situação Ocupacional / Investigação de Ocupante
             </h5>
@@ -1064,11 +729,515 @@ export default function SmartAnalysisTab({
               onChange={e => handleChange('observacoes_ocupacao', e.target.value)}
               placeholder="Descreva detalhes coletados sobre o ocupante, tentativas de contato prévio e se há resistência ativa..."
               rows={3}
+              className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium resize-none text-brand-ink/80 focus:border-brand-primary"
+            />
+          </div>
+        </div>
+
+        {/* 2. CARD: Análise da Matrícula */}
+        <div className="bg-brand-paper p-6 rounded-3xl border border-brand-border space-y-5 shadow-sm hover:shadow-md transition-all">
+          <div className="flex justify-between items-center border-b border-black/5 pb-3">
+            <h5 className="font-serif font-medium text-lg flex items-center gap-2 text-brand-primary">
+              <span className={`w-3 h-3 rounded-full shrink-0 ${(localData.tem_onus || localData.tem_penhora || localData.tem_hipoteca || localData.indisponibilidade) ? 'bg-amber-500' : 'bg-emerald-500'}`} title={(localData.tem_onus || localData.tem_penhora || localData.tem_hipoteca || localData.indisponibilidade) ? 'Possui Gravames Ativos' : 'Matrícula Sem Ônus'}></span>
+              <FileText size={18} className="text-brand-primary/70" />
+              Análise da Matrícula (CRI)
+            </h5>
+            {renderProgressBadge(countMatricula().current, countMatricula().total)}
+          </div>
+
+          <div className="space-y-4">
+            <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider block">Gravações, Ônus e Averbações Ativas</label>
+            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
+              {[
+                { key: 'matricula_atualizada', label: 'Matrícula Atualizada' },
+                { key: 'tem_onus', label: 'Tem Ônus Ativo' },
+                { key: 'tem_penhora', label: 'Tem Penhora' },
+                { key: 'tem_hipoteca', label: 'Tem Hipoteca' },
+                { key: 'alienacao_fiduciaria', label: 'Alienação Fiduciária' },
+                { key: 'indisponibilidade', label: 'Indisponibilidade' },
+                { key: 'acao_reipersecutoria', label: 'Ação Reipersecutória' }
+              ].map(item => (
+                <label key={item.key} className="flex flex-col items-center justify-center p-3 bg-brand-bg hover:bg-black/5 rounded-xl border border-brand-border cursor-pointer transition-colors text-center h-20">
+                  <input
+                    type="checkbox"
+                    checked={!!(localData as any)[item.key]}
+                    onChange={e => handleChange(item.key as any, e.target.checked)}
+                    className="w-4 h-4 rounded text-brand-primary focus:ring-brand-primary mb-2"
+                  />
+                  <span className="text-[10px] font-bold uppercase tracking-tight text-brand-ink/75 leading-tight">{item.label}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Observações da Matrícula</label>
+            <textarea
+              value={localData.observacoes_matricula}
+              onChange={e => handleChange('observacoes_matricula', e.target.value)}
+              placeholder="Descreva as penhoras registradas, restrições judiciais, registros de alienações e se haverá cancelamento automático com a arrematação..."
+              rows={3}
+              className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium resize-none text-brand-ink/80 focus:border-brand-primary"
+            />
+          </div>
+        </div>
+
+        {/* 3. CARD: Consolidação de Propriedade */}
+        <div className="bg-brand-paper p-6 rounded-3xl border border-brand-border space-y-5 shadow-sm hover:shadow-md transition-all">
+          <div className="flex justify-between items-center border-b border-black/5 pb-3">
+            <h5 className="font-serif font-medium text-lg flex items-center gap-2 text-brand-primary">
+              <span className={`w-3 h-3 rounded-full shrink-0 ${localData.status_consolidacao === 'Regular' ? 'bg-emerald-500' : localData.status_consolidacao === 'Irregular' ? 'bg-red-500' : 'bg-amber-500'}`} title={`Status Consolidação: ${localData.status_consolidacao}`}></span>
+              <Gavel size={18} className="text-brand-primary/70" />
+              Consolidação de Propriedade (Extrajudicial)
+            </h5>
+            {renderProgressBadge(countConsolidacao().current, countConsolidacao().total)}
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Status da Consolidação</label>
+            <select 
+              value={localData.status_consolidacao} 
+              onChange={e => handleChange('status_consolidacao', e.target.value)}
+              className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium"
+            >
+              <option value="Não verificado">Não verificado</option>
+              <option value="Regular">Regular</option>
+              <option value="Irregular">Irregular</option>
+              <option value="Pendente">Pendente</option>
+            </select>
+          </div>
+
+          <div className="space-y-3 pt-2">
+            <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider block">Requisitos da Lei 9.514/97</label>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {[
+                { key: 'intimacao_purga_mora', label: 'Intimação Purga Mora' },
+                { key: 'intimacao_leiloes', label: 'Intimação Leilões' },
+                { key: 'averbacao_consolidacao', label: 'Averbação Consolidação' }
+              ].map(item => (
+                <label key={item.key} className="flex items-center gap-2 p-3 bg-brand-bg hover:bg-black/5 rounded-xl border border-brand-border cursor-pointer transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={!!(localData as any)[item.key]}
+                    onChange={e => handleChange(item.key as any, e.target.checked)}
+                    className="w-4 h-4 rounded text-brand-primary focus:ring-brand-primary"
+                  />
+                  <span className="text-[10px] font-medium">{item.label}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Observações da Consolidação</label>
+            <textarea
+              value={localData.observacoes_consolidacao}
+              onChange={e => handleChange('observacoes_consolidacao', e.target.value)}
+              placeholder="Detalhamento das datas de intimação cartorária, purgação de mora e averbação na matrícula..."
+              rows={3}
               className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium resize-none"
             />
           </div>
         </div>
 
+        {/* 4. CARD: Risco de Nulidade do Leilão */}
+        <div className="bg-brand-paper p-6 rounded-3xl border border-brand-border space-y-5 shadow-sm hover:shadow-md transition-all">
+          <div className="flex justify-between items-center border-b border-black/5 pb-3">
+            <h5 className="font-serif font-medium text-lg flex items-center gap-2 text-brand-primary">
+              <span className={`w-3 h-3 rounded-full shrink-0 ${localData.risco_geral_nulidade === 'Baixo' ? 'bg-emerald-500' : localData.risco_geral_nulidade === 'Alto' ? 'bg-red-500' : 'bg-amber-500'}`} title={`Risco de Nulidade: ${localData.risco_geral_nulidade}`}></span>
+              <Scale size={18} className="text-brand-primary/70" />
+              Risco de Nulidade do Leilão
+            </h5>
+            {renderProgressBadge(countNulidade().current, countNulidade().total)}
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Risco Geral de Nulidade Processual</label>
+            <select 
+              value={localData.risco_geral_nulidade} 
+              onChange={e => handleChange('risco_geral_nulidade', e.target.value)}
+              className={`p-3 border rounded-xl outline-none text-xs font-medium transition-colors ${getRiskColor(localData.risco_geral_nulidade)}`}
+            >
+              <option value="Não avaliado">Não avaliado</option>
+              <option value="Baixo">Baixo</option>
+              <option value="Médio">Médio</option>
+              <option value="Alto">Alto</option>
+            </select>
+          </div>
+
+          <div className="space-y-3 pt-2">
+            <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider block">Requisitos Processuais Principais</label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {[
+                { key: 'citacao_regular', label: 'Citação Regular Executado' },
+                { key: 'intimacao_penhora', label: 'Intimação Penhora Regular' },
+                { key: 'intimacao_leilao_executado', label: 'Intimação Leilão Executado' },
+                { key: 'intimacao_credor_fiduciario', label: 'Intimação Credor Fiduciário' },
+                { key: 'coproprietario_intimado', label: 'Intimação Coproprietários / Cônjuges' },
+                { key: 'publicacao_edital_ok', label: 'Edital Publicado com Antecedência (5 dias)' },
+                { key: 'preco_vil', label: 'Preço Mínimo é Superior a Preço Vil (50% ou Edital)' }
+              ].map(item => (
+                <label key={item.key} className="flex items-center gap-3 p-3 bg-brand-bg hover:bg-black/5 rounded-xl border border-brand-border cursor-pointer transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={!!(localData as any)[item.key]}
+                    onChange={e => handleChange(item.key as any, e.target.checked)}
+                    className="w-4 h-4 rounded text-brand-primary focus:ring-brand-primary"
+                  />
+                  <span className="text-xs font-medium">{item.label}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Observações de Nulidades</label>
+            <textarea
+              value={localData.observacoes_nulidade}
+              onChange={e => handleChange('observacoes_nulidade', e.target.value)}
+              placeholder="Analise a integridade dos atos processuais e o potencial de alegações de nulidade pelo executado..."
+              rows={3}
+              className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium resize-none focus:border-brand-primary text-brand-ink/80"
+            />
+          </div>
+        </div>
+
+        {/* 5. CARD: Risco de Desocupação */}
+        <div className="bg-brand-paper p-6 rounded-3xl border border-brand-border space-y-5 shadow-sm hover:shadow-md transition-all">
+          <div className="flex justify-between items-center border-b border-black/5 pb-3">
+            <h5 className="font-serif font-medium text-lg flex items-center gap-2 text-brand-primary">
+              <span className={`w-3 h-3 rounded-full shrink-0 ${localData.nivel_risco_desocupacao === 'Baixo' ? 'bg-emerald-500' : localData.nivel_risco_desocupacao === 'Alto' ? 'bg-red-500' : 'bg-amber-500'}`} title={`Risco Desocupação: ${localData.nivel_risco_desocupacao}`}></span>
+              <Home size={18} className="text-brand-primary/70" />
+              Risco de Desocupação
+            </h5>
+            {renderProgressBadge(countDesocupacao().current, countDesocupacao().total)}
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Nível de Risco</label>
+              <select 
+                value={localData.nivel_risco_desocupacao} 
+                onChange={e => handleChange('nivel_risco_desocupacao', e.target.value)}
+                className={`p-3 border rounded-xl outline-none text-xs font-medium transition-colors ${getRiskColor(localData.nivel_risco_desocupacao)}`}
+              >
+                <option value="Não avaliado">Não avaliado</option>
+                <option value="Baixo">Baixo</option>
+                <option value="Médio">Médio</option>
+                <option value="Alto">Alto</option>
+              </select>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Prazo Estimado (meses)</label>
+              <input
+                type="text"
+                value={localData.prazo_estimado_desocupacao}
+                onChange={e => handleChange('prazo_estimado_desocupacao', e.target.value)}
+                placeholder="Ex: 3 a 6 meses, mais de 12 meses..."
+                className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-3 pt-2">
+            <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider block">Checklist Jurídico de Posse</label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {[
+                { key: 'liminar_bloqueando', label: 'Liminar Bloqueando Posse' },
+                { key: 'acao_anulatoria', label: 'Ação Anulatória Judicial' },
+                { key: 'embargos_pendentes', label: 'Embargos Pendentes de Julgamento' },
+                { key: 'recurso_pendente', label: 'Recursos ou Agravos Ativos' }
+              ].map(item => (
+                <label key={item.key} className="flex items-center gap-3 p-3 bg-brand-bg hover:bg-black/5 rounded-xl border border-brand-border cursor-pointer transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={!!(localData as any)[item.key]}
+                    onChange={e => handleChange(item.key as any, e.target.checked)}
+                    className="w-4 h-4 rounded text-brand-primary focus:ring-brand-primary"
+                  />
+                  <span className="text-xs font-medium">{item.label}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Observações de Desocupação</label>
+            <textarea
+              value={localData.observacoes_desocupacao}
+              onChange={e => handleChange('observacoes_desocupacao', e.target.value)}
+              placeholder="Estratégia para desocupação, perfil do ocupante atual, possíveis acordos amigáveis..."
+              rows={3}
+              className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium resize-none"
+            />
+          </div>
+        </div>
+
+        {/* 6. CARD: Débitos do Imóvel */}
+        <div className="bg-brand-paper p-6 rounded-3xl border border-brand-border space-y-5 shadow-sm hover:shadow-md transition-all">
+          <div className="flex justify-between items-center border-b border-black/5 pb-3">
+            <h5 className="font-serif font-medium text-lg flex items-center gap-2 text-brand-primary">
+              <span className={`w-3 h-3 rounded-full shrink-0 ${(localData.iptu_atraso > 0 || localData.condominio_atraso > 0 || localData.outros_debitos > 0) ? 'bg-amber-500' : 'bg-emerald-500'}`} title={(localData.iptu_atraso > 0 || localData.condominio_atraso > 0 || localData.outros_debitos > 0) ? 'Possui Débitos em Atraso' : 'Sem Débitos Identificados'}></span>
+              <DollarSign size={18} className="text-brand-primary/70" />
+              Débitos do Imóvel
+            </h5>
+            {renderProgressBadge(countDebitos().current, countDebitos().total)}
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">IPTU em Atraso (R$)</label>
+              <input
+                type="number"
+                value={localData.iptu_atraso}
+                onChange={e => handleChange('iptu_atraso', parseFloat(e.target.value) || 0)}
+                className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium"
+              />
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Condomínio em Atraso (R$)</label>
+              <input
+                type="number"
+                value={localData.condominio_atraso}
+                onChange={e => handleChange('condominio_atraso', parseFloat(e.target.value) || 0)}
+                className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium"
+              />
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Outros Débitos (R$)</label>
+              <input
+                type="number"
+                value={localData.outros_debitos}
+                onChange={e => handleChange('outros_debitos', parseFloat(e.target.value) || 0)}
+                className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium"
+              />
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Observações / Detalhes de Débito</label>
+            <textarea
+              value={localData.observacoes_debitos}
+              onChange={e => handleChange('observacoes_debitos', e.target.value)}
+              placeholder="Descreva as fontes de débito, certidões negativas consultadas e se os débitos se sub-rogam..."
+              rows={3}
+              className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium resize-none"
+            />
+          </div>
+        </div>
+
+        {/* 7. CARD: Análise do Edital */}
+        <div className="bg-brand-paper p-6 rounded-3xl border border-brand-border space-y-5 shadow-sm hover:shadow-md transition-all">
+          <div className="flex justify-between items-center border-b border-black/5 pb-3">
+            <h5 className="font-serif font-medium text-lg flex items-center gap-2 text-brand-primary">
+              <span className="w-3 h-3 rounded-full shrink-0 bg-emerald-500" title="Regular / Ok"></span>
+              <FileText size={18} className="text-brand-primary/70" />
+              Análise do Edital
+            </h5>
+            {renderProgressBadge(countEdital().current, countEdital().total)}
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Tipo de Leilão</label>
+              <select 
+                value={localData.tipo_leilao} 
+                onChange={e => handleChange('tipo_leilao', e.target.value)}
+                className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium"
+              >
+                <option value="Selecione">Selecione</option>
+                <option value="Judicial">Judicial</option>
+                <option value="Extrajudicial">Extrajudicial</option>
+              </select>
+            </div>
+            
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Resp. IPTU</label>
+              <select 
+                value={localData.responsabilidade_iptu} 
+                onChange={e => handleChange('responsabilidade_iptu', e.target.value)}
+                className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium"
+              >
+                <option value="Selecione">Selecione</option>
+                <option value="Vendedor (Banco)">Vendedor (Banco)</option>
+                <option value="Comprador">Comprador</option>
+                <option value="Sub-rogado no preço">Sub-rogado no preço</option>
+              </select>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Resp. Condomínio</label>
+              <select 
+                value={localData.responsabilidade_condominio} 
+                onChange={e => handleChange('responsabilidade_condominio', e.target.value)}
+                className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium"
+              >
+                <option value="Selecione">Selecione</option>
+                <option value="Vendedor (Banco)">Vendedor (Banco)</option>
+                <option value="Comprador">Comprador</option>
+                <option value="Sub-rogado no preço">Sub-rogado no preço</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Observações do Edital</label>
+            <textarea
+              value={localData.observacoes_edital}
+              onChange={e => handleChange('observacoes_edital', e.target.value)}
+              placeholder="Detalhamento das datas de praça, formas de parcelamento, eventuais encargos extras..."
+              rows={3}
+              className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium resize-none font-sans"
+            />
+          </div>
+        </div>
+
+        {/* 8. CARD: Parecer Final do Investidor */}
+        <div className="bg-brand-paper p-6 rounded-3xl border border-brand-border space-y-5 shadow-sm hover:shadow-md transition-all">
+          <div className="flex justify-between items-center border-b border-black/5 pb-3">
+            <h5 className="font-serif font-medium text-lg flex items-center gap-2 text-brand-primary">
+              <span className={`w-3 h-3 rounded-full shrink-0 ${localData.risco_geral === 'Baixo' ? 'bg-emerald-500' : localData.risco_geral === 'Alto' ? 'bg-red-500' : 'bg-amber-500'}`} title={`Risco Geral: ${localData.risco_geral}`}></span>
+              <Shield size={18} className="text-brand-primary/70" />
+              Parecer Final do Investidor
+            </h5>
+            {renderProgressBadge(countParecer().current, countParecer().total)}
+          </div>
+          
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Risco Geral do Negócio</label>
+              <select 
+                value={localData.risco_geral} 
+                onChange={e => handleChange('risco_geral', e.target.value)}
+                className={`p-3 border rounded-xl outline-none text-xs font-medium transition-colors ${getRiskColor(localData.risco_geral)}`}
+              >
+                <option value="Não avaliado">Não avaliado</option>
+                <option value="Baixo">Baixo</option>
+                <option value="Médio">Médio</option>
+                <option value="Alto">Alto</option>
+              </select>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Recomendação de Arrematação</label>
+              <select 
+                value={localData.recomendacao} 
+                onChange={e => handleChange('recomendacao', e.target.value)}
+                className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium focus:border-brand-primary text-brand-ink/80"
+              >
+                <option value="Selecione">Selecione</option>
+                <option value="Prosseguir">Prosseguir (Sem ressalvas)</option>
+                <option value="Prosseguir com ressalvas">Prosseguir com ressalvas</option>
+                <option value="Não prosseguir">Não prosseguir (Alto Risco)</option>
+              </select>
+            </div>
+          </div>
+          
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Justificativa Comercial/Técnica</label>
+            <textarea
+              value={localData.justificativa}
+              onChange={e => handleChange('justificativa', e.target.value)}
+              placeholder="Explique os principais motivos e embasamentos para a sua recomendação final..."
+              rows={3}
+              className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium resize-none focus:border-brand-primary text-brand-ink/80"
+            />
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Justificativa Pessoal / Comentários do Arrematante (Por que arrematar ou não este imóvel?)</label>
+            <textarea
+              value={localData.justificativa_pessoal || ''}
+              onChange={e => handleChange('justificativa_pessoal', e.target.value)}
+              placeholder="Sua análise pessoal e comentários sobre a decisão de arrematação..."
+              rows={3}
+              className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium resize-none focus:border-brand-primary text-brand-ink/80"
+            />
+          </div>
+        </div>
+
+      </div>
+
+      {/* Comentários e Pontos de Observação Crítica de Acordo com Análises */}
+      <div className="bg-brand-paper p-8 rounded-3xl border border-brand-border space-y-6 shadow-sm">
+        <div className="flex items-center gap-3 border-b border-black/5 pb-4">
+          <div className="p-2 bg-brand-primary/10 text-brand-primary rounded-xl">
+            <CheckSquare size={20} />
+          </div>
+          <div>
+            <h5 className="font-serif font-medium text-lg text-brand-primary">
+              Comentários e Observações Críticas (Matrícula, Edital e Processo)
+            </h5>
+            <p className="text-xs text-brand-ink/40">
+              Pontos de atenção estratégicos automatizados com base nas análises documentais realizadas
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Comentário 1 */}
+          <div className="p-5 bg-brand-bg/25 border border-brand-border/40 rounded-2xl flex gap-4 items-start hover:border-brand-primary/25 transition-all">
+            <span className="shrink-0 flex items-center justify-center w-8 h-8 rounded-xl bg-brand-primary/15 text-brand-primary text-xs font-bold font-mono">
+              01
+            </span>
+            <div className="space-y-1">
+              <h6 className="text-xs font-bold text-brand-ink uppercase tracking-wide font-sans">Observações da Matrícula (Gravames)</h6>
+              <p className="text-xs text-brand-ink/75 leading-relaxed font-sans">
+                {localData.tem_penhora || localData.tem_hipoteca || localData.alienacao_fiduciaria || localData.tem_onus
+                  ? "Comentário: Existem ônus, penhoras ou gravames averbados na matrícula. Embora a arrematação judicial cancele as penhoras anteriores, é fundamental peticionar nos autos requerendo expressamente a expedição de ofícios para baixa de todos os gravames fiduciários e penhoras junto ao Cartório de Registro de Imóveis."
+                  : "Comentário: A matrícula analisada não apresenta ônus ou penhoras registradas até o momento, indicando uma situação registral altamente favorável e menor burocracia para registro pós-arrematação."}
+              </p>
+            </div>
+          </div>
+
+          {/* Comentário 2 */}
+          <div className="p-5 bg-brand-bg/25 border border-brand-border/40 rounded-2xl flex gap-4 items-start hover:border-brand-primary/25 transition-all">
+            <span className="shrink-0 flex items-center justify-center w-8 h-8 rounded-xl bg-brand-primary/15 text-brand-primary text-xs font-bold font-mono">
+              02
+            </span>
+            <div className="space-y-1">
+              <h6 className="text-xs font-bold text-brand-ink uppercase tracking-wide font-sans">Observações do Edital (Responsabilidades)</h6>
+              <p className="text-xs text-brand-ink/75 leading-relaxed font-sans">
+                {localData.responsabilidade_iptu === 'Comprador' || localData.responsabilidade_condominio === 'Comprador'
+                  ? "Comentário: Atenção! O Edital atribui explicitamente ao arrematante a responsabilidade pelo pagamento de débitos anteriores de condomínio ou IPTU. Esses passivos devem ser rigorosamente provisionados e deduzidos do seu lance máximo para manter a margem de lucro intacta."
+                  : "Comentário: O edital prevê a sub-rogação de débitos fiscais (IPTU) sobre o preço da arrematação (conforme Art. 130, parágrafo único do CTN). O arrematante receberá o imóvel livre dessas pendências tributárias anteriores."}
+              </p>
+            </div>
+          </div>
+
+          {/* Comentário 3 */}
+          <div className="p-5 bg-brand-bg/25 border border-brand-border/40 rounded-2xl flex gap-4 items-start hover:border-brand-primary/25 transition-all">
+            <span className="shrink-0 flex items-center justify-center w-8 h-8 rounded-xl bg-brand-primary/15 text-brand-primary text-xs font-bold font-mono">
+              03
+            </span>
+            <div className="space-y-1">
+              <h6 className="text-xs font-bold text-brand-ink uppercase tracking-wide font-sans">Observações do Processo (Estabilidade)</h6>
+              <p className="text-xs text-brand-ink/75 leading-relaxed font-sans">
+                {localData.embargos_pendentes || localData.acao_anulatoria || localData.recurso_pendente || localData.liminar_bloqueando
+                  ? "Comentário: Alerta Processual! Há ações anulatórias, embargos ou recursos pendentes de julgamento. Isso requer acompanhamento de perto pelo nosso corpo jurídico para garantir que eventuais alegações de vício de citação ou nulidade sejam superadas rapidamente."
+                  : "Comentário: Segurança Jurídica Alta! O processo transcorreu de forma regular, sem incidentes graves de nulidade ou embargos à execução pendentes de julgamento, mitigando drasticamente o risco de desfazimento da arrematação."}
+              </p>
+            </div>
+          </div>
+
+          {/* Comentário 4 */}
+          <div className="p-5 bg-brand-bg/25 border border-brand-border/40 rounded-2xl flex gap-4 items-start hover:border-brand-primary/25 transition-all">
+            <span className="shrink-0 flex items-center justify-center w-8 h-8 rounded-xl bg-brand-primary/15 text-brand-primary text-xs font-bold font-mono">
+              04
+            </span>
+            <div className="space-y-1">
+              <h6 className="text-xs font-bold text-brand-ink uppercase tracking-wide font-sans">Plano de Posse e Imissão</h6>
+              <p className="text-xs text-brand-ink/75 leading-relaxed font-sans">
+                {localData.status_ocupacao !== 'Desocupado'
+                  ? "Comentário: O imóvel encontra-se ocupado. Recomenda-se traçar um plano de abordagem amigável junto ao ocupante imediatamente após a emissão da guia de arrematação, aliando auxílio-mudança voluntário. Em caso de recusa, ativa-se o pedido de imissão forçada nos próprios autos."
+                  : "Comentário: Imóvel desocupado! Excelente cenário de liquidez, permitindo a imissão imediata na posse após o registro da carta de arrematação, reduzindo custos de carregamento e acelerando a reforma e revenda."}
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Bottom Save Action Panel */}

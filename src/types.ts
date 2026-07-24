@@ -27,6 +27,9 @@ export interface Property {
   observations: string;
   created_at: string;
   auction_url?: string;
+  anonymize_property?: number;
+  is_public?: number;
+  share_token?: string;
 }
 
 export interface Process {

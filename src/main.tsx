@@ -1,5 +1,8 @@
 import React, { Component, ErrorInfo, ReactNode, StrictMode } from 'react';
-import {createRoot} from 'react-dom/client';
+import { createRoot } from 'react-dom/client';
+import './lib/appErrors';
+import App from './App.tsx';
+import './index.css';
 
 // Add global fetch retry resilience for temporary server reboots / restarts
 if (typeof window !== 'undefined') {
@@ -92,10 +95,6 @@ if (typeof window !== 'undefined') {
     console.error("[Resilience] Error during global fetch wrapper setup:", globalSetupError);
   }
 }
-
-import './lib/exceptions';
-import App from './App.tsx';
-import './index.css';
 
 interface Props {
   children: ReactNode;

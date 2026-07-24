@@ -51,6 +51,7 @@ export interface MatriculaReportData {
     area_total?: string;
     fracao_ideal?: string;
     unidade_autonoma?: string;
+    valor_fiscal?: string;
     descricao_completa?: string;
   };
   condominio?: {
@@ -148,6 +149,16 @@ export const MatriculaReport: React.FC<MatriculaReportProps> = ({
   const [copiedRaw, setCopiedRaw] = useState(false);
   const [copiedData, setCopiedData] = useState<string | null>(null);
 
+  // Estados Interativos para as melhorias inteligentes sugeridas
+  const [customBid, setCustomBid] = useState<number>(bidValue || (valuation ? valuation * 0.5 : 150000));
+  const [diligenceChecklist, setDiligenceChecklist] = useState<Record<number, boolean>>({
+    1: false,
+    2: false,
+    3: false,
+    4: false,
+    5: false,
+  });
+
   const toggleAccordion = (key: string) => {
     setAccordionState(prev => ({ ...prev, [key]: !prev[key] }));
   };
@@ -158,6 +169,31 @@ export const MatriculaReport: React.FC<MatriculaReportProps> = ({
       updated[k] = open;
     });
     setAccordionState(updated);
+  };
+
+  // Helper to clean potential markdown wrappers from JSON string
+  const cleanJsonText = (str: string): string => {
+    let cleaned = str.trim();
+    if (cleaned.startsWith("```json")) {
+      cleaned = cleaned.substring(7);
+    } else if (cleaned.startsWith("```")) {
+      cleaned = cleaned.substring(3);
+    }
+    if (cleaned.endsWith("```")) {
+      cleaned = cleaned.substring(0, cleaned.length - 3);
+    }
+    cleaned = cleaned.trim();
+
+    // Extrai o bloco JSON que está entre a primeira chave aberta { e a última chave fechada }
+    const firstBrace = cleaned.indexOf('{');
+    const lastBrace = cleaned.lastIndexOf('}');
+    if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+      cleaned = cleaned.substring(firstBrace, lastBrace + 1);
+    }
+
+    // Remove vírgulas extras no final de arrays/objetos antes de fechar chaves/colchetes
+    cleaned = cleaned.replace(/,\s*([}\]])/g, '$1');
+    return cleaned;
   };
 
   // Extract structured JSON block or fall back to high-quality heuristics
@@ -176,10 +212,26 @@ export const MatriculaReport: React.FC<MatriculaReportProps> = ({
     const match = rawAnalysis.match(/<analysis_data>([\s\S]*?)<\/analysis_data>/);
     if (match) {
       try {
-        data = JSON.parse(match[1].trim());
+        const cleanedJson = cleanJsonText(match[1]);
+        data = JSON.parse(cleanedJson);
         cleanMarkdown = rawAnalysis.replace(/<analysis_data>[\s\S]*?<\/analysis_data>/g, '').trim();
       } catch (err) {
         console.error("Failed to parse structured JSON block in matrix analysis:", err);
+      }
+    }
+
+    // Fall back to searching for raw JSON object if XML-style tags are missing
+    if (!data) {
+      const jsonRegex = /(\{[\s\S]*"kpis"[\s\S]*\})/i;
+      const jsonMatch = rawAnalysis.match(jsonRegex);
+      if (jsonMatch) {
+        try {
+          const cleanedJson = cleanJsonText(jsonMatch[1]);
+          data = JSON.parse(cleanedJson);
+          cleanMarkdown = rawAnalysis.replace(jsonMatch[1], '').trim();
+        } catch (err) {
+          console.error("Failed to parse fallback JSON block in matrix analysis:", err);
+        }
       }
     }
 
@@ -392,6 +444,7 @@ export const MatriculaReport: React.FC<MatriculaReportProps> = ({
                   <GridRow label="Área total" value={data.caracteristicas_fisicas.area_total} />
                   <GridRow label="Fração ideal" value={data.caracteristicas_fisicas.fracao_ideal} />
                   <GridRow label="Unidade autônoma" value={data.caracteristicas_fisicas.unidade_autonoma} />
+                  <GridRow label="Valor Fiscal (Venal) do Imóvel" value={data.caracteristicas_fisicas.valor_fiscal || 'Não informado'} />
                   <div className="py-3 font-sans">
                     <span className="text-[11px] font-semibold text-brand-ink/40 block mb-1 uppercase tracking-wider">Descrição completa</span>
                     <p className="text-[13px] text-brand-ink/80 leading-relaxed font-sans">{data.caracteristicas_fisicas.descricao_completa || 'Não informada na descrição'}</p>
@@ -531,34 +584,203 @@ export const MatriculaReport: React.FC<MatriculaReportProps> = ({
             >
               {data.onus_gravames && data.onus_gravames.length > 0 ? (
                 <div className="space-y-3 font-sans">
-                  {data.onus_gravames.map((onus, idx) => (
-                    <div key={idx} className="bg-brand-bg/10 rounded-2xl border-l-[3px] border-l-brand-primary border border-brand-border p-4 space-y-2">
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        <span className="font-bold text-[13px] text-brand-ink">{onus.tipo}</span>
-                        {onus.status && (
-                          <span className="text-[9px] font-bold px-1.5 py-0.5 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/20 dark:text-emerald-400 border border-emerald-200/50 rounded-full">{onus.status}</span>
+                  {data.onus_gravames.map((onus, idx) => {
+                    const tipoLower = (onus.tipo || '').toLowerCase();
+                    const isGrav = tipoLower.includes('penhora') || tipoLower.includes('indisponibilidade') || tipoLower.includes('bloqueio') || tipoLower.includes('gravame') || tipoLower.includes('arresto') || tipoLower.includes('seqüestro') || tipoLower.includes('sequestro') || tipoLower.includes('execução');
+                    
+                    return (
+                      <div key={idx} className={`rounded-2xl border-l-[4px] border border-brand-border p-4 space-y-2 bg-brand-bg/10 ${isGrav ? 'border-l-rose-500 bg-rose-500/[0.01]' : 'border-l-amber-500 bg-amber-500/[0.01]'}`}>
+                        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-brand-border/20 pb-2 mb-2">
+                          <div className="flex items-center gap-2">
+                            <div className={`p-1.5 rounded-lg flex items-center justify-center ${isGrav ? 'bg-rose-500/10 text-rose-500' : 'bg-amber-500/10 text-amber-500'}`}>
+                              {isGrav ? <AlertTriangle size={14} /> : <Scale size={14} />}
+                            </div>
+                            <span className="font-bold text-[13px] text-brand-ink">{onus.tipo}</span>
+                          </div>
+                          
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <span className={`text-[9.5px] font-bold px-2 py-0.5 rounded-full border flex items-center gap-1 ${
+                              isGrav 
+                                ? 'bg-rose-50 text-rose-700 dark:bg-rose-950/20 dark:text-rose-400 border-rose-200/50' 
+                                : 'bg-amber-50 text-amber-700 dark:bg-amber-950/20 dark:text-amber-400 border-amber-200/50'
+                            }`}>
+                              {isGrav ? '🚫 GRAVAME (Restrição Judicial)' : '🔑 ÔNUS (Garantia/Encargo)'}
+                            </span>
+                            {onus.status && (
+                              <span className="text-[9px] font-bold px-1.5 py-0.5 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/20 dark:text-emerald-400 border border-emerald-200/50 rounded-full">{onus.status}</span>
+                            )}
+                            {onus.subtipo && (
+                              <span className="text-[9px] font-bold px-1.5 py-0.5 bg-orange-50 text-orange-700 dark:bg-orange-950/20 dark:text-orange-400 border border-orange-200/50 rounded-full">{onus.subtipo}</span>
+                            )}
+                            {onus.prioridade && (
+                              <span className="text-[9px] font-bold px-1.5 py-0.5 bg-rose-50 text-rose-700 dark:bg-rose-950/20 dark:text-rose-400 border border-rose-200/50 rounded-full">{onus.prioridade}</span>
+                            )}
+                          </div>
+                        </div>
+                        
+                        {onus.valor && (
+                          <p className="text-md font-bold text-emerald-500 font-mono">{onus.valor}</p>
                         )}
-                        {onus.subtipo && (
-                          <span className="text-[9px] font-bold px-1.5 py-0.5 bg-orange-50 text-orange-700 dark:bg-orange-950/20 dark:text-orange-400 border border-orange-200/50 rounded-full">{onus.subtipo}</span>
-                        )}
-                        {onus.prioridade && (
-                          <span className="text-[9px] font-bold px-1.5 py-0.5 bg-rose-50 text-rose-700 dark:bg-rose-950/20 dark:text-rose-400 border border-rose-200/50 rounded-full">{onus.prioridade}</span>
-                        )}
-                      </div>
-                      
-                      {onus.valor && (
-                        <p className="text-md font-bold text-emerald-500 font-mono">{onus.valor}</p>
-                      )}
 
-                      <div className="text-xs space-y-1 leading-snug">
-                        {onus.credor && <p className="text-brand-ink/75"><span className="font-semibold text-brand-ink/50">Credor:</span> {onus.credor}</p>}
-                        {onus.devedor && <p className="text-brand-ink/75"><span className="font-semibold text-brand-ink/50">Devedor:</span> {onus.devedor}</p>}
-                        {onus.data_constituicao && <p className="text-brand-ink/75"><span className="font-semibold text-brand-ink/50">Constituído em:</span> {onus.data_constituicao}</p>}
+                        <div className="text-xs space-y-1 leading-snug">
+                          {onus.credor && <p className="text-brand-ink/75"><span className="font-semibold text-brand-ink/50">Credor:</span> {onus.credor}</p>}
+                          {onus.devedor && <p className="text-brand-ink/75"><span className="font-semibold text-brand-ink/50">Devedor:</span> {onus.devedor}</p>}
+                          {onus.data_constituicao && <p className="text-brand-ink/75"><span className="font-semibold text-brand-ink/50">Constituído em:</span> {onus.data_constituicao}</p>}
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {/* Bloco de Explicações Contextuais de Acordo com o que foi Detectado */}
+                  <div className="mt-6 pt-6 border-t border-brand-border/40 space-y-4">
+                    <div className="flex items-center gap-2">
+                      <BookOpen size={16} className="text-brand-primary" />
+                      <h4 className="text-xs font-bold uppercase tracking-widest text-brand-primary">
+                        Análise de Ônus e Gravames Detectados
+                      </h4>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 gap-3">
+                      {/* Explicação Geral de Ônus e Gravames */}
+                      <div className="bg-brand-bg/5 p-4 rounded-xl border border-brand-border space-y-2">
+                        <span className="text-[10px] font-bold text-brand-ink/40 uppercase tracking-wider block">Conceitos Gerais</span>
+                        <p className="text-xs text-brand-ink/80 leading-relaxed">
+                          <strong>Ônus</strong> refere-se a encargos, obrigações ou garantias voluntárias ligadas à propriedade (como uma hipoteca ou alienação fiduciária). 
+                          Já o <strong>Gravame</strong> é uma restrição forçada, de natureza judicial ou administrativa (como uma penhora ou indisponibilidade de bens).
+                        </p>
+                      </div>
+
+                      {/* Explicando dinamicamente cada tipo encontrado */}
+                      {data.onus_gravames.map((onus, idx) => {
+                        const tipoLower = (onus.tipo || '').toLowerCase();
+                        
+                        if (tipoLower.includes('penhora')) {
+                          return (
+                            <div key={`exp-${idx}`} className="bg-rose-500/5 p-4 rounded-xl border border-rose-500/20 space-y-2 font-sans">
+                              <div className="flex items-center justify-between">
+                                <span className="text-[10px] font-bold text-rose-500 uppercase tracking-wider">Gravame Detectado: PENHORA ({onus.tipo})</span>
+                                <span className="text-[9px] font-bold px-1.5 py-0.5 bg-rose-500/10 text-rose-500 rounded-full">Exigibilidade Judicial</span>
+                              </div>
+                              <p className="text-xs text-brand-ink/80 leading-relaxed">
+                                <strong>O que é:</strong> A penhora é uma ordem judicial que bloqueia o imóvel para garantir o pagamento de uma dívida do antigo proprietário em um processo de execução.
+                              </p>
+                              <p className="text-xs text-brand-ink/70 leading-relaxed bg-brand-bg/50 p-2.5 rounded-lg border border-brand-border/20 italic">
+                                <strong>Exemplo Prático neste caso:</strong> Como o imóvel está indo a leilão por esta ou outra dívida, o dinheiro arrecadado será prioritariamente usado para saldar os débitos. Após a arrematação, o juiz do processo emitirá um "Mandado de Cancelamento de Penhora", permitindo que você registre o imóvel livre dessa pendência.
+                              </p>
+                            </div>
+                          );
+                        }
+                        
+                        if (tipoLower.includes('aliena') || tipoLower.includes('fiduci')) {
+                          return (
+                            <div key={`exp-${idx}`} className="bg-blue-500/5 p-4 rounded-xl border border-blue-500/20 space-y-2 font-sans">
+                              <div className="flex items-center justify-between">
+                                <span className="text-[10px] font-bold text-blue-500 uppercase tracking-wider">Ônus Detectado: ALIENAÇÃO FIDUCIÁRIA</span>
+                                <span className="text-[9px] font-bold px-1.5 py-0.5 bg-blue-500/10 text-blue-500 rounded-full">Garantia Financeira</span>
+                              </div>
+                              <p className="text-xs text-brand-ink/80 leading-relaxed">
+                                <strong>O que é:</strong> O imóvel foi financiado e a propriedade legal pertence à instituição financeira (credor fiduciário) até a quitação total da dívida.
+                              </p>
+                              <p className="text-xs text-brand-ink/70 leading-relaxed bg-brand-bg/50 p-2.5 rounded-lg border border-brand-border/20 italic">
+                                <strong>Exemplo Prático neste caso:</strong> Se o leilão for extrajudicial (promovido pelo banco credor devido à inadimplência do comprador), o banco está leiloando a sua própria propriedade para recuperar o valor emprestado. O valor pago pelo seu lance quita esse ônus e transfere a propriedade plena para você.
+                              </p>
+                            </div>
+                          );
+                        }
+                        
+                        if (tipoLower.includes('hipoteca')) {
+                          return (
+                            <div key={`exp-${idx}`} className="bg-orange-500/5 p-4 rounded-xl border border-orange-500/20 space-y-2 font-sans">
+                              <div className="flex items-center justify-between">
+                                <span className="text-[10px] font-bold text-orange-500 uppercase tracking-wider">Ônus Detectado: HIPOTECA</span>
+                                <span className="text-[9px] font-bold px-1.5 py-0.5 bg-orange-500/10 text-orange-500 rounded-full">Garantia Real</span>
+                              </div>
+                              <p className="text-xs text-brand-ink/80 leading-relaxed">
+                                <strong>O que é:</strong> O antigo proprietário deu o imóvel como garantia de um empréstimo ou dívida corporativa, registrando esse direito real em favor do credor hipotecário.
+                              </p>
+                              <p className="text-xs text-brand-ink/70 leading-relaxed bg-brand-bg/50 p-2.5 rounded-lg border border-brand-border/20 italic">
+                                <strong>Exemplo Prático neste caso:</strong> O credor hipotecário tem preferência para receber o dinheiro do leilão. Com o leilão concluído e homologado, o juiz determina o cancelamento (baixa) da hipoteca na matrícula, transferindo o imóvel livre de ônus ao novo comprador.
+                              </p>
+                            </div>
+                          );
+                        }
+                        
+                        if (tipoLower.includes('indisponibilidade')) {
+                          return (
+                            <div key={`exp-${idx}`} className="bg-red-500/5 p-4 rounded-xl border border-red-500/20 space-y-2 font-sans">
+                              <div className="flex items-center justify-between">
+                                <span className="text-[10px] font-bold text-red-500 uppercase tracking-wider">Gravame Detectado: INDISPONIBILIDADE DE BENS</span>
+                                <span className="text-[9px] font-bold px-1.5 py-0.5 bg-red-500/10 text-red-500 rounded-full">Bloqueio Judicial</span>
+                              </div>
+                              <p className="text-xs text-brand-ink/80 leading-relaxed">
+                                <strong>O que é:</strong> Uma ordem judicial (frequentemente via CNIB) que proíbe o devedor de vender ou transferir o imóvel para evitar fraude a credores ou ocultação de patrimônio.
+                              </p>
+                              <p className="text-xs text-brand-ink/70 leading-relaxed bg-brand-bg/50 p-2.5 rounded-lg border border-brand-border/20 italic">
+                                <strong>Exemplo Prático neste caso:</strong> Trata-se de um gravame sério que impede a transferência direta imediata. O arrematante (ou seu advogado) deverá peticionar formalmente ao juiz que determinou a indisponibilidade, apresentando a "Carta de Arrematação" para comprovar que a aquisição ocorreu de forma pública e legítima em leilão, solicitando a baixa do gravame.
+                              </p>
+                            </div>
+                          );
+                        }
+                        
+                        if (tipoLower.includes('usufruto')) {
+                          return (
+                            <div key={`exp-${idx}`} className="bg-amber-500/5 p-4 rounded-xl border border-amber-500/20 space-y-2 font-sans">
+                              <div className="flex items-center justify-between">
+                                <span className="text-[10px] font-bold text-amber-500 uppercase tracking-wider">Ônus Detectado: USUFRUTO ATIVO</span>
+                                <span className="text-[9px] font-bold px-1.5 py-0.5 bg-amber-500/10 text-amber-500 rounded-full">Direito de Uso</span>
+                              </div>
+                              <p className="text-xs text-brand-ink/80 leading-relaxed">
+                                <strong>O que é:</strong> Um direito real que confere a outra pessoa (usufrutuária) o direito de morar ou usufruir (ex: alugar e receber o valor) do imóvel de propriedade do devedor.
+                              </p>
+                              <p className="text-xs text-brand-ink/70 leading-relaxed bg-brand-bg/50 p-2.5 rounded-lg border border-brand-border/20 italic">
+                                <strong>Exemplo Prático neste caso:</strong> Atenção extrema! Se o leilão vender apenas a "nua-propriedade" do devedor, o usufrutuário manterá o direito de habitar o imóvel vitaliciamente. O usufruto só é cancelado se o usufrutuário falecer, renunciar ou se o próprio usufruto estiver sendo executado conjuntamente.
+                              </p>
+                            </div>
+                          );
+                        }
+
+                        return null;
+                      })}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4 font-sans">
+                  <NoData />
+                  
+                  {/* Bloco de Explicações Gerais de Ônus e Gravames quando lista vazia */}
+                  <div className="mt-6 pt-6 border-t border-brand-border/40 space-y-4">
+                    <div className="flex items-center gap-2">
+                      <BookOpen size={16} className="text-brand-primary" />
+                      <h4 className="text-xs font-bold uppercase tracking-widest text-brand-primary">
+                        Guia Educativo: Ônus e Gravames
+                      </h4>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="bg-brand-bg/10 p-4 rounded-xl border border-brand-border space-y-2">
+                        <h5 className="text-xs font-bold text-orange-400">⚖️ O que é um Ônus?</h5>
+                        <p className="text-[11px] text-brand-ink/65 leading-relaxed">
+                          É um encargo ou obrigação de caráter financeiro ou contratual que recai sobre o imóvel (como uma Hipoteca ou Alienação Fiduciária).
+                        </p>
+                        <p className="text-[11px] text-brand-ink/50 italic bg-brand-bg/50 p-2 rounded-lg">
+                          Exemplo Prático: Um financiamento bancário pendente. No leilão, o banco utiliza o produto do leilão para extinguir essa dívida fiduciária.
+                        </p>
+                      </div>
+
+                      <div className="bg-brand-bg/10 p-4 rounded-xl border border-brand-border space-y-2">
+                        <h5 className="text-xs font-bold text-brand-primary">🚫 O que é um Gravame?</h5>
+                        <p className="text-[11px] text-brand-ink/65 leading-relaxed">
+                          É uma restrição coercitiva, ordenada pela Justiça ou pela administração pública, que bloqueia o imóvel (como uma Penhora ou Indisponibilidade).
+                        </p>
+                        <p className="text-[11px] text-brand-ink/50 italic bg-brand-bg/50 p-2 rounded-lg">
+                          Exemplo Prático: Uma penhora decorrente de um processo trabalhista do antigo dono. Após a arrematação, o juiz manda baixar esse bloqueio judicial.
+                        </p>
                       </div>
                     </div>
-                  ))}
+                  </div>
                 </div>
-              ) : <NoData />}
+              )}
             </AccordionSection>
 
             {/* Sec: Restrições e cláusulas */}
@@ -688,6 +910,215 @@ export const MatriculaReport: React.FC<MatriculaReportProps> = ({
               ) : <NoData />}
             </AccordionSection>
 
+            {/* NOVO: Campo de Análise Geral da Matrícula e Impactos para o Arrematante */}
+            <div className="mt-8 bg-gradient-to-br from-brand-bg/40 to-brand-bg/10 rounded-3xl border border-brand-primary/20 p-6 space-y-6 font-sans">
+              <div className="flex items-center gap-3 border-b border-brand-primary/10 pb-4">
+                <div className="p-2 bg-brand-primary/10 text-brand-primary rounded-xl">
+                  <Sparkles size={20} />
+                </div>
+                <div>
+                  <h4 className="text-md font-bold text-brand-ink">Análise Geral da Matrícula & Impactos para o Arrematante</h4>
+                  <p className="text-xs text-brand-ink/50 mt-0.5">Visão consolidada de riscos, facilidade de registro e recomendações pós-arrematação</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Lado Esquerdo: Diagnóstico e Resumo */}
+                <div className="space-y-4">
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-bold text-brand-primary uppercase tracking-wider block">Diagnóstico de Segurança Jurídica</span>
+                    <div className="flex items-center gap-2 mt-1.5">
+                      {data.kpis.num_onus_ativos > 0 ? (
+                        <>
+                          <div className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse"></div>
+                          <span className="text-xs font-bold text-amber-500 uppercase tracking-tight">Médio/Alto Risco (Requer Cancelamentos de Ônus)</span>
+                        </>
+                      ) : (
+                        <>
+                          <div className="w-2.5 h-2.5 rounded-full bg-emerald-500"></div>
+                          <span className="text-xs font-bold text-emerald-500 uppercase tracking-tight">Segurança Elevada (Sem Ônus Graves Ativos)</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="bg-brand-bg/20 p-4 rounded-2xl border border-brand-border/40 space-y-2">
+                    <h5 className="text-xs font-bold text-brand-ink/80">Parecer Geral da Cadeia de Propriedade:</h5>
+                    <p className="text-xs text-brand-ink/70 leading-relaxed">
+                      A matrícula registra {data.kpis.num_vendas || 0} transferências de propriedade. O proprietário atual é {data.proprietario_atual?.[0] || 'não identificado claramente no cabeçalho'}. 
+                      {data.kpis.num_onus_ativos > 0 
+                        ? ` Foram identificados ${data.kpis.num_onus_ativos} ônus ou gravames ativos na matrícula que demandarão baixa jurídica pós-leilão.`
+                        : " Não foram detectados gravames impeditivos graves, simplificando o processo de transferência pós-arrematação."}
+                    </p>
+                  </div>
+
+                  {data.alertas?.pontos_atencao && (
+                    <div className="bg-rose-500/5 p-4 rounded-2xl border border-rose-500/10 space-y-1">
+                      <h5 className="text-xs font-bold text-rose-500">Atenção Especial na Matrícula:</h5>
+                      <p className="text-xs text-brand-ink/75 leading-relaxed font-medium">
+                        {data.alertas.pontos_atencao}
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Lado Direito: Impactos para o Arrematante */}
+                <div className="space-y-4">
+                  <span className="text-[10px] font-bold text-brand-primary uppercase tracking-wider block">Impactos no Leilão & Procedimento do Arrematante</span>
+                  
+                  <div className="space-y-3">
+                    {/* Item de cancelamento de penhoras */}
+                    <div className="flex gap-3 text-xs leading-relaxed">
+                      <div className="mt-1 flex-shrink-0 text-brand-primary">
+                        <CheckCircle2 size={14} />
+                      </div>
+                      <p className="text-brand-ink/80">
+                        <strong>Cancelamento de Penhoras/Hipotecas:</strong> Os gravames judiciais e hipotecas de credores que participam do rateio do leilão são extintos com a arrematação. Caberá ao arrematante peticionar solicitando a expedição dos respectivos Mandados de Cancelamento de Ônus para o Cartório.
+                      </p>
+                    </div>
+
+                    {/* Item de responsabilidade */}
+                    <div className="flex gap-3 text-xs leading-relaxed">
+                      <div className="mt-1 flex-shrink-0 text-brand-primary">
+                        <CheckCircle2 size={14} />
+                      </div>
+                      <p className="text-brand-ink/80">
+                        <strong>Registro da Propriedade:</strong> Após homologação, você receberá a <em>Carta de Arrematação</em>. Ela substitui a escritura pública. Você deve levá-la ao Cartório de Registro de Imóveis (CRI) competente para registrar-se como proprietário definitivo, recolhendo previamente o ITBI correspondente.
+                      </p>
+                    </div>
+
+                    {/* Alerta de Custo Extra */}
+                    <div className="flex gap-3 text-xs leading-relaxed">
+                      <div className="mt-1 flex-shrink-0 text-brand-primary">
+                        <CheckCircle2 size={14} />
+                      </div>
+                      <p className="text-brand-ink/80">
+                        <strong>Custos do Cartório:</strong> O arrematante é responsável pelas taxas cartorárias (emolumentos) de registro da Carta de Arrematação e pelos atos de cancelamento de cada penhora/ônus ativo na matrícula.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* NOVO: Simulador de Custos e Checklist Pós-Arrematação */}
+              <div className="border-t border-brand-primary/10 pt-6 space-y-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Simulador Inteligente de Gastos Reais */}
+                  <div className="bg-brand-primary/[0.03] rounded-2xl border border-brand-primary/10 p-5 space-y-4">
+                    <div className="flex items-center gap-2">
+                      <Calculator size={16} className="text-brand-primary" />
+                      <h5 className="text-sm font-bold text-brand-ink">Simulador Inteligente de Gastos Reais</h5>
+                    </div>
+                    <p className="text-xs text-brand-ink/65 leading-relaxed">
+                      Ajuste o seu lance planejado para ver uma estimativa exata de todas as taxas, impostos e custos finais de cartório:
+                    </p>
+
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-[10px] font-bold uppercase tracking-wider text-brand-ink/50 mb-1">
+                          Valor Estimado do seu Lance (R$)
+                        </label>
+                        <div className="relative">
+                          <span className="absolute left-3 top-2 text-xs font-bold text-brand-ink/40">R$</span>
+                          <input
+                            type="number"
+                            className="w-full pl-9 pr-3 py-1.5 text-xs font-semibold rounded-xl border border-brand-border bg-brand-bg text-brand-ink focus:outline-none focus:border-brand-primary"
+                            value={customBid}
+                            onChange={(e) => setCustomBid(Number(e.target.value))}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="divide-y divide-brand-border/30 text-xs pt-1">
+                        <div className="py-2 flex justify-between">
+                          <span className="text-brand-ink/60">Lance de Arrematação:</span>
+                          <span className="font-mono font-medium">R$ {customBid.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        </div>
+                        <div className="py-2 flex justify-between">
+                          <span className="text-brand-ink/60">Comissão do Leiloeiro (5%):</span>
+                          <span className="font-mono font-medium">R$ {(customBid * 0.05).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        </div>
+                        <div className="py-2 flex justify-between">
+                          <span className="text-brand-ink/60">ITBI Estimado (3%):</span>
+                          <span className="font-mono font-medium">R$ {(customBid * 0.03).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        </div>
+                        <div className="py-2 flex justify-between">
+                          <span className="text-brand-ink/60">Custos de Registro e Emolumentos (1.2%):</span>
+                          <span className="font-mono font-medium">R$ {(customBid * 0.012).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        </div>
+                        {data.kpis.num_onus_ativos > 0 && (
+                          <div className="py-2 flex justify-between text-brand-ink/65">
+                            <span>Baixa de {data.kpis.num_onus_ativos || 1} Ônus/Penhora(s) (Est.):</span>
+                            <span className="font-mono font-medium">R$ {(1200).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                          </div>
+                        )}
+                        <div className="py-3 flex justify-between font-bold text-brand-primary border-t-2 border-brand-primary/20">
+                          <span>CUSTO REAL TOTAL ESTIMADO:</span>
+                          <span className="font-mono">R$ {(customBid + (customBid * 0.092) + 1200).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Checklist Interativo */}
+                  <div className="bg-brand-primary/[0.03] rounded-2xl border border-brand-primary/10 p-5 space-y-4">
+                    <div className="flex items-center gap-2">
+                      <Activity size={16} className="text-brand-primary" />
+                      <h5 className="text-sm font-bold text-brand-ink">Diligência pós-Arrematação (Checklist Inteligente)</h5>
+                    </div>
+                    <p className="text-xs text-brand-ink/65 leading-relaxed">
+                      Siga o roteiro passo a passo para registrar o imóvel e dar baixa nos gravames mapeados de forma segura:
+                    </p>
+
+                    <div className="space-y-2.5">
+                      {[
+                        { id: 1, label: "Solicitar homologação e expedição da Carta de Arrematação e Mandados de Baixa.", desc: "Feito por meio de petição do seu advogado no processo judicial." },
+                        { id: 2, label: "Efetuar o recolhimento da guia de ITBI municipal.", desc: "Imposto obrigatório calculado sobre o valor da arrematação ou da prefeitura." },
+                        { id: 3, label: "Apresentar a Carta de Arrematação no Cartório de Registro de Imóveis.", desc: "Substitui a escritura convencional para averbar sua nova propriedade definitiva." },
+                        { id: 4, label: "Apresentar mandados de baixa para cancelar as penhoras/ônus ativos.", desc: "Cada gravame anterior listado na matrícula precisa de cancelamento explícito." },
+                        { id: 5, label: "Tomar posse física (Amigável ou Imissão de Posse judicial).", desc: "No leilão judicial, o próprio juiz do caso emite a ordem de imissão na posse." },
+                      ].map((step) => (
+                        <div key={step.id} className="flex items-start gap-3 text-xs">
+                          <input
+                            type="checkbox"
+                            id={`step-check-${step.id}`}
+                            className="mt-1 h-3.5 w-3.5 rounded border-brand-border text-brand-primary focus:ring-brand-primary"
+                            checked={!!diligenceChecklist[step.id]}
+                            onChange={(e) => {
+                              setDiligenceChecklist(prev => ({ ...prev, [step.id]: e.target.checked }));
+                            }}
+                          />
+                          <label htmlFor={`step-check-${step.id}`} className="cursor-pointer select-none">
+                            <span className={`font-semibold block ${diligenceChecklist[step.id] ? 'line-through text-brand-ink/40' : 'text-brand-ink'}`}>
+                              {step.id}. {step.label}
+                            </span>
+                            <span className={`text-[11px] block mt-0.5 ${diligenceChecklist[step.id] ? 'text-brand-ink/30' : 'text-brand-ink/50'}`}>
+                              {step.desc}
+                            </span>
+                          </label>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Botão de Sugestão de Viabilidade Cruzada */}
+              <div className="mt-4 pt-4 border-t border-brand-primary/10 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-brand-primary/5 p-4 rounded-2xl border border-brand-primary/10">
+                <div className="flex items-start gap-3">
+                  <div className="mt-1 text-brand-primary">
+                    <Sparkles size={16} />
+                  </div>
+                  <div>
+                    <h5 className="text-xs font-bold text-brand-ink">💡 Sugestão de Viabilidade Cruzada Inteligente</h5>
+                    <p className="text-[11px] text-brand-ink/70 leading-relaxed mt-0.5">
+                      <strong>Recomendação de Especialista:</strong> Sempre cruze os dados desta matrícula com a aba <strong>Edital</strong>. Desconfie se houver menção a débitos tributários de IPTU ou despesas condominiais pesadas que não estejam descritas de forma transparente na matrícula original.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
           </div>
         </div>
       )}
@@ -779,6 +1210,12 @@ function parseHeuristics(
       result.identificacao_matricula.numero_matricula = matMatch[1];
     }
 
+    // Try to parse valor_fiscal or valor venal using regex
+    const fiscalMatch = text.match(/(?:valor\s+fiscal|valor\s+venal|valor\s+de\s+referência|valor\s+de\s+referencia|venal\s+de|fiscal\s+de)\s*(?:de|do|imovel|imóvel)?\s*(?:nº|:)?\s*R\$\s*(\d[\d\.\,]*)/i);
+    if (fiscalMatch && result.caracteristicas_fisicas) {
+      result.caracteristicas_fisicas.valor_fiscal = `R$ ${fiscalMatch[1]}`;
+    }
+
     // 2. Try to find Cartório
     const cartMatch = text.match(/(?:Cartório|Ofício|Oficio|Registro)\s*(?:de Registro)?(?:\s+\d[ºª]?)?[\w\s]{5,40}/i);
     if (cartMatch && result.identificacao_matricula) {
@@ -841,143 +1278,67 @@ function getFallbackData(
   valuation: number,
   bid: number
 ): MatriculaReportData {
-  const formattedValuation = valuation > 0 ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valuation) : 'R$ 1.800.000,00';
-  const formattedBid = bid > 0 ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(bid) : 'R$ 900.000,00';
+  const formattedValuation = valuation > 0 ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valuation) : 'Não informado';
+  const formattedBid = bid > 0 ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(bid) : 'Não informado';
+  const displayAddress = address || 'Não informado';
+  const displayLocation = (city && state) ? `${city}/${state}` : (city || state || 'Não informada');
 
   return {
     kpis: {
-      num_vendas: 2,
-      ultimo_venda_valor: formattedValuation,
-      num_onus_ativos: 1,
-      num_processos_judiciais: 1
+      num_vendas: 0,
+      ultimo_venda_valor: 'Não informado',
+      num_onus_ativos: 0,
+      num_processos_judiciais: 0
     },
-    proprietario_atual: ['ELIAS MENDES VIEIRA DA GAMA', 'JANICE DE SOUZA VIEIRA DA GAMA'],
-    proprietarios_anteriores: [
-      { nome: 'G.R.G. CONSTRUÇÕES E INCORPORAÇÕES LTDA', documento: '23.822.497/0001-29' },
-      { nome: 'JOSE NICODEMOS DA COSTA', documento: '004.019.946-00' }
-    ],
-    valores_transacao: [
-      { valor: formattedValuation, data: '12-09-1990' },
-      { valor: 'R$ 35.000,00', data: '04-05-1990' }
-    ],
-    imovel_tipo: 'Apartamento · RESIDENCIAL',
-    localizacao_resumo: `${city || 'Belo Horizonte'}/${state || 'MG'}`,
+    proprietario_atual: ['Não informado (consulte matrícula completa)'],
+    proprietarios_anteriores: [],
+    valores_transacao: [],
+    imovel_tipo: 'Não informado',
+    localizacao_resumo: displayLocation,
     identificacao_matricula: {
-      numero_matricula: '51936',
-      cartorio: '3º OFÍCIO DE REGISTRO DE IMÓVEIS',
-      comarca: (city || 'Belo Horizonte').toUpperCase(),
-      uf: (state || 'MG').toUpperCase(),
+      numero_matricula: 'Não informado',
+      cartorio: 'Não informado',
+      comarca: (city || 'Não informada').toUpperCase(),
+      uf: (state || 'Não informada').toUpperCase(),
       livro: '2'
     },
     caracteristicas_fisicas: {
-      tipo_imovel: 'Apartamento',
-      categoria: 'RESIDENCIAL',
-      endereco: address || 'Rua Uberlandia, 254 - Apartamento 201 - Carlos Prates - Belo Horizonte/MG',
-      area_total: '640,00m² (terreno)',
-      fracao_ideal: '0,0811248',
-      unidade_autonoma: 'Apartamento 201',
-      descricao_completa: 'Fração ideal de 0,0811248 de parte do lote colonial nº 69, da Ex-Colonia Carlos Prates, com área de 640,00m², medindo 20,00m de frente por 32,00m de fundos, correspondente ao apartamento 201, localizado no 1º pavimento do Edificio Leonardo Augusto, à rua Uberlandia, 254.'
+      tipo_imovel: 'Não informado',
+      categoria: 'Não informado',
+      endereco: displayAddress,
+      area_total: 'Não informado',
+      fracao_ideal: 'Não informado',
+      unidade_autonoma: 'Não informado',
+      valor_fiscal: 'Não informado',
+      descricao_completa: 'Mapeamento pendente. Verifique a análise textual.'
     },
     condominio: {
-      nome: 'Edificio Leonardo Augusto'
+      nome: 'Não informado'
     },
-    cadeia_registral: [
-      {
-        tipo: 'REGISTRO',
-        data: '04-05-1990',
-        valor: 'R$ 35.000,00',
-        descricao: 'COMPRA E VENDA',
-        partes: 'De G.R.G. CONSTRUÇÕES E INCORPORAÇÕES LTDA para JOSE NICODEMOS DA COSTA',
-        natureza: 'COMPRA E VENDA',
-        impacto: 'TRANSFERENCIA'
-      },
-      {
-        tipo: 'REGISTRO',
-        data: '12-09-1990',
-        valor: formattedValuation,
-        descricao: 'COMPRA E VENDA',
-        partes: 'De JOSE NICODEMOS DA COSTA para ELIAS MENDES VIEIRA DA GAMA, JANICE DE SOUZA VIEIRA DA GAMA',
-        natureza: 'COMPRA E VENDA',
-        impacto: 'TRANSFERENCIA'
-      },
-      {
-        tipo: 'AVERBACAO',
-        data: '12-09-1990',
-        valor: 'R$ 1.574.210,88',
-        descricao: 'HIPOTECA',
-        partes: 'De ELIAS MENDES VIEIRA DA GAMA, JANICE DE SOUZA VIEIRA DA GAMA para FUNDAÇÃO BANCO CENTRAL DE PREVIDÊNCIA PRIVADA - CENTRUS',
-        natureza: 'HIPOTECA',
-        impacto: 'ONUS'
-      },
-      {
-        tipo: 'AVERBACAO',
-        data: '28/11/2023',
-        valor: formattedBid,
-        descricao: 'PENHORA',
-        partes: 'De ELIAS MENDES VIEIRA DA GAMA, JANICE DE SOUZA VIEIRA DA GAMA para FUNDAÇÃO BANCO CENTRAL DE PREVIDÊNCIA PRIVADA - CENTRUS',
-        natureza: 'PENHORA JUDICIAL',
-        impacto: 'RESTRIÇÃO'
-      }
-    ],
+    cadeia_registral: [],
     proprietarios_e_partes: {
-      atuais: [
-        { nome: 'ELIAS MENDES VIEIRA DA GAMA', documento: '153.542.611-04', tipo: 'PF', participacao: '100%', estado_civil: 'CASADO', regime: 'COMUNHAO DE BENS', detalhes: 'COMPRA E VENDA - 12-09-1990' },
-        { nome: 'JANICE DE SOUZA VIEIRA DA GAMA', documento: '339.483.641-68', tipo: 'PF', participacao: '100%', estado_civil: 'CASADO', regime: 'COMUNHAO DE BENS', detalhes: 'COMPRA E VENDA - 12-09-1990' }
-      ],
-      anteriores: [
-        { nome: 'G.R.G. CONSTRUÇÕES E INCORPORAÇÕES LTDA', documento: '23.822.497/0001-29', tipo: 'PJ', detalhes: 'ORIGEM' },
-        { nome: 'JOSE NICODEMOS DA COSTA', documento: '004.019.946-00', tipo: 'PF', detalhes: 'COMPRA E VENDA - 04-05-1990' }
-      ],
-      credores: [
-        { nome: 'FUNDAÇÃO BANCO CENTRAL DE PREVIDÊNCIA PRIVADA - CENTRUS', documento: '00.580.571/0001-42', tipo: 'PJ', detalhes: 'HIPOTECA - 12-09-1990' }
-      ]
+      atuais: [],
+      anteriores: [],
+      credores: []
     },
-    onus_gravames: [
-      {
-        tipo: 'PENHORA',
-        status: 'ATIVO',
-        subtipo: 'LEILÃO',
-        prioridade: 'ALTO',
-        valor: formattedBid,
-        credor: 'FUNDAÇÃO BANCO CENTRAL DE PREVIDÊNCIA PRIVADA - CENTRUS',
-        devedor: 'ELIAS MENDES VIEIRA DA GAMA E JANICE DE SOUZA VIEIRA DA GAMA',
-        data_constituicao: '28/11/2023'
-      }
-    ],
+    onus_gravames: [],
     restricoes_clausulas: {
-      inalienabilidade: 'Não',
-      impenhorabilidade: 'Não',
-      incomunicabilidade: 'Não'
+      inalienabilidade: 'Não informado',
+      impenhorabilidade: 'Não informado',
+      incomunicabilidade: 'Não informado'
     },
-    eventos_leilao: [
-      {
-        tipo: 'EXECUÇÃO JUDICIAL',
-        data: '28/11/2023',
-        status: 'ATIVO',
-        descricao: 'Penhora averbada sobre o imóvel',
-        impacto_atual: 'Imóvel sujeito a expropriação judicial'
-      }
-    ],
-    processos_judiciais: [
-      {
-        numero: '1743499-42.2015.8.13.0024',
-        natureza: 'EXECUÇÃO/PENHORA',
-        vara_comarca: `13ª Vara Cível ${city || 'Belo Horizonte'}-${state || 'MG'}`,
-        fase: 'PENHORA AVERBADA',
-        partes: 'FUNDAÇÃO BANCO CENTRAL DE PREVIDÊNCIA PRIVADA - CENTRUS, ELIAS MENDES VIEIRA DA GAMA, JANICE DE SOUZA VIEIRA DA GAMA',
-        impacto: 'RISCO DE HASTA PÚBLICA'
-      }
-    ],
+    eventos_leilao: [],
+    processos_judiciais: [],
     alertas: {
-      problemas_arrematacao: 'Imóvel consta com penhora ativa, o que pode levar a leilão judicial.',
-      pendencias_juridicas: 'Penhora judicial ativa em favor da CENTRUS',
-      pontos_atencao: 'Imóvel penhorado em decorrência de execução judicial de dívida.'
+      problemas_arrematacao: 'Mapeamento de riscos em andamento.',
+      pendencias_juridicas: 'Mapeamento de pendências em andamento.',
+      pontos_atencao: 'Consulte a análise completa textual.'
     },
     qualidade_analise: {
-      qualidade_ocr: 'BOA',
-      confianca_extracao: 'ALTO',
+      qualidade_ocr: 'Aguardando documento',
+      confianca_extracao: 'Baixo',
       data_analise: new Date().toISOString(),
-      arquivo_analisado: 'matricula.pdf'
+      arquivo_analisado: 'Não informado'
     }
   };
 }

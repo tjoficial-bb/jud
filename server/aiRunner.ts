@@ -7,10 +7,31 @@ const fetchUrlContent = async (url: string): Promise<string> => {
   if (!url || typeof url !== 'string' || !url.startsWith('http')) {
     return "";
   }
+  
+  let cleanedUrl = url;
   try {
-    console.log(`[Crawler] Iniciando captura rápida de URL do leilão: ${url}`);
-    const res = await axios.get(url, {
+    const parsed = new URL(url);
+    const params = new URLSearchParams(parsed.search);
+    let changed = false;
+    for (const key of Array.from(params.keys())) {
+      if (key.startsWith('utm_') || key === 'gclid' || key === 'fbclid' || key === 'clclid') {
+        params.delete(key);
+        changed = true;
+      }
+    }
+    if (changed) {
+      parsed.search = params.toString();
+      cleanedUrl = parsed.toString();
+    }
+  } catch (e) {
+    // Ignore URL parsing errors and fallback to original
+  }
+
+  try {
+    console.log(`[Crawler] Iniciando captura rápida de URL do leilão: ${cleanedUrl}`);
+    const res = await axios.get(cleanedUrl, {
       timeout: 8000,
+      maxRedirects: 5, // Prevent slow infinite redirect loops
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
@@ -40,8 +61,8 @@ const fetchUrlContent = async (url: string): Promise<string> => {
     }
     return "";
   } catch (err: any) {
-    console.warn(`[Crawler Error] Erro ao buscar URL de leiloeiro ${url}:`, err.message);
-    return `[Este link de detalhes do leilão está sob proteção do Cloudflare, exige CAPTCHA ou está offline temporariamente. Erro: ${err.message}. Prossiga fornecendo as diretrizes e parecer de análise com base nos outros documentos disponíveis.]`;
+    console.warn(`[Crawler Error] Erro ao buscar URL de leiloeiro ${cleanedUrl}:`, err.message);
+    return `[Este link de detalhes do leilão está sob proteção do Cloudflare, exige CAPTCHA, possui redirecionamento infinito de rastreamento ou está offline temporariamente. Erro: ${err.message}. Prossiga fornecendo as diretrizes e parecer de análise com base nos outros documentos disponíveis.]`;
   }
 };
 
@@ -122,6 +143,167 @@ const callGeminiWithRetry = async <T>(
   }
 };
 
+const generateContentWithFallback = async (
+  ai: any,
+  primaryModel: string,
+  requestPayload: any,
+  retries = 4,
+  delayMs = 2500
+): Promise<any> => {
+  const fallbackModels = ['gemini-3.5-flash', 'gemini-3.1-flash-lite'];
+  
+  // Try models in sequence
+  for (let mIndex = 0; mIndex <= fallbackModels.length; mIndex++) {
+    const currentModel = mIndex === 0 ? primaryModel : fallbackModels[mIndex - 1];
+    
+    // Avoid re-trying the same model if it is already the primary one
+    if (mIndex > 0 && currentModel === primaryModel) {
+      continue;
+    }
+    
+    try {
+      console.log(`[Gemini Request] Tentando gerar conteúdo com o modelo: ${currentModel}`);
+      const payloadCopy = { ...requestPayload, model: currentModel };
+      return await callGeminiWithRetry(() => ai.models.generateContent(payloadCopy), retries, delayMs);
+    } catch (error: any) {
+      const errorStr = (error?.message || String(error)).toLowerCase();
+      const errorObjStr = JSON.stringify(error || {}).toLowerCase();
+      
+      const isFileError = 
+        errorStr.includes("no pages") || 
+        errorStr.includes("has no pages") ||
+        errorStr.includes("invalid_argument") ||
+        errorStr.includes("invalid argument") ||
+        errorStr.includes("unsupported mime") ||
+        errorStr.includes("mime type") ||
+        errorObjStr.includes("no pages") ||
+        errorObjStr.includes("invalid_argument") ||
+        errorObjStr.includes("mime");
+
+      if (isFileError && requestPayload?.contents?.parts) {
+        let hasInlineData = false;
+        const cleanedParts = requestPayload.contents.parts.map((part: any) => {
+          if (part && part.inlineData) {
+            hasInlineData = true;
+            return { 
+              text: `[Documento binário omitido devido a erro de leitura de formato ou ausência de páginas: ${part.inlineData.mimeType || 'PDF/Imagem'}. Prossiga fornecendo as orientações gerais possíveis.]` 
+            };
+          }
+          return part;
+        });
+
+        if (hasInlineData) {
+          console.warn(`[Gemini Request Fallback] Erro de leitura de arquivo detectado ("${error?.message}"). Convertendo inlineData para texto e tentando novamente...`);
+          const fallbackPayload = {
+            ...requestPayload,
+            contents: {
+              ...requestPayload.contents,
+              parts: cleanedParts
+            }
+          };
+          try {
+            return await callGeminiWithRetry(() => ai.models.generateContent({ ...fallbackPayload, model: currentModel }), retries, delayMs);
+          } catch (fallbackError) {
+            console.error("[Gemini Request Fallback] Falha no retry sem inlineData:", fallbackError);
+            // Let the fallbackError propagate or fall through to normal fallback logic
+          }
+        }
+      }
+
+      const isUnavailable = 
+        error?.status === 503 || 
+        errorStr.includes("503") || 
+        errorStr.includes("unavailable") || 
+        errorStr.includes("high demand") ||
+        errorStr.includes("temporary") ||
+        errorStr.includes("overloaded") ||
+        errorObjStr.includes("unavailable") ||
+        errorObjStr.includes("503") ||
+        errorObjStr.includes("overloaded");
+
+      const isQuotaError = 
+        error?.status === 429 ||
+        errorStr.includes("429") || 
+        errorStr.includes("exhausted") || 
+        errorStr.includes("quota") || 
+        errorStr.includes("limit") ||
+        errorObjStr.includes("429") ||
+        errorObjStr.includes("exhausted") ||
+        errorObjStr.includes("quota") ||
+        errorObjStr.includes("limit");
+
+      // Only proceed to fallback if it's a 503 (high demand/unavailable) or 429 (quota) error
+      if ((isUnavailable || isQuotaError) && mIndex < fallbackModels.length) {
+        const nextModel = fallbackModels[mIndex];
+        if (nextModel !== currentModel) {
+          console.warn(`[Gemini Fallback Triggered] Modelo ${currentModel} falhou com erro transiente (503/429). Tentando fallback para o modelo estável: ${nextModel}...`);
+          continue;
+        }
+      }
+      throw error;
+    }
+  }
+};
+
+export const transcribeDocumentToMarkdown = async (
+  buffer: Buffer,
+  mimeType: string,
+  filename: string = "documento.pdf"
+): Promise<string> => {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    console.warn("[OCR Transcribe] GEMINI_API_KEY não configurada no servidor.");
+    return "";
+  }
+
+  try {
+    console.log(`[OCR Transcribe] Iniciando OCR / Transcrição para Markdown de "${filename}" (${(buffer.length / 1024).toFixed(1)} KB)...`);
+    const ai = new GoogleGenAI({ apiKey });
+    const base64Data = buffer.toString("base64");
+    const effectiveMime = (mimeType === 'application/pdf' || filename.toLowerCase().endsWith('.pdf')) ? 'application/pdf' : (mimeType || 'application/pdf');
+
+    const prompt = `Você é um especialista em OCR avançado, visão computacional e transcrição documental de cartórios de imóveis e tribunais de justiça no Brasil.
+Sua missão é realizar a TRANSCRIÇÃO OCR EXATA, NA ÍNTEGRA, COMPLETA E SEM OMISSÕES deste documento ("${filename}") para o formato MARKDOWN limpo, organizado e estruturado.
+
+DIRETRIZES DE TRANSCRIÇÃO OBRIGATÓRIAS:
+1. LEIA E TRANSCREVA ABSOLUTAMENTE TUDO visível em TODAS as páginas:
+   - Na Matrícula de Imóvel: transcreva o cabeçalho do Cartório, número da matrícula, ficha, CNM, descrição completa do imóvel, proprietários anteriores e atuais, registros (R-1, R-2, R-3...), averbações (AV-1, AV-2, AV-3...), gravames (hipotecas, penhoras, alienações fiduciárias, consolidação da propriedade, leilões negativos), cancelamentos, certidão final do escrevente/oficial e selo de fiscalização.
+   - No Edital ou Peças do Processo: transcreva todas as cláusulas, números de processo, datas, valores de avaliação e lance, obrigações de débitos de condomínio/IPTU e decisões do juiz.
+2. NUNCA resuma ou abrevie alegando que "o documento continua" ou "conteúdo omitido". Transcreva cada parágrafo, texto datilografado ou manuscrito que conseguir ler na imagem.
+3. Estruture com títulos Markdown nítidos:
+   # Documento: ${filename}
+   ## Página [Número]
+   ### [Averbação/Registro Exato, ex: AV-1-132.570 SERVIDÃO]
+4. Mantenha as datas, números dos atos, CPFs/CNPJs e valores monetários (R$) exatamente como impressos no documento.
+5. Retorne APENAS o texto transcrevido em Markdown, sem saudações ou explicações fora do documento.`;
+
+    const requestPayload = {
+      contents: [
+        {
+          role: 'user',
+          parts: [
+            {
+              inlineData: {
+                mimeType: effectiveMime,
+                data: base64Data
+              }
+            },
+            { text: prompt }
+          ]
+        }
+      ]
+    };
+
+    const response = await generateContentWithFallback(ai, 'gemini-2.5-flash', requestPayload);
+    const transcribedText = response?.text?.trim() || "";
+    console.log(`[OCR Transcribe] Transcrição para Markdown concluída com sucesso para "${filename}". Tamanho: ${transcribedText.length} caracteres.`);
+    return transcribedText;
+  } catch (err: any) {
+    console.error(`[OCR Transcribe] Erro ao transcrever documento "${filename}" com Gemini:`, err.message);
+    return "";
+  }
+};
+
 const getProviderFromModel = (model: string): string => {
   if (model.startsWith('gemini')) return 'gemini';
   if (model.startsWith('claude')) return 'claude';
@@ -136,7 +318,7 @@ const mapModelId = (model: string): string => {
     'gemini-3.1-pro-preview': 'gemini-3.1-pro-preview',
     'gemini-3.1-flash-preview': 'gemini-3.5-flash',
     'gemini-3-flash-preview': 'gemini-3.5-flash',
-    'gemini-2.5-pro': 'gemini-2.5-pro',
+    'gemini-2.5-pro': 'gemini-3.1-pro-preview',
     'gemini-2.5-flash': 'gemini-3.5-flash',
     'gemini-flash-latest': 'gemini-3.5-flash',
     
@@ -157,31 +339,29 @@ const mapModelId = (model: string): string => {
 };
 
 const getPayloadBudget = (model: string): number => {
-  // To avoid 504 Gateway Timeout (60-second ceiling on the proxy), we strictly limit 
-  // the base64 payload budget to 2MB. Text-based content takes almost 0 bytes and processes
-  // in seconds, while heavy images/PDFs are optimized.
-  return 2 * 1024 * 1024;
+  // Increased budget to 30MB to allow processing of larger documents (PDFs and images) safely.
+  return 30 * 1024 * 1024;
 };
 
 const optimizePayload = (files: any[], budget: number, model?: string) => {
   const isMultiModalProvider = model ? (model.startsWith('gemini') || model.startsWith('claude')) : true;
 
   let currentFiles = files.map(f => {
-    const hasText = !!f.extractedText && f.extractedText.trim().length > 200;
+    const hasData = !!f.data && f.data !== "" && f.data !== "null" && f.data !== "undefined";
+    const hasText = !!f.extractedText && f.extractedText.trim().length > 0;
     
     // We check if it is a heavy binary (PDF or Image).
-    // PDFs without text are processed visually by top-tier models using deep multi-modal features.
-    let limit = 0.8 * 1024 * 1024; // 0.8MB limit for images
+    let limit = 25 * 1024 * 1024; // 25MB limit for images and base64 PDFs
     if (f.mimeType === 'application/pdf') {
-      limit = 1.2 * 1024 * 1024; // 1.2MB limit for PDFs without text
+      limit = 30 * 1024 * 1024; // 30MB limit for PDFs
     }
     
-    const isBase64TooLarge = f.data && f.data.length > limit;
+    const isBase64TooLarge = hasData && f.data.length > limit;
     
-    // Determine whether to use plain text fallback or send the binary (PDF/Image) visually.
-    // If the file already has substantial extracted text, we ALWAYS prefer sending the text
-    // rather than the heavy binary, which avoids huge visual processing overhead and timeouts.
-    let useText = !f.data || f.data === "" || f.data === "null" || isBase64TooLarge || hasText || !isMultiModalProvider;
+    // For multimodal models (Gemini), if base64 binary is available and within size limits,
+    // PREFER sending the binary (inlineData PDF) so Gemini can visually read all pages, stamps, and tables.
+    // Only fall back to text-only mode if no binary data exists or if the binary exceeds size limits.
+    let useText = !hasData || isBase64TooLarge || !isMultiModalProvider;
     
     if ((f.mimeType?.startsWith('text/') || f.mimeType?.includes('txt')) && hasText) {
       useText = true;
@@ -320,8 +500,7 @@ const analyzeWithGemini = async (files: any[], systemInstruction: string, model:
     temperature: 0.2,
   };
 
-  const response: GenerateContentResponse = await callGeminiWithRetry(() => ai.models.generateContent({
-    model: mappedModel,
+  const response = await generateContentWithFallback(ai, mappedModel, {
     contents: {
       parts: [
         ...parts,
@@ -329,7 +508,7 @@ const analyzeWithGemini = async (files: any[], systemInstruction: string, model:
       ]
     },
     config
-  }));
+  });
 
   return response.text || "";
 };
@@ -552,6 +731,8 @@ export const runBackendAnalysis = async (
       "\n    \"formas_pagamento\": \"... YYYY-MM-DD ou À vista ...\"," +
       "\n    \"prazo_pagamento\": \"...\"," +
       "\n    \"parcelamento_especifico\": \"...\"," +
+      "\n    \"tem_desconto_vista\": \"Sim|Não|Não informado\"," +
+      "\n    \"percentual_desconto_vista\": \"X%|Não aplicável\"," +
       "\n    \"condicoes_diferenciadas\": \"...\"" +
       "\n  }," +
       "\n  \"comissao_leiloeiro_detalhe\": {" +
@@ -620,10 +801,12 @@ export const runBackendAnalysis = async (
     specializedInstruction += "\n\nFOCO COMPLEMENTAR DE ALTÍSSIMA PRIORIDADE (MANDATÓRIO):" +
       "\nAnalise estritamente toda a MATRÍCULA DO IMÓVEL folha por folha, prestando atenção prioritária aos atos registrados sob as siglas 'R-' (Registro) e 'AV-' (Averbação)." +
       "\nVocê deve identificar e expor obrigatoriamente:" +
-      "\n1. HISTÓRICO COMPLETO DE PROPRIETÁRIOS: Identifique TODOS os adquirentes, proprietários antigos e atuais mencionados nos registros de Compra e Venda (R-). Extraia: Nome Completo, CPF/CNPJ, Estado Civil, Cônjuge (se houver), Profissão, e Endereço Completo de residência." +
-      "\n2. GARANTIAS E FIDUCIÁRIOS: Mapeie qualquer Alienação Fiduciária (geralmente sob R- ou AV-), apontando claramente quem é o Devedor Fiduciante e quem é o Credor Fiduciário (por exemplo, Banco do Brasil S/A, Bradesco, Caixa, etc.)." +
-      "\n3. CANCELAMENTO DE GARANTIAS E CONSOLIDAÇÃO: Verifique se houve cancelamento de gravames antigos e, crucialmente, se há Averbação de Consolidação da Propriedade (AV-) em nome do banco credor por inadimplemento (o que legitima o leilão). Liste as datas exatas destes atos." +
-      "\n4. ÔNUS, BLOQUEIOS E PENHORAS: Liste toda e qualquer penhora ativa, indisponibilidade de bens, hipotecas ou processos averbados." +
+      "\n1. LOCALIZAÇÃO E CARTÓRIO EXATOS (CRÍTICO): Identifique com precisão absoluta o Estado (UF), Comarca, Cidade e o Cartório de Registro de Imóveis do lote específico analisado. Nunca assuma 'São Paulo' ou 'SP' ou qualquer outro local se não estiver expressamente indicado no texto para este lote específico. Erros de localização geográfica são gravíssimos." +
+      "\n2. DIMENSÕES E METRAGEM (ÁREAS): Extraia com rigor as metragens (Área Total, Área Útil, Área Construída, Área do Terreno e Fração Ideal) e a descrição física. Não use placeholders ou valores fictícios." +
+      "\n3. HISTÓRICO COMPLETO DE PROPRIETÁRIOS: Identifique TODOS os adquirentes, proprietários antigos e atuais mencionados nos registros de Compra e Venda (R-). Extraia: Nome Completo, CPF/CNPJ, Estado Civil, Cônjuge (se houver), Profissão, e Endereço Completo de residência." +
+      "\n4. GARANTIAS E FIDUCIÁRIOS: Mapeie qualquer Alienação Fiduciária (geralmente sob R- ou AV-), apontando claramente quem é o Devedor Fiduciante e quem é o Credor Fiduciário (por exemplo, Banco do Brasil S/A, Bradesco, Caixa, etc.)." +
+      "\n5. CANCELAMENTO DE GARANTIAS E CONSOLIDAÇÃO: Verifique se houve cancelamento de gravames antigos e, crucialmente, se há Averbação de Consolidação da Propriedade (AV-) em nome do banco credor por inadimplemento (o que legitima o leilão). Liste as datas exatas destes atos." +
+      "\n6. ÔNUS, BLOQUEIOS E PENHORAS: Liste toda e qualquer penhora ativa, indisponibilidade de bens, hipotecas ou processos averbados." +
       "\n\nESTRUTURA DE RETORNO OBRIGATÓRIA:" +
       "\n- **Apresente uma Tabela Cronológica de Registros e Averbações (R e AV)** contendo: Código (Ex: R-4, AV-7), Ato (Compra e Venda, Alienação, Consolidação), Partes Envolvidas (com todos os CPFs, profissões e endereços identificados) e Detalhes Importantes." +
       "\n- **Apresente uma Segunda Tabela Resumo dos Proprietários Atuais e de Direito**, deixando claro quem é o proprietário fiduciante executado e quem é o credor titular de direito (Ex: Banco do Brasil S/A). Qualquer lacuna de dados devido a digitalização fraca deve ser indicada expressamente em vez de silenciada." +
@@ -662,6 +845,7 @@ export const runBackendAnalysis = async (
       "\n    \"area_total\": \"...\", " +
       "\n    \"fracao_ideal\": \"...\", " +
       "\n    \"unidade_autonoma\": \"...\", " +
+      "\n    \"valor_fiscal\": \"... R$ ... (Valor Fiscal, Venal, Referência ou de Lançamento se constar)\", " +
       "\n    \"descricao_completa\": \"...\"" +
       "\n  }," +
       "\n  \"condominio\": {" +
@@ -761,10 +945,10 @@ export const runBackendAnalysis = async (
 
   // Inject critical bidder checklist and strategic brain consultation
   specializedInstruction += "\n\nDIRETRIZ CRÍTICA DE EXECUÇÃO (MANDATÓRIO): " +
-    "\n- Você DEVE consultar ativamente o CONTEXTO ESTRATÉGICO DO USUÁRIO (CÉREBRO ESTRATÉGICO) fornecido nas instruções do sistema para alinhar todas as suas decisões e análises com os padrões e lições de proteção de capital do investidor." +
-    "\n- Inclua OBRIGATORIAMENTE de forma visível e muito detalhada o 'CHECKLIST DO ARREMATADOR (PML) - ANÁLISE DE VIABILIDADE' na sua resposta. Valide cada um dos 5 macro-itens do Checklist do Arrematador listando seus respectivos pontos com os status: [CONFIRMADO], [PENDENTE] ou [ATENÇÃO], acompanhados de justificativa analítica fundamentada.";
+    "\n- Você DEVE consultar ativamente o CONTEXTO ESTRATÉGICO DO USUÁRIO (CÉREBRO ESTRATÉGICO) fornecido nas instruções do sistema para extrair as lições, diretrizes e checklists de todos os professores, cursos e documentos cadastrados." +
+    "\n- Em vez de se limitar estritamente a um único checklist rígido (como o PML), consolide todos os conhecimentos, checklists e estratégias presentes no Cérebro de forma natural e integrada. Gere um 'CHECKLIST CONSOLIDADO DE VIABILIDADE JURÍDICA E ESTRATÉGICA' contendo as principais regras de proteção de capital lidas no seu Cérebro Estratégico, atribuindo os status [CONFIRMADO], [PENDENTE] ou [ATENÇÃO] de maneira altamente fluida, natural e profissional.";
 
-  const timeoutMessage = `Tempo limite de processamento de IA atingido (Limite de 180 segundos).
+  const timeoutMessage = `Tempo limite de processamento de IA atingido (Limite de 300 segundos).
 
 Os arquivos enviados são muito extensos ou possuem muitas imagens/páginas escaneadas não-otimizadas que sobrecarregaram o modelo de processamento da IA neste momento.
 
@@ -815,7 +999,7 @@ Para resolver esta lentidão de forma imediata:
     throw new Error("Provedor não suportado.");
   };
 
-  return withTimeout(runTask(), 180000, timeoutMessage);
+  return withTimeout(runTask(), 300000, timeoutMessage);
 };
 
 export const runBackendProcessStory = async (
@@ -860,8 +1044,7 @@ Formate a resposta estritamente em JSON com a seguinte estrutura:
       };
     });
 
-    const response = await callGeminiWithRetry(() => ai.models.generateContent({
-      model: mappedModel,
+    const response = await generateContentWithFallback(ai, mappedModel, {
       contents: {
         parts: [
           ...parts,
@@ -873,10 +1056,10 @@ Formate a resposta estritamente em JSON com a seguinte estrutura:
         temperature: 0.1,
         responseMimeType: "application/json"
       }
-    }));
+    });
 
     const text = response.text || "{}";
-    return JSON.parse(text);
+    return safeParseJSON(text);
   } else {
     const openai = new OpenAI({ apiKey });
     const response = await openai.chat.completions.create({
@@ -888,7 +1071,7 @@ Formate a resposta estritamente em JSON com a seguinte estrutura:
       response_format: { type: "json_object" }
     });
     const content = response.choices[0].message.content || "{}";
-    return JSON.parse(content);
+    return safeParseJSON(content);
   }
 };
 
@@ -908,11 +1091,10 @@ export const runBackendChatMessage = async (
       parts: [{ text: m.content }]
     }));
 
-    const response = await callGeminiWithRetry(() => ai.models.generateContent({
-      model: mappedModel,
+    const response = await generateContentWithFallback(ai, mappedModel, {
       contents: contents as any,
       config: { systemInstruction }
-    }));
+    });
 
     return response.text || "";
   } else if (provider === 'claude') {
@@ -943,3 +1125,143 @@ export const runBackendChatMessage = async (
     return response.choices[0].message.content || "";
   }
 };
+
+export const extractProcessDetailsFromText = async (
+  text: string,
+  apiKey: string
+): Promise<any> => {
+  try {
+    const ai = new GoogleGenAI({ apiKey });
+    const prompt = `Analise o texto extraído de um processo judicial abaixo e extraia as seguintes informações estruturadas de forma precisa em formato JSON:
+1. número do processo (cnj_number) no formato padrão CNJ (ex: 1017459-42.2025.8.26.0577).
+2. tribunal (court), ex: TJSP, TJMG, etc.
+3. classe judicial (class), ex: Ação Anulatória de Execução Extrajudicial, etc.
+4. assunto (subject), ex: Alienação Fiduciária, etc.
+5. órgão julgador ou vara (chamber), ex: 6ª Vara Cível da Comarca de São José dos Campos/SP.
+6. partes do processo (parties) no formato "Autor vs Réu" (ex: Benito Felix da Silva vs Banco Santander (Brasil) S/A).
+7. última movimentação relevante ou status identificado (last_movement), ex: Petição inicial protocolada, liminar deferida, etc.
+
+Retorne APENAS o objeto JSON puro, sem formatação de bloco de código markdown, sem explicações, seguindo exatamente este modelo:
+{
+  "cnj_number": "...",
+  "court": "...",
+  "class": "...",
+  "subject": "...",
+  "chamber": "...",
+  "parties": "...",
+  "last_movement": "..."
+}
+
+Texto do processo:
+${text.substring(0, 15000)}`;
+
+    const response = await generateContentWithFallback(ai, 'gemini-3.5-flash', {
+      contents: prompt,
+      config: {
+        responseMimeType: 'application/json'
+      }
+    });
+
+    const resText = response.text || "";
+    console.log("[AI Process Detail Extraction] Response:", resText);
+    return safeParseJSON(resText);
+  } catch (err) {
+    console.error("[AI Process Detail Extraction] Error:", err);
+    return null;
+  }
+};
+
+export function safeParseJSON(text: string): any {
+  if (!text) return null;
+  let clean = text.trim();
+
+  // 1. Strip markdown code block wrappers if they exist
+  if (clean.startsWith("```")) {
+    clean = clean.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
+  }
+  clean = clean.trim();
+
+  // Remove control characters except space, tab, newline, carriage return
+  clean = clean.replace(/[\x00-\x1F\x7F-\x9F]/g, (match) => {
+    if (match === '\n') return '\n';
+    if (match === '\r') return '\r';
+    if (match === '\t') return '\t';
+    return '';
+  });
+
+  // Preprocess to escape unescaped control characters inside JSON strings
+  let inString = false;
+  let escaped = false;
+  let builder = "";
+  for (let i = 0; i < clean.length; i++) {
+    const char = clean[i];
+    if (char === '\\' && inString) {
+      escaped = !escaped;
+      builder += char;
+    } else if (char === '"') {
+      if (!escaped) {
+        inString = !inString;
+      }
+      escaped = false;
+      builder += char;
+    } else if (char === '\n' && inString) {
+      builder += '\\n';
+      escaped = false;
+    } else if (char === '\r' && inString) {
+      builder += '\\r';
+      escaped = false;
+    } else if (char === '\t' && inString) {
+      builder += '\\t';
+      escaped = false;
+    } else {
+      escaped = false;
+      builder += char;
+    }
+  }
+  clean = builder;
+
+  try {
+    return JSON.parse(clean);
+  } catch (err) {
+    try {
+      // Remove trailing commas before closing braces/brackets
+      const fixed = clean.replace(/,\s*([}\]])/g, '$1');
+      return JSON.parse(fixed);
+    } catch (err2) {
+      const firstBrace = clean.indexOf('{');
+      const lastBrace = clean.lastIndexOf('}');
+      if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+        try {
+          const candidate = clean.slice(firstBrace, lastBrace + 1);
+          return JSON.parse(candidate.replace(/,\s*([}\]])/g, '$1'));
+        } catch (err3) {
+          console.warn("[safeParseJSON] All standard and fixed JSON parses failed. Attempting regex extraction fallback.");
+          const result: any = {};
+          const keys = ["cnj_number", "court", "class", "subject", "chamber", "parties", "last_movement"];
+          for (const key of keys) {
+            const regex = new RegExp(`"${key}"\\s*:\\s*"([^"]*)"`, 'i');
+            const match = clean.match(regex);
+            if (match) {
+              result[key] = match[1];
+            } else {
+              const boolNumRegex = new RegExp(`"${key}"\\s*:\\s*(true|false|\\d+)`, 'i');
+              const matchBN = clean.match(boolNumRegex);
+              if (matchBN) {
+                if (matchBN[1] === 'true') result[key] = true;
+                else if (matchBN[1] === 'false') result[key] = false;
+                else result[key] = Number(matchBN[1]);
+              }
+            }
+          }
+          if (Object.keys(result).length > 0) {
+            return result;
+          }
+          throw err2;
+        }
+      }
+      throw err;
+    }
+  }
+}
+
+

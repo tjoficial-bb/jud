@@ -34,47 +34,49 @@ export async function uploadDocuments(
       }
     }
 
-    if (file.size > MAX_FILE_SIZE) {
-      if (file.name.toLowerCase().endsWith('.pdf')) {
-        // Since it's huge, we upload only the extracted text to /api/documents/text-only
-        if (onProgress) {
-          onProgress(`Enviando texto extraído de PDF grande para análise...`);
-        }
-
-        const res = await fetch('/api/documents/text-only', {
-          method: 'POST',
-          headers: { 
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            filename: file.name,
-            doc_type: docType,
-            property_id: propertyId,
-            extracted_text: clientExtractedText
-          })
-        });
-
-        if (!res.ok) {
-          const errText = await res.text();
-          throw new Error(`Erro ao enviar tempo do PDF: ${errText}`);
-        }
-
-        const data = await parseJsonResponse(res);
-        if (Array.isArray(data)) {
-          allResults.push(...data);
-        } else {
-          allResults.push(data);
-        }
-        continue;
-      } else {
-        throw new Error(
-          `O arquivo "${file.name}" possui ${(file.size / (1024 * 1024)).toFixed(1)}MB e excede o limite de 30MB da infraestrutura contratada.\n\n` +
-          `Para arquivos não-PDF ou maiores que 30MB, utilize ferramentas gratuitas para:\n` +
-          `1. Comprimir o arquivo;\n` +
-          `2. Dividir em partes menores.`
-        );
+    // For PDFs, if text was extracted client-side, we pass it along, but for scanned/low-density PDFs or Matrículas where text might just be headers,
+    // we always send the file binary to /api/documents so the server has the base64 binary for multimodal AI / OCR.
+    // Only use text-only shortcut for extremely large PDFs (> 15MB) where uploading binary might be slow and text is genuine (> 5000 chars).
+    if (file.name.toLowerCase().endsWith('.pdf') && file.size > 15 * 1024 * 1024 && clientExtractedText && clientExtractedText.trim().length > 5000) {
+      if (onProgress) {
+        onProgress(`Enviando texto extraído de ${file.name} (${(file.size / (1024 * 1024)).toFixed(1)}MB) para análise rápida...`);
       }
+
+      const res = await fetch('/api/documents/text-only', {
+        method: 'POST',
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          filename: file.name,
+          doc_type: docType,
+          property_id: propertyId,
+          extracted_text: clientExtractedText
+        })
+      });
+
+      if (!res.ok) {
+        const errText = await res.text();
+        throw new Error(`Erro ao enviar o texto do PDF: ${errText}`);
+      }
+
+      const data = await parseJsonResponse(res);
+      if (Array.isArray(data)) {
+        allResults.push(...data);
+      } else {
+        allResults.push(data);
+      }
+      continue;
+    }
+
+    if (file.size > MAX_FILE_SIZE) {
+      throw new Error(
+        `O arquivo "${file.name}" possui ${(file.size / (1024 * 1024)).toFixed(1)}MB e excede o limite de 30MB da infraestrutura contratada.\n\n` +
+        `Para arquivos maiores que 30MB, utilize ferramentas gratuitas para:\n` +
+        `1. Comprimir o arquivo;\n` +
+        `2. Dividir em partes menores.`
+      );
     }
 
     const formData = new FormData();

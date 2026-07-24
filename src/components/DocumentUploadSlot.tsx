@@ -13,7 +13,8 @@ export function DocumentUploadSlot({ label, onUpload, uploading, hasFile, helper
   count?: number
 }) {
   console.log(`DocumentUploadSlot: ${label}`);
-  const id = `upload-${label.toLowerCase().replace(/\s+/g, '-')}`;
+  const uniqueId = React.useId();
+  const id = `upload-${label.toLowerCase().replace(/\s+/g, '-')}-${uniqueId.replace(/:/g, '')}`;
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between px-1">

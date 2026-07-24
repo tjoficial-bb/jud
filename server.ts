@@ -14,55 +14,70 @@ const pdf = localRequire('pdf-parse');
 
 dotenv.config();
 
-import { runBackendAnalysis, runBackendProcessStory, runBackendChatMessage } from "./server/aiRunner";
+import { runBackendAnalysis, runBackendProcessStory, runBackendChatMessage, extractProcessDetailsFromText, transcribeDocumentToMarkdown } from "./server/aiRunner";
 
 
 const upload = multer({ storage: multer.memoryStorage() });
 
-async function extractTextFromBuffer(buffer: Buffer, mimeType: string): Promise<string> {
-  if (mimeType === 'application/pdf') {
+async function extractTextFromBuffer(buffer: Buffer, mimeType: string, filename: string = "documento.pdf"): Promise<string> {
+  let extractedText = "";
+  const isPdf = mimeType === 'application/pdf' || filename.toLowerCase().endsWith('.pdf');
+  
+  if (isPdf) {
+    if (buffer.length <= 20 * 1024 * 1024) {
+      try {
+        console.log(`[PDF] Iniciando extração de texto em "${filename}". Buffer: ${(buffer.length / 1024).toFixed(1)} KB`);
+        let pdfParser = pdf;
+        if (typeof pdf !== 'function' && pdf && typeof (pdf as any).default === 'function') {
+          pdfParser = (pdf as any).default;
+        }
+        
+        if (typeof pdfParser === 'function') {
+          const data = await pdfParser(buffer);
+          extractedText = data.text || "";
+          console.log(`[PDF] Extração de stream de texto concluída: ${extractedText.length} caracteres.`);
+        }
+      } catch (err: any) {
+        console.warn(`[PDF] Falha na leitura basica de stream via pdf-parse em "${filename}":`, err.message);
+      }
+    }
+    
+    // Evaluate if the extracted text is low density (e.g. scanned PDF where pdf-parse only extracts page headers/footers)
+    const cleanText = extractedText.replace(/\s+/g, ' ').trim();
+    const headersCount = (cleanText.match(/Continua na página|Valide este documento|CNM:|Selo de Consulta/gi) || []).length;
+    const isLowDensityScannedPdf = cleanText.length < 4000 || headersCount >= 2;
+
+    if (isLowDensityScannedPdf && process.env.GEMINI_API_KEY) {
+      console.log(`[PDF OCR] PDF "${filename}" parece ser escaneado ou de baixa densidade de texto (${cleanText.length} chars, ${headersCount} cabeçalhos). Executando transcrição OCR Gemini para Markdown...`);
+      try {
+        const ocrText = await transcribeDocumentToMarkdown(buffer, mimeType, filename);
+        if (ocrText && ocrText.length > cleanText.length) {
+          console.log(`[PDF OCR] Transcrição com sucesso em "${filename}". Texto expandido de ${cleanText.length} para ${ocrText.length} caracteres de Markdown.`);
+          return ocrText;
+        }
+      } catch (e: any) {
+        console.warn(`[PDF OCR] Falha ao executar transcrição OCR via Gemini:`, e.message);
+      }
+    }
+    return extractedText;
+  } else if (mimeType && mimeType.startsWith('image/')) {
+    if (process.env.GEMINI_API_KEY) {
+      return await transcribeDocumentToMarkdown(buffer, mimeType, filename);
+    }
+    return "";
+  } else if (mimeType && (mimeType.startsWith('text/') || mimeType.includes('txt') || mimeType.includes('plain') || mimeType === 'application/octet-stream')) {
     try {
-      console.log(`[PDF] Iniciando extração de texto. Buffer size: ${buffer.length}`);
-      // Handle potential default export differences between ESM/CJS
-      let pdfParser = pdf;
-      if (typeof pdf !== 'function' && pdf && typeof (pdf as any).default === 'function') {
-        pdfParser = (pdf as any).default;
-      }
-      
-      if (typeof pdfParser !== 'function') {
-        console.error("[PDF] pdf-parse não é uma função válida. Type:", typeof pdf, "Keys:", Object.keys(pdf || {}));
-        return "";
-      }
-      
-      const data = await pdfParser(buffer);
-      const text = data.text || "";
-      console.log(`[PDF] Extração concluída. Texto extraído: ${text.length} caracteres.`);
+      const text = buffer.toString('utf8');
       return text;
     } catch (err: any) {
-      // Catch common PDF parsing exceptions
-      const errorName = err.name || '';
-      const errorMessage = (err.message || String(err)).toString();
-      
-      const knownExceptions = ['AbortException', 'FormatError', 'InvalidPDFException', 'PasswordException', 'ResponseException', 'UnknownErrorException', 'getException'];
-      
-      // Check if the error name or message contains any of the known exceptions (case-insensitive)
-      const isKnownException = 
-        knownExceptions.some(ex => 
-          errorName.toLowerCase().includes(ex.toLowerCase()) || 
-          errorMessage.toLowerCase().includes(ex.toLowerCase())
-        );
-
-      if (isKnownException) {
-        console.warn(`[PDF] Ignorando exceção conhecida: ${errorName} - ${errorMessage}`);
-        // Silently ignore known PDF parsing issues
+      try {
+        return buffer.toString('binary');
+      } catch (e) {
         return "";
       }
-      
-      console.error(`[PDF] Erro inesperado na extração de texto (${errorName}):`, errorMessage);
-      return "";
     }
   }
-  return "";
+  return extractedText;
 }
 
 console.log("DEBUG: Servidor iniciando...");
@@ -339,6 +354,10 @@ try {
     if (!columns.includes('smart_analysis_json')) {
       console.log("Adicionando coluna 'smart_analysis_json' em ai_analyses...");
       db.prepare("ALTER TABLE ai_analyses ADD COLUMN smart_analysis_json TEXT").run();
+    }
+    if (!columns.includes('assessoria_analysis_json')) {
+      console.log("Adicionando coluna 'assessoria_analysis_json' em ai_analyses...");
+      db.prepare("ALTER TABLE ai_analyses ADD COLUMN assessoria_analysis_json TEXT").run();
     }
   } catch (err: any) {
     console.error("Erro ao aplicar migrações em ai_analyses:", err);
@@ -625,6 +644,80 @@ async function startServer() {
     next();
   });
 
+  // Explicitly serve src/lib/appErrors.ts as valid JS/TS to prevent fetch/parse errors in all environments
+  app.get(["/src/lib/appErrors.ts", "/src/lib/appErrors.js", "/src/lib/appErrors"], (req, res, next) => {
+    if (process.env.NODE_ENV !== "production") {
+      // In development, let Vite handle compiling and serving this TypeScript file!
+      return next();
+    }
+    // Always serve as valid JavaScript with the correct MIME type so that browsers can execute it directly
+    res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+    const filePath = path.join(process.cwd(), "src", "lib", "appErrors.ts");
+    if (fs.existsSync(filePath)) {
+      const content = fs.readFileSync(filePath, "utf8");
+      // Strip TypeScript syntax to make it valid JS
+      let jsContent = content
+        .replace(/:\s*string/g, "")
+        .replace(/:\s*Error/g, "")
+        .replace(/\s+as\s+any\b/g, "")
+        .replace(/Object\.setPrototypeOf\(this,\s*[A-Za-z]+\.prototype\);/g, "");
+      return res.send(jsContent);
+    } else {
+      // Return hardcoded standard JS version to prevent any 404 or load error in production containers
+      const fallbackJS = `
+class AbortException extends Error {
+  constructor(message) {
+    super(message);
+    this.name = 'AbortException';
+  }
+}
+class FormatError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = 'FormatError';
+  }
+}
+class InvalidPDFException extends Error {
+  constructor(message) {
+    super(message);
+    this.name = 'InvalidPDFException';
+  }
+}
+class PasswordException extends Error {
+  constructor(message) {
+    super(message);
+    this.name = 'PasswordException';
+  }
+}
+class SessionException extends Error {
+  constructor(message) {
+    super(message);
+    this.name = 'SessionException';
+  }
+}
+function getException(name) {
+  switch (name) {
+    case 'AbortException': return new AbortException('Abort exception');
+    case 'FormatError': return new FormatError('Format error');
+    case 'InvalidPDFException': return new InvalidPDFException('Invalid PDF');
+    case 'PasswordException': return new PasswordException('Password exception');
+    default: return new Error(name);
+  }
+}
+if (typeof window !== 'undefined') {
+  window.AbortException = AbortException;
+  window.FormatError = FormatError;
+  window.InvalidPDFException = InvalidPDFException;
+  window.PasswordException = PasswordException;
+  window.SessionException = SessionException;
+  window.getException = getException;
+}
+export { AbortException, FormatError, InvalidPDFException, PasswordException, SessionException, getException };
+`;
+      return res.send(fallbackJS);
+    }
+  });
+
   // Auth Middleware
   const authenticateToken = (req: any, res: any, next: any) => {
     const authHeader = req.headers['authorization'];
@@ -737,7 +830,7 @@ async function startServer() {
   // --- DataJud Integration ---
   app.post("/api/datajud/search", authenticateToken, async (req, res) => {
     const { cnj_number } = req.body;
-    const config: any = db.prepare("SELECT datajud_key FROM ai_config").get();
+    const config: any = db.prepare("SELECT datajud_key, gemini_key FROM ai_config LIMIT 1").get() || {};
     
     if (config?.datajud_key) {
       try {
@@ -774,6 +867,65 @@ async function startServer() {
         console.error("DataJud API Error:", error.response?.data || error.message);
         // Fallback to mock if API fails but key was present (maybe expired?)
       }
+    }
+
+    // Try extracting from uploaded documents using Gemini
+    try {
+      const cleanNum = cnj_number.replace(/\D/g, '');
+      const docs = db.prepare("SELECT filename, doc_type, extracted_text FROM documents ORDER BY created_at DESC").all() as any[];
+      
+      let matchedDoc = null;
+      if (docs.length > 0) {
+        // Try exact match in text
+        matchedDoc = docs.find(d => {
+          const text = (d.extracted_text || '').replace(/\s+/g, '');
+          return text.includes(cnj_number) || text.includes(cleanNum);
+        });
+        
+        // Try match by filename
+        if (!matchedDoc) {
+          matchedDoc = docs.find(d => {
+            const name = (d.filename || '').replace(/\D/g, '');
+            return name.includes(cleanNum) || (cleanNum.length > 7 && name.includes(cleanNum.substring(0, 7)));
+          });
+        }
+        
+        // Try match by prefix
+        if (!matchedDoc && cleanNum.length >= 7) {
+          const prefix = cleanNum.substring(0, 7);
+          matchedDoc = docs.find(d => (d.extracted_text || '').includes(prefix));
+        }
+
+        // Fallback to most recent process doc or any doc
+        if (!matchedDoc) {
+          matchedDoc = docs.find(d => d.doc_type === 'Processo Judicial');
+        }
+        if (!matchedDoc) {
+          matchedDoc = docs[0];
+        }
+      }
+
+      if (matchedDoc && matchedDoc.extracted_text) {
+        const geminiKey = config.gemini_key || process.env.GEMINI_API_KEY || process.env.API_KEY || "";
+        if (geminiKey && geminiKey.trim().length > 5) {
+          console.log(`[DataJud Search] Extracting details for process ${cnj_number} from uploaded document: ${matchedDoc.filename}`);
+          const aiResult = await extractProcessDetailsFromText(matchedDoc.extracted_text, geminiKey);
+          if (aiResult && (aiResult.court || aiResult.parties)) {
+            return res.json({
+              cnj_number: aiResult.cnj_number || cnj_number,
+              court: aiResult.court || "TJSP",
+              class: aiResult.class || "Ação Anulatória",
+              subject: aiResult.subject || "Alienação Fiduciária",
+              chamber: aiResult.chamber || "Vara Cível",
+              parties: aiResult.parties || "Partes não identificadas",
+              last_movement: aiResult.last_movement || "Análise concluída",
+              status: `Extraído da Petição (${matchedDoc.filename})`
+            });
+          }
+        }
+      }
+    } catch (extractErr) {
+      console.error("[DataJud Search] Erro ao tentar extrair dados do processo via Gemini:", extractErr);
     }
 
     // Mock response for demonstration if no key or API fails
@@ -954,6 +1106,49 @@ async function startServer() {
     }
   });
 
+  app.post("/api/strategic-brain/upload", authenticateToken, upload.array('files'), async (req, res) => {
+    try {
+      const { category } = req.body;
+      const files = req.files as Express.Multer.File[];
+      
+      if (!files || files.length === 0) {
+        return res.status(400).json({ error: "Nenhum arquivo enviado" });
+      }
+
+      const results = [];
+      for (const file of files) {
+        const id = Math.random().toString(36).substring(7);
+        const title = file.originalname;
+        const source = "file";
+        
+        let extracted_text = null;
+        try {
+          console.log(`[CÉREBRO] Extraindo texto do upload de arquivo "${title}" (${id})...`);
+          extracted_text = await extractTextFromBuffer(file.buffer, file.mimetype);
+          console.log(`[CÉREBRO] Extração concluída. Tamanho: ${extracted_text?.length || 0} caracteres.`);
+        } catch (err: any) {
+          console.error(`[CÉREBRO] Falha ao extrair texto do arquivo "${title}":`, err.message);
+        }
+
+        let base64Data = null;
+        if (file.buffer.length < 50 * 1024 * 1024) {
+          const prefix = `data:${file.mimetype};base64,`;
+          base64Data = prefix + file.buffer.toString('base64');
+        }
+
+        db.prepare("INSERT INTO strategic_brain (id, title, category, source, extracted_text, data, url, username, password, is_automated, module, lesson) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").run(
+          id, title, category || "Estratégia", source, extracted_text || null, base64Data || null, null, null, null, 0, null, null
+        );
+        results.push({ id, title });
+      }
+
+      res.json({ success: true, uploaded: results });
+    } catch (error: any) {
+      console.error("Erro no upload múltiplo de cérebro:", error.message);
+      res.status(500).json({ error: "Erro interno no upload de arquivos do cérebro: " + error.message });
+    }
+  });
+
   app.post("/api/strategic-brain", authenticateToken, async (req, res) => {
     try {
       const id = Math.random().toString(36).substring(7);
@@ -1024,33 +1219,68 @@ async function startServer() {
 
   app.post("/api/ai-analyses", authenticateToken, (req, res) => {
     try {
-      const id = Math.random().toString(36).substring(7);
       const { 
         property_id, exec_summary, legal_analysis, financial_analysis, 
         legal_risks, operational_risks, recommended_bid, roi, tir, 
         estimated_profit, ia_used, edital_analysis, matricula_analysis, process_analysis, dossier_analysis,
-        smart_analysis_json
+        smart_analysis_json, assessoria_analysis_json
       } = req.body;
-      
+
+      if (!property_id) {
+        return res.status(400).json({ error: "property_id é obrigatório" });
+      }
+
+      // Check if an analysis already exists for this property
+      const existing = db.prepare("SELECT * FROM ai_analyses WHERE property_id = ?").get(property_id) as any;
+
+      if (existing) {
+        // Build dynamic update query to only update fields that are provided in req.body and not undefined
+        const updates: string[] = [];
+        const params: any[] = [];
+
+        const fieldsToUpdate = {
+          exec_summary, legal_analysis, financial_analysis, 
+          legal_risks, operational_risks, recommended_bid, roi, tir, 
+          estimated_profit, ia_used, edital_analysis, matricula_analysis, 
+          process_analysis, dossier_analysis, smart_analysis_json, assessoria_analysis_json
+        };
+
+        for (const [key, val] of Object.entries(fieldsToUpdate)) {
+          if (val !== undefined && val !== null) {
+            updates.push(`${key} = ?`);
+            params.push(val);
+          }
+        }
+
+        if (updates.length > 0) {
+          params.push(existing.id);
+          db.prepare(`UPDATE ai_analyses SET ${updates.join(', ')} WHERE id = ?`).run(...params);
+        }
+
+        return res.json({ id: existing.id });
+      }
+
+      // If it doesn't exist, do the standard INSERT
+      const id = Math.random().toString(36).substring(7);
       db.prepare(`
         INSERT INTO ai_analyses (
           id, property_id, exec_summary, legal_analysis, financial_analysis, 
           legal_risks, operational_risks, recommended_bid, roi, tir, 
           estimated_profit, ia_used, edital_analysis, matricula_analysis, process_analysis, dossier_analysis,
-          smart_analysis_json
+          smart_analysis_json, assessoria_analysis_json
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
-        id, property_id, exec_summary, legal_analysis, financial_analysis, 
-        legal_risks, operational_risks, recommended_bid, roi, tir, 
-        estimated_profit, ia_used, edital_analysis || null, matricula_analysis || null, process_analysis || null, dossier_analysis || null,
-        smart_analysis_json || null
+        id, property_id, exec_summary || null, legal_analysis || null, financial_analysis || null, 
+        legal_risks || null, operational_risks || null, recommended_bid || null, roi || null, tir || null, 
+        estimated_profit || null, ia_used || "gemini-2.5-flash", edital_analysis || null, matricula_analysis || null, 
+        process_analysis || null, dossier_analysis || null, smart_analysis_json || null, assessoria_analysis_json || null
       );
       
       res.json({ id });
     } catch (error: any) {
-      console.error("Erro ao inserir análise:", error.message);
-      res.status(500).json({ error: "Erro ao inserir análise: " + error.message });
+      console.error("Erro ao inserir ou atualizar análise:", error.message);
+      res.status(500).json({ error: "Erro ao inserir ou atualizar análise: " + error.message });
     }
   });
 
@@ -1069,7 +1299,7 @@ async function startServer() {
       const { 
         exec_summary, financial_analysis, recommended_bid, roi, tir, 
         estimated_profit, edital_analysis, matricula_analysis, process_analysis, dossier_analysis,
-        smart_analysis_json
+        smart_analysis_json, assessoria_analysis_json
       } = req.body;
       
       const fields: string[] = [];
@@ -1118,6 +1348,10 @@ async function startServer() {
       if (smart_analysis_json !== undefined) {
         fields.push("smart_analysis_json = ?");
         values.push(smart_analysis_json);
+      }
+      if (assessoria_analysis_json !== undefined) {
+        fields.push("assessoria_analysis_json = ?");
+        values.push(assessoria_analysis_json);
       }
       
       if (fields.length > 0) {
@@ -1242,7 +1476,7 @@ async function startServer() {
 
   app.get("/api/documents/:propertyId", authenticateToken, async (req, res) => {
     try {
-      const docs = db.prepare("SELECT id, filename, doc_type, extracted_text, ia_summary, created_at FROM documents WHERE property_id = ? OR temp_property_id = ?").all(req.params.propertyId, req.params.propertyId) as any[];
+      const docs = db.prepare("SELECT id, filename, doc_type, data, extracted_text, ia_summary, created_at FROM documents WHERE property_id = ? OR temp_property_id = ?").all(req.params.propertyId, req.params.propertyId) as any[];
       
       // On-the-fly extraction for existing docs
       for (const doc of docs) {
@@ -1252,7 +1486,7 @@ async function startServer() {
             try {
               const buffer = Buffer.from(row.data, 'base64');
               const mimeType = doc.filename.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'unknown';
-              const text = await extractTextFromBuffer(buffer, mimeType);
+              const text = await extractTextFromBuffer(buffer, mimeType, doc.filename);
               if (text) {
                 db.prepare("UPDATE documents SET extracted_text = ? WHERE id = ?").run(text, doc.id);
                 doc.extracted_text = text;
@@ -1283,11 +1517,19 @@ async function startServer() {
       for (const file of files) {
         const id = Math.random().toString(36).substring(7);
         const filename = file.originalname;
-        const data = file.buffer.toString('base64');
         
         let extracted_text = req.body.extracted_text;
         if (!extracted_text || typeof extracted_text !== 'string' || extracted_text.trim() === '') {
-          extracted_text = await extractTextFromBuffer(file.buffer, file.mimetype);
+          extracted_text = await extractTextFromBuffer(file.buffer, file.mimetype, filename);
+        }
+
+        // Store base64 data for all PDFs and images up to 20MB so multimodal AI models (Gemini) can analyze visual PDF pages, stamps, and tables.
+        let data = "";
+        if (file.buffer.length < 20 * 1024 * 1024) {
+          data = file.buffer.toString('base64');
+          console.log(`[Document Server] Salvando base64 para "${filename}" (${(file.buffer.length / (1024 * 1024)).toFixed(1)}MB) para análise multimodal da IA.`);
+        } else {
+          console.warn(`[Document Server] Arquivo "${filename}" (${(file.buffer.length / (1024 * 1024)).toFixed(1)}MB) excede limite de 20MB para base64.`);
         }
         
         let final_property_id = property_id || null;
@@ -1307,6 +1549,45 @@ async function startServer() {
     } catch (error: any) {
       console.error("Erro ao inserir documentos:", error.message);
       res.status(500).json({ error: "Erro ao inserir documentos: " + error.message });
+    }
+  });
+
+  app.post("/api/documents/:id/transcribe", authenticateToken, async (req, res) => {
+    try {
+      const doc = db.prepare("SELECT id, filename, doc_type, data, extracted_text FROM documents WHERE id = ?").get(req.params.id) as any;
+      if (!doc) {
+        return res.status(404).json({ error: "Documento não encontrado." });
+      }
+
+      let buffer: Buffer | null = null;
+      let mimeType = doc.filename.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'image/png';
+
+      if (doc.data) {
+        buffer = Buffer.from(doc.data, 'base64');
+      }
+
+      if (!buffer) {
+        return res.status(400).json({ error: "Este documento não possui o arquivo original em base64 salvo no servidor para transcrição OCR." });
+      }
+
+      console.log(`[API Transcribe] Transcrevendo documento ID ${doc.id} ("${doc.filename}")...`);
+      const markdownText = await transcribeDocumentToMarkdown(buffer, mimeType, doc.filename);
+
+      if (!markdownText) {
+        return res.status(500).json({ error: "Não foi possível transcrever o documento através da IA." });
+      }
+
+      db.prepare("UPDATE documents SET extracted_text = ? WHERE id = ?").run(markdownText, doc.id);
+
+      res.json({
+        id: doc.id,
+        filename: doc.filename,
+        extracted_text: markdownText,
+        message: "Documento transcrevido com sucesso para Markdown!"
+      });
+    } catch (error: any) {
+      console.error("[API Transcribe] Erro:", error.message);
+      res.status(500).json({ error: error.message });
     }
   });
 

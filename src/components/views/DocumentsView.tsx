@@ -34,10 +34,11 @@ export function DocumentsView({ token, properties, onSelectProperty }: Documents
   const [uploadProgressText, setUploadProgressText] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [transcribingId, setTranscribingId] = useState<string | null>(null);
 
   // Form states for quick upload
   const [showUploadModal, setShowUploadModal] = useState(false);
-  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploadFiles, setUploadFiles] = useState<File[]>([]);
   const [uploadType, setUploadType] = useState('Edital');
   const [uploadPropertyId, setUploadPropertyId] = useState('');
 
@@ -129,24 +130,24 @@ export function DocumentsView({ token, properties, onSelectProperty }: Documents
 
   const handleQuickUploadSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!uploadFile) {
-      setError('Por favor, selecione um arquivo.');
+    if (uploadFiles.length === 0) {
+      setError('Por favor, selecione pelo menos um arquivo.');
       return;
     }
 
     try {
       setUploading(true);
       setError(null);
-      setUploadProgressText('Preparando arquivo...');
+      setUploadProgressText('Preparando arquivos...');
 
       const propertyId = uploadPropertyId || '';
       
-      await uploadDocuments([uploadFile], uploadType, propertyId, token, (status) => {
+      await uploadDocuments(uploadFiles, uploadType, propertyId, token, (status) => {
         setUploadProgressText(status);
       });
 
-      setSuccessMsg('Documento cadastrado e indexado com sucesso!');
-      setUploadFile(null);
+      setSuccessMsg('Documentos cadastrados e indexados com sucesso!');
+      setUploadFiles([]);
       setShowUploadModal(false);
       setTimeout(() => setSuccessMsg(null), 3500);
       fetchDocuments();
@@ -164,7 +165,8 @@ export function DocumentsView({ token, properties, onSelectProperty }: Documents
       (doc.property_title && doc.property_title.toLowerCase().includes(search.toLowerCase()));
     
     const matchesCategory = selectedCategory === 'all' || 
-      doc.doc_type?.toLowerCase() === selectedCategory.toLowerCase();
+      doc.doc_type?.toLowerCase() === selectedCategory.toLowerCase() ||
+      (selectedCategory === 'matricula' && doc.doc_type?.toLowerCase() === 'matrícula');
     
     return matchesSearch && matchesCategory;
   });
@@ -323,17 +325,53 @@ export function DocumentsView({ token, properties, onSelectProperty }: Documents
                     )}>
                       {doc.doc_type || 'Outros'}
                     </span>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setDocumentToDelete({ id: doc.id, name: doc.filename });
-                      }}
-                      className="p-2 bg-red-500/5 hover:bg-red-500/10 text-red-100 hover:text-red-500 rounded-lg transition-all cursor-pointer relative z-10"
-                      title="Excluir Documento"
-                    >
-                      <Trash2 size={14} className="text-red-400 hover:text-red-500" />
-                    </button>
+                    <div className="flex items-center gap-2 relative z-10">
+                      <button
+                        type="button"
+                        disabled={transcribingId === doc.id}
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          setTranscribingId(doc.id);
+                          try {
+                            const res = await fetch(`/api/documents/${doc.id}/transcribe`, {
+                              method: 'POST',
+                              headers: { 'Authorization': `Bearer ${token}` }
+                            });
+                            if (!res.ok) {
+                              const errData = await res.json().catch(() => ({}));
+                              throw new Error(errData.error || "Erro na transcrição");
+                            }
+                            setSuccessMsg("Documento transcrevido em Markdown com sucesso!");
+                            setTimeout(() => setSuccessMsg(null), 3500);
+                            fetchDocuments();
+                          } catch (err: any) {
+                            setError(err.message || "Erro ao transcrever documento");
+                          } finally {
+                            setTranscribingId(null);
+                          }
+                        }}
+                        className="flex items-center gap-1 px-2.5 py-1.5 bg-brand-primary/10 hover:bg-brand-primary/20 text-brand-primary rounded-lg text-[10px] font-bold transition-all cursor-pointer"
+                        title="Transcrever texto completo com OCR IA (visão)"
+                      >
+                        {transcribingId === doc.id ? (
+                          <Loader2 size={12} className="animate-spin" />
+                        ) : (
+                          <Sparkles size={12} />
+                        )}
+                        <span>OCR IA</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDocumentToDelete({ id: doc.id, name: doc.filename });
+                        }}
+                        className="p-2 bg-red-500/5 hover:bg-red-500/10 text-red-100 hover:text-red-500 rounded-lg transition-all cursor-pointer relative z-10"
+                        title="Excluir Documento"
+                      >
+                        <Trash2 size={14} className="text-red-400 hover:text-red-500" />
+                      </button>
+                    </div>
                   </div>
                   <h4 className="text-base font-bold tracking-tight line-clamp-2 mb-2 select-all h-12">
                     {doc.filename}
@@ -441,7 +479,7 @@ export function DocumentsView({ token, properties, onSelectProperty }: Documents
                 </select>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-bold uppercase tracking-wider text-brand-ink/50 mb-2">Tipo de Peça</label>
                   <select
@@ -457,29 +495,34 @@ export function DocumentsView({ token, properties, onSelectProperty }: Documents
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-brand-ink/50 mb-2">Selecione o Arquivo</label>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-brand-ink/50 mb-2">Selecione o(s) Arquivo(s)</label>
                   <label className="w-full flex items-center justify-center bg-brand-bg border border-brand-primary/10 rounded-xl px-4 py-3 text-xs font-bold text-brand-primary uppercase tracking-wider cursor-pointer hover:bg-brand-primary/5 transition-all">
                     <input
                       type="file"
                       className="hidden"
-                      onChange={(e) => e.target.files && setUploadFile(e.target.files[0])}
+                      multiple
+                      onChange={(e) => e.target.files && setUploadFiles(Array.from(e.target.files))}
                       required
                     />
                     <Upload size={14} className="mr-2" />
-                    <span>{uploadFile ? 'Alterar' : 'Subir PDF'}</span>
+                    <span>{uploadFiles.length > 0 ? `${uploadFiles.length} Selecionado(s)` : 'Subir PDF/Imagens'}</span>
                   </label>
                 </div>
               </div>
 
-              {uploadFile && (
-                <div className="p-4 bg-brand-bg border border-brand-primary/5 rounded-xl flex items-center justify-between">
-                  <div className="flex items-center gap-3 truncate">
-                    <FileText size={16} className="text-brand-primary shrink-0" />
-                    <span className="text-xs font-bold truncate">{uploadFile.name}</span>
-                  </div>
-                  <span className="text-[10px] text-brand-ink/40 font-bold whitespace-nowrap uppercase">
-                    {(uploadFile.size / (1024 * 1024)).toFixed(2)} MB
-                  </span>
+              {uploadFiles.length > 0 && (
+                <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
+                  {uploadFiles.map((file, i) => (
+                    <div key={i} className="p-3 bg-brand-bg border border-brand-primary/5 rounded-xl flex items-center justify-between">
+                      <div className="flex items-center gap-3 truncate max-w-[75%]">
+                        <FileText size={16} className="text-brand-primary shrink-0" />
+                        <span className="text-xs font-bold truncate">{file.name}</span>
+                      </div>
+                      <span className="text-[10px] text-brand-ink/40 font-bold whitespace-nowrap uppercase">
+                        {(file.size / (1024 * 1024)).toFixed(2)} MB
+                      </span>
+                    </div>
+                  ))}
                 </div>
               )}
 

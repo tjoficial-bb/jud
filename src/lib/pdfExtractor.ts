@@ -12,10 +12,25 @@ export function loadPdfJs(): Promise<any> {
     // Load PDF.js main script
     const script = document.createElement('script');
     script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
-    script.onload = () => {
+    script.onload = async () => {
       const pdfjsLib = (window as any).pdfjsLib;
-      // Set worker source
-      pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+      try {
+        // Fetch worker text and create Blob URL to bypass Same-Origin Policy for workers
+        const response = await fetch('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js');
+        if (!response.ok) throw new Error("Status " + response.status);
+        const workerText = await response.text();
+        const blob = new Blob([workerText], { type: 'application/javascript' });
+        const workerUrl = URL.createObjectURL(blob);
+        pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl;
+        console.log("[PDFJS Client] Worker initialized successfully using Blob URL.");
+      } catch (err) {
+        console.warn("[PDFJS Client] Falha ao criar worker Blob, usando URL direta:", err);
+        try {
+          pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        } catch (e) {
+          // Ignore failure
+        }
+      }
       resolve(pdfjsLib);
     };
     script.onerror = (err) => {
