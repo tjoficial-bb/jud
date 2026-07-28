@@ -1726,19 +1726,57 @@ function BrainView({ token, onRefresh }: { token: string, onRefresh: () => void 
     }
   };
 
+  const handleRestoreDefaults = async () => {
+    if (!confirm('Deseja restaurar/recarregar a Base de Conhecimento Padrão? Todos os manuais, leis, jurisprudência e materiais do acervo serão restaurados.')) return;
+    setLoading(true);
+    try {
+      const res = await fetch('/api/strategic-brain/restore-defaults', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await parseJsonResponse(res);
+        if (data.items) {
+          setItems(data.items);
+        } else {
+          fetchBrain();
+        }
+        onRefresh();
+        alert('Base de Conhecimento restaurada com sucesso com todos os conteúdos atualizados!');
+      } else {
+        alert('Erro ao restaurar base de conhecimento.');
+      }
+    } catch (err: any) {
+      alert('Erro de conexão ao restaurar base de conhecimento.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-12">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
           <h2 className="text-3xl md:text-4xl font-serif font-medium tracking-tight text-brand-primary">Cérebro Estratégico</h2>
-          <p className="text-brand-ink/40 font-medium text-base md:text-lg">Sua base de conhecimento proprietária para decisões de investimento.</p>
+          <p className="text-brand-ink/40 font-medium text-base md:text-lg">Sua base de conhecimento proprietária para decisões de investimento e inteligência de IA.</p>
         </div>
-        <button 
-          onClick={() => setIsModalOpen(true)}
-          className="bg-brand-primary text-black px-6 py-4 md:px-8 md:py-4 rounded-2xl font-bold text-xs uppercase tracking-widest flex items-center justify-center gap-3 hover:bg-brand-primary/90 transition-all shadow-xl shadow-brand-primary/20 w-full md:w-auto shrink-0 font-sans"
-        >
-          <Plus size={20} /> Adicionar Conhecimento
-        </button>
+        <div className="flex flex-wrap items-center gap-3">
+          <button 
+            type="button"
+            onClick={handleRestoreDefaults}
+            disabled={loading}
+            className="bg-brand-primary/10 text-brand-primary border border-brand-primary/20 px-5 py-4 rounded-2xl font-bold text-xs uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-brand-primary/20 transition-all w-full sm:w-auto font-sans cursor-pointer"
+            title="Restaurar todos os manuais, leis, jurisprudência e cursos da base de conhecimento"
+          >
+            <RefreshCw size={18} className={loading ? 'animate-spin' : ''} /> Restaurar Base Padrão
+          </button>
+          <button 
+            onClick={() => setIsModalOpen(true)}
+            className="bg-brand-primary text-black px-6 py-4 md:px-8 md:py-4 rounded-2xl font-bold text-xs uppercase tracking-widest flex items-center justify-center gap-3 hover:bg-brand-primary/90 transition-all shadow-xl shadow-brand-primary/20 w-full sm:w-auto shrink-0 font-sans cursor-pointer"
+          >
+            <Plus size={20} /> Adicionar Conhecimento
+          </button>
+        </div>
       </div>
 
       <div className="space-y-12">
