@@ -7712,6 +7712,192 @@ Importante: se uma informação não for encontrada nos documentos, use o valor 
     }
   };
 
+  const handleExtractSectionSmart = async (sectionKey: string) => {
+    setAnalyzingSmart(true);
+    try {
+      if (smartAnalysisDocs.length === 0) {
+        throw new Error("Nenhum documento encontrado nesta aba. Por favor, envie os documentos em anexo primeiro.");
+      }
+      
+      const fileParts = smartAnalysisDocs.map((doc: any) => {
+        let mimeType = 'application/pdf';
+        if (doc.filename.toLowerCase().endsWith('.jpg') || doc.filename.toLowerCase().endsWith('.jpeg')) mimeType = 'image/jpeg';
+        else if (doc.filename.toLowerCase().endsWith('.png')) mimeType = 'image/png';
+        else if (doc.filename.toLowerCase().endsWith('.webp')) mimeType = 'image/webp';
+
+        return {
+          id: doc.id,
+          filename: doc.filename,
+          data: doc.data ? (doc.data.startsWith('data:') ? doc.data : `data:${mimeType};base64,${doc.data}`) : "",
+          mimeType: mimeType,
+          extractedText: doc.extracted_text || ""
+        };
+      });
+
+      const userApiKey = resolveApiKey(state.selectedKeySource, state.aiConfig, state.selectedModel || 'gemini-2.5-flash') || "";
+      const finalApiKey = userApiKey || undefined;
+
+      let sectionInstruction = "";
+      if (sectionKey === 'imovel') {
+        sectionInstruction = `Sua missão prioritária é extrair TODOS os DADOS DO IMÓVEL dos documentos fornecidos (tipo_imovel, numero_matricula, cartorio_registro, area_terreno, area_privativa, area_util, area_construida, observacoes_imovel). Se houver números de área ou descrição no edital/matrícula, leia atentamente.`;
+      } else if (sectionKey === 'ex_mutuario') {
+        sectionInstruction = `Sua missão prioritária é extrair TODOS os DADOS DO EX-MUTUÁRIO / PROPRIETÁRIO ANTERIOR / DEVEDORES / EXECUTADOS dos documentos fornecidos. 
+Busque atenta e minuciosamente nos anexos (Matrícula, Edital, Processo Judicial) por:
+- nome_ex_mutuario (nome completo do devedor/executado)
+- cpf_ex_mutuario (CPF ou CNPJ)
+- estado_civil_ex_mutuario (solteiro, casado, divorciado, viúvo, etc)
+- profissao_ex_mutuario
+- conjuge_ex_mutuario (nome e CPF do cônjuge/coproprietário)
+- endereco_ex_mutuario (endereço completo do devedor)
+- observacoes_ex_mutuario (detalhes importantes, falecimento, herdeiros, citações).
+NÃO DEIXE EM BRANCO se o nome ou CPF do devedor constar em qualquer trecho dos documentos.`;
+      } else if (sectionKey === 'ocupacao') {
+        sectionInstruction = `Sua missão prioritária é extrair TODOS os DADOS DE OCUPAÇÃO E INVESTIGAÇÃO DO OCUPANTE (status_ocupacao, relacao_ex_mutuario, nome_ocupante, cpf_ocupante, telefone_ocupante, tempo_ocupacao, risco_usucapiao, observacoes_ocupacao).`;
+      } else if (sectionKey === 'matricula') {
+        sectionInstruction = `Sua missão prioritária é extrair a ANÁLISE DA MATRÍCULA (CRI) (matricula_atualizada, tem_onus, tem_penhora, tem_hipoteca, alienacao_fiduciaria, indisponibilidade, acao_reipersecutoria, observacoes_matricula).`;
+      } else if (sectionKey === 'consolidacao') {
+        sectionInstruction = `Sua missão prioritária é extrair os DADOS DA CONSOLIDAÇÃO DE PROPRIEDADE EXTRAJUDICIAL (status_consolidacao, intimacao_purga_mora, intimacao_leiloes, averbacao_consolidacao, observacoes_consolidacao).`;
+      } else if (sectionKey === 'nulidade') {
+        sectionInstruction = `Sua missão prioritária é extrair a ANÁLISE DE RISCO DE NULIDADE DO LEILÃO (risco_geral_nulidade, citacao_regular, intimacao_penhora, intimacao_leilao_executado, intimacao_credor_fiduciario, coproprietario_intimado, publicacao_edital_ok, preco_vil, vicio_citacao, vicio_avaliacao, vicio_publicacao, vicio_procedimental, observacoes_nulidade).`;
+      } else if (sectionKey === 'desocupacao') {
+        sectionInstruction = `Sua missão prioritária é extrair o RISCO E PRAZO DE DESOCUPAÇÃO (nivel_risco_desocupacao, liminar_bloqueando, acao_anulatoria, embargos_pendentes, recurso_pendente, prazo_estimado_desocupacao, observacoes_desocupacao).`;
+      } else if (sectionKey === 'debitos') {
+        sectionInstruction = `Sua missão prioritária é extrair os DÉBITOS DO IMÓVEL (iptu_atraso, condominio_atraso, outros_debitos, observacoes_debitos).`;
+      } else if (sectionKey === 'edital') {
+        sectionInstruction = `Sua missão prioritária é extrair a ANÁLISE DO EDITAL (tipo_leilao, responsabilidade_iptu, responsabilidade_condominio, observacoes_edital).`;
+      } else if (sectionKey === 'parecer') {
+        sectionInstruction = `Sua missão prioritária é gerar o PARECER FINAL DO INVESTIGADOR (risco_geral, recomendacao, justificativa).`;
+      }
+
+      const prompt = `Você é um especialista em leilões de imóveis.
+${sectionInstruction}
+
+Analise os documentos anexados e retorne um objeto JSON contendo o esquema completo de chaves da Análise Smart, preenchendo prioritariamente a seção solicitada com máxima fidelidade e precisão.
+Responda APENAS com um objeto JSON válido.`;
+
+      const rawResult = await analyzeAuctionDocuments(
+        fileParts, 
+        prompt, 
+        state.selectedModel || 'gemini-2.5-flash', 
+        finalApiKey, 
+        state.auctionUrls, 
+        'smart_analysis'
+      );
+      
+      let parsedData: any;
+      try {
+        parsedData = robustParseJSON(rawResult || "");
+      } catch (err) {
+        console.error("Erro ao parsear JSON da seção:", rawResult, err);
+        throw new Error("A IA não retornou um formato JSON válido. Tente novamente.");
+      }
+      
+      const mergedData = { 
+        ...getEmptySmartAnalysis(),
+        ...(state.smartAnalysis || {}), 
+        ...parsedData 
+      };
+
+      await handleSaveSmartAnalysis(mergedData);
+      
+      if ((window as any).customToast) {
+        (window as any).customToast("Dados da seção atualizados com sucesso!", "success");
+      }
+    } catch (err: any) {
+      console.error(err);
+      if ((window as any).customToast) {
+        (window as any).customToast("Erro ao extrair dados da seção: " + err.message, "error");
+      }
+    } finally {
+      setAnalyzingSmart(false);
+    }
+  };
+
+  const handleExtractSectionAssessoria = async (sectionKey: string) => {
+    setAnalyzingAssessoria(true);
+    try {
+      if (assessoriaDocs.length === 0) {
+        throw new Error("Nenhum documento encontrado para a Análise de Assessoria nesta aba. Por favor, envie os documentos nesta aba primeiro.");
+      }
+      
+      const fileParts = assessoriaDocs.map((doc: any) => {
+        let mimeType = 'application/pdf';
+        if (doc.filename.toLowerCase().endsWith('.jpg') || doc.filename.toLowerCase().endsWith('.jpeg')) mimeType = 'image/jpeg';
+        else if (doc.filename.toLowerCase().endsWith('.png')) mimeType = 'image/png';
+        else if (doc.filename.toLowerCase().endsWith('.webp')) mimeType = 'image/webp';
+
+        const hasText = doc.extracted_text && doc.extracted_text.trim().length > 0;
+        return {
+          id: doc.id,
+          filename: doc.filename,
+          data: !hasText && doc.data ? (doc.data.startsWith('data:') ? doc.data : `data:${mimeType};base64,${doc.data}`) : "",
+          mimeType: mimeType,
+          extractedText: doc.extracted_text || ""
+        };
+      });
+
+      const userApiKey = resolveApiKey(state.selectedKeySource, state.aiConfig, state.selectedModel || 'gemini-2.5-flash') || "";
+      const finalApiKey = userApiKey || undefined;
+
+      let sectionInstruction = "";
+      if (sectionKey === 'debitos') {
+        sectionInstruction = `Sua missão prioritária é extrair TODOS os DADOS DO MONTANTE DE DÉBITOS (responsabilidade_debitos, direito_eviccao, ressalvas_eviccao, divida_condominio, divida_iptu, comentarios_debitos).`;
+      } else if (sectionKey === 'matricula') {
+        sectionInstruction = `Sua missão prioritária é extrair a ANÁLISE DA MATRÍCULA (itens_matricula, comentarios_matricula, data_matricula).`;
+      } else if (sectionKey === 'edital') {
+        sectionInstruction = `Sua missão prioritária é extrair a ANÁLISE DO EDITAL (tamanho_cidade, entorno_imovel, bairro, e_casa, e_condominio, lance_maximo_sugerido).`;
+      } else if (sectionKey === 'viabilidade') {
+        sectionInstruction = `Sua missão prioritária é extrair a ANÁLISE DA VIABILIDADE JURÍDICA DA ARREMATAÇÃO (ocupacao, intimacao_registro, forma_intimacao, notificacao_datas, observacoes_purga_mora, leiloes_negativos_averbados, observacoes_leiloes_negativos, comentarios_viabilidade).`;
+      } else if (sectionKey === 'acoes') {
+        sectionInstruction = `Sua missão prioritária é extrair as AÇÕES JUDICIAIS RELEVANTES (acoes_judiciais, risco_juridico, comentarios_adicionais).`;
+      } else if (sectionKey === 'conclusao') {
+        sectionInstruction = `Sua missão prioritária é gerar a CONCLUSÃO E RECOMENDAÇÕES FINAIS (comentarios_recomendacoes_finais).`;
+      }
+
+      const prompt = `Você é um advogado imobiliário especialista sênior em assessoria e pareceres de leilões de imóveis.
+${sectionInstruction}
+
+Analise os documentos fornecidos e retorne um objeto JSON contendo o esquema completo de chaves da Análise de Assessoria, preenchendo prioritariamente a seção solicitada com máxima fidelidade e precisão.
+Responda APENAS com um objeto JSON válido.`;
+
+      const rawResult = await analyzeAuctionDocuments(
+        fileParts, 
+        prompt, 
+        state.selectedModel || 'gemini-2.5-flash', 
+        finalApiKey, 
+        state.auctionUrls, 
+        'assessoria_analysis'
+      );
+      
+      let parsedData: any;
+      try {
+        parsedData = robustParseJSON(rawResult || "");
+      } catch (err) {
+        console.error("Erro ao parsear JSON da seção de assessoria:", rawResult, err);
+        throw new Error("A IA não retornou um formato JSON válido. Tente novamente.");
+      }
+      
+      const mergedData = { 
+        ...getEmptyAssessoriaAnalysis(),
+        ...(state.assessoriaAnalysis || {}), 
+        ...parsedData 
+      };
+
+      await handleSaveAssessoriaAnalysis(mergedData);
+      
+      if ((window as any).customToast) {
+        (window as any).customToast("Dados da seção de assessoria atualizados com sucesso!", "success");
+      }
+    } catch (err: any) {
+      console.error(err);
+      if ((window as any).customToast) {
+        (window as any).customToast("Erro ao extrair dados da seção: " + err.message, "error");
+      }
+    } finally {
+      setAnalyzingAssessoria(false);
+    }
+  };
+
   const handleAnalyzeAssessoria = async () => {
     setAnalyzingAssessoria(true);
     try {
@@ -11280,6 +11466,7 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
                     data={state.smartAnalysis}
                     onSave={handleSaveSmartAnalysis}
                     onTriggerAI={handleAnalyzeSmart}
+                    onExtractSection={handleExtractSectionSmart}
                     isAnalyzing={analyzingSmart}
                     hasDocuments={smartAnalysisDocs.length > 0}
                     docs={smartAnalysisDocs}
@@ -11309,6 +11496,7 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
                     data={state.assessoriaAnalysis}
                     onSave={handleSaveAssessoriaAnalysis}
                     onTriggerAI={handleAnalyzeAssessoria}
+                    onExtractSection={handleExtractSectionAssessoria}
                     isAnalyzing={analyzingAssessoria}
                     isPublicView={state.isPublicView}
                     docs={assessoriaDocs}

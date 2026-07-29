@@ -1,7 +1,7 @@
 import React from 'react';
 import { 
   Shield, Cpu, Loader2, Save, FileText, CheckSquare, 
-  HelpCircle, AlertTriangle, AlertCircle, RefreshCw,
+  HelpCircle, AlertTriangle, AlertCircle, RefreshCw, Sparkles,
   TrendingUp, Scale, Gavel, User, Home, DollarSign, Calendar
 } from 'lucide-react';
 import { DocumentManager } from './DocumentManager';
@@ -167,6 +167,7 @@ interface SmartAnalysisTabProps {
   data: SmartAnalysisData | null;
   onSave: (updatedData: SmartAnalysisData) => Promise<void>;
   onTriggerAI: () => Promise<void>;
+  onExtractSection?: (sectionKey: string) => Promise<void>;
   isAnalyzing: boolean;
   hasDocuments: boolean;
   docs: any[];
@@ -180,6 +181,7 @@ export default function SmartAnalysisTab({
   data,
   onSave,
   onTriggerAI,
+  onExtractSection,
   isAnalyzing,
   hasDocuments,
   docs,
@@ -190,6 +192,39 @@ export default function SmartAnalysisTab({
 }: SmartAnalysisTabProps) {
   const [localData, setLocalData] = React.useState<SmartAnalysisData>(data || getEmptySmartAnalysis());
   const [isSaving, setIsSaving] = React.useState(false);
+  const [extractingSection, setExtractingSection] = React.useState<string | null>(null);
+
+  const handleExtractSection = async (sectionKey: string) => {
+    if (!onExtractSection) return;
+    setExtractingSection(sectionKey);
+    try {
+      await onExtractSection(sectionKey);
+    } finally {
+      setExtractingSection(null);
+    }
+  };
+
+  const renderSectionAIButton = (sectionKey: string) => {
+    if (!onExtractSection) return null;
+    const isBusy = extractingSection === sectionKey || isAnalyzing;
+    return (
+      <button
+        type="button"
+        disabled={isBusy}
+        onClick={() => handleExtractSection(sectionKey)}
+        className="p-1.5 px-3 bg-brand-primary/10 hover:bg-brand-primary/20 text-brand-primary border border-brand-primary/20 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50 shrink-0"
+        title="Puxar e preencher dados deste quadro com IA a partir dos documentos anexados"
+      >
+        {extractingSection === sectionKey ? (
+          <Loader2 size={13} className="animate-spin text-brand-primary" />
+        ) : (
+          <Sparkles size={13} className="text-brand-primary" />
+        )}
+        <span className="hidden sm:inline">Puxar Dados com IA</span>
+        <span className="sm:hidden">Puxar IA</span>
+      </button>
+    );
+  };
 
   React.useEffect(() => {
     if (data) {
@@ -428,7 +463,10 @@ export default function SmartAnalysisTab({
               <Home size={18} className="text-brand-primary/70" />
               Informações do Imóvel (Extraídas do Edital/Matrícula)
             </h5>
-            {renderProgressBadge(countImovel().current, countImovel().total)}
+            <div className="flex items-center gap-2">
+              {renderSectionAIButton('imovel')}
+              {renderProgressBadge(countImovel().current, countImovel().total)}
+            </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -536,7 +574,10 @@ export default function SmartAnalysisTab({
               <User size={18} className="text-brand-primary/70" />
               Dados do Ex-Mutuário / Proprietário Anterior (Devedores/Executados)
             </h5>
-            {renderProgressBadge(countExMutuario().current, countExMutuario().total)}
+            <div className="flex items-center gap-2">
+              {renderSectionAIButton('ex_mutuario')}
+              {renderProgressBadge(countExMutuario().current, countExMutuario().total)}
+            </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -629,7 +670,10 @@ export default function SmartAnalysisTab({
               <User size={18} className="text-brand-primary/70" />
               Situação Ocupacional / Investigação de Ocupante
             </h5>
-            {renderProgressBadge(countOcupacao().current, countOcupacao().total)}
+            <div className="flex items-center gap-2">
+              {renderSectionAIButton('ocupacao')}
+              {renderProgressBadge(countOcupacao().current, countOcupacao().total)}
+            </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
@@ -742,7 +786,10 @@ export default function SmartAnalysisTab({
               <FileText size={18} className="text-brand-primary/70" />
               Análise da Matrícula (CRI)
             </h5>
-            {renderProgressBadge(countMatricula().current, countMatricula().total)}
+            <div className="flex items-center gap-2">
+              {renderSectionAIButton('matricula')}
+              {renderProgressBadge(countMatricula().current, countMatricula().total)}
+            </div>
           </div>
 
           <div className="space-y-4">
@@ -790,7 +837,10 @@ export default function SmartAnalysisTab({
               <Gavel size={18} className="text-brand-primary/70" />
               Consolidação de Propriedade (Extrajudicial)
             </h5>
-            {renderProgressBadge(countConsolidacao().current, countConsolidacao().total)}
+            <div className="flex items-center gap-2">
+              {renderSectionAIButton('consolidacao')}
+              {renderProgressBadge(countConsolidacao().current, countConsolidacao().total)}
+            </div>
           </div>
 
           <div className="flex flex-col gap-1.5">
@@ -848,7 +898,10 @@ export default function SmartAnalysisTab({
               <Scale size={18} className="text-brand-primary/70" />
               Risco de Nulidade do Leilão
             </h5>
-            {renderProgressBadge(countNulidade().current, countNulidade().total)}
+            <div className="flex items-center gap-2">
+              {renderSectionAIButton('nulidade')}
+              {renderProgressBadge(countNulidade().current, countNulidade().total)}
+            </div>
           </div>
 
           <div className="flex flex-col gap-1.5">
@@ -910,7 +963,10 @@ export default function SmartAnalysisTab({
               <Home size={18} className="text-brand-primary/70" />
               Risco de Desocupação
             </h5>
-            {renderProgressBadge(countDesocupacao().current, countDesocupacao().total)}
+            <div className="flex items-center gap-2">
+              {renderSectionAIButton('desocupacao')}
+              {renderProgressBadge(countDesocupacao().current, countDesocupacao().total)}
+            </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -982,7 +1038,10 @@ export default function SmartAnalysisTab({
               <DollarSign size={18} className="text-brand-primary/70" />
               Débitos do Imóvel
             </h5>
-            {renderProgressBadge(countDebitos().current, countDebitos().total)}
+            <div className="flex items-center gap-2">
+              {renderSectionAIButton('debitos')}
+              {renderProgressBadge(countDebitos().current, countDebitos().total)}
+            </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -1037,7 +1096,10 @@ export default function SmartAnalysisTab({
               <FileText size={18} className="text-brand-primary/70" />
               Análise do Edital
             </h5>
-            {renderProgressBadge(countEdital().current, countEdital().total)}
+            <div className="flex items-center gap-2">
+              {renderSectionAIButton('edital')}
+              {renderProgressBadge(countEdital().current, countEdital().total)}
+            </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -1103,7 +1165,10 @@ export default function SmartAnalysisTab({
               <Shield size={18} className="text-brand-primary/70" />
               Parecer Final do Investidor
             </h5>
-            {renderProgressBadge(countParecer().current, countParecer().total)}
+            <div className="flex items-center gap-2">
+              {renderSectionAIButton('parecer')}
+              {renderProgressBadge(countParecer().current, countParecer().total)}
+            </div>
           </div>
           
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

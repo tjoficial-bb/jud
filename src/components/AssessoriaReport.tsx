@@ -1,7 +1,7 @@
 import React from 'react';
 import { 
   Shield, Cpu, Loader2, Save, FileText, CheckSquare, 
-  HelpCircle, AlertTriangle, AlertCircle, RefreshCw,
+  HelpCircle, AlertTriangle, AlertCircle, RefreshCw, Sparkles,
   TrendingUp, Scale, Gavel, User, Home, DollarSign, Calendar, Plus, Trash2
 } from 'lucide-react';
 import { DocumentManager } from './DocumentManager';
@@ -84,6 +84,7 @@ interface AssessoriaReportProps {
   onSave: (updatedData: AssessoriaAnalysisData) => Promise<void>;
   isAnalyzing: boolean;
   onTriggerAI: () => Promise<void>;
+  onExtractSection?: (sectionKey: string) => Promise<void>;
   isPublicView?: boolean;
   docs?: any[];
   onUpload?: (e: React.ChangeEvent<HTMLInputElement>, type: string) => void;
@@ -97,6 +98,7 @@ export default function AssessoriaReport({
   onSave,
   isAnalyzing,
   onTriggerAI,
+  onExtractSection,
   isPublicView = false,
   docs = [],
   onUpload,
@@ -107,6 +109,39 @@ export default function AssessoriaReport({
   const [localData, setLocalData] = React.useState<AssessoriaAnalysisData>(data || getEmptyAssessoriaAnalysis());
   const [isEditing, setIsEditing] = React.useState(false);
   const [isSaving, setIsSaving] = React.useState(false);
+  const [extractingSection, setExtractingSection] = React.useState<string | null>(null);
+
+  const handleExtractSection = async (sectionKey: string) => {
+    if (!onExtractSection) return;
+    setExtractingSection(sectionKey);
+    try {
+      await onExtractSection(sectionKey);
+    } finally {
+      setExtractingSection(null);
+    }
+  };
+
+  const renderSectionAIButton = (sectionKey: string) => {
+    if (!onExtractSection) return null;
+    const isBusy = extractingSection === sectionKey || isAnalyzing;
+    return (
+      <button
+        type="button"
+        disabled={isBusy}
+        onClick={() => handleExtractSection(sectionKey)}
+        className="p-1.5 px-3 bg-brand-primary/10 hover:bg-brand-primary/20 text-brand-primary border border-brand-primary/20 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50 shrink-0"
+        title="Puxar e preencher dados deste quadro com IA a partir dos documentos anexados"
+      >
+        {extractingSection === sectionKey ? (
+          <Loader2 size={13} className="animate-spin text-brand-primary" />
+        ) : (
+          <Sparkles size={13} className="text-brand-primary" />
+        )}
+        <span className="hidden sm:inline">Puxar Dados com IA</span>
+        <span className="sm:hidden">Puxar IA</span>
+      </button>
+    );
+  };
 
   React.useEffect(() => {
     if (data) {
@@ -270,10 +305,11 @@ export default function AssessoriaReport({
         
         {/* SECTION 1: Montante de débitos */}
         <div id="sec-montante-debitos" className="border border-brand-primary/10 rounded-2xl overflow-hidden bg-brand-paper shadow-sm">
-          <div className="bg-orange-50/70 dark:bg-orange-950/20 px-6 py-4 border-b border-brand-primary/10">
+          <div className="bg-orange-50/70 dark:bg-orange-950/20 px-6 py-4 border-b border-brand-primary/10 flex items-center justify-between gap-4">
             <h3 className="text-base font-bold text-orange-600 dark:text-orange-400 font-serif tracking-wide uppercase">
               Montante de débitos
             </h3>
+            {renderSectionAIButton('debitos')}
           </div>
           <div className="p-6 space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -482,10 +518,11 @@ export default function AssessoriaReport({
 
         {/* SECTION 2: Análise da matrícula */}
         <div id="sec-analise-matricula" className="border border-brand-primary/10 rounded-2xl overflow-hidden bg-brand-paper shadow-sm">
-          <div className="bg-orange-50/70 dark:bg-orange-950/20 px-6 py-4 border-b border-brand-primary/10">
+          <div className="bg-orange-50/70 dark:bg-orange-950/20 px-6 py-4 border-b border-brand-primary/10 flex items-center justify-between gap-4">
             <h3 className="text-base font-bold text-orange-600 dark:text-orange-400 font-serif tracking-wide uppercase">
               Análise da matrícula
             </h3>
+            {renderSectionAIButton('matricula')}
           </div>
           <div className="p-6 space-y-6">
             
@@ -599,10 +636,11 @@ export default function AssessoriaReport({
 
         {/* SECTION 3: Análise do edital */}
         <div id="sec-analise-edital" className="border border-brand-primary/10 rounded-2xl overflow-hidden bg-brand-paper shadow-sm">
-          <div className="bg-orange-50/70 dark:bg-orange-950/20 px-6 py-4 border-b border-brand-primary/10">
+          <div className="bg-orange-50/70 dark:bg-orange-950/20 px-6 py-4 border-b border-brand-primary/10 flex items-center justify-between gap-4">
             <h3 className="text-base font-bold text-orange-600 dark:text-orange-400 font-serif tracking-wide uppercase">
               Análise do edital
             </h3>
+            {renderSectionAIButton('edital')}
           </div>
           <div className="p-6 space-y-6">
             
@@ -816,10 +854,11 @@ export default function AssessoriaReport({
 
         {/* SECTION 4: Análise da viabilidade jurídica */}
         <div id="sec-viabilidade-juridica" className="border border-brand-primary/10 rounded-2xl overflow-hidden bg-brand-paper shadow-sm">
-          <div className="bg-orange-50/70 dark:bg-orange-950/20 px-6 py-4 border-b border-brand-primary/10">
+          <div className="bg-orange-50/70 dark:bg-orange-950/20 px-6 py-4 border-b border-brand-primary/10 flex items-center justify-between gap-4">
             <h3 className="text-base font-bold text-orange-600 dark:text-orange-400 font-serif tracking-wide uppercase">
               Análise da viabilidade jurídica
             </h3>
+            {renderSectionAIButton('viabilidade')}
           </div>
           <div className="p-6 space-y-6">
             
@@ -1058,10 +1097,11 @@ export default function AssessoriaReport({
 
         {/* SECTION 5: Ações judiciais relevantes */}
         <div id="sec-acoes-judiciais" className="border border-brand-primary/10 rounded-2xl overflow-hidden bg-brand-paper shadow-sm">
-          <div className="bg-orange-50/70 dark:bg-orange-950/20 px-6 py-4 border-b border-brand-primary/10">
+          <div className="bg-orange-50/70 dark:bg-orange-950/20 px-6 py-4 border-b border-brand-primary/10 flex items-center justify-between gap-4">
             <h3 className="text-base font-bold text-orange-600 dark:text-orange-400 font-serif tracking-wide uppercase">
               Ações judiciais relevantes
             </h3>
+            {renderSectionAIButton('acoes')}
           </div>
           <div className="p-6 space-y-6">
             
@@ -1193,10 +1233,11 @@ export default function AssessoriaReport({
 
         {/* SECTION 6: CONCLUSÃO */}
         <div id="sec-conclusao" className="border border-brand-primary/10 rounded-2xl overflow-hidden bg-brand-paper shadow-sm">
-          <div className="bg-orange-50/70 dark:bg-orange-950/20 px-6 py-4 border-b border-brand-primary/10">
+          <div className="bg-orange-50/70 dark:bg-orange-950/20 px-6 py-4 border-b border-brand-primary/10 flex items-center justify-between gap-4">
             <h3 className="text-base font-bold text-orange-600 dark:text-orange-400 font-serif tracking-wide uppercase">
               CONCLUSÃO
             </h3>
+            {renderSectionAIButton('conclusao')}
           </div>
           <div className="p-6 space-y-4">
             
