@@ -1639,25 +1639,56 @@ export { AbortException, FormatError, InvalidPDFException, PasswordException, Se
     try {
       const doc = db.prepare("SELECT id, filename, doc_type, data, extracted_text FROM documents WHERE id = ?").get(req.params.id) as any;
       if (!doc) {
-        return res.status(404).json({ error: "Documento não encontrado." });
+        return res.status(404).json({ error: "Documento não encontrado no banco de dados." });
       }
 
       let buffer: Buffer | null = null;
-      let mimeType = doc.filename.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'image/png';
+      let mimeType = 'application/pdf';
 
-      if (doc.data) {
-        buffer = Buffer.from(doc.data, 'base64');
+      if (doc.data && typeof doc.data === 'string' && doc.data.trim().length > 0) {
+        let base64String = doc.data.trim();
+        // Extract MIME type if Data URL prefix exists
+        if (base64String.startsWith('data:')) {
+          const match = base64String.match(/^data:([^;]+);base64,/);
+          if (match) {
+            mimeType = match[1];
+          }
+          if (base64String.includes(',')) {
+            base64String = base64String.split(',')[1];
+          }
+        }
+
+        // Clean base64 string from whitespace/newlines
+        base64String = base64String.replace(/\s+/g, '');
+        buffer = Buffer.from(base64String, 'base64');
       }
 
-      if (!buffer) {
+      // Infer correct MIME type if default or unknown
+      const lowerFn = (doc.filename || '').toLowerCase();
+      if (!mimeType || mimeType === 'application/octet-stream' || mimeType === 'application/pdf') {
+        if (lowerFn.endsWith('.pdf')) mimeType = 'application/pdf';
+        else if (lowerFn.endsWith('.jpg') || lowerFn.endsWith('.jpeg')) mimeType = 'image/jpeg';
+        else if (lowerFn.endsWith('.png')) mimeType = 'image/png';
+        else if (lowerFn.endsWith('.webp')) mimeType = 'image/webp';
+      }
+
+      if (!buffer || buffer.length === 0) {
+        if (doc.extracted_text && doc.extracted_text.trim().length > 0) {
+          return res.json({
+            id: doc.id,
+            filename: doc.filename,
+            extracted_text: doc.extracted_text,
+            message: "Documento já possui texto extraído no servidor!"
+          });
+        }
         return res.status(400).json({ error: "Este documento não possui o arquivo original em base64 salvo no servidor para transcrição OCR." });
       }
 
-      console.log(`[API Transcribe] Transcrevendo documento ID ${doc.id} ("${doc.filename}")...`);
+      console.log(`[API Transcribe] Transcrevendo documento ID ${doc.id} ("${doc.filename}", Mime: ${mimeType}, Buffer: ${(buffer.length / 1024).toFixed(1)} KB)...`);
       const markdownText = await transcribeDocumentToMarkdown(buffer, mimeType, doc.filename);
 
       if (!markdownText) {
-        return res.status(500).json({ error: "Não foi possível transcrever o documento através da IA." });
+        return res.status(500).json({ error: "Não foi possível transcrever o documento através da IA. Verifique se a chave de API do Gemini está configurada e se o documento é legível." });
       }
 
       db.prepare("UPDATE documents SET extracted_text = ? WHERE id = ?").run(markdownText, doc.id);
@@ -1670,7 +1701,7 @@ export { AbortException, FormatError, InvalidPDFException, PasswordException, Se
       });
     } catch (error: any) {
       console.error("[API Transcribe] Erro:", error.message);
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: error.message || "Erro interno na transcrição do documento." });
     }
   });
 

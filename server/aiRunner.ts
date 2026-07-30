@@ -150,14 +150,15 @@ const generateContentWithFallback = async (
   retries = 4,
   delayMs = 2500
 ): Promise<any> => {
-  const fallbackModels = ['gemini-3.5-flash', 'gemini-3.1-flash-lite'];
+  const fallbackModels = ['gemini-2.5-flash', 'gemini-3.5-flash', 'gemini-3.1-flash-lite'];
   
   // Try models in sequence
   for (let mIndex = 0; mIndex <= fallbackModels.length; mIndex++) {
-    const currentModel = mIndex === 0 ? primaryModel : fallbackModels[mIndex - 1];
+    const rawModel = mIndex === 0 ? primaryModel : fallbackModels[mIndex - 1];
+    const currentModel = mapModelId(rawModel);
     
     // Avoid re-trying the same model if it is already the primary one
-    if (mIndex > 0 && currentModel === primaryModel) {
+    if (mIndex > 0 && currentModel === mapModelId(primaryModel)) {
       continue;
     }
     
@@ -166,6 +167,7 @@ const generateContentWithFallback = async (
       const payloadCopy = { ...requestPayload, model: currentModel };
       return await callGeminiWithRetry(() => ai.models.generateContent(payloadCopy), retries, delayMs);
     } catch (error: any) {
+      console.warn(`[Gemini Request Error] Modelo ${currentModel} falhou:`, error?.message || error);
       const errorStr = (error?.message || String(error)).toLowerCase();
       const errorObjStr = JSON.stringify(error || {}).toLowerCase();
       
@@ -180,32 +182,50 @@ const generateContentWithFallback = async (
         errorObjStr.includes("invalid_argument") ||
         errorObjStr.includes("mime");
 
-      if (isFileError && requestPayload?.contents?.parts) {
+      if (isFileError) {
         let hasInlineData = false;
-        const cleanedParts = requestPayload.contents.parts.map((part: any) => {
-          if (part && part.inlineData) {
-            hasInlineData = true;
-            return { 
-              text: `[Documento binário omitido devido a erro de leitura de formato ou ausência de páginas: ${part.inlineData.mimeType || 'PDF/Imagem'}. Prossiga fornecendo as orientações gerais possíveis.]` 
-            };
-          }
-          return part;
-        });
+        let contents = requestPayload?.contents;
+        let contentsCopy: any = null;
 
-        if (hasInlineData) {
+        if (Array.isArray(contents)) {
+          contentsCopy = contents.map((item: any) => {
+            if (item && Array.isArray(item.parts)) {
+              const cleanedParts = item.parts.map((part: any) => {
+                if (part && part.inlineData) {
+                  hasInlineData = true;
+                  return { 
+                    text: `[Documento binário omitido devido a erro de leitura de formato ou ausência de páginas: ${part.inlineData.mimeType || 'PDF/Imagem'}. Prossiga fornecendo as orientações gerais possíveis.]` 
+                  };
+                }
+                return part;
+              });
+              return { ...item, parts: cleanedParts };
+            }
+            return item;
+          });
+        } else if (contents && Array.isArray(contents.parts)) {
+          const cleanedParts = contents.parts.map((part: any) => {
+            if (part && part.inlineData) {
+              hasInlineData = true;
+              return { 
+                text: `[Documento binário omitido devido a erro de leitura de formato ou ausência de páginas: ${part.inlineData.mimeType || 'PDF/Imagem'}. Prossiga fornecendo as orientações gerais possíveis.]` 
+              };
+            }
+            return part;
+          });
+          contentsCopy = { ...contents, parts: cleanedParts };
+        }
+
+        if (hasInlineData && contentsCopy) {
           console.warn(`[Gemini Request Fallback] Erro de leitura de arquivo detectado ("${error?.message}"). Convertendo inlineData para texto e tentando novamente...`);
           const fallbackPayload = {
             ...requestPayload,
-            contents: {
-              ...requestPayload.contents,
-              parts: cleanedParts
-            }
+            contents: contentsCopy
           };
           try {
             return await callGeminiWithRetry(() => ai.models.generateContent({ ...fallbackPayload, model: currentModel }), retries, delayMs);
           } catch (fallbackError) {
             console.error("[Gemini Request Fallback] Falha no retry sem inlineData:", fallbackError);
-            // Let the fallbackError propagate or fall through to normal fallback logic
           }
         }
       }
@@ -232,11 +252,10 @@ const generateContentWithFallback = async (
         errorObjStr.includes("quota") ||
         errorObjStr.includes("limit");
 
-      // Only proceed to fallback if it's a 503 (high demand/unavailable) or 429 (quota) error
       if ((isUnavailable || isQuotaError) && mIndex < fallbackModels.length) {
-        const nextModel = fallbackModels[mIndex];
+        const nextModel = mapModelId(fallbackModels[mIndex]);
         if (nextModel !== currentModel) {
-          console.warn(`[Gemini Fallback Triggered] Modelo ${currentModel} falhou com erro transiente (503/429). Tentando fallback para o modelo estável: ${nextModel}...`);
+          console.warn(`[Gemini Fallback Triggered] Modelo ${currentModel} falhou. Tentando fallback para o modelo alternativo: ${nextModel}...`);
           continue;
         }
       }
@@ -260,7 +279,18 @@ export const transcribeDocumentToMarkdown = async (
     console.log(`[OCR Transcribe] Iniciando OCR / Transcrição para Markdown de "${filename}" (${(buffer.length / 1024).toFixed(1)} KB)...`);
     const ai = new GoogleGenAI({ apiKey });
     const base64Data = buffer.toString("base64");
-    const effectiveMime = (mimeType === 'application/pdf' || filename.toLowerCase().endsWith('.pdf')) ? 'application/pdf' : (mimeType || 'application/pdf');
+    
+    let effectiveMime = mimeType || 'application/pdf';
+    const lowerFn = (filename || '').toLowerCase();
+    if (lowerFn.endsWith('.pdf') || effectiveMime.includes('pdf')) {
+      effectiveMime = 'application/pdf';
+    } else if (lowerFn.endsWith('.jpg') || lowerFn.endsWith('.jpeg') || effectiveMime.includes('jpeg') || effectiveMime.includes('jpg')) {
+      effectiveMime = 'image/jpeg';
+    } else if (lowerFn.endsWith('.png') || effectiveMime.includes('png')) {
+      effectiveMime = 'image/png';
+    } else if (lowerFn.endsWith('.webp') || effectiveMime.includes('webp')) {
+      effectiveMime = 'image/webp';
+    }
 
     const prompt = `Você é um especialista em OCR avançado, visão computacional e transcrição documental de cartórios de imóveis e tribunais de justiça no Brasil.
 Sua missão é realizar a TRANSCRIÇÃO OCR EXATA, NA ÍNTEGRA, COMPLETA E SEM OMISSÕES deste documento ("${filename}") para o formato MARKDOWN limpo, organizado e estruturado.
@@ -295,7 +325,7 @@ DIRETRIZES DE TRANSCRIÇÃO OBRIGATÓRIAS:
     };
 
     const response = await generateContentWithFallback(ai, 'gemini-2.5-flash', requestPayload);
-    const transcribedText = response?.text?.trim() || "";
+    const transcribedText = response?.text?.trim() || response?.candidates?.[0]?.content?.parts?.map((p: any) => p.text).join('\n')?.trim() || "";
     console.log(`[OCR Transcribe] Transcrição para Markdown concluída com sucesso para "${filename}". Tamanho: ${transcribedText.length} caracteres.`);
     return transcribedText;
   } catch (err: any) {
