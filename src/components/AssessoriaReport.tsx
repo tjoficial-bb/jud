@@ -2,9 +2,10 @@ import React from 'react';
 import { 
   Shield, Cpu, Loader2, Save, FileText, CheckSquare, 
   HelpCircle, AlertTriangle, AlertCircle, RefreshCw, Sparkles,
-  TrendingUp, Scale, Gavel, User, Home, DollarSign, Calendar, Plus, Trash2
+  TrendingUp, Scale, Gavel, User, Home, DollarSign, Calendar, Plus, Trash2, Download
 } from 'lucide-react';
 import { DocumentManager } from './DocumentManager';
+import { exportElementToPDF } from '../utils/pdfExporter';
 
 export interface AssessoriaAnalysisData {
   // Montante de débitos
@@ -214,7 +215,7 @@ export default function AssessoriaReport({
   ];
 
   return (
-    <div className="space-y-8 animate-fade-in text-brand-ink">
+    <div className="space-y-8 animate-fade-in text-brand-ink" id="assessoria-tab-container">
       {/* Header Controls */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-brand-primary/10 pb-6 no-print">
         <div>
@@ -240,6 +241,15 @@ export default function AssessoriaReport({
                 <Cpu size={14} />
               )}
               {isAnalyzing ? 'Extraindo...' : 'Auto-preencher via IA'}
+            </button>
+
+            <button
+              onClick={() => exportElementToPDF("assessoria-tab-container", "Relatorio_Assessoria_Juridica.pdf", "Análise de Assessoria Jurídica - TJ INVEST")}
+              className="px-4 py-2 bg-brand-bg hover:bg-black/5 dark:hover:bg-white/10 border border-brand-border text-brand-ink rounded-xl font-bold text-xs transition flex items-center gap-2"
+              title="Exportar esta análise em PDF formatado"
+            >
+              <Download size={14} className="text-brand-primary" />
+              Exportar PDF
             </button>
 
             {isEditing ? (

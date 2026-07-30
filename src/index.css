@@ -11,23 +11,72 @@
 }
 
 .light-mode {
+  --brand-primary: #047857;
   --brand-secondary: #FFFFFF;
-  --brand-bg: #F5F5F0;
+  --brand-bg: #F8FAFC;
   --brand-paper: #FFFFFF;
-  --brand-ink: #000000;
-  --brand-border: rgba(0, 0, 0, 0.15);
+  --brand-ink: #0F172A;
+  --brand-border: rgba(15, 23, 42, 0.12);
 }
 
-.light-mode .text-brand-ink\/40 {
-  color: rgba(0, 0, 0, 0.6);
+.light-mode body {
+  background-color: #F8FAFC;
+  color: #0F172A;
+}
+
+/* Crisp Light Mode Input Controls & Cards */
+.light-mode input, 
+.light-mode select, 
+.light-mode textarea {
+  background-color: #FFFFFF !important;
+  color: #0F172A !important;
+  border-color: #CBD5E1 !important;
+}
+
+.light-mode input::placeholder, 
+.light-mode textarea::placeholder {
+  color: #94A3B8 !important;
+}
+
+.light-mode input:focus, 
+.light-mode select:focus, 
+.light-mode textarea:focus {
+  border-color: #047857 !important;
+  box-shadow: 0 0 0 2px rgba(4, 120, 87, 0.15) !important;
+}
+
+.light-mode .bg-brand-paper {
+  background-color: #FFFFFF !important;
+  border-color: #E2E8F0 !important;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.06), 0 1px 2px -1px rgba(0, 0, 0, 0.04) !important;
+}
+
+.light-mode .bg-brand-bg {
+  background-color: #F1F5F9 !important;
 }
 
 .light-mode .text-brand-ink\/30 {
-  color: rgba(0, 0, 0, 0.5);
+  color: #64748B !important;
+}
+
+.light-mode .text-brand-ink\/40 {
+  color: #475569 !important;
+}
+
+.light-mode .text-brand-ink\/50 {
+  color: #334155 !important;
 }
 
 .light-mode .text-brand-ink\/60 {
-  color: rgba(0, 0, 0, 0.8);
+  color: #1E293B !important;
+}
+
+.light-mode .text-brand-ink\/80 {
+  color: #0F172A !important;
+}
+
+.light-mode .border-brand-border {
+  border-color: #E2E8F0 !important;
 }
 
 @theme {

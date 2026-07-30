@@ -29,6 +29,7 @@ export const SmartResetPanel: React.FC<SmartResetPanelProps> = ({
   onResetAll,
   onApplySettings
 }) => {
+  const [isPanelOpen, setIsPanelOpen] = useState(false);
   const [depth, setDepth] = useState<string>('detailed');
   const [focus, setFocus] = useState<string>('general');
   const [showConfirmResetAll, setShowConfirmResetAll] = useState<boolean>(false);
@@ -43,19 +44,47 @@ export const SmartResetPanel: React.FC<SmartResetPanelProps> = ({
     setTimeout(() => setSuccessMsg(null), 5000);
   };
 
-  // The panel is always rendered to allow configuring IA depth and focus even before running the analysis.
+  if (!isPanelOpen) {
+    return (
+      <div className="mt-6 bg-brand-bg/30 hover:bg-brand-bg/60 rounded-2xl border border-brand-border/40 p-3 sm:p-4 no-print flex items-center justify-between transition-all">
+        <div className="flex items-center gap-2.5">
+          <div className="p-1.5 bg-brand-primary/10 text-brand-primary rounded-lg">
+            <RotateCcw size={14} />
+          </div>
+          <span className="text-xs font-semibold text-brand-ink/70">
+            Opções Avançadas e Reinicialização ({tabName})
+          </span>
+        </div>
+        <button
+          onClick={() => setIsPanelOpen(true)}
+          className="text-xs font-bold text-brand-primary hover:underline flex items-center gap-1"
+        >
+          <span>Configurar / Limpar Tab</span>
+        </button>
+      </div>
+    );
+  }
 
   return (
-    <div className="mt-8 bg-gradient-to-br from-brand-bg/40 to-brand-bg/15 rounded-3xl border border-brand-primary/20 p-6 space-y-6 font-sans no-print">
+    <div className="mt-8 bg-gradient-to-br from-brand-bg/40 to-brand-bg/15 rounded-3xl border border-brand-primary/20 p-6 space-y-6 font-sans no-print animate-in fade-in">
       {/* Header */}
-      <div className="flex items-center gap-3 border-b border-brand-primary/10 pb-4">
-        <div className="p-2.5 bg-brand-primary/10 text-brand-primary rounded-xl">
-          <RotateCcw size={20} className="animate-spin-slow" />
+      <div className="flex items-center justify-between border-b border-brand-primary/10 pb-4">
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 bg-brand-primary/10 text-brand-primary rounded-xl">
+            <RotateCcw size={20} className="animate-spin-slow" />
+          </div>
+          <div>
+            <h4 className="text-md font-bold text-brand-ink">Central de Reinicialização & Configurações de IA ({tabName})</h4>
+            <p className="text-xs text-brand-ink/50 mt-0.5">Refine as regras ou limpe as informações para gerar novos cenários personalizados</p>
+          </div>
         </div>
-        <div>
-          <h4 className="text-md font-bold text-brand-ink">Central de Reinicialização & Configurações de IA ({tabName})</h4>
-          <p className="text-xs text-brand-ink/50 mt-0.5">Refine as regras ou limpe as informações para gerar novos cenários personalizados</p>
-        </div>
+
+        <button
+          onClick={() => setIsPanelOpen(false)}
+          className="text-xs font-bold text-brand-ink/50 hover:text-brand-primary"
+        >
+          Recolher Painel
+        </button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

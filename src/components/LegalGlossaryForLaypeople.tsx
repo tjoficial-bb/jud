@@ -78,6 +78,7 @@ const GLOSSARY_TERMS: GlossaryTerm[] = [
 ];
 
 export const LegalGlossaryForLaypeople: React.FC = () => {
+  const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('Todos');
   const [expandedTerms, setExpandedTerms] = useState<Record<string, boolean>>({});
@@ -98,8 +99,31 @@ export const LegalGlossaryForLaypeople: React.FC = () => {
     return matchesSearch && matchesCategory;
   });
 
+  if (!isOpen) {
+    return (
+      <div className="bg-brand-paper/70 rounded-2xl border border-brand-border/60 p-4 no-print flex items-center justify-between shadow-xs">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-brand-primary/10 text-brand-primary rounded-xl">
+            <BookOpen size={16} />
+          </div>
+          <div>
+            <h5 className="text-xs font-bold text-brand-ink">Dicionário Jurídico Descomplicado ({GLOSSARY_TERMS.length} termos)</h5>
+            <p className="text-[10px] text-brand-ink/50">Consulte o significado prático de termos como Arrematante, Alienação Fiduciária, Propter Rem, etc.</p>
+          </div>
+        </div>
+        <button
+          onClick={() => setIsOpen(true)}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-brand-primary/10 hover:bg-brand-primary/20 text-brand-primary rounded-xl text-xs font-bold transition-all"
+        >
+          <span>Expandir Dicionário</span>
+          <ChevronDown size={14} />
+        </button>
+      </div>
+    );
+  }
+
   return (
-    <div className="bg-brand-paper rounded-[2rem] border border-brand-primary/10 p-6 sm:p-8 space-y-6 shadow-sm no-print">
+    <div className="bg-brand-paper rounded-[2rem] border border-brand-primary/10 p-6 sm:p-8 space-y-6 shadow-sm no-print animate-in fade-in">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-brand-border/40 pb-4">
         <div className="flex items-center gap-3">
           <div className="p-2 bg-brand-primary/10 text-brand-primary rounded-xl">
@@ -114,6 +138,15 @@ export const LegalGlossaryForLaypeople: React.FC = () => {
             </p>
           </div>
         </div>
+
+        <button
+          onClick={() => setIsOpen(false)}
+          className="flex items-center gap-1 text-xs font-bold text-brand-ink/50 hover:text-brand-primary self-end md:self-auto"
+        >
+          <span>Recolher</span>
+          <ChevronUp size={14} />
+        </button>
+      </div>
         
         {/* Category selector */}
         <div className="flex flex-wrap gap-1.5 bg-brand-bg/40 p-1 rounded-xl border border-brand-primary/5 self-start md:self-auto">
@@ -127,7 +160,6 @@ export const LegalGlossaryForLaypeople: React.FC = () => {
             </button>
           ))}
         </div>
-      </div>
 
       {/* Search Input */}
       <div className="relative">

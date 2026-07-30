@@ -76,6 +76,7 @@ import { SYSTEM_PROMPT } from './constants';
 import { analyzeAuctionDocuments, generateProcessStory, sendChatMessage } from './services/aiService';
 import SmartAnalysisTab, { SmartAnalysisData, getEmptySmartAnalysis } from './components/SmartAnalysisTab';
 import AssessoriaReport, { AssessoriaAnalysisData, getEmptyAssessoriaAnalysis } from './components/AssessoriaReport';
+import { exportElementToPDF } from './utils/pdfExporter';
 
 const SimulationContext = React.createContext<{ 
   simulationData: any, 
@@ -7220,15 +7221,7 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
   };
 
   const handleExportAllAnalyses = () => {
-    const text = getCompiledReportText();
-    const blob = new Blob([text], { type: 'text/markdown;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.setAttribute("href", url);
-    link.setAttribute("download", `Analise_Integrada_Leilao_${selectedProperty?.title?.replace(/\s+/g, '_') || 'Geral'}.md`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    exportElementToPDF("ai-analysis-tab-content", `Relatorio_Integrado_${selectedProperty?.title?.replace(/\s+/g, '_') || 'Geral'}.pdf`, "Relatório Integrado de Análise de Leilão - TJ INVEST");
   };
 
   const handleResetAnalysis = (fullReset: boolean) => {
@@ -8505,43 +8498,54 @@ Sua resposta deve ser APENAS um objeto JSON válido, sem qualquer bloco de códi
         const analyses = await parseJsonResponse(analysisRes);
         setPropertyAnalyses(analyses);
         if (analyses && analyses.length > 0) {
-          const latest = analyses[0];
+          // Merge analyses from oldest to newest so non-null values from earlier entries are preserved if newest doesn't have them
+          const merged: any = {};
+          for (let i = analyses.length - 1; i >= 0; i--) {
+            const item = analyses[i];
+            Object.keys(item).forEach(k => {
+              if (item[k] !== null && item[k] !== undefined && item[k] !== '') {
+                merged[k] = item[k];
+              }
+            });
+          }
+
           let parsedSimulationData = null;
-          if (latest.financial_analysis) {
+          if (merged.financial_analysis) {
             try {
-              parsedSimulationData = JSON.parse(latest.financial_analysis);
+              parsedSimulationData = JSON.parse(merged.financial_analysis);
             } catch (e) {
               console.error("Erro ao parsear simulationData de banco:", e);
             }
           }
           let parsedSmartAnalysis = null;
-          if (latest.smart_analysis_json) {
+          if (merged.smart_analysis_json) {
             try {
-              parsedSmartAnalysis = JSON.parse(latest.smart_analysis_json);
+              parsedSmartAnalysis = JSON.parse(merged.smart_analysis_json);
             } catch (e) {
               console.error("Erro ao parsear smart_analysis_json de banco:", e);
             }
           }
           let parsedAssessoriaAnalysis = null;
-          if (latest.assessoria_analysis_json) {
+          if (merged.assessoria_analysis_json) {
             try {
-              parsedAssessoriaAnalysis = JSON.parse(latest.assessoria_analysis_json);
+              parsedAssessoriaAnalysis = JSON.parse(merged.assessoria_analysis_json);
             } catch (e) {
               console.error("Erro ao parsear assessoria_analysis_json de banco:", e);
             }
           }
-          updateState({ 
-            report: latest.exec_summary, 
-            selectedModel: latest.ia_used,
-            analysisId: latest.id,
-            editalAnalysis: latest.edital_analysis || null,
-            matriculaAnalysis: latest.matricula_analysis || null,
-            processAnalysis: latest.process_analysis || null,
-            dossierAnalysis: latest.dossier_analysis || null,
-            smartAnalysis: parsedSmartAnalysis || getEmptySmartAnalysis(),
-            assessoriaAnalysis: parsedAssessoriaAnalysis || getEmptyAssessoriaAnalysis(),
+
+          updateState((prev: any) => ({ 
+            report: merged.exec_summary || prev.report, 
+            selectedModel: merged.ia_used || prev.selectedModel,
+            analysisId: merged.id || prev.analysisId,
+            editalAnalysis: merged.edital_analysis || prev.editalAnalysis,
+            matriculaAnalysis: merged.matricula_analysis || prev.matriculaAnalysis,
+            processAnalysis: merged.process_analysis || prev.processAnalysis,
+            dossierAnalysis: merged.dossier_analysis || prev.dossierAnalysis,
+            smartAnalysis: parsedSmartAnalysis || prev.smartAnalysis || getEmptySmartAnalysis(),
+            assessoriaAnalysis: parsedAssessoriaAnalysis || prev.assessoriaAnalysis || getEmptyAssessoriaAnalysis(),
             ...(parsedSimulationData ? { simulationData: parsedSimulationData } : {})
-          });
+          }));
         } else {
           const prop = properties.find(p => p.id === id);
           if (prop) {

@@ -2,9 +2,11 @@ import React from 'react';
 import { 
   Shield, Cpu, Loader2, Save, FileText, CheckSquare, 
   HelpCircle, AlertTriangle, AlertCircle, RefreshCw, Sparkles,
-  TrendingUp, Scale, Gavel, User, Home, DollarSign, Calendar
+  TrendingUp, Scale, Gavel, User, Home, DollarSign, Calendar,
+  Download, Edit3, Info, ChevronDown, ChevronUp
 } from 'lucide-react';
 import { DocumentManager } from './DocumentManager';
+import { exportElementToPDF } from '../utils/pdfExporter';
 
 export interface SmartAnalysisData {
   risco_geral: 'Não avaliado' | 'Baixo' | 'Médio' | 'Alto';
@@ -192,6 +194,7 @@ export default function SmartAnalysisTab({
 }: SmartAnalysisTabProps) {
   const [localData, setLocalData] = React.useState<SmartAnalysisData>(data || getEmptySmartAnalysis());
   const [isSaving, setIsSaving] = React.useState(false);
+  const [isEditingParecer, setIsEditingParecer] = React.useState(false);
   const [extractingSection, setExtractingSection] = React.useState<string | null>(null);
 
   const handleExtractSection = async (sectionKey: string) => {
@@ -407,6 +410,15 @@ export default function SmartAnalysisTab({
           >
             {isSaving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
             Salvar Análise Smart
+          </button>
+
+          <button
+            onClick={() => exportElementToPDF('smart-analysis-tab-container', 'Analise_Smart_Leilao_TJ_INVEST.pdf', 'Análise Smart - Parecer do Investidor')}
+            className="flex items-center gap-2 bg-brand-bg hover:bg-black/5 dark:hover:bg-white/10 text-brand-ink px-5 py-3 rounded-xl text-xs font-bold transition-all border border-brand-border no-print shadow-xs"
+            id="btn-export-smart-pdf"
+          >
+            <Download size={16} className="text-brand-primary" />
+            Exportar PDF
           </button>
         </div>
       </div>
