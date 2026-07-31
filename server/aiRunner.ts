@@ -292,18 +292,18 @@ export const transcribeDocumentToMarkdown = async (
       effectiveMime = 'image/webp';
     }
 
-    const prompt = `Você é um especialista em OCR avançado, visão computacional e transcrição documental de cartórios de imóveis e tribunais de justiça no Brasil.
+    const prompt = `Você é um especialista sênior em OCR avançado, visão computacional e transcrição documental de processos judiciais, cartórios de imóveis e tribunais de justiça no Brasil.
 Sua missão é realizar a TRANSCRIÇÃO OCR EXATA, NA ÍNTEGRA, COMPLETA E SEM OMISSÕES deste documento ("${filename}") para o formato MARKDOWN limpo, organizado e estruturado.
 
-DIRETRIZES DE TRANSCRIÇÃO OBRIGATÓRIAS:
-1. LEIA E TRANSCREVA ABSOLUTAMENTE TUDO visível em TODAS as páginas:
+DIRETRIZES DE TRANSCRIÇÃO OBRIGATÓRIAS PARA PROCESSO JUDICIAL E DOCUMENTOS:
+1. LEIA E TRANSCREVA ABSOLUTAMENTE TUDO visível em TODAS as páginas (incluindo páginas antigas escaneadas, manuscritos, carimbos e selos):
+   - Em Peças do Processo Judicial: transcreva todos os números de folhas (fls.), petições iniciais e intermediárias, certidões de citação e intimação, autos de penhora e avaliação, decisões interlocutórias, despachos, sentenças, recursos (agravos, apelações, embargos à execução/adjudicação), editais de leilão, nomes das partes, CPFs e valores.
    - Na Matrícula de Imóvel: transcreva o cabeçalho do Cartório, número da matrícula, ficha, CNM, descrição completa do imóvel, proprietários anteriores e atuais, registros (R-1, R-2, R-3...), averbações (AV-1, AV-2, AV-3...), gravames (hipotecas, penhoras, alienações fiduciárias, consolidação da propriedade, leilões negativos), cancelamentos, certidão final do escrevente/oficial e selo de fiscalização.
-   - No Edital ou Peças do Processo: transcreva todas as cláusulas, números de processo, datas, valores de avaliação e lance, obrigações de débitos de condomínio/IPTU e decisões do juiz.
-2. NUNCA resuma ou abrevie alegando que "o documento continua" ou "conteúdo omitido". Transcreva cada parágrafo, texto datilografado ou manuscrito que conseguir ler na imagem.
+2. NUNCA resuma, abrevie ou omita partes alegando que "o documento continua" ou "conteúdo omitido". Transcreva cada parágrafo, despacho, carimbo, selo ou manuscrito legível.
 3. Estruture com títulos Markdown nítidos:
    # Documento: ${filename}
-   ## Página [Número]
-   ### [Averbação/Registro Exato, ex: AV-1-132.570 SERVIDÃO]
+   ## Página / Folha [Número/Fls.]
+   ### [Petição / Decisão / Certidão / Registro Exato]
 4. Mantenha as datas, números dos atos, CPFs/CNPJs e valores monetários (R$) exatamente como impressos no documento.
 5. Retorne APENAS o texto transcrevido em Markdown, sem saudações ou explicações fora do documento.`;
 
@@ -510,16 +510,38 @@ const analyzeWithGemini = async (files: any[], systemInstruction: string, model:
     throw new Error(`O volume de dados (${(finalSize / (1024 * 1024)).toFixed(1)}MB) excede o limite técnico de ${budget / (1024 * 1024)}MB mesmo após otimização extrema.`);
   }
 
-  const parts = optimizedFiles.map(file => {
-    if (file.useText) {
-      return { text: `[Documento: ${file.mimeType} - Conteúdo Extraído]\n${file.optimizedText}` };
+  const parts = optimizedFiles.flatMap(file => {
+    const fileParts: any[] = [];
+    
+    // 1. If OCR transcribed text is available, always include it as a rich text part so Gemini reads 100% of transcribed pages & text
+    if (file.extractedText && file.extractedText.trim().length > 0) {
+      fileParts.push({
+        text: `[DOCUMENTO TRANSCRITO VIA OCR IA - CONTEÚDO ÍNTEGRO DE "${file.filename || 'Processo Judicial'}"]\n${file.optimizedText || file.extractedText}`
+      });
+    } else if (file.useText && file.optimizedText) {
+      fileParts.push({
+        text: `[Documento: ${file.filename || file.mimeType} - Conteúdo Extraído]\n${file.optimizedText}`
+      });
     }
-    return {
-      inlineData: {
-        data: file.data.includes(',') ? file.data.split(',')[1] : file.data,
-        mimeType: file.mimeType
-      }
-    };
+
+    // 2. If base64 binary is available and not flagged as too large, ALSO include the visual file binary
+    if (file.data && !file.useText) {
+      fileParts.push({
+        inlineData: {
+          data: file.data.includes(',') ? file.data.split(',')[1] : file.data,
+          mimeType: file.mimeType || 'application/pdf'
+        }
+      });
+    }
+
+    // Fallback if neither was added
+    if (fileParts.length === 0) {
+      fileParts.push({
+        text: `[Arquivo: ${file.filename || file.mimeType}]`
+      });
+    }
+
+    return fileParts;
   });
 
   let promptText = "Analise os documentos de leilão fornecidos seguindo as instruções do sistema.";

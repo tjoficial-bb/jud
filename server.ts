@@ -21,11 +21,14 @@ const upload = multer({ storage: multer.memoryStorage() });
 
 async function extractTextFromBuffer(buffer: Buffer, mimeType: string, filename: string = "documento.pdf", docType: string = ""): Promise<string> {
   let extractedText = "";
-  const isPdf = mimeType === 'application/pdf' || filename.toLowerCase().endsWith('.pdf');
-  const isMatricula = filename.toLowerCase().includes('matricula') || filename.toLowerCase().includes('matrícula') || docType.toLowerCase().includes('matricula') || docType.toLowerCase().includes('matrícula');
+  const lowerFn = filename.toLowerCase();
+  const lowerDocType = docType.toLowerCase();
+  const isPdf = mimeType === 'application/pdf' || lowerFn.endsWith('.pdf');
+  const isMatricula = lowerFn.includes('matricula') || lowerFn.includes('matrícula') || lowerDocType.includes('matricula') || lowerDocType.includes('matrícula');
+  const isProcesso = lowerFn.includes('processo') || lowerFn.includes('autos') || lowerFn.includes('execucao') || lowerFn.includes('execução') || lowerFn.includes('peticao') || lowerFn.includes('petição') || lowerFn.includes('certidao') || lowerFn.includes('certidão') || lowerFn.includes('agrav') || lowerFn.includes('recurso') || lowerDocType.includes('processo');
   
   if (isPdf) {
-    if (buffer.length <= 25 * 1024 * 1024) {
+    if (buffer.length <= 30 * 1024 * 1024) {
       try {
         console.log(`[PDF] Iniciando extração de texto em "${filename}". Buffer: ${(buffer.length / 1024).toFixed(1)} KB`);
         let pdfParser = pdf;
@@ -39,17 +42,17 @@ async function extractTextFromBuffer(buffer: Buffer, mimeType: string, filename:
           console.log(`[PDF] Extração de stream de texto concluída: ${extractedText.length} caracteres.`);
         }
       } catch (err: any) {
-        console.warn(`[PDF] Falha na leitura basica de stream via pdf-parse em "${filename}":`, err.message);
+        console.warn(`[PDF] Falha na leitura básica de stream via pdf-parse em "${filename}":`, err.message);
       }
     }
     
-    // Evaluate if the extracted text is low density or if file is a Matrícula (which often needs OCR)
+    // Evaluate if the extracted text is low density, short, or if file is a Processo / Matrícula (which require full OCR)
     const cleanText = extractedText.replace(/\s+/g, ' ').trim();
     const headersCount = (cleanText.match(/Continua na página|Valide este documento|CNM:|Selo de Consulta/gi) || []).length;
-    const isLowDensityScannedPdf = cleanText.length < 3500 || headersCount >= 2 || isMatricula;
+    const isLowDensityScannedPdf = cleanText.length < 8000 || headersCount >= 1 || isMatricula || isProcesso;
 
     if (isLowDensityScannedPdf && process.env.GEMINI_API_KEY) {
-      console.log(`[PDF OCR AUTOMÁTICO] PDF "${filename}" (Tipo: ${docType || 'Geral'}) necessita leitura OCR completa (${cleanText.length} chars, Matrícula: ${isMatricula}). Executando transcrição OCR Gemini Vision...`);
+      console.log(`[PDF OCR AUTOMÁTICO] PDF "${filename}" (Tipo: ${docType || 'Geral'}) necessita leitura OCR completa por IA (${cleanText.length} chars, Processo: ${isProcesso}, Matrícula: ${isMatricula}). Executando transcrição OCR Gemini Vision...`);
       try {
         const ocrText = await transcribeDocumentToMarkdown(buffer, mimeType, filename);
         if (ocrText && ocrText.length > 50) {
@@ -1600,8 +1603,18 @@ export { AbortException, FormatError, InvalidPDFException, PasswordException, Se
         const filename = file.originalname;
         
         let extracted_text = req.body.extracted_text;
-        if (!extracted_text || typeof extracted_text !== 'string' || extracted_text.trim() === '') {
-          extracted_text = await extractTextFromBuffer(file.buffer, file.mimetype, filename, doc_type || '');
+        const lowerFn = (filename || '').toLowerCase();
+        const lowerDt = (doc_type || '').toLowerCase();
+        const isProcessoDoc = lowerDt.includes('processo') || lowerFn.includes('processo') || lowerFn.includes('autos') || lowerFn.includes('execucao') || lowerFn.includes('execução');
+        const isMatriculaDoc = lowerDt.includes('matricula') || lowerDt.includes('matrícula') || lowerFn.includes('matricula') || lowerFn.includes('matrícula');
+
+        if (!extracted_text || typeof extracted_text !== 'string' || extracted_text.trim().length < 5000 || isProcessoDoc || isMatriculaDoc) {
+          const serverText = await extractTextFromBuffer(file.buffer, file.mimetype, filename, doc_type || '');
+          if (serverText && serverText.trim().length > (extracted_text?.trim().length || 0)) {
+            extracted_text = serverText;
+          } else if (!extracted_text || extracted_text.trim() === '') {
+            extracted_text = serverText;
+          }
         }
 
         // Store base64 data for all PDFs and images up to 20MB so multimodal AI models (Gemini) can analyze visual PDF pages, stamps, and tables.
@@ -1860,13 +1873,36 @@ export { AbortException, FormatError, InvalidPDFException, PasswordException, Se
             const dbDoc = db.prepare("SELECT data, extracted_text, filename FROM documents WHERE id = ?").get(f.id) as any;
             if (dbDoc) {
               const mimeType = (dbDoc.filename || f.filename || "").toLowerCase().endsWith('.pdf') ? 'application/pdf' : f.mimeType;
+              let extText = dbDoc.extracted_text || f.extractedText || "";
+              const lowerFn = (dbDoc.filename || f.filename || "").toLowerCase();
+              const isProcessoDoc = lowerFn.includes('processo') || lowerFn.includes('autos') || lowerFn.includes('execucao') || lowerFn.includes('execução');
+              const isMatriculaDoc = lowerFn.includes('matricula') || lowerFn.includes('matrícula');
+
+              // If it's a process/matricula doc or short text (< 3500 chars), run server-side Gemini Vision OCR if not already transcribed
+              if ((isProcessoDoc || isMatriculaDoc || extText.length < 3500) && dbDoc.data && process.env.GEMINI_API_KEY) {
+                if (!extText.includes('# Documento:') && !extText.includes('## Página')) {
+                  try {
+                    console.log(`[ANALYSIS HYDRATION OCR] Executando OCR automático para "${dbDoc.filename || f.filename}" antes de enviar para análise de IA...`);
+                    const cleanBase64 = dbDoc.data.replace(/^data:[^;]+;base64,/, '').replace(/\s+/g, '');
+                    const buffer = Buffer.from(cleanBase64, 'base64');
+                    const ocrText = await transcribeDocumentToMarkdown(buffer, mimeType, dbDoc.filename || f.filename || "documento.pdf");
+                    if (ocrText && ocrText.length > extText.length) {
+                      extText = ocrText;
+                      db.prepare("UPDATE documents SET extracted_text = ? WHERE id = ?").run(ocrText, f.id);
+                    }
+                  } catch (e: any) {
+                    console.warn(`[ANALYSIS HYDRATION OCR] Falha ao transcrever "${dbDoc.filename}":`, e.message);
+                  }
+                }
+              }
+
               hydratedFiles.push({
                 ...f,
                 id: f.id,
                 filename: dbDoc.filename || f.filename,
                 data: dbDoc.data || f.data || "",
                 mimeType: mimeType,
-                extractedText: dbDoc.extracted_text || f.extractedText || ""
+                extractedText: extText
               });
               continue;
             }
