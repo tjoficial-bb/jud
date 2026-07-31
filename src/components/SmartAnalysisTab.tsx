@@ -279,7 +279,14 @@ export default function SmartAnalysisTab({
   const countDesocupacao = () => {
     let count = 0;
     if (localData.nivel_risco_desocupacao !== 'Não avaliado') count++;
-    if (localData.prazo_estimado_desocupacao.trim() !== '') count++;
+    if (localData.prazo_estimado_desocupacao && localData.prazo_estimado_desocupacao.trim() !== '') count++;
+    return { current: count, total: 2 };
+  };
+
+  const countRiscoDesocupacao = () => {
+    let count = 0;
+    if ((localData.risco_desocupacao || localData.nivel_risco_desocupacao) && (localData.risco_desocupacao !== 'Não avaliado' || localData.nivel_risco_desocupacao !== 'Não avaliado')) count++;
+    if ((localData.estimativa_prazo_desocupacao || localData.prazo_estimado_desocupacao) && (localData.estimativa_prazo_desocupacao || localData.prazo_estimado_desocupacao).trim() !== '') count++;
     return { current: count, total: 2 };
   };
 
@@ -295,9 +302,18 @@ export default function SmartAnalysisTab({
     return { current: count, total: 1 + items.length };
   };
 
+  const countRiscoNulidade = () => {
+    let count = 0;
+    if ((localData.risco_nulidade || localData.risco_geral_nulidade) && (localData.risco_nulidade !== 'Não avaliado' || localData.risco_geral_nulidade !== 'Não avaliado')) count++;
+    if (localData.preco_vil_caracterizado !== undefined) count++;
+    if (localData.intimacao_executado) count++;
+    if (localData.intimacao_conjuge) count++;
+    return { current: count, total: 4 };
+  };
+
   const countConsolidacao = () => {
     let count = 0;
-    if (localData.status_consolidacao !== 'Não verificado') count++;
+    if (localData.status_consolidacao && localData.status_consolidacao !== 'Não verificado' && localData.status_consolidacao !== 'Selecione') count++;
     return { current: count, total: 1 };
   };
 
@@ -309,19 +325,29 @@ export default function SmartAnalysisTab({
       localData.acao_reipersecutoria
     ];
     count = items.filter(Boolean).length;
-    return { current: count, total: items.length };
+    if (localData.status_matricula && localData.status_matricula !== 'Selecione') count++;
+    return { current: count, total: items.length + 1 };
   };
 
   const countOcupacao = () => {
     let count = 0;
     if (localData.status_ocupacao) count++;
     if (localData.relacao_ex_mutuario) count++;
-    if (localData.nome_ocupante.trim() !== '') count++;
-    if (localData.cpf_ocupante.trim() !== '') count++;
-    if (localData.telefone_ocupante.trim() !== '') count++;
-    if (localData.tempo_ocupacao.trim() !== '') count++;
-    if (localData.risco_usucapiao !== 'Não avaliado') count++;
+    if (localData.nome_ocupante && localData.nome_ocupante.trim() !== '') count++;
+    if (localData.cpf_ocupante && localData.cpf_ocupante.trim() !== '') count++;
+    if (localData.telefone_ocupante && localData.telefone_ocupante.trim() !== '') count++;
+    if (localData.tempo_ocupacao && localData.tempo_ocupacao.trim() !== '') count++;
+    if (localData.risco_usucapiao && localData.risco_usucapiao !== 'Não avaliado') count++;
     return { current: count, total: 7 };
+  };
+
+  const countOcupacional = () => {
+    let count = 0;
+    if (localData.situacao_ocupacional && localData.situacao_ocupacional !== 'Selecione') count++;
+    if (localData.risco_usucapiao && localData.risco_usucapiao !== 'Não avaliado') count++;
+    if (localData.nome_ocupante && localData.nome_ocupante.trim() !== '') count++;
+    if (localData.cpf_ocupante && localData.cpf_ocupante.trim() !== '') count++;
+    return { current: count, total: 4 };
   };
 
   const countImovel = () => {
