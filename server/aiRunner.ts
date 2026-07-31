@@ -150,7 +150,7 @@ const generateContentWithFallback = async (
   retries = 4,
   delayMs = 2500
 ): Promise<any> => {
-  const fallbackModels = ['gemini-2.5-flash', 'gemini-3.5-flash', 'gemini-3.1-flash-lite'];
+  const fallbackModels = ['gemini-2.5-flash', 'gemini-2.5-pro'];
   
   // Try models in sequence
   for (let mIndex = 0; mIndex <= fallbackModels.length; mIndex++) {
@@ -344,13 +344,15 @@ const getProviderFromModel = (model: string): string => {
 
 const mapModelId = (model: string): string => {
   const mapping: Record<string, string> = {
-    'gemini-3.5-flash': 'gemini-3.5-flash',
-    'gemini-3.1-pro-preview': 'gemini-3.1-pro-preview',
-    'gemini-3.1-flash-preview': 'gemini-3.5-flash',
-    'gemini-3-flash-preview': 'gemini-3.5-flash',
-    'gemini-2.5-pro': 'gemini-3.1-pro-preview',
-    'gemini-2.5-flash': 'gemini-3.5-flash',
-    'gemini-flash-latest': 'gemini-3.5-flash',
+    'gemini-3.5-flash': 'gemini-2.5-flash',
+    'gemini-3.1-pro-preview': 'gemini-2.5-pro',
+    'gemini-3.1-flash-preview': 'gemini-2.5-flash',
+    'gemini-3-flash-preview': 'gemini-2.5-flash',
+    'gemini-2.5-pro': 'gemini-2.5-pro',
+    'gemini-2.5-flash': 'gemini-2.5-flash',
+    'gemini-flash-latest': 'gemini-2.5-flash',
+    'gemini-2.0-flash': 'gemini-2.5-flash',
+    'gemini-1.5-flash': 'gemini-2.5-flash',
     
     'claude-4-6-opus': 'claude-3-5-sonnet-20241022', 
     'claude-4-6-sonnet': 'claude-3-5-sonnet-20241022',
@@ -1185,7 +1187,7 @@ Retorne APENAS o objeto JSON puro, sem formatação de bloco de código markdown
 Texto do processo:
 ${text.substring(0, 15000)}`;
 
-    const response = await generateContentWithFallback(ai, 'gemini-3.5-flash', {
+    const response = await generateContentWithFallback(ai, 'gemini-2.5-flash', {
       contents: prompt,
       config: {
         responseMimeType: 'application/json'
