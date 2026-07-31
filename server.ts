@@ -19,12 +19,13 @@ import { runBackendAnalysis, runBackendProcessStory, runBackendChatMessage, extr
 
 const upload = multer({ storage: multer.memoryStorage() });
 
-async function extractTextFromBuffer(buffer: Buffer, mimeType: string, filename: string = "documento.pdf"): Promise<string> {
+async function extractTextFromBuffer(buffer: Buffer, mimeType: string, filename: string = "documento.pdf", docType: string = ""): Promise<string> {
   let extractedText = "";
   const isPdf = mimeType === 'application/pdf' || filename.toLowerCase().endsWith('.pdf');
+  const isMatricula = filename.toLowerCase().includes('matricula') || filename.toLowerCase().includes('matrícula') || docType.toLowerCase().includes('matricula') || docType.toLowerCase().includes('matrícula');
   
   if (isPdf) {
-    if (buffer.length <= 20 * 1024 * 1024) {
+    if (buffer.length <= 25 * 1024 * 1024) {
       try {
         console.log(`[PDF] Iniciando extração de texto em "${filename}". Buffer: ${(buffer.length / 1024).toFixed(1)} KB`);
         let pdfParser = pdf;
@@ -42,26 +43,27 @@ async function extractTextFromBuffer(buffer: Buffer, mimeType: string, filename:
       }
     }
     
-    // Evaluate if the extracted text is low density (e.g. scanned PDF where pdf-parse only extracts page headers/footers)
+    // Evaluate if the extracted text is low density or if file is a Matrícula (which often needs OCR)
     const cleanText = extractedText.replace(/\s+/g, ' ').trim();
     const headersCount = (cleanText.match(/Continua na página|Valide este documento|CNM:|Selo de Consulta/gi) || []).length;
-    const isLowDensityScannedPdf = cleanText.length < 4000 || headersCount >= 2;
+    const isLowDensityScannedPdf = cleanText.length < 3500 || headersCount >= 2 || isMatricula;
 
     if (isLowDensityScannedPdf && process.env.GEMINI_API_KEY) {
-      console.log(`[PDF OCR] PDF "${filename}" parece ser escaneado ou de baixa densidade de texto (${cleanText.length} chars, ${headersCount} cabeçalhos). Executando transcrição OCR Gemini para Markdown...`);
+      console.log(`[PDF OCR AUTOMÁTICO] PDF "${filename}" (Tipo: ${docType || 'Geral'}) necessita leitura OCR completa (${cleanText.length} chars, Matrícula: ${isMatricula}). Executando transcrição OCR Gemini Vision...`);
       try {
         const ocrText = await transcribeDocumentToMarkdown(buffer, mimeType, filename);
-        if (ocrText && ocrText.length > cleanText.length) {
-          console.log(`[PDF OCR] Transcrição com sucesso em "${filename}". Texto expandido de ${cleanText.length} para ${ocrText.length} caracteres de Markdown.`);
+        if (ocrText && ocrText.length > 50) {
+          console.log(`[PDF OCR AUTOMÁTICO] Transcrição concluída em "${filename}". Retornando ${ocrText.length} caracteres em Markdown.`);
           return ocrText;
         }
       } catch (e: any) {
-        console.warn(`[PDF OCR] Falha ao executar transcrição OCR via Gemini:`, e.message);
+        console.warn(`[PDF OCR AUTOMÁTICO] Falha ao executar transcrição OCR via Gemini:`, e.message);
       }
     }
     return extractedText;
   } else if (mimeType && mimeType.startsWith('image/')) {
     if (process.env.GEMINI_API_KEY) {
+      console.log(`[IMAGE OCR AUTOMÁTICO] Processando imagem "${filename}" via Gemini Vision OCR...`);
       return await transcribeDocumentToMarkdown(buffer, mimeType, filename);
     }
     return "";
@@ -155,20 +157,16 @@ function initDbWithRetry() {
         }
       }
       
-      // Try to open it anyway as a fallback, configuring busy_timeout
+      // Try to open it anyway as a fallback, configuring busy_timeout and WAL mode
       try {
         db = new Database(DB_NAME);
-        db.pragma("busy_timeout = 5000");
+        db.pragma("busy_timeout = 10000");
+        db.pragma("journal_mode = WAL");
         return;
       } catch (fallbackErr: any) {
-        console.error("Failed to open database as fallback, initializing new one:", fallbackErr.message);
-        try {
-          if (fs.existsSync(DB_NAME)) {
-            fs.unlinkSync(DB_NAME);
-          }
-        } catch (unLinkErr) {}
+        console.error("Warning: Opening database in standard mode:", fallbackErr.message);
         db = new Database(DB_NAME);
-        db.pragma("busy_timeout = 5000");
+        db.pragma("busy_timeout = 10000");
         return;
       }
     }
@@ -1603,7 +1601,7 @@ export { AbortException, FormatError, InvalidPDFException, PasswordException, Se
         
         let extracted_text = req.body.extracted_text;
         if (!extracted_text || typeof extracted_text !== 'string' || extracted_text.trim() === '') {
-          extracted_text = await extractTextFromBuffer(file.buffer, file.mimetype, filename);
+          extracted_text = await extractTextFromBuffer(file.buffer, file.mimetype, filename, doc_type || '');
         }
 
         // Store base64 data for all PDFs and images up to 20MB so multimodal AI models (Gemini) can analyze visual PDF pages, stamps, and tables.
