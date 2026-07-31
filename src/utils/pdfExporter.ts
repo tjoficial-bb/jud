@@ -23,13 +23,13 @@ export function exportElementToPDF(elementId: string, filename: string = "Relato
 
   const inputs = clone.querySelectorAll('input, textarea');
   inputs.forEach(inp => {
-    const inputEl = inp as HTMLInputElement | HTMLTextAreaElement;
-    if (inputEl.type === 'checkbox') {
+    if (inp instanceof HTMLInputElement && inp.type === 'checkbox') {
       const textNode = document.createElement('span');
-      textNode.className = inputEl.checked ? 'font-bold text-emerald-700' : 'text-slate-500';
-      textNode.innerText = inputEl.checked ? '[SIM]' : '[NÃO]';
-      inputEl.parentNode?.replaceChild(textNode, inputEl);
+      textNode.className = inp.checked ? 'font-bold text-emerald-700' : 'text-slate-500';
+      textNode.innerText = inp.checked ? '[SIM]' : '[NÃO]';
+      inp.parentNode?.replaceChild(textNode, inp);
     } else {
+      const inputEl = inp as HTMLInputElement | HTMLTextAreaElement;
       const textNode = document.createElement('span');
       textNode.className = 'font-semibold text-slate-800';
       textNode.innerText = inputEl.value || '—';

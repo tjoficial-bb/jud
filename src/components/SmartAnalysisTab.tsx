@@ -18,21 +18,29 @@ export interface SmartAnalysisData {
   responsabilidade_iptu: 'Selecione' | 'Vendedor (Banco)' | 'Comprador' | 'Sub-rogado no preço';
   responsabilidade_condominio: 'Selecione' | 'Vendedor (Banco)' | 'Comprador' | 'Sub-rogado no preço';
   observacoes_edital: string;
+  folhas_edital?: string;
+  folhas_avaliacao?: string;
   
   iptu_atraso: number;
   condominio_atraso: number;
   outros_debitos: number;
   observacoes_debitos: string;
+  folhas_debitos?: string;
   
   nivel_risco_desocupacao: 'Não avaliado' | 'Baixo' | 'Médio' | 'Alto';
+  risco_desocupacao?: 'Não avaliado' | 'Baixo' | 'Médio' | 'Alto';
   liminar_bloqueando: boolean;
   acao_anulatoria: boolean;
   embargos_pendentes: boolean;
   recurso_pendente: boolean;
   prazo_estimado_desocupacao: string;
+  estimativa_prazo_desocupacao?: string;
+  custo_estimado_desocupacao?: number;
   observacoes_desocupacao: string;
+  folhas_ocupacao?: string;
   
   risco_geral_nulidade: 'Não avaliado' | 'Baixo' | 'Médio' | 'Alto';
+  risco_nulidade?: 'Não avaliado' | 'Baixo' | 'Médio' | 'Alto';
   citacao_regular?: boolean;
   intimacao_penhora?: boolean;
   intimacao_leilao_executado?: boolean;
@@ -40,19 +48,29 @@ export interface SmartAnalysisData {
   coproprietario_intimado?: boolean;
   publicacao_edital_ok?: boolean;
   preco_vil?: boolean;
+  preco_vil_caracterizado?: boolean;
+  intimacao_executado?: boolean;
+  intimacao_conjuge?: boolean;
   vicio_citacao: boolean;
   vicio_avaliacao: boolean;
   vicio_publicacao: boolean;
   vicio_procedimental: boolean;
   observacoes_nulidade: string;
+  folhas_citacao?: string;
+  folhas_intimacao_leilao?: string;
   
   status_consolidacao: 'Não verificado' | 'Regular' | 'Irregular' | 'Pendente';
+  data_consolidacao?: string;
   intimacao_purga_mora: boolean;
   intimacao_leiloes: boolean;
   averbacao_consolidacao: boolean;
   observacoes_consolidacao: string;
+  folhas_consolidacao?: string;
   
   matricula_atualizada: boolean;
+  status_matricula?: string;
+  indisponibilidade_bens?: boolean;
+  usufruto_hipoteca?: boolean;
   tem_onus: boolean;
   tem_penhora: boolean;
   tem_hipoteca: boolean;
@@ -60,8 +78,10 @@ export interface SmartAnalysisData {
   indisponibilidade: boolean;
   acao_reipersecutoria: boolean;
   observacoes_matricula: string;
+  folhas_penhora_matricula?: string;
   
   status_ocupacao: 'Ocupado pelo ex-mutuário' | 'Ocupado por terceiro' | 'Invasão' | 'Desocupado';
+  situacao_ocupacional?: string;
   relacao_ex_mutuario: 'O próprio' | 'Parente' | 'Inquilino' | 'Desconhecido';
   nome_ocupante: string;
   cpf_ocupante: string;
@@ -90,6 +110,37 @@ export interface SmartAnalysisData {
   observacoes_ex_mutuario: string;
 }
 
+export function renderTextWithLeafBadges(text: string | undefined | null) {
+  if (!text) return null;
+  
+  // Regex matches leaf/page patterns like:
+  // fls. 123-125, fl. 45, folhas 50 e 60, pág. 12, págs. 12-15, Av. 04, R. 02, etc.
+  const regex = /(fls?\.\s*\d+(?:\s*[-–a]\s*\d+)?(?:\s*e\s*\d+)?|folhas?\s*\d+(?:\s*[-–a]\s*\d+)?(?:\s*e\s*\d+)?|págs?\.\s*\d+(?:\s*[-–a]\s*\d+)?|Av\.\s*\d+|R\.\s*\d+(?:\/\d+)?)/gi;
+
+  const parts = text.split(regex);
+  if (parts.length === 1) return text;
+
+  return (
+    <span>
+      {parts.map((part, index) => {
+        if (regex.test(part)) {
+          return (
+            <span 
+              key={index} 
+              className="inline-flex items-center gap-1 bg-amber-100 dark:bg-amber-950/70 text-amber-900 dark:text-amber-200 border border-amber-300 dark:border-amber-700/80 px-1.5 py-0.5 rounded text-[11px] font-mono font-bold mx-0.5 shadow-xs align-baseline"
+              title="Localização do Documento no Processo / Matrícula"
+            >
+              <FileText size={11} className="text-amber-700 dark:text-amber-400 shrink-0" />
+              {part}
+            </span>
+          );
+        }
+        return part;
+      })}
+    </span>
+  );
+}
+
 export const getEmptySmartAnalysis = (): SmartAnalysisData => ({
   risco_geral: 'Não avaliado',
   recomendacao: 'Selecione',
@@ -99,10 +150,13 @@ export const getEmptySmartAnalysis = (): SmartAnalysisData => ({
   responsabilidade_iptu: 'Selecione',
   responsabilidade_condominio: 'Selecione',
   observacoes_edital: '',
+  folhas_edital: '',
+  folhas_avaliacao: '',
   iptu_atraso: 0,
   condominio_atraso: 0,
   outros_debitos: 0,
   observacoes_debitos: '',
+  folhas_debitos: '',
   nivel_risco_desocupacao: 'Não avaliado',
   liminar_bloqueando: false,
   acao_anulatoria: false,
@@ -110,6 +164,7 @@ export const getEmptySmartAnalysis = (): SmartAnalysisData => ({
   recurso_pendente: false,
   prazo_estimado_desocupacao: '',
   observacoes_desocupacao: '',
+  folhas_ocupacao: '',
   risco_geral_nulidade: 'Não avaliado',
   citacao_regular: false,
   intimacao_penhora: false,
@@ -123,11 +178,14 @@ export const getEmptySmartAnalysis = (): SmartAnalysisData => ({
   vicio_publicacao: false,
   vicio_procedimental: false,
   observacoes_nulidade: '',
+  folhas_citacao: '',
+  folhas_intimacao_leilao: '',
   status_consolidacao: 'Não verificado',
   intimacao_purga_mora: false,
   intimacao_leiloes: false,
   averbacao_consolidacao: false,
   observacoes_consolidacao: '',
+  folhas_consolidacao: '',
   matricula_atualizada: false,
   tem_onus: false,
   tem_penhora: false,
@@ -136,6 +194,7 @@ export const getEmptySmartAnalysis = (): SmartAnalysisData => ({
   indisponibilidade: false,
   acao_reipersecutoria: false,
   observacoes_matricula: '',
+  folhas_penhora_matricula: '',
   status_ocupacao: 'Ocupado pelo ex-mutuário',
   relacao_ex_mutuario: 'O próprio',
   nome_ocupante: '',
@@ -313,7 +372,7 @@ export default function SmartAnalysisTab({
 
   const countConsolidacao = () => {
     let count = 0;
-    if (localData.status_consolidacao && localData.status_consolidacao !== 'Não verificado' && localData.status_consolidacao !== 'Selecione') count++;
+    if (localData.status_consolidacao && localData.status_consolidacao !== 'Não verificado' && (localData.status_consolidacao as string) !== 'Selecione') count++;
     return { current: count, total: 1 };
   };
 
@@ -688,9 +747,27 @@ export default function SmartAnalysisTab({
                 <textarea
                   value={localData.observacoes_ocupacao}
                   onChange={e => handleChange('observacoes_ocupacao', e.target.value)}
-                  placeholder="Informações detalhadas sobre constatação de ocupação, visitas presenciais..."
+                  placeholder="Informações detalhadas sobre constatação de ocupação, visitas presenciais (cite fls. se relevante)..."
                   rows={2}
                   className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium resize-none"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider flex items-center justify-between">
+                  <span>Localização / Folhas nos Autos (ex: fls. 180 e 200)</span>
+                  {localData.folhas_ocupacao && (
+                    <span className="text-amber-700 font-mono font-bold bg-amber-100 px-1.5 py-0.5 rounded text-[10px]">
+                      {localData.folhas_ocupacao}
+                    </span>
+                  )}
+                </label>
+                <input
+                  type="text"
+                  value={localData.folhas_ocupacao || ''}
+                  onChange={e => handleChange('folhas_ocupacao', e.target.value)}
+                  placeholder="Ex: fls. 180-185"
+                  className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium font-mono"
                 />
               </div>
             </div>
@@ -744,6 +821,24 @@ export default function SmartAnalysisTab({
                   placeholder="Averbações de leilões negativos passados, quitação de ITBI..."
                   rows={2}
                   className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium resize-none"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider flex items-center justify-between">
+                  <span>Localização / Averbação no CRI (ex: Av. 06 / fls. 310)</span>
+                  {localData.folhas_consolidacao && (
+                    <span className="text-amber-700 font-mono font-bold bg-amber-100 px-1.5 py-0.5 rounded text-[10px]">
+                      {localData.folhas_consolidacao}
+                    </span>
+                  )}
+                </label>
+                <input
+                  type="text"
+                  value={localData.folhas_consolidacao || ''}
+                  onChange={e => handleChange('folhas_consolidacao', e.target.value)}
+                  placeholder="Ex: Av. 06 da Matrícula (fls. 310 dos autos)"
+                  className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium font-mono"
                 />
               </div>
             </div>
@@ -874,10 +969,33 @@ export default function SmartAnalysisTab({
                 <textarea
                   value={localData.observacoes_edital}
                   onChange={e => handleChange('observacoes_edital', e.target.value)}
-                  placeholder="Detalhamento das datas de praça, formas de parcelamento, eventuais encargos extras..."
+                  placeholder="Detalhamento das datas de praça, formas de parcelamento, eventuais encargos extras (cite fls. se relevante)..."
                   rows={2}
                   className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium resize-none font-sans"
                 />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Folhas do Edital (ex: fls. 210 e 211)</label>
+                  <input
+                    type="text"
+                    value={localData.folhas_edital || ''}
+                    onChange={e => handleChange('folhas_edital', e.target.value)}
+                    placeholder="Ex: fls. 210-215"
+                    className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium font-mono"
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Folhas da Avaliação (ex: fls. 150)</label>
+                  <input
+                    type="text"
+                    value={localData.folhas_avaliacao || ''}
+                    onChange={e => handleChange('folhas_avaliacao', e.target.value)}
+                    placeholder="Ex: fls. 150-165"
+                    className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium font-mono"
+                  />
+                </div>
               </div>
             </div>
 
@@ -969,6 +1087,24 @@ export default function SmartAnalysisTab({
                   className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium resize-none"
                 />
               </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider flex items-center justify-between">
+                  <span>Localização / Averbações dos Ônus (ex: Av. 04 / fls. 88)</span>
+                  {localData.folhas_penhora_matricula && (
+                    <span className="text-amber-700 font-mono font-bold bg-amber-100 px-1.5 py-0.5 rounded text-[10px]">
+                      {localData.folhas_penhora_matricula}
+                    </span>
+                  )}
+                </label>
+                <input
+                  type="text"
+                  value={localData.folhas_penhora_matricula || ''}
+                  onChange={e => handleChange('folhas_penhora_matricula', e.target.value)}
+                  placeholder="Ex: R. 03 (Penhora) / Av. 04 (Indisponibilidade) fls. 88"
+                  className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium font-mono"
+                />
+              </div>
             </div>
 
             {/* 2. Risco de Nulidade do Leilão */}
@@ -1044,6 +1180,29 @@ export default function SmartAnalysisTab({
                   className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium resize-none"
                 />
               </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Folhas da Citação (ex: fls. 50 e 60)</label>
+                  <input
+                    type="text"
+                    value={localData.folhas_citacao || ''}
+                    onChange={e => handleChange('folhas_citacao', e.target.value)}
+                    placeholder="Ex: fls. 50 e 60"
+                    className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium font-mono"
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Folhas Intimação Leilão (ex: fls. 120-125)</label>
+                  <input
+                    type="text"
+                    value={localData.folhas_intimacao_leilao || ''}
+                    onChange={e => handleChange('folhas_intimacao_leilao', e.target.value)}
+                    placeholder="Ex: fls. 120-125"
+                    className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium font-mono"
+                  />
+                </div>
+              </div>
             </div>
 
             {/* 3. Débitos do Imóvel */}
@@ -1100,6 +1259,24 @@ export default function SmartAnalysisTab({
                   placeholder="Certidões negativas tributárias consultadas, pendências de concessionárias..."
                   rows={2}
                   className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium resize-none"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider flex items-center justify-between">
+                  <span>Localização / Folhas das Certidões de Débitos (ex: fls. 95 e 98)</span>
+                  {localData.folhas_debitos && (
+                    <span className="text-amber-700 font-mono font-bold bg-amber-100 px-1.5 py-0.5 rounded text-[10px]">
+                      {localData.folhas_debitos}
+                    </span>
+                  )}
+                </label>
+                <input
+                  type="text"
+                  value={localData.folhas_debitos || ''}
+                  onChange={e => handleChange('folhas_debitos', e.target.value)}
+                  placeholder="Ex: fls. 95 e 98 dos autos"
+                  className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium font-mono"
                 />
               </div>
             </div>

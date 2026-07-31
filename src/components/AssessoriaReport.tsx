@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { DocumentManager } from './DocumentManager';
 import { exportElementToPDF } from '../utils/pdfExporter';
+import { renderTextWithLeafBadges } from './SmartAnalysisTab';
 
 export interface AssessoriaAnalysisData {
   // Montante de débitos
@@ -412,7 +413,7 @@ export default function AssessoriaReport({
                 />
               ) : (
                 <div className="text-xs bg-brand-bg/30 border border-brand-primary/5 rounded-xl p-3 min-h-[60px] whitespace-pre-wrap">
-                  {localData.ressalvas_eviccao || <span className="text-brand-ink/30 italic">Nenhuma ressalva de evicção descrita.</span>}
+                  {localData.ressalvas_eviccao ? renderTextWithLeafBadges(localData.ressalvas_eviccao) : <span className="text-brand-ink/30 italic">Nenhuma ressalva de evicção descrita.</span>}
                 </div>
               )}
             </div>
@@ -519,7 +520,7 @@ export default function AssessoriaReport({
                 />
               ) : (
                 <div className="text-xs bg-brand-bg/30 border border-brand-primary/5 rounded-xl p-3 min-h-[60px] whitespace-pre-wrap">
-                  {localData.comentarios_debitos || <span className="text-brand-ink/30 italic">Adicione um comentário...</span>}
+                  {localData.comentarios_debitos ? renderTextWithLeafBadges(localData.comentarios_debitos) : <span className="text-brand-ink/30 italic">Adicione um comentário...</span>}
                 </div>
               )}
             </div>
@@ -613,7 +614,7 @@ export default function AssessoriaReport({
                 />
               ) : (
                 <div className="text-xs bg-brand-bg/30 border border-brand-primary/5 rounded-xl p-3 min-h-[60px] whitespace-pre-wrap">
-                  {localData.comentarios_matricula || <span className="text-brand-ink/30 italic">Adicione um comentário...</span>}
+                  {localData.comentarios_matricula ? renderTextWithLeafBadges(localData.comentarios_matricula) : <span className="text-brand-ink/30 italic">Adicione um comentário...</span>}
                 </div>
               )}
             </div>
@@ -1020,7 +1021,7 @@ export default function AssessoriaReport({
                 />
               ) : (
                 <div className="text-xs bg-brand-bg/30 border border-brand-primary/5 rounded-xl p-3 min-h-[60px] whitespace-pre-wrap">
-                  {localData.observacoes_purga_mora || <span className="text-brand-ink/30 italic">Nenhuma observação informada.</span>}
+                  {localData.observacoes_purga_mora ? renderTextWithLeafBadges(localData.observacoes_purga_mora) : <span className="text-brand-ink/30 italic">Nenhuma observação informada.</span>}
                 </div>
               )}
             </div>
@@ -1077,7 +1078,7 @@ export default function AssessoriaReport({
                   />
                 ) : (
                   <div className="text-xs bg-brand-bg/30 border border-brand-primary/5 rounded-xl p-3 min-h-[60px] whitespace-pre-wrap">
-                    {localData.observacoes_leiloes_negativos || <span className="text-brand-ink/30 italic">Nenhuma observação informada.</span>}
+                    {localData.observacoes_leiloes_negativos ? renderTextWithLeafBadges(localData.observacoes_leiloes_negativos) : <span className="text-brand-ink/30 italic">Nenhuma observação informada.</span>}
                   </div>
                 )}
               </div>
@@ -1097,7 +1098,7 @@ export default function AssessoriaReport({
                 />
               ) : (
                 <div className="text-xs bg-brand-bg/30 border border-brand-primary/5 rounded-xl p-3 min-h-[60px] whitespace-pre-wrap">
-                  {localData.comentarios_viabilidade || <span className="text-brand-ink/30 italic">Adicione um comentário...</span>}
+                  {localData.comentarios_viabilidade ? renderTextWithLeafBadges(localData.comentarios_viabilidade) : <span className="text-brand-ink/30 italic">Adicione um comentário...</span>}
                 </div>
               )}
             </div>
@@ -1233,7 +1234,7 @@ export default function AssessoriaReport({
                 />
               ) : (
                 <div className="text-xs bg-brand-bg/30 border border-brand-primary/5 rounded-xl p-3 min-h-[60px] whitespace-pre-wrap">
-                  {localData.comentarios_adicionais || <span className="text-brand-ink/30 italic">Adicione um comentário...</span>}
+                  {localData.comentarios_adicionais ? renderTextWithLeafBadges(localData.comentarios_adicionais) : <span className="text-brand-ink/30 italic">Adicione um comentário...</span>}
                 </div>
               )}
             </div>
@@ -1265,7 +1266,7 @@ export default function AssessoriaReport({
                 />
               ) : (
                 <div className="text-xs bg-brand-bg/30 border border-brand-primary/5 rounded-xl p-3 min-h-[80px] whitespace-pre-wrap">
-                  {localData.comentarios_recomendacoes_finais || <span className="text-brand-ink/30 italic">Adicione recomendações finais...</span>}
+                  {localData.comentarios_recomendacoes_finais ? renderTextWithLeafBadges(localData.comentarios_recomendacoes_finais) : <span className="text-brand-ink/30 italic">Adicione recomendações finais...</span>}
                 </div>
               )}
             </div>
