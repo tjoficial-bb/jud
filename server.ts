@@ -713,82 +713,14 @@ async function startServer() {
   app.use(express.json({ limit: '100mb' }));
 
   app.use((req, res, next) => {
-    console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+    if (req.url.startsWith('/api')) {
+      console.log(`[API] ${req.method} ${req.url}`);
+    }
     next();
   });
 
-  // Explicitly serve src/lib/appErrors.ts as valid JS/TS to prevent fetch/parse errors in all environments
-  app.get(["/src/lib/appErrors.ts", "/src/lib/appErrors.js", "/src/lib/appErrors"], (req, res, next) => {
-    if (process.env.NODE_ENV !== "production") {
-      // In development, let Vite handle compiling and serving this TypeScript file!
-      return next();
-    }
-    // Always serve as valid JavaScript with the correct MIME type so that browsers can execute it directly
-    res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
-    const filePath = path.join(process.cwd(), "src", "lib", "appErrors.ts");
-    if (fs.existsSync(filePath)) {
-      const content = fs.readFileSync(filePath, "utf8");
-      // Strip TypeScript syntax to make it valid JS
-      let jsContent = content
-        .replace(/:\s*string/g, "")
-        .replace(/:\s*Error/g, "")
-        .replace(/\s+as\s+any\b/g, "")
-        .replace(/Object\.setPrototypeOf\(this,\s*[A-Za-z]+\.prototype\);/g, "");
-      return res.send(jsContent);
-    } else {
-      // Return hardcoded standard JS version to prevent any 404 or load error in production containers
-      const fallbackJS = `
-class AbortException extends Error {
-  constructor(message) {
-    super(message);
-    this.name = 'AbortException';
-  }
-}
-class FormatError extends Error {
-  constructor(message) {
-    super(message);
-    this.name = 'FormatError';
-  }
-}
-class InvalidPDFException extends Error {
-  constructor(message) {
-    super(message);
-    this.name = 'InvalidPDFException';
-  }
-}
-class PasswordException extends Error {
-  constructor(message) {
-    super(message);
-    this.name = 'PasswordException';
-  }
-}
-class SessionException extends Error {
-  constructor(message) {
-    super(message);
-    this.name = 'SessionException';
-  }
-}
-function getException(name) {
-  switch (name) {
-    case 'AbortException': return new AbortException('Abort exception');
-    case 'FormatError': return new FormatError('Format error');
-    case 'InvalidPDFException': return new InvalidPDFException('Invalid PDF');
-    case 'PasswordException': return new PasswordException('Password exception');
-    default: return new Error(name);
-  }
-}
-if (typeof window !== 'undefined') {
-  window.AbortException = AbortException;
-  window.FormatError = FormatError;
-  window.InvalidPDFException = InvalidPDFException;
-  window.PasswordException = PasswordException;
-  window.SessionException = SessionException;
-  window.getException = getException;
-}
-export { AbortException, FormatError, InvalidPDFException, PasswordException, SessionException, getException };
-`;
-      return res.send(fallbackJS);
-    }
+  app.get("/api/health", (req, res) => {
+    res.json({ status: "ok" });
   });
 
   // Auth Middleware
