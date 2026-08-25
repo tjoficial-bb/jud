@@ -134,8 +134,10 @@ function getCustomInstructionsPrompt(state: any): string {
 }
 
 type AIModel = 
-  | 'gemini-3.5-flash'
+  | 'gemini-3.7-flash'
+  | 'gemini-3.1-flash-lite'
   | 'gemini-3.1-pro-preview' 
+  | 'gemini-3.5-flash'
   | 'gemini-3.1-flash-preview'
   | 'gemini-3-flash-preview' 
   | 'gemini-2.5-pro'
@@ -633,7 +635,13 @@ export default function App() {
       aiFocus: 'general',
       cnjNumber: '',
       cnjResult: null,
-      selectedModel: (localStorage.getItem('saved_selected_model') || 'gemini-3.5-flash') as AIModel,
+      selectedModel: (() => {
+        const saved = localStorage.getItem('saved_selected_model');
+        if (!saved || saved === 'gemini-2.5-flash' || saved === 'gemini-2.0-flash' || saved === 'gemini-1.5-flash' || saved === 'gemini-3.5-flash') {
+          return 'gemini-3.7-flash' as AIModel;
+        }
+        return saved as AIModel;
+      })(),
       chatMessages: [],
       simulationData: {
         valuation: { value: 0, type: 'BRL' },
@@ -5992,7 +6000,7 @@ Responda APENAS um objeto JSON válido, sem aspas adicionais, sem bloco de códi
       const responseText = await sendChatMessage(
         [{ role: 'user', content: promptText }],
         "Você é um copywriter de marketing e vendas sênior e altamente estratégico, focado em atrair clientes de alto padrão para delegar o processo completo de leilão de imóveis para a assessoria premium de ponta a ponta da TJ INVEST.",
-        state.selectedModel || "gemini-2.5-flash",
+        state.selectedModel || "gemini-3.7-flash",
         state.userApiKey || undefined
       );
 
@@ -6619,7 +6627,7 @@ Retorne a resposta estritamente formatada em formato JSON válido com as seguint
   "feed_post": "legenda do Feed aqui..."
 }`;
 
-      const selectedModel = state.selectedModel || 'gemini-2.5-flash';
+      const selectedModel = state.selectedModel || 'gemini-3.7-flash';
       const userApiKey = (() => {
         const source = state.selectedKeySource;
         const config = state.aiConfig;
@@ -7578,7 +7586,7 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
         };
       });
 
-      const userApiKey = resolveApiKey(state.selectedKeySource, state.aiConfig, state.selectedModel || 'gemini-2.5-flash') || "";
+      const userApiKey = resolveApiKey(state.selectedKeySource, state.aiConfig, state.selectedModel || 'gemini-3.7-flash') || "";
       const finalApiKey = userApiKey || undefined;
       
       const prompt = `Você é um advogado imobiliário sênior e especialista em leilões de imóveis (judiciais e extrajudiciais) no Brasil.
@@ -7674,7 +7682,7 @@ Importante: se uma informação não for encontrada nos documentos, use o valor 
       const rawResult = await analyzeAuctionDocuments(
         fileParts, 
         prompt, 
-        state.selectedModel || 'gemini-2.5-flash', 
+        state.selectedModel || 'gemini-3.7-flash', 
         finalApiKey, 
         state.auctionUrls, 
         'smart_analysis'
@@ -7727,7 +7735,7 @@ Importante: se uma informação não for encontrada nos documentos, use o valor 
         };
       });
 
-      const userApiKey = resolveApiKey(state.selectedKeySource, state.aiConfig, state.selectedModel || 'gemini-2.5-flash') || "";
+      const userApiKey = resolveApiKey(state.selectedKeySource, state.aiConfig, state.selectedModel || 'gemini-3.7-flash') || "";
       const finalApiKey = userApiKey || undefined;
 
       let sectionInstruction = "";
@@ -7771,7 +7779,7 @@ Responda APENAS com um objeto JSON válido.`;
       const rawResult = await analyzeAuctionDocuments(
         fileParts, 
         prompt, 
-        state.selectedModel || 'gemini-2.5-flash', 
+        state.selectedModel || 'gemini-3.7-flash', 
         finalApiKey, 
         state.auctionUrls, 
         'smart_analysis'
@@ -7786,7 +7794,7 @@ Responda APENAS com um objeto JSON válido.`;
       }
       
       const mergedData = { 
-        ...getEmptySmartAnalysis(),
+        ...getEmptySmartAnalysis(), 
         ...(state.smartAnalysis || {}), 
         ...parsedData 
       };
@@ -7829,7 +7837,7 @@ Responda APENAS com um objeto JSON válido.`;
         };
       });
 
-      const userApiKey = resolveApiKey(state.selectedKeySource, state.aiConfig, state.selectedModel || 'gemini-2.5-flash') || "";
+      const userApiKey = resolveApiKey(state.selectedKeySource, state.aiConfig, state.selectedModel || 'gemini-3.7-flash') || "";
       const finalApiKey = userApiKey || undefined;
 
       let sectionInstruction = "";
@@ -7856,7 +7864,7 @@ Responda APENAS com um objeto JSON válido.`;
       const rawResult = await analyzeAuctionDocuments(
         fileParts, 
         prompt, 
-        state.selectedModel || 'gemini-2.5-flash', 
+        state.selectedModel || 'gemini-3.7-flash', 
         finalApiKey, 
         state.auctionUrls, 
         'assessoria_analysis'
@@ -7914,7 +7922,7 @@ Responda APENAS com um objeto JSON válido.`;
         };
       });
 
-      const userApiKey = resolveApiKey(state.selectedKeySource, state.aiConfig, state.selectedModel || 'gemini-2.5-flash') || "";
+      const userApiKey = resolveApiKey(state.selectedKeySource, state.aiConfig, state.selectedModel || 'gemini-3.7-flash') || "";
       const finalApiKey = userApiKey || undefined;
       
       const prompt = `Você é um advogado imobiliário especialista sênior em assessoria e pareceres de leilões de imóveis judiciais e extrajudiciais no Brasil.
@@ -7956,7 +7964,7 @@ Sua resposta deve ser APENAS um objeto JSON válido, sem qualquer bloco de códi
       const rawResult = await analyzeAuctionDocuments(
         fileParts, 
         prompt, 
-        state.selectedModel || 'gemini-2.5-flash', 
+        state.selectedModel || 'gemini-3.7-flash', 
         finalApiKey, 
         state.auctionUrls, 
         'assessoria_analysis'
@@ -8002,7 +8010,7 @@ Sua resposta deve ser APENAS um objeto JSON válido, sem qualquer bloco de códi
           },
           body: JSON.stringify({
             property_id: selectedPropertyId,
-            ia_used: state.selectedModel || "gemini-2.5-flash",
+            ia_used: state.selectedModel || "gemini-3.7-flash",
             ...fields
           })
         });
@@ -8035,9 +8043,9 @@ Sua resposta deve ser APENAS um objeto JSON válido, sem qualquer bloco de códi
           extractedText: doc.extracted_text || doc.extractedText || ""
         };
       });
-      const userApiKey = resolveApiKey(state.selectedKeySource, state.aiConfig, state.selectedModel || 'gemini-2.5-flash') || "";
+      const userApiKey = resolveApiKey(state.selectedKeySource, state.aiConfig, state.selectedModel || 'gemini-3.7-flash') || "";
       const editalPrompt = "Analise o Edital detalhadamente linha por linha, extraindo todas as informações financeiras, datas, leiloeiro, e débitos de IPTU e condomínio." + getCustomInstructionsPrompt(state);
-      const analysis = await analyzeAuctionDocuments(fileParts, editalPrompt, state.selectedModel || 'gemini-2.5-flash', userApiKey || undefined, [], 'edital');
+      const analysis = await analyzeAuctionDocuments(fileParts, editalPrompt, state.selectedModel || 'gemini-3.7-flash', userApiKey || undefined, [], 'edital');
       setState(prev => ({ ...prev, editalAnalysis: analysis }));
       
       if (selectedPropertyId) {
@@ -8069,9 +8077,9 @@ Sua resposta deve ser APENAS um objeto JSON válido, sem qualquer bloco de códi
           extractedText: doc.extracted_text || doc.extractedText || ""
         };
       });
-      const userApiKey = resolveApiKey(state.selectedKeySource, state.aiConfig, state.selectedModel || 'gemini-2.5-flash') || "";
+      const userApiKey = resolveApiKey(state.selectedKeySource, state.aiConfig, state.selectedModel || 'gemini-3.7-flash') || "";
       const matriculaPrompt = "Analise a Matrícula detalhadamente, identificando proprietários, alienações, consolidação, gravames e ônus." + getCustomInstructionsPrompt(state);
-      const analysis = await analyzeAuctionDocuments(fileParts, matriculaPrompt, state.selectedModel || 'gemini-2.5-flash', userApiKey || undefined, [], 'matricula');
+      const analysis = await analyzeAuctionDocuments(fileParts, matriculaPrompt, state.selectedModel || 'gemini-3.7-flash', userApiKey || undefined, [], 'matricula');
       setState(prev => ({ ...prev, matriculaAnalysis: analysis }));
       
       if (selectedPropertyId) {
@@ -8131,8 +8139,8 @@ Sua resposta deve ser APENAS um objeto JSON válido, sem qualquer bloco de códi
 
       Formate toda a resposta em português do Brasil, utilizando uma estrutura visual rica e limpa em Markdown, destacando os alertas cruciais.` + getCustomInstructionsPrompt(state);
       
-      const userApiKey = resolveApiKey(state.selectedKeySource, state.aiConfig, state.selectedModel || 'gemini-2.5-flash') || "";
-      const analysis = await analyzeAuctionDocuments(fileParts, processesPrompt, state.selectedModel || 'gemini-2.5-flash', userApiKey || undefined, [], 'processo');
+      const userApiKey = resolveApiKey(state.selectedKeySource, state.aiConfig, state.selectedModel || 'gemini-3.7-flash') || "";
+      const analysis = await analyzeAuctionDocuments(fileParts, processesPrompt, state.selectedModel || 'gemini-3.7-flash', userApiKey || undefined, [], 'processo');
       setState(prev => ({ ...prev, processAnalysis: analysis }));
       
       if (selectedPropertyId) {
@@ -8164,9 +8172,9 @@ Sua resposta deve ser APENAS um objeto JSON válido, sem qualquer bloco de códi
           extractedText: doc.extracted_text || doc.extractedText || ""
         };
       });
-      const userApiKey = resolveApiKey(state.selectedKeySource, state.aiConfig, state.selectedModel || 'gemini-2.5-flash') || "";
+      const userApiKey = resolveApiKey(state.selectedKeySource, state.aiConfig, state.selectedModel || 'gemini-3.7-flash') || "";
       const editalPrompt = "Analise o Edital detalhadamente linha por linha, extraindo todas as informações financeiras, datas, leiloeiro, e débitos de IPTU e condomínio." + getCustomInstructionsPrompt(state);
-      const analysis = await analyzeAuctionDocuments(fileParts, editalPrompt, state.selectedModel || 'gemini-2.5-flash', userApiKey || undefined, [], 'edital');
+      const analysis = await analyzeAuctionDocuments(fileParts, editalPrompt, state.selectedModel || 'gemini-3.7-flash', userApiKey || undefined, [], 'edital');
       setState(prev => ({ ...prev, editalAnalysis: analysis }));
     } catch (err) { console.error(err); alert("Erro ao analisar Edital."); } finally { setAnalyzing(false); }
   };
@@ -8190,9 +8198,9 @@ Sua resposta deve ser APENAS um objeto JSON válido, sem qualquer bloco de códi
           extractedText: doc.extracted_text || doc.extractedText || ""
         };
       });
-      const userApiKey = resolveApiKey(state.selectedKeySource, state.aiConfig, state.selectedModel || 'gemini-2.5-flash') || "";
+      const userApiKey = resolveApiKey(state.selectedKeySource, state.aiConfig, state.selectedModel || 'gemini-3.7-flash') || "";
       const matriculaPrompt = "Analise a Matrícula detalhadamente, identificando proprietários, alienações, consolidação, gravames e ônus." + getCustomInstructionsPrompt(state);
-      const analysis = await analyzeAuctionDocuments(fileParts, matriculaPrompt, state.selectedModel || 'gemini-2.5-flash', userApiKey || undefined, [], 'matricula');
+      const analysis = await analyzeAuctionDocuments(fileParts, matriculaPrompt, state.selectedModel || 'gemini-3.7-flash', userApiKey || undefined, [], 'matricula');
       setState(prev => ({ ...prev, matriculaAnalysis: analysis }));
     } catch (err) { console.error(err); alert("Erro ao analisar Matrícula."); } finally { setAnalyzing(false); }
   };
@@ -8244,8 +8252,8 @@ Sua resposta deve ser APENAS um objeto JSON válido, sem qualquer bloco de códi
 
       Formate toda a resposta em português do Brasil, utilizando uma estrutura visual rica e limpa em Markdown, destacando os alertas cruciais.` + getCustomInstructionsPrompt(state);
       
-      const userApiKey = resolveApiKey(state.selectedKeySource, state.aiConfig, state.selectedModel || 'gemini-2.5-flash') || "";
-      const analysis = await analyzeAuctionDocuments(fileParts, prompt, state.selectedModel || 'gemini-2.5-flash', userApiKey || undefined, [], 'processo');
+      const userApiKey = resolveApiKey(state.selectedKeySource, state.aiConfig, state.selectedModel || 'gemini-3.7-flash') || "";
+      const analysis = await analyzeAuctionDocuments(fileParts, prompt, state.selectedModel || 'gemini-3.7-flash', userApiKey || undefined, [], 'processo');
       setState(prev => ({ ...prev, processAnalysis: analysis }));
     } catch (err) {
       console.error(err);
@@ -8277,9 +8285,9 @@ Sua resposta deve ser APENAS um objeto JSON válido, sem qualquer bloco de códi
           extractedText: doc.extracted_text || doc.extractedText || ""
         };
       });
-      const userApiKey = resolveApiKey(state.selectedKeySource, state.aiConfig, state.selectedModel || 'gemini-2.5-flash') || "";
+      const userApiKey = resolveApiKey(state.selectedKeySource, state.aiConfig, state.selectedModel || 'gemini-3.7-flash') || "";
       const dossierPrompt = "Gere o Dossiê de Arrematação Inteligente" + getCustomInstructionsPrompt(state);
-      const analysis = await analyzeAuctionDocuments(fileParts, dossierPrompt, state.selectedModel || 'gemini-2.5-flash', userApiKey || undefined, state.auctionUrls, 'dossier');
+      const analysis = await analyzeAuctionDocuments(fileParts, dossierPrompt, state.selectedModel || 'gemini-3.7-flash', userApiKey || undefined, state.auctionUrls, 'dossier');
       setState(prev => ({ ...prev, dossierAnalysis: analysis }));
 
       // Auto-save if there's an active analysis and property
@@ -10500,7 +10508,7 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
                     const nextSource = e.target.value as any;
                     let nextModel = state.selectedModel;
                     if (nextSource === 'system_default' || nextSource === 'gemini_custom') {
-                      nextModel = 'gemini-2.5-flash';
+                      nextModel = 'gemini-3.7-flash';
                     } else if (nextSource === 'openai_custom') {
                       nextModel = 'gpt-4o';
                     }
@@ -10546,13 +10554,11 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
                 >
                   {(state.selectedKeySource === 'system_default' || state.selectedKeySource === 'gemini_custom') && (
                     <optgroup label="Google Gemini">
-                      <option value="gemini-3.5-flash">Gemini 3.5 Flash (Ultra-Rápido - Recomendado)</option>
+                      <option value="gemini-3.7-flash">Gemini 3.7 Flash (Recomendado - Mais Estável e Veloz)</option>
+                      <option value="gemini-2.5-flash">Gemini 2.5 Flash (Padrão)</option>
+                      <option value="gemini-2.5-pro">Gemini 2.5 Pro (Raciocínio Avançado)</option>
+                      <option value="gemini-3.5-flash">Gemini 3.5 Flash</option>
                       <option value="gemini-3.1-pro-preview">Gemini 3.1 Pro (Preview)</option>
-                      <option value="gemini-3.1-flash-preview">Gemini 3.1 Flash (Preview)</option>
-                      <option value="gemini-2.5-pro">Gemini 2.5 Pro (Preciso - Pago)</option>
-                      <option value="gemini-2.5-flash">Gemini 2.5 Flash (Rápido - Pago)</option>
-                      <option value="gemini-3-flash-preview">Gemini 3 Flash (Rápido/Eficiente)</option>
-                      <option value="gemini-flash-latest">Gemini 1.5 Flash (Legado)</option>
                     </optgroup>
                   )}
                   {state.selectedKeySource === 'openai_custom' && (
@@ -11947,15 +11953,15 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
                         onChange={(e) => updateState({ selectedModel: e.target.value as any })}
                         className="w-full text-xs font-semibold px-3 py-2.5 rounded-xl border border-brand-border bg-white text-brand-ink focus:outline-none focus:border-brand-primary"
                       >
-                        <option value="gemini-2.5-flash">Gemini 2.5 Flash (Veloz e Econômico)</option>
+                        <option value="gemini-3.7-flash">Gemini 3.7 Flash (Mais Estável e Veloz - Recomendado)</option>
+                        <option value="gemini-2.5-flash">Gemini 2.5 Flash (Padrão)</option>
                         <option value="gemini-2.5-pro">Gemini 2.5 Pro (Raciocínio Jurídico Avançado)</option>
-                        <option value="gemini-2.0-flash">Gemini 2.0 Flash (Legado)</option>
                       </select>
                     </div>
 
                     <div className="bg-white p-2.5 rounded-xl border border-brand-border/30 text-[10px] text-brand-ink/60 flex items-start gap-2">
                       <Cpu size={14} className="text-brand-primary shrink-0 mt-0.5" />
-                      <span>Selecione "Gemini 2.5 Pro" caso queira realizar interpretações extremamente profundas de matrículas extensas.</span>
+                      <span>Utilize "Gemini 3.7 Flash" para respostas rápidas e sem erros de instabilidade, ou "Gemini 2.5 Pro" para análises complexas.</span>
                     </div>
                   </div>
                 </div>

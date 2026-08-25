@@ -68,8 +68,8 @@ const fetchUrlContent = async (url: string): Promise<string> => {
 
 const callGeminiWithRetry = async <T>(
   fn: () => Promise<T>,
-  retries = 4,
-  delayMs = 2500
+  retries = 2,
+  delayMs = 1500
 ): Promise<T> => {
   let attempt = 0;
   while (true) {
@@ -113,29 +113,24 @@ const callGeminiWithRetry = async <T>(
         errorObjStr.includes("503") ||
         errorObjStr.includes("overloaded");
 
-      // Attempt retry only for transient network/server overloads or temporary quotas (429)
+      // Attempt retry for transient network/server overloads or temporary quotas
       if ((isUnavailable || isQuotaError) && !isAuthError && attempt < retries) {
-        const sleepTime = delayMs * Math.pow(2, attempt - 1);
+        const sleepTime = delayMs * Math.pow(2, attempt - 1) + Math.floor(Math.random() * 500);
         console.warn(`[Gemini API Retry] Chamada sob alta demanda ou limite temporário (Tentativa ${attempt}/${retries}). Aguardando ${sleepTime}ms para tentar novamente...`);
         await new Promise(resolve => setTimeout(resolve, sleepTime));
         continue;
       }
       
       if (isAuthError) {
-        throw new Error(`A chave de API do Gemini configurada é inválida ou não foi autorizada (Erro original: ${error.message || error}). Por favor, verifique se inseriu a chave de API correta nas Configurações da aplicação ou se definiu a variável de ambiente GEMINI_API_KEY corretamente no seu servidor de produção.`);
+        throw new Error(`A chave de API do Gemini configurada é inválida ou não foi autorizada (Erro original: ${error.message || error}). Por favor, verifique se inseriu a chave de API correta nas Configurações da aplicação ou se definiu a variável de ambiente GEMINI_API_KEY corretamente no seu servidor.`);
       }
 
       if (isQuotaError) {
-        throw new Error(`A chave de API do Gemini atingiu o limite de cota de requisições ou créditos esgotados (Erro original: ${error.message || error}).\n\n` +
-          `Como resolver em seu domínio de produção:\n` +
-          `1. Verifique se sua chave de API possui um plano de faturamento ativo (Pay-as-you-go) no console do Google AI Studio para remover as restrições rígidas da cota gratuita.\n` +
-          `2. Alternativamente, alterne o modelo para "Gemini 3.5 Flash", que possui limites de cota muito mais brandos e menor custo de processamento.`);
+        throw new Error(`A chave de API do Gemini atingiu o limite de cota de requisições (Erro 429: ${error.message || error}).`);
       }
 
       if (isUnavailable) {
-        throw new Error(`O modelo Gemini está com demanda temporária extremamente alta nos servidores da Google (Erro 503: Service Unavailable).\n\n` +
-          `Erro original: ${error.message || error}.\n\n` +
-          `Por favor, aguarde alguns instantes e tente novamente ou experimente selecionar outro modelo/provedor nas Configurações.`);
+        throw new Error(`O modelo Gemini está com demanda temporária alta nos servidores da Google (Erro 503: Service Unavailable - ${error.message || error}).`);
       }
       
       throw error;
@@ -147,30 +142,53 @@ const generateContentWithFallback = async (
   ai: any,
   primaryModel: string,
   requestPayload: any,
-  retries = 4,
-  delayMs = 2500
+  retries = 2,
+  delayMs = 1500
 ): Promise<any> => {
-  const fallbackModels = ['gemini-2.5-flash', 'gemini-2.5-pro'];
+  const initialModel = mapModelId(primaryModel);
+  // Prioritized list of valid Gemini models for graceful degradation
+  const fallbackModelPool = ['gemini-3.7-flash', 'gemini-flash-latest', 'gemini-3.1-flash-lite', 'gemini-3.1-pro-preview'];
   
-  // Try models in sequence
-  for (let mIndex = 0; mIndex <= fallbackModels.length; mIndex++) {
-    const rawModel = mIndex === 0 ? primaryModel : fallbackModels[mIndex - 1];
-    const currentModel = mapModelId(rawModel);
-    
-    // Avoid re-trying the same model if it is already the primary one
-    if (mIndex > 0 && currentModel === mapModelId(primaryModel)) {
-      continue;
+  // Build a distinct sequence starting with the requested model
+  const modelQueue: string[] = [initialModel];
+  for (const m of fallbackModelPool) {
+    const mapped = mapModelId(m);
+    if (!modelQueue.includes(mapped)) {
+      modelQueue.push(mapped);
     }
-    
+  }
+
+  let lastError: any = null;
+
+  for (let i = 0; i < modelQueue.length; i++) {
+    const currentModel = modelQueue[i];
     try {
-      console.log(`[Gemini Request] Tentando gerar conteúdo com o modelo: ${currentModel}`);
+      console.log(`[Gemini Request] Executando chamada (${i + 1}/${modelQueue.length}) com o modelo: ${currentModel}`);
       const payloadCopy = { ...requestPayload, model: currentModel };
       return await callGeminiWithRetry(() => ai.models.generateContent(payloadCopy), retries, delayMs);
     } catch (error: any) {
-      console.warn(`[Gemini Request Error] Modelo ${currentModel} falhou:`, error?.message || error);
+      lastError = error;
+      console.warn(`[Gemini Request Warning] Modelo ${currentModel} falhou:`, error?.message || error);
+      
       const errorStr = (error?.message || String(error)).toLowerCase();
       const errorObjStr = JSON.stringify(error || {}).toLowerCase();
       
+      const isAuthError = 
+        errorStr.includes("api key not valid") || 
+        errorStr.includes("invalid api key") || 
+        errorStr.includes("unregistered callers") || 
+        errorStr.includes("key_invalid") || 
+        errorStr.includes("api_key_invalid") || 
+        errorStr.includes("not authorized") ||
+        errorObjStr.includes("api key not valid") ||
+        errorObjStr.includes("invalid_key") ||
+        errorObjStr.includes("unregistered");
+
+      // For authentication issues, changing models will not help
+      if (isAuthError) {
+        throw error;
+      }
+
       const isFileError = 
         errorStr.includes("no pages") || 
         errorStr.includes("has no pages") ||
@@ -217,51 +235,25 @@ const generateContentWithFallback = async (
         }
 
         if (hasInlineData && contentsCopy) {
-          console.warn(`[Gemini Request Fallback] Erro de leitura de arquivo detectado ("${error?.message}"). Convertendo inlineData para texto e tentando novamente...`);
-          const fallbackPayload = {
-            ...requestPayload,
-            contents: contentsCopy
-          };
+          console.warn(`[Gemini Request Fallback] Erro de leitura de arquivo detectado. Convertendo inlineData para texto e tentando novamente com ${currentModel}...`);
           try {
-            return await callGeminiWithRetry(() => ai.models.generateContent({ ...fallbackPayload, model: currentModel }), retries, delayMs);
+            return await callGeminiWithRetry(() => ai.models.generateContent({ ...requestPayload, contents: contentsCopy, model: currentModel }), retries, delayMs);
           } catch (fallbackError) {
             console.error("[Gemini Request Fallback] Falha no retry sem inlineData:", fallbackError);
           }
         }
       }
 
-      const isUnavailable = 
-        error?.status === 503 || 
-        errorStr.includes("503") || 
-        errorStr.includes("unavailable") || 
-        errorStr.includes("high demand") ||
-        errorStr.includes("temporary") ||
-        errorStr.includes("overloaded") ||
-        errorObjStr.includes("unavailable") ||
-        errorObjStr.includes("503") ||
-        errorObjStr.includes("overloaded");
-
-      const isQuotaError = 
-        error?.status === 429 ||
-        errorStr.includes("429") || 
-        errorStr.includes("exhausted") || 
-        errorStr.includes("quota") || 
-        errorStr.includes("limit") ||
-        errorObjStr.includes("429") ||
-        errorObjStr.includes("exhausted") ||
-        errorObjStr.includes("quota") ||
-        errorObjStr.includes("limit");
-
-      if ((isUnavailable || isQuotaError) && mIndex < fallbackModels.length) {
-        const nextModel = mapModelId(fallbackModels[mIndex]);
-        if (nextModel !== currentModel) {
-          console.warn(`[Gemini Fallback Triggered] Modelo ${currentModel} falhou. Tentando fallback para o modelo alternativo: ${nextModel}...`);
-          continue;
-        }
+      // If more models exist in queue, smoothly continue to the next model
+      if (i < modelQueue.length - 1) {
+        const nextModel = modelQueue[i + 1];
+        console.warn(`[Gemini Fallback Triggered] Modelo ${currentModel} indisponível ou com erro. Tentando fallback automático para: ${nextModel}...`);
+        continue;
       }
-      throw error;
     }
   }
+
+  throw lastError;
 };
 
 export const transcribeDocumentToMarkdown = async (
@@ -277,7 +269,7 @@ export const transcribeDocumentToMarkdown = async (
 
   try {
     console.log(`[OCR Transcribe] Iniciando OCR / Transcrição para Markdown de "${filename}" (${(buffer.length / 1024).toFixed(1)} KB)...`);
-    const ai = new GoogleGenAI({ apiKey });
+    const ai = new GoogleGenAI({ apiKey, httpOptions: { headers: { 'User-Agent': 'aistudio-build' } } });
     const base64Data = buffer.toString("base64");
     
     let effectiveMime = mimeType || 'application/pdf';
@@ -324,7 +316,7 @@ DIRETRIZES DE TRANSCRIÇÃO OBRIGATÓRIAS PARA PROCESSO JUDICIAL E DOCUMENTOS:
       ]
     };
 
-    const response = await generateContentWithFallback(ai, 'gemini-2.5-flash', requestPayload);
+    const response = await generateContentWithFallback(ai, 'gemini-3.7-flash', requestPayload);
     const transcribedText = response?.text?.trim() || response?.candidates?.[0]?.content?.parts?.map((p: any) => p.text).join('\n')?.trim() || "";
     console.log(`[OCR Transcribe] Transcrição para Markdown concluída com sucesso para "${filename}". Tamanho: ${transcribedText.length} caracteres.`);
     return transcribedText;
@@ -344,15 +336,18 @@ const getProviderFromModel = (model: string): string => {
 
 const mapModelId = (model: string): string => {
   const mapping: Record<string, string> = {
-    'gemini-3.5-flash': 'gemini-2.5-flash',
-    'gemini-3.1-pro-preview': 'gemini-2.5-pro',
-    'gemini-3.1-flash-preview': 'gemini-2.5-flash',
-    'gemini-3-flash-preview': 'gemini-2.5-flash',
-    'gemini-2.5-pro': 'gemini-2.5-pro',
-    'gemini-2.5-flash': 'gemini-2.5-flash',
-    'gemini-flash-latest': 'gemini-2.5-flash',
-    'gemini-2.0-flash': 'gemini-2.5-flash',
-    'gemini-1.5-flash': 'gemini-2.5-flash',
+    'gemini-3.7-flash': 'gemini-3.7-flash',
+    'gemini-3.5-flash': 'gemini-3.7-flash',
+    'gemini-3.1-flash-lite': 'gemini-3.1-flash-lite',
+    'gemini-3.1-pro-preview': 'gemini-3.1-pro-preview',
+    'gemini-3.1-flash-preview': 'gemini-3.7-flash',
+    'gemini-3-flash-preview': 'gemini-3.7-flash',
+    'gemini-flash-latest': 'gemini-flash-latest',
+    'gemini-2.5-pro': 'gemini-3.1-pro-preview',
+    'gemini-2.5-flash': 'gemini-3.7-flash',
+    'gemini-2.0-flash': 'gemini-3.7-flash',
+    'gemini-1.5-flash': 'gemini-3.7-flash',
+    'gemini-1.5-pro': 'gemini-3.1-pro-preview',
     
     'claude-4-6-opus': 'claude-3-5-sonnet-20241022', 
     'claude-4-6-sonnet': 'claude-3-5-sonnet-20241022',
@@ -500,7 +495,7 @@ const EF_DOCUMENTATION_KNOWLEDGE = `
 `;
 
 const analyzeWithGemini = async (files: any[], systemInstruction: string, model: string, apiKey: string, auctionUrls?: string[]) => {
-  const ai = new GoogleGenAI({ apiKey });
+  const ai = new GoogleGenAI({ apiKey, httpOptions: { headers: { 'User-Agent': 'aistudio-build' } } });
   const mappedModel = mapModelId(model);
   const budget = getPayloadBudget(model);
   const optimizedFiles = optimizePayload(files, budget, model);
@@ -1082,7 +1077,7 @@ Formate a resposta estritamente em JSON com a seguinte estrutura:
 }`;
 
   if (provider === 'gemini') {
-    const ai = new GoogleGenAI({ apiKey });
+    const ai = new GoogleGenAI({ apiKey, httpOptions: { headers: { 'User-Agent': 'aistudio-build' } } });
     const budget = getPayloadBudget(model);
     const optimizedFiles = optimizePayload(files, budget, model);
 
@@ -1139,7 +1134,7 @@ export const runBackendChatMessage = async (
   const mappedModel = mapModelId(model);
 
   if (provider === 'gemini') {
-    const ai = new GoogleGenAI({ apiKey });
+    const ai = new GoogleGenAI({ apiKey, httpOptions: { headers: { 'User-Agent': 'aistudio-build' } } });
     const contents = messages.map(m => ({
       role: m.role === 'user' ? 'user' : 'model',
       parts: [{ text: m.content }]
@@ -1185,7 +1180,7 @@ export const extractProcessDetailsFromText = async (
   apiKey: string
 ): Promise<any> => {
   try {
-    const ai = new GoogleGenAI({ apiKey });
+    const ai = new GoogleGenAI({ apiKey, httpOptions: { headers: { 'User-Agent': 'aistudio-build' } } });
     const prompt = `Analise o texto extraído de um processo judicial abaixo e extraia as seguintes informações estruturadas de forma precisa em formato JSON:
 1. número do processo (cnj_number) no formato padrão CNJ (ex: 1017459-42.2025.8.26.0577).
 2. tribunal (court), ex: TJSP, TJMG, etc.
@@ -1209,7 +1204,7 @@ Retorne APENAS o objeto JSON puro, sem formatação de bloco de código markdown
 Texto do processo:
 ${text.substring(0, 15000)}`;
 
-    const response = await generateContentWithFallback(ai, 'gemini-2.5-flash', {
+    const response = await generateContentWithFallback(ai, 'gemini-3.7-flash', {
       contents: prompt,
       config: {
         responseMimeType: 'application/json'
