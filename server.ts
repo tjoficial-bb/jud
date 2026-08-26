@@ -14,7 +14,7 @@ const pdf = localRequire('pdf-parse');
 
 dotenv.config();
 
-import { runBackendAnalysis, runBackendProcessStory, runBackendChatMessage, extractProcessDetailsFromText, transcribeDocumentToMarkdown } from "./server/aiRunner";
+import { runBackendAnalysis, runBackendProcessStory, runBackendChatMessage, extractProcessDetailsFromText, transcribeDocumentToMarkdown, validateProviderApiKey } from "./server/aiRunner";
 
 
 const upload = multer({ storage: multer.memoryStorage() });
@@ -710,7 +710,19 @@ async function startServer() {
   const app = express();
   const PORT = Number(process.env.PORT) || 3000;
 
+  // Global CORS and Preflight headers to support all environments, iframes and clients
+  app.use((req, res, next) => {
+    res.header("Access-Control-Allow-Origin", "*");
+    res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, PATCH");
+    res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization");
+    if (req.method === "OPTIONS") {
+      return res.sendStatus(200);
+    }
+    next();
+  });
+
   app.use(express.json({ limit: '100mb' }));
+  app.use(express.urlencoded({ extended: true, limit: '100mb' }));
 
   app.use((req, res, next) => {
     if (req.url.startsWith('/api')) {
@@ -999,6 +1011,22 @@ async function startServer() {
     } catch (error: any) {
       console.error("Error saving AI config:", error.message);
       res.status(500).json({ error: error.message });
+    }
+  });
+
+  // --- AI Key Validation Endpoint ---
+  app.post("/api/ai/test-key", authenticateToken, async (req, res) => {
+    try {
+      const { provider = 'gemini', apiKey = '' } = req.body;
+      const result = await validateProviderApiKey(provider, apiKey);
+      if (result.success) {
+        return res.json(result);
+      } else {
+        return res.status(400).json(result);
+      }
+    } catch (err: any) {
+      console.error("[API Test Key Error]:", err);
+      return res.status(500).json({ success: false, message: err?.message || "Erro interno ao validar chave." });
     }
   });
 
@@ -1791,11 +1819,12 @@ async function startServer() {
   app.post("/api/ai/analyze", authenticateToken, async (req, res) => {
     try {
       const { files, systemInstruction, model, apiKey, auctionUrls, analysisType } = req.body;
-      const provider = model.startsWith('gemini') ? 'gemini' : 
-                       model.startsWith('claude') ? 'claude' : 
-                       (model.startsWith('gpt') || model.startsWith('o1')) ? 'openai' : 'deepseek';
+      const safeModel = (typeof model === 'string' && model.trim()) ? model.trim() : 'gemini-3.7-flash';
+      const provider = safeModel.startsWith('gemini') ? 'gemini' : 
+                       safeModel.startsWith('claude') ? 'claude' : 
+                       (safeModel.startsWith('gpt') || safeModel.startsWith('o1')) ? 'openai' : 'deepseek';
 
-      console.log(`[PROXY DIAGNOSTICS] analyze requested. Model: ${model}, Provider: ${provider}, incoming apiKey length: ${apiKey ? apiKey.length : 0}`);
+      console.log(`[PROXY DIAGNOSTICS] analyze requested. Model: ${safeModel}, Provider: ${provider}, incoming apiKey length: ${apiKey ? apiKey.length : 0}`);
 
       // Server-side file hydration to keep payloads small and protect transmission issues
       const hydratedFiles = [];
@@ -1881,7 +1910,7 @@ async function startServer() {
       }
 
       console.log(`[Proxy] Iniciando análise de IA com provedor ${provider} de ${hydratedFiles.length} arquivos.`);
-      const result = await runBackendAnalysis(hydratedFiles, systemInstruction, model, resolvedKey, auctionUrls, analysisType);
+      const result = await runBackendAnalysis(hydratedFiles, systemInstruction, safeModel, resolvedKey, auctionUrls, analysisType);
       res.json({ result });
     } catch (error: any) {
       console.error("Erro na API de análise server-side:", error);
@@ -1892,9 +1921,10 @@ async function startServer() {
   app.post("/api/ai/story", authenticateToken, async (req, res) => {
     try {
       const { files, model, apiKey } = req.body;
-      const provider = model.startsWith('gemini') ? 'gemini' : 
-                       model.startsWith('claude') ? 'claude' : 
-                       (model.startsWith('gpt') || model.startsWith('o1')) ? 'openai' : 'deepseek';
+      const safeModel = (typeof model === 'string' && model.trim()) ? model.trim() : 'gemini-3.7-flash';
+      const provider = safeModel.startsWith('gemini') ? 'gemini' : 
+                       safeModel.startsWith('claude') ? 'claude' : 
+                       (safeModel.startsWith('gpt') || safeModel.startsWith('o1')) ? 'openai' : 'deepseek';
 
       // Server-side file hydration to keep payloads small and protect transmission issues
       const hydratedFiles = [];
@@ -1949,7 +1979,7 @@ async function startServer() {
       }
 
       console.log(`[Proxy] Iniciando geração da história do processo com provedor ${provider}.`);
-      const result = await runBackendProcessStory(hydratedFiles, model, resolvedKey);
+      const result = await runBackendProcessStory(hydratedFiles, safeModel, resolvedKey);
       res.json(result);
     } catch (error: any) {
       console.error("Erro na API de Process Story server-side:", error);
@@ -1960,9 +1990,10 @@ async function startServer() {
   app.post("/api/ai/chat", authenticateToken, async (req, res) => {
     try {
       const { messages, systemInstruction, model, apiKey } = req.body;
-      const provider = model.startsWith('gemini') ? 'gemini' : 
-                       model.startsWith('claude') ? 'claude' : 
-                       (model.startsWith('gpt') || model.startsWith('o1')) ? 'openai' : 'deepseek';
+      const safeModel = (typeof model === 'string' && model.trim()) ? model.trim() : 'gemini-3.7-flash';
+      const provider = safeModel.startsWith('gemini') ? 'gemini' : 
+                       safeModel.startsWith('claude') ? 'claude' : 
+                       (safeModel.startsWith('gpt') || safeModel.startsWith('o1')) ? 'openai' : 'deepseek';
 
       let resolvedKey = apiKey || "";
       if (!resolvedKey || resolvedKey.trim() === "") {
@@ -1994,7 +2025,7 @@ async function startServer() {
       }
 
       console.log(`[Proxy] Iniciando chat interativo IA com provedor ${provider}.`);
-      const result = await runBackendChatMessage(messages, systemInstruction, model, resolvedKey);
+      const result = await runBackendChatMessage(messages, systemInstruction, safeModel, resolvedKey);
       res.json({ result });
     } catch (error: any) {
       console.error("Erro na API de Chat server-side:", error);

@@ -2132,31 +2132,24 @@ function AIConfigView({ token, aiConfig, onConfigUpdate }: { token: string, aiCo
     setTesting(true);
     setTestResult(null);
     try {
-      if (provider === 'gemini') {
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1/models?key=${keyToTest}`);
-        const data = await parseJsonResponse(response);
-        if (!response.ok) throw new Error(data.error?.message || "Erro ao validar chave Gemini");
-        setTestResult({ success: true, message: "Conexão Gemini estabelecida com sucesso!" });
-      } else if (provider === 'openai') {
-        const response = await fetch('https://api.openai.com/v1/models', {
-          headers: { 'Authorization': `Bearer ${keyToTest}` }
-        });
-        const data = await parseJsonResponse(response);
-        if (!response.ok) throw new Error(data.error?.message || "Erro ao validar chave OpenAI");
-        setTestResult({ success: true, message: "Conexão OpenAI estabelecida com sucesso!" });
-      } else if (provider === 'claude') {
-        if (!keyToTest.startsWith('sk-ant-')) throw new Error("Chave Claude inválida. Deve começar com 'sk-ant-'");
-        setTestResult({ success: true, message: "Formato de chave Claude parece correto (sk-ant-...)" });
-      } else if (provider === 'deepseek') {
-        const response = await fetch('https://api.deepseek.com/models', {
-          headers: { 'Authorization': `Bearer ${keyToTest}` }
-        });
-        const data = await parseJsonResponse(response);
-        if (!response.ok) throw new Error(data.error?.message || "Erro ao validar chave DeepSeek");
-        setTestResult({ success: true, message: "Conexão DeepSeek estabelecida com sucesso!" });
+      const response = await fetch('/api/ai/test-key', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          provider,
+          apiKey: keyToTest
+        })
+      });
+      const data = await parseJsonResponse(response);
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || data.error || `Erro ao validar chave ${provider}`);
       }
+      setTestResult({ success: true, message: data.message || `Conexão com ${provider.toUpperCase()} estabelecida com sucesso!` });
     } catch (err: any) {
-      setTestResult({ success: false, message: `Erro: ${err.message}` });
+      setTestResult({ success: false, message: formatErrorMessage(err) });
     } finally {
       setTesting(false);
     }

@@ -1313,4 +1313,67 @@ export function safeParseJSON(text: string): any {
   }
 }
 
+export const validateProviderApiKey = async (provider: string, apiKey: string): Promise<{ success: boolean; message: string }> => {
+  let key = (typeof apiKey === 'string' ? apiKey : "").trim();
+  if (key.includes(' • ')) {
+    key = key.split(' • ')[1].trim();
+  }
+  if (!key) {
+    return { success: false, message: "A chave de API não foi informada." };
+  }
+
+  if (provider === 'gemini') {
+    if (!key.startsWith('AIza') && !key.startsWith('AQ')) {
+      return { success: false, message: "A chave Gemini parece inválida. Deve começar com 'AIza' ou 'AQ'." };
+    }
+    try {
+      const ai = new GoogleGenAI({ apiKey: key, httpOptions: { headers: { 'User-Agent': 'aistudio-build' } } });
+      const response = await ai.models.generateContent({
+        model: 'gemini-3.7-flash',
+        contents: [{ role: 'user', parts: [{ text: 'teste de conexao' }] }]
+      });
+      if (response) {
+        return { success: true, message: "Conexão com Google Gemini realizada com sucesso!" };
+      }
+      return { success: false, message: "Resposta vazia do servidor Gemini." };
+    } catch (err: any) {
+      console.error("[Validate Gemini Key]", err);
+      return { success: false, message: `Erro Gemini: ${err?.message || err}` };
+    }
+  } else if (provider === 'openai') {
+    try {
+      const openai = new OpenAI({ apiKey: key });
+      await openai.models.list();
+      return { success: true, message: "Conexão com OpenAI realizada com sucesso!" };
+    } catch (err: any) {
+      return { success: false, message: `Erro OpenAI: ${err?.message || err}` };
+    }
+  } else if (provider === 'claude') {
+    if (!key.startsWith('sk-ant-')) {
+      return { success: false, message: "Chave Claude inválida. Deve começar com 'sk-ant-'." };
+    }
+    try {
+      const anthropic = new Anthropic({ apiKey: key });
+      await anthropic.messages.create({
+        model: 'claude-3-5-haiku-20241022',
+        max_tokens: 10,
+        messages: [{ role: 'user', content: 'ping' }]
+      });
+      return { success: true, message: "Conexão com Claude Anthropic realizada com sucesso!" };
+    } catch (err: any) {
+      return { success: false, message: `Erro Claude: ${err?.message || err}` };
+    }
+  } else if (provider === 'deepseek') {
+    try {
+      const deepseek = new OpenAI({ apiKey: key, baseURL: 'https://api.deepseek.com' });
+      await deepseek.models.list();
+      return { success: true, message: "Conexão com DeepSeek realizada com sucesso!" };
+    } catch (err: any) {
+      return { success: false, message: `Erro DeepSeek: ${err?.message || err}` };
+    }
+  }
+
+  return { success: false, message: `Provedor de IA desconhecido: ${provider}` };
+};
+
 
