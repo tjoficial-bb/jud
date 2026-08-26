@@ -1,16 +1,17 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   Shield, Cpu, Loader2, Save, FileText, CheckSquare, 
   HelpCircle, AlertTriangle, AlertCircle, RefreshCw, Sparkles,
   TrendingUp, Scale, Gavel, User, Home, DollarSign, Calendar,
-  Download, Edit3, Info, ChevronDown, ChevronUp
+  Download, Edit3, Info, ChevronDown, ChevronUp, ChevronsUpDown,
+  Maximize2, Minimize2, CheckCircle2
 } from 'lucide-react';
 import { DocumentManager } from './DocumentManager';
 import { exportElementToPDF } from '../utils/pdfExporter';
 
 export interface SmartAnalysisData {
   risco_geral: 'Não avaliado' | 'Baixo' | 'Médio' | 'Alto';
-  recomendacao: 'Selecione' | 'Recomendo arrematar' | 'Recomendo com ressalvas' | 'Não recomendo arrematar';
+  recomendacao: 'Selecione' | 'Prosseguir' | 'Prosseguir com ressalvas' | 'Não prosseguir' | 'Recomendo arrematar' | 'Recomendo com ressalvas' | 'Não recomendo arrematar';
   justificativa: string;
   justificativa_pessoal?: string;
   
@@ -59,7 +60,7 @@ export interface SmartAnalysisData {
   folhas_citacao?: string;
   folhas_intimacao_leilao?: string;
   
-  status_consolidacao: 'Não verificado' | 'Regular' | 'Irregular' | 'Pendente';
+  status_consolidacao: 'Não verificado' | 'Regular' | 'Irregular' | 'Pendente' | 'Consolidada em cartório' | 'Pendente de averbação' | 'Em leilão judicial (Execução)' | 'Não aplicável' | 'Selecione';
   data_consolidacao?: string;
   intimacao_purga_mora: boolean;
   intimacao_leiloes: boolean;
@@ -113,8 +114,6 @@ export interface SmartAnalysisData {
 export function renderTextWithLeafBadges(text: string | undefined | null) {
   if (!text) return null;
   
-  // Regex matches leaf/page patterns like:
-  // fls. 123-125, fl. 45, folhas 50 e 60, pág. 12, págs. 12-15, Av. 04, R. 02, etc.
   const regex = /(fls?\.\s*\d+(?:\s*[-–a]\s*\d+)?(?:\s*e\s*\d+)?|folhas?\s*\d+(?:\s*[-–a]\s*\d+)?(?:\s*e\s*\d+)?|págs?\.\s*\d+(?:\s*[-–a]\s*\d+)?|Av\.\s*\d+|R\.\s*\d+(?:\/\d+)?)/gi;
 
   const parts = text.split(regex);
@@ -158,14 +157,18 @@ export const getEmptySmartAnalysis = (): SmartAnalysisData => ({
   observacoes_debitos: '',
   folhas_debitos: '',
   nivel_risco_desocupacao: 'Não avaliado',
+  risco_desocupacao: 'Não avaliado',
   liminar_bloqueando: false,
   acao_anulatoria: false,
   embargos_pendentes: false,
   recurso_pendente: false,
   prazo_estimado_desocupacao: '',
+  estimativa_prazo_desocupacao: '',
+  custo_estimado_desocupacao: 0,
   observacoes_desocupacao: '',
   folhas_ocupacao: '',
   risco_geral_nulidade: 'Não avaliado',
+  risco_nulidade: 'Não avaliado',
   citacao_regular: false,
   intimacao_penhora: false,
   intimacao_leilao_executado: false,
@@ -173,6 +176,9 @@ export const getEmptySmartAnalysis = (): SmartAnalysisData => ({
   coproprietario_intimado: false,
   publicacao_edital_ok: false,
   preco_vil: false,
+  preco_vil_caracterizado: false,
+  intimacao_executado: false,
+  intimacao_conjuge: false,
   vicio_citacao: false,
   vicio_avaliacao: false,
   vicio_publicacao: false,
@@ -180,13 +186,17 @@ export const getEmptySmartAnalysis = (): SmartAnalysisData => ({
   observacoes_nulidade: '',
   folhas_citacao: '',
   folhas_intimacao_leilao: '',
-  status_consolidacao: 'Não verificado',
+  status_consolidacao: 'Selecione',
+  data_consolidacao: '',
   intimacao_purga_mora: false,
   intimacao_leiloes: false,
   averbacao_consolidacao: false,
   observacoes_consolidacao: '',
   folhas_consolidacao: '',
   matricula_atualizada: false,
+  status_matricula: 'Selecione',
+  indisponibilidade_bens: false,
+  usufruto_hipoteca: false,
   tem_onus: false,
   tem_penhora: false,
   tem_hipoteca: false,
@@ -196,6 +206,7 @@ export const getEmptySmartAnalysis = (): SmartAnalysisData => ({
   observacoes_matricula: '',
   folhas_penhora_matricula: '',
   status_ocupacao: 'Ocupado pelo ex-mutuário',
+  situacao_ocupacional: 'Selecione',
   relacao_ex_mutuario: 'O próprio',
   nome_ocupante: '',
   cpf_ocupante: '',
@@ -238,6 +249,85 @@ interface SmartAnalysisTabProps {
   uploading: boolean;
 }
 
+// Collapsible Section Wrapper Card
+interface CollapsibleCardProps {
+  title: string;
+  icon: React.ReactNode;
+  statusDotColor?: string;
+  badge?: React.ReactNode;
+  summaryPreview?: React.ReactNode;
+  isOpen: boolean;
+  onToggle: () => void;
+  aiAction?: React.ReactNode;
+  children: React.ReactNode;
+  id?: string;
+}
+
+function CollapsibleCard({
+  title,
+  icon,
+  statusDotColor,
+  badge,
+  summaryPreview,
+  isOpen,
+  onToggle,
+  aiAction,
+  children,
+  id
+}: CollapsibleCardProps) {
+  return (
+    <div 
+      id={id}
+      className={`bg-brand-paper rounded-3xl border transition-all duration-200 overflow-hidden shadow-xs hover:shadow-md ${
+        isOpen ? 'border-brand-primary/30 ring-1 ring-brand-primary/10' : 'border-brand-border'
+      }`}
+    >
+      <div 
+        onClick={onToggle}
+        className="p-5 sm:p-6 flex items-center justify-between gap-3 cursor-pointer select-none bg-brand-bg/10 hover:bg-brand-primary/5 transition-colors border-b border-black/5"
+      >
+        <div className="flex items-center gap-3 min-w-0">
+          {statusDotColor && (
+            <span className={`w-3 h-3 rounded-full shrink-0 ${statusDotColor}`} />
+          )}
+          <div className="p-2 bg-brand-primary/10 text-brand-primary rounded-xl shrink-0">
+            {icon}
+          </div>
+          <div className="min-w-0">
+            <h5 className="font-serif font-semibold text-base sm:text-lg text-brand-primary truncate">
+              {title}
+            </h5>
+            {!isOpen && summaryPreview && (
+              <div className="text-[11px] text-brand-ink/60 truncate mt-0.5 font-sans">
+                {summaryPreview}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
+          {aiAction}
+          {badge}
+          <button
+            type="button"
+            onClick={onToggle}
+            className="p-2 text-brand-ink/50 hover:text-brand-primary rounded-xl hover:bg-black/5 transition-colors cursor-pointer"
+            title={isOpen ? "Minimizar quadro" : "Expandir quadro"}
+          >
+            {isOpen ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+          </button>
+        </div>
+      </div>
+
+      {isOpen && (
+        <div className="p-6 space-y-5 animate-in fade-in slide-in-from-top-2 duration-200">
+          {children}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function SmartAnalysisTab({
   data,
   onSave,
@@ -255,6 +345,40 @@ export default function SmartAnalysisTab({
   const [isSaving, setIsSaving] = React.useState(false);
   const [isEditingParecer, setIsEditingParecer] = React.useState(false);
   const [extractingSection, setExtractingSection] = React.useState<string | null>(null);
+
+  // Collapsible state for each card
+  const [openSections, setOpenSections] = useState<{ [key: string]: boolean }>({
+    parecer: true,
+    ocupacional: true,
+    consolidacao: true,
+    desocupacao: true,
+    edital: true,
+    matricula: true,
+    nulidade: true,
+    debitos: true,
+    imovel: true,
+    ex_mutuario: true,
+    comentarios: true,
+  });
+
+  const toggleSection = (key: string) => {
+    setOpenSections(prev => ({
+      ...prev,
+      [key]: !prev[key]
+    }));
+  };
+
+  const handleExpandAll = () => {
+    const allOpen = Object.keys(openSections).reduce((acc, k) => ({ ...acc, [k]: true }), {});
+    setOpenSections(allOpen);
+  };
+
+  const handleCollapseAll = () => {
+    const allClosed = Object.keys(openSections).reduce((acc, k) => ({ ...acc, [k]: false }), {});
+    setOpenSections(allClosed);
+  };
+
+  const areAllExpanded = Object.values(openSections).every(Boolean);
 
   const handleExtractSection = async (sectionKey: string) => {
     if (!onExtractSection) return;
@@ -310,12 +434,12 @@ export default function SmartAnalysisTab({
     }
   };
 
-  // Calculate checklists counters
+  // Counters
   const countParecer = () => {
     let count = 0;
     if (localData.risco_geral !== 'Não avaliado') count++;
     if (localData.recomendacao !== 'Selecione') count++;
-    if (localData.justificativa.trim().length > 5) count++;
+    if (localData.justificativa?.trim().length > 5) count++;
     return { current: count, total: 3 };
   };
 
@@ -335,35 +459,20 @@ export default function SmartAnalysisTab({
     return { current: count, total: 3 };
   };
 
-  const countDesocupacao = () => {
-    let count = 0;
-    if (localData.nivel_risco_desocupacao !== 'Não avaliado') count++;
-    if (localData.prazo_estimado_desocupacao && localData.prazo_estimado_desocupacao.trim() !== '') count++;
-    return { current: count, total: 2 };
-  };
-
   const countRiscoDesocupacao = () => {
     let count = 0;
-    if ((localData.risco_desocupacao || localData.nivel_risco_desocupacao) && (localData.risco_desocupacao !== 'Não avaliado' || localData.nivel_risco_desocupacao !== 'Não avaliado')) count++;
-    if ((localData.estimativa_prazo_desocupacao || localData.prazo_estimado_desocupacao) && (localData.estimativa_prazo_desocupacao || localData.prazo_estimado_desocupacao).trim() !== '') count++;
-    return { current: count, total: 2 };
-  };
-
-  const countNulidade = () => {
-    let count = 0;
-    if (localData.risco_geral_nulidade !== 'Não avaliado') count++;
-    const items = [
-      localData.citacao_regular, localData.intimacao_penhora, localData.intimacao_leilao_executado,
-      localData.intimacao_credor_fiduciario, localData.coproprietario_intimado, localData.publicacao_edital_ok,
-      localData.preco_vil
-    ];
-    count += items.filter(Boolean).length;
-    return { current: count, total: 1 + items.length };
+    const r = localData.risco_desocupacao || localData.nivel_risco_desocupacao;
+    if (r && r !== 'Não avaliado') count++;
+    const p = localData.estimativa_prazo_desocupacao || localData.prazo_estimado_desocupacao;
+    if (p && p.trim() !== '') count++;
+    if ((localData.custo_estimado_desocupacao || 0) > 0) count++;
+    return { current: count, total: 3 };
   };
 
   const countRiscoNulidade = () => {
     let count = 0;
-    if ((localData.risco_nulidade || localData.risco_geral_nulidade) && (localData.risco_nulidade !== 'Não avaliado' || localData.risco_geral_nulidade !== 'Não avaliado')) count++;
+    const r = localData.risco_nulidade || localData.risco_geral_nulidade;
+    if (r && r !== 'Não avaliado') count++;
     if (localData.preco_vil_caracterizado !== undefined) count++;
     if (localData.intimacao_executado) count++;
     if (localData.intimacao_conjuge) count++;
@@ -373,36 +482,26 @@ export default function SmartAnalysisTab({
   const countConsolidacao = () => {
     let count = 0;
     if (localData.status_consolidacao && localData.status_consolidacao !== 'Não verificado' && (localData.status_consolidacao as string) !== 'Selecione') count++;
-    return { current: count, total: 1 };
+    if (localData.data_consolidacao && localData.data_consolidacao.trim() !== '') count++;
+    return { current: count, total: 2 };
   };
 
   const countMatricula = () => {
     let count = 0;
     const items = [
-      localData.matricula_atualizada, localData.tem_onus, localData.tem_penhora,
-      localData.tem_hipoteca, localData.alienacao_fiduciaria, localData.indisponibilidade,
-      localData.acao_reipersecutoria
+      localData.matricula_atualizada, localData.tem_penhora,
+      localData.tem_hipoteca, localData.alienacao_fiduciaria, localData.indisponibilidade_bens || localData.indisponibilidade,
+      localData.usufruto_hipoteca, localData.acao_reipersecutoria
     ];
     count = items.filter(Boolean).length;
     if (localData.status_matricula && localData.status_matricula !== 'Selecione') count++;
     return { current: count, total: items.length + 1 };
   };
 
-  const countOcupacao = () => {
-    let count = 0;
-    if (localData.status_ocupacao) count++;
-    if (localData.relacao_ex_mutuario) count++;
-    if (localData.nome_ocupante && localData.nome_ocupante.trim() !== '') count++;
-    if (localData.cpf_ocupante && localData.cpf_ocupante.trim() !== '') count++;
-    if (localData.telefone_ocupante && localData.telefone_ocupante.trim() !== '') count++;
-    if (localData.tempo_ocupacao && localData.tempo_ocupacao.trim() !== '') count++;
-    if (localData.risco_usucapiao && localData.risco_usucapiao !== 'Não avaliado') count++;
-    return { current: count, total: 7 };
-  };
-
   const countOcupacional = () => {
     let count = 0;
-    if (localData.situacao_ocupacional && localData.situacao_ocupacional !== 'Selecione') count++;
+    const sit = localData.situacao_ocupacional || localData.status_ocupacao;
+    if (sit && sit !== 'Selecione') count++;
     if (localData.risco_usucapiao && localData.risco_usucapiao !== 'Não avaliado') count++;
     if (localData.nome_ocupante && localData.nome_ocupante.trim() !== '') count++;
     if (localData.cpf_ocupante && localData.cpf_ocupante.trim() !== '') count++;
@@ -445,7 +544,7 @@ export default function SmartAnalysisTab({
     );
   };
 
-  const getRiskColor = (risk: 'Não avaliado' | 'Baixo' | 'Médio' | 'Alto') => {
+  const getRiskColor = (risk: string) => {
     switch(risk) {
       case 'Baixo': return 'text-emerald-600 bg-emerald-50 border-emerald-200';
       case 'Médio': return 'text-amber-600 bg-amber-50 border-amber-200';
@@ -455,9 +554,10 @@ export default function SmartAnalysisTab({
   };
 
   return (
-    <div className="space-y-10 animate-in fade-in duration-500" id="smart-analysis-tab-container">
+    <div className="space-y-8 animate-in fade-in duration-500" id="smart-analysis-tab-container">
+      
       {/* Top action header card */}
-      <div className="bg-brand-paper p-8 rounded-3xl border border-brand-border shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6" id="smart-analysis-header">
+      <div className="bg-brand-paper p-6 sm:p-8 rounded-3xl border border-brand-border shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6" id="smart-analysis-header">
         <div>
           <h4 className="text-xl font-serif font-medium text-brand-primary flex items-center gap-2">
             <Cpu className="text-brand-primary" size={24} />
@@ -467,11 +567,11 @@ export default function SmartAnalysisTab({
             Preenchimento automático inteligente com IA de todos os pontos de risco da arrematação ou ajuste manual minucioso.
           </p>
         </div>
-        <div className="flex flex-wrap gap-4">
+        <div className="flex flex-wrap items-center gap-3">
           <button
             onClick={onTriggerAI}
             disabled={isAnalyzing || !hasDocuments}
-            className="flex items-center gap-2 bg-[#5A5A40] text-white px-6 py-3 rounded-xl text-xs font-bold hover:bg-[#4A4A30] transition-all shadow-md disabled:opacity-50"
+            className="flex items-center gap-2 bg-[#5A5A40] text-white px-5 py-3 rounded-xl text-xs font-bold hover:bg-[#4A4A30] transition-all shadow-md disabled:opacity-50 cursor-pointer"
             id="btn-trigger-smart-ai"
           >
             {isAnalyzing ? (
@@ -490,7 +590,7 @@ export default function SmartAnalysisTab({
           <button
             onClick={handleLocalSave}
             disabled={isSaving}
-            className="flex items-center gap-2 bg-brand-primary text-black px-6 py-3 rounded-xl text-xs font-bold hover:bg-brand-primary/90 transition-all shadow-md shadow-brand-primary/10"
+            className="flex items-center gap-2 bg-brand-primary text-black px-5 py-3 rounded-xl text-xs font-bold hover:bg-brand-primary/90 transition-all shadow-md shadow-brand-primary/10 cursor-pointer"
             id="btn-save-smart-analysis"
           >
             {isSaving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
@@ -499,17 +599,37 @@ export default function SmartAnalysisTab({
 
           <button
             onClick={() => exportElementToPDF('smart-analysis-tab-container', 'Analise_Smart_Leilao_TJ_INVEST.pdf', 'Análise Smart - Parecer do Investidor')}
-            className="flex items-center gap-2 bg-brand-bg hover:bg-black/5 dark:hover:bg-white/10 text-brand-ink px-5 py-3 rounded-xl text-xs font-bold transition-all border border-brand-border no-print shadow-xs"
+            className="flex items-center gap-2 bg-brand-bg hover:bg-black/5 text-brand-ink px-4 py-3 rounded-xl text-xs font-bold transition-all border border-brand-border no-print shadow-xs cursor-pointer"
             id="btn-export-smart-pdf"
           >
             <Download size={16} className="text-brand-primary" />
             Exportar PDF
           </button>
+
+          {/* Master Expand/Collapse Toggle Button */}
+          <button
+            type="button"
+            onClick={areAllExpanded ? handleCollapseAll : handleExpandAll}
+            className="flex items-center gap-1.5 px-4 py-3 bg-brand-bg hover:bg-brand-primary/10 text-brand-ink border border-brand-border rounded-xl text-xs font-bold transition-all cursor-pointer"
+            title={areAllExpanded ? "Recolher todas as seções" : "Expandir todas as seções"}
+          >
+            {areAllExpanded ? (
+              <>
+                <Minimize2 size={14} className="text-brand-primary" />
+                <span>Recolher Todos</span>
+              </>
+            ) : (
+              <>
+                <Maximize2 size={14} className="text-brand-primary" />
+                <span>Expandir Todos</span>
+              </>
+            )}
+          </button>
         </div>
       </div>
 
       {!hasDocuments && (
-        <div className="p-6 bg-amber-50 border border-amber-200 text-amber-800 rounded-2xl flex items-center gap-3 text-xs font-medium">
+        <div className="p-5 bg-amber-50 border border-amber-200 text-amber-800 rounded-2xl flex items-center gap-3 text-xs font-medium">
           <AlertCircle size={18} className="shrink-0" />
           <span>Faça upload dos documentos (Edital, Matrícula, Processo) para liberar o preenchimento automático por Inteligência Artificial.</span>
         </div>
@@ -550,108 +670,126 @@ export default function SmartAnalysisTab({
         </div>
       </div>
 
-      {/* Top Banner: Parecer do Investidor */}
-      <div className="bg-brand-paper p-6 sm:p-8 rounded-[2rem] border border-brand-border space-y-5 shadow-sm hover:shadow-md transition-all relative overflow-hidden" id="smart-analysis-parecer-banner">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-black/5 pb-4">
+      {/* Top Banner: Parecer do Investidor (Collapsible) */}
+      <div className="bg-brand-paper rounded-[2rem] border border-brand-border shadow-sm overflow-hidden" id="smart-analysis-parecer-banner">
+        <div 
+          onClick={() => toggleSection('parecer')}
+          className="p-6 sm:p-7 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-brand-bg/10 hover:bg-brand-primary/5 transition-colors cursor-pointer border-b border-black/5"
+        >
           <div className="flex items-center gap-3">
             <div className="p-2.5 bg-brand-primary/10 text-brand-primary rounded-2xl">
               <Shield size={22} />
             </div>
             <div>
               <span className="text-[10px] font-bold uppercase tracking-widest text-brand-ink/50">CHECKLIST CONSOLIDADO DE VIABILIDADE</span>
-              <h4 className="font-serif font-medium text-xl text-brand-primary flex items-center gap-2">
+              <h4 className="font-serif font-semibold text-xl text-brand-primary flex items-center gap-2">
                 PARECER DO INVESTIDOR
               </h4>
             </div>
           </div>
 
-          <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex items-center gap-3 flex-wrap" onClick={(e) => e.stopPropagation()}>
             <span className={`text-xs font-bold px-3 py-1.5 rounded-full border ${getRiskColor(localData.risco_geral)}`}>
               Risco: {localData.risco_geral}
             </span>
             <span className={`text-xs font-bold px-4 py-1.5 rounded-full ${
-              localData.recomendacao.includes('Prosseguir') || localData.recomendacao.includes('Recomendo')
+              localData.recomendacao?.includes('Prosseguir') || localData.recomendacao?.includes('Recomendo')
                 ? 'bg-emerald-500 text-white' 
-                : localData.recomendacao.includes('Não') 
+                : localData.recomendacao?.includes('Não') 
                   ? 'bg-red-500 text-white' 
                   : 'bg-amber-500 text-white'
             }`}>
               {localData.recomendacao !== 'Selecione' ? localData.recomendacao : 'Pendente de Avaliação'}
             </span>
+            {renderSectionAIButton('parecer')}
             <button
+              type="button"
               onClick={() => setIsEditingParecer(!isEditingParecer)}
               className="p-2 px-3 bg-brand-bg hover:bg-brand-primary/10 border border-brand-border rounded-xl text-xs font-bold text-brand-ink flex items-center gap-1.5 transition-all cursor-pointer"
             >
               <Edit3 size={14} className="text-brand-primary" />
-              {isEditingParecer ? 'Fechar Edição' : 'Editar Parecer'}
+              {isEditingParecer ? 'Fechar Edição' : 'Editar'}
+            </button>
+            <button
+              type="button"
+              onClick={() => toggleSection('parecer')}
+              className="p-2 text-brand-ink/50 hover:text-brand-primary rounded-xl hover:bg-black/5 transition-colors cursor-pointer"
+            >
+              {openSections.parecer ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
             </button>
           </div>
         </div>
 
-        {/* Text summary or inline edit */}
-        {isEditingParecer ? (
-          <div className="space-y-4 pt-2 animate-in fade-in duration-300 bg-brand-bg/20 p-5 rounded-2xl border border-brand-border">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Risco Geral do Negócio</label>
-                <select 
-                  value={localData.risco_geral} 
-                  onChange={e => handleChange('risco_geral', e.target.value)}
-                  className={`p-3 border rounded-xl outline-none text-xs font-medium transition-colors ${getRiskColor(localData.risco_geral)}`}
-                >
-                  <option value="Não avaliado">Não avaliado</option>
-                  <option value="Baixo">Baixo</option>
-                  <option value="Médio">Médio</option>
-                  <option value="Alto">Alto</option>
-                </select>
+        {openSections.parecer && (
+          <div className="p-6 sm:p-7 space-y-5 animate-in fade-in duration-200">
+            {isEditingParecer ? (
+              <div className="space-y-4 pt-1 bg-brand-bg/20 p-5 rounded-2xl border border-brand-border">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Risco Geral do Negócio</label>
+                    <select 
+                      value={localData.risco_geral} 
+                      onChange={e => handleChange('risco_geral', e.target.value)}
+                      className={`p-3 border rounded-xl outline-none text-xs font-medium transition-colors ${getRiskColor(localData.risco_geral)}`}
+                    >
+                      <option value="Não avaliado">Não avaliado</option>
+                      <option value="Baixo">Baixo</option>
+                      <option value="Médio">Médio</option>
+                      <option value="Alto">Alto</option>
+                    </select>
+                  </div>
+
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Recomendação de Arrematação</label>
+                    <select 
+                      value={localData.recomendacao} 
+                      onChange={e => handleChange('recomendacao', e.target.value)}
+                      className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium focus:border-brand-primary text-brand-ink/80"
+                    >
+                      <option value="Selecione">Selecione</option>
+                      <option value="Prosseguir">Prosseguir (Sem ressalvas)</option>
+                      <option value="Prosseguir com ressalvas">Prosseguir com ressalvas</option>
+                      <option value="Não prosseguir">Não prosseguir (Alto Risco)</option>
+                      <option value="Recomendo arrematar">Recomendo arrematar</option>
+                      <option value="Recomendo com ressalvas">Recomendo com ressalvas</option>
+                      <option value="Não recomendo arrematar">Não recomendo arrematar</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Justificativa Comercial/Técnica</label>
+                  <textarea
+                    value={localData.justificativa}
+                    onChange={e => handleChange('justificativa', e.target.value)}
+                    placeholder="Explique os principais motivos e embasamentos para a sua recomendação final..."
+                    rows={3}
+                    className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium resize-none focus:border-brand-primary text-brand-ink/80"
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Justificativa Pessoal / Comentários do Arrematante</label>
+                  <textarea
+                    value={localData.justificativa_pessoal || ''}
+                    onChange={e => handleChange('justificativa_pessoal', e.target.value)}
+                    placeholder="Sua análise pessoal e comentários sobre a decisão de arrematação..."
+                    rows={2}
+                    className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium resize-none focus:border-brand-primary text-brand-ink/80"
+                  />
+                </div>
               </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Recomendação de Arrematação</label>
-                <select 
-                  value={localData.recomendacao} 
-                  onChange={e => handleChange('recomendacao', e.target.value)}
-                  className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium focus:border-brand-primary text-brand-ink/80"
-                >
-                  <option value="Selecione">Selecione</option>
-                  <option value="Prosseguir">Prosseguir (Sem ressalvas)</option>
-                  <option value="Prosseguir com ressalvas">Prosseguir com ressalvas</option>
-                  <option value="Não prosseguir">Não prosseguir (Alto Risco)</option>
-                </select>
+            ) : (
+              <div className="space-y-3">
+                <p className="text-xs text-brand-ink/80 leading-relaxed font-sans bg-brand-bg/30 p-4 rounded-xl border border-brand-border/40 whitespace-pre-wrap">
+                  {localData.justificativa || "Análise preliminar indica viabilidade jurídica e financeira dependendo da conferência dos ônus de edital e certidões negativas."}
+                </p>
+                {localData.justificativa_pessoal && (
+                  <p className="text-xs text-brand-ink/60 italic leading-relaxed font-sans pl-3 border-l-2 border-brand-primary/40">
+                    Observação do Arrematante: "{localData.justificativa_pessoal}"
+                  </p>
+                )}
               </div>
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Justificativa Comercial/Técnica</label>
-              <textarea
-                value={localData.justificativa}
-                onChange={e => handleChange('justificativa', e.target.value)}
-                placeholder="Explique os principais motivos e embasamentos para a sua recomendação final..."
-                rows={3}
-                className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium resize-none focus:border-brand-primary text-brand-ink/80"
-              />
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Justificativa Pessoal / Comentários do Arrematante</label>
-              <textarea
-                value={localData.justificativa_pessoal || ''}
-                onChange={e => handleChange('justificativa_pessoal', e.target.value)}
-                placeholder="Sua análise pessoal e comentários sobre a decisão de arrematação..."
-                rows={2}
-                className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium resize-none focus:border-brand-primary text-brand-ink/80"
-              />
-            </div>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            <p className="text-xs text-brand-ink/80 leading-relaxed font-sans bg-brand-bg/30 p-4 rounded-xl border border-brand-border/40 whitespace-pre-wrap">
-              {localData.justificativa || "Análise preliminar indica viabilidade jurídica e financeira dependendo da conferência dos ônus de edital e certidões negativas."}
-            </p>
-            {localData.justificativa_pessoal && (
-              <p className="text-xs text-brand-ink/60 italic leading-relaxed font-sans pl-3 border-l-2 border-brand-primary/40">
-                Observação do Arrematante: "{localData.justificativa_pessoal}"
-              </p>
             )}
           </div>
         )}
@@ -664,41 +802,61 @@ export default function SmartAnalysisTab({
             <TrendingUp size={22} className="text-brand-primary" />
             Análise do Investidor
           </h3>
-          <span className="text-xs text-brand-ink/50 font-medium">Sequência recomendada de checagem</span>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-brand-ink/50 font-medium">Ordem sequencial dos anexos</span>
+          </div>
         </div>
 
-        {/* 2-Column Grid as per reference screenshot */}
+        {/* 2-Column Grid following exact order from user's screenshots */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           
-          {/* LEFT COLUMN */}
+          {/* ======================================================== */}
+          {/* LEFT COLUMN:                                             */}
+          {/* 1. Situação Ocupacional                                  */}
+          {/* 2. Consolidação de Propriedade                          */}
+          {/* 3. Risco de Desocupação                                  */}
+          {/* 4. Análise do Edital                                     */}
+          {/* ======================================================== */}
           <div className="space-y-6">
             
             {/* 1. Situação Ocupacional */}
-            <div className="bg-brand-paper p-6 rounded-3xl border border-brand-border space-y-5 shadow-sm hover:shadow-md transition-all">
-              <div className="flex justify-between items-center border-b border-black/5 pb-3">
-                <h5 className="font-serif font-medium text-lg flex items-center gap-2 text-brand-primary">
-                  <span className={`w-3 h-3 rounded-full shrink-0 ${localData.situacao_ocupacional === 'Desocupado' ? 'bg-emerald-500' : localData.situacao_ocupacional === 'Ocupado pelo Ex-Mutuário' || localData.situacao_ocupacional === 'Ocupado por Inquilino/Terceiro' ? 'bg-amber-500' : 'bg-gray-400'}`} title={localData.situacao_ocupacional}></span>
-                  <User size={18} className="text-brand-primary/70" />
-                  Situação Ocupacional
-                </h5>
-                <div className="flex items-center gap-2">
-                  {renderSectionAIButton('ocupacional')}
-                  {renderProgressBadge(countOcupacional().current, countOcupacional().total)}
-                </div>
-              </div>
-
+            <CollapsibleCard
+              id="card-situacao-ocupacional"
+              title="Situação Ocupacional"
+              icon={<User size={18} />}
+              statusDotColor={
+                (localData.situacao_ocupacional || localData.status_ocupacao) === 'Desocupado' 
+                  ? 'bg-emerald-500' 
+                  : (localData.situacao_ocupacional || localData.status_ocupacao)?.includes('Ocupado') 
+                    ? 'bg-amber-500' 
+                    : 'bg-gray-400'
+              }
+              summaryPreview={
+                <span>
+                  Status: <strong>{localData.situacao_ocupacional || localData.status_ocupacao || 'Não informado'}</strong> | Risco Usucapião: <strong>{localData.risco_usucapiao || 'Não avaliado'}</strong>
+                </span>
+              }
+              isOpen={openSections.ocupacional}
+              onToggle={() => toggleSection('ocupacional')}
+              aiAction={renderSectionAIButton('ocupacional')}
+              badge={renderProgressBadge(countOcupacional().current, countOcupacional().total)}
+            >
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="flex flex-col gap-1.5">
                   <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Situação Atual</label>
                   <select 
-                    value={localData.situacao_ocupacional} 
-                    onChange={e => handleChange('situacao_ocupacional', e.target.value)}
+                    value={localData.situacao_ocupacional || localData.status_ocupacao || 'Selecione'} 
+                    onChange={e => {
+                      handleChange('situacao_ocupacional', e.target.value);
+                      handleChange('status_ocupacao', e.target.value as any);
+                    }}
                     className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium"
                   >
                     <option value="Selecione">Selecione</option>
                     <option value="Desocupado">Desocupado</option>
                     <option value="Ocupado pelo Ex-Mutuário">Ocupado pelo Ex-Mutuário</option>
                     <option value="Ocupado por Inquilino/Terceiro">Ocupado por Inquilino/Terceiro</option>
+                    <option value="Invasão">Invasão</option>
                     <option value="Desconhecido">Desconhecido</option>
                   </select>
                 </div>
@@ -706,7 +864,7 @@ export default function SmartAnalysisTab({
                 <div className="flex flex-col gap-1.5">
                   <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Risco de Usucapião</label>
                   <select 
-                    value={localData.risco_usucapiao} 
+                    value={localData.risco_usucapiao || 'Não avaliado'} 
                     onChange={e => handleChange('risco_usucapiao', e.target.value)}
                     className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium"
                   >
@@ -723,7 +881,7 @@ export default function SmartAnalysisTab({
                   <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Nome do Ocupante</label>
                   <input
                     type="text"
-                    value={localData.nome_ocupante}
+                    value={localData.nome_ocupante || ''}
                     onChange={e => handleChange('nome_ocupante', e.target.value)}
                     placeholder="Nome completo..."
                     className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium"
@@ -734,9 +892,33 @@ export default function SmartAnalysisTab({
                   <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">CPF / CNPJ Ocupante</label>
                   <input
                     type="text"
-                    value={localData.cpf_ocupante}
+                    value={localData.cpf_ocupante || ''}
                     onChange={e => handleChange('cpf_ocupante', e.target.value)}
                     placeholder="000.000.000-00"
+                    className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Telefone / Contato</label>
+                  <input
+                    type="text"
+                    value={localData.telefone_ocupante || ''}
+                    onChange={e => handleChange('telefone_ocupante', e.target.value)}
+                    placeholder="(00) 00000-0000"
+                    className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium"
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Tempo de Ocupação</label>
+                  <input
+                    type="text"
+                    value={localData.tempo_ocupacao || ''}
+                    onChange={e => handleChange('tempo_ocupacao', e.target.value)}
+                    placeholder="Ex: 2 anos"
                     className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium"
                   />
                 </div>
@@ -745,9 +927,9 @@ export default function SmartAnalysisTab({
               <div className="flex flex-col gap-1.5">
                 <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Detalhes e Histórico de Ocupação</label>
                 <textarea
-                  value={localData.observacoes_ocupacao}
+                  value={localData.observacoes_ocupacao || ''}
                   onChange={e => handleChange('observacoes_ocupacao', e.target.value)}
-                  placeholder="Informações detalhadas sobre constatação de ocupação, visitas presenciais (cite fls. se relevante)..."
+                  placeholder="Informações detalhadas sobre constatação de ocupação, visitas presenciais..."
                   rows={2}
                   className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium resize-none"
                 />
@@ -766,26 +948,32 @@ export default function SmartAnalysisTab({
                   type="text"
                   value={localData.folhas_ocupacao || ''}
                   onChange={e => handleChange('folhas_ocupacao', e.target.value)}
-                  placeholder="Ex: fls. 180-185"
+                  placeholder="Ex: fls. 180-185 (Auto de Constatação)"
                   className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium font-mono"
                 />
               </div>
-            </div>
+            </CollapsibleCard>
 
             {/* 2. Consolidação de Propriedade */}
-            <div className="bg-brand-paper p-6 rounded-3xl border border-brand-border space-y-5 shadow-sm hover:shadow-md transition-all">
-              <div className="flex justify-between items-center border-b border-black/5 pb-3">
-                <h5 className="font-serif font-medium text-lg flex items-center gap-2 text-brand-primary">
-                  <span className={`w-3 h-3 rounded-full shrink-0 ${localData.status_consolidacao.includes('Consolidada') ? 'bg-emerald-500' : 'bg-amber-500'}`}></span>
-                  <CheckSquare size={18} className="text-brand-primary/70" />
-                  Consolidação de Propriedade
-                </h5>
-                <div className="flex items-center gap-2">
-                  {renderSectionAIButton('consolidacao')}
-                  {renderProgressBadge(countConsolidacao().current, countConsolidacao().total)}
-                </div>
-              </div>
-
+            <CollapsibleCard
+              id="card-consolidacao-propriedade"
+              title="Consolidação de Propriedade"
+              icon={<CheckSquare size={18} />}
+              statusDotColor={
+                localData.status_consolidacao?.includes('Consolidada') || localData.status_consolidacao === 'Regular'
+                  ? 'bg-emerald-500' 
+                  : 'bg-amber-500'
+              }
+              summaryPreview={
+                <span>
+                  Status: <strong>{localData.status_consolidacao || 'Não verificado'}</strong> | Data: <strong>{localData.data_consolidacao || 'N/D'}</strong>
+                </span>
+              }
+              isOpen={openSections.consolidacao}
+              onToggle={() => toggleSection('consolidacao')}
+              aiAction={renderSectionAIButton('consolidacao')}
+              badge={renderProgressBadge(countConsolidacao().current, countConsolidacao().total)}
+            >
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="flex flex-col gap-1.5">
                   <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Status da Consolidação</label>
@@ -796,7 +984,9 @@ export default function SmartAnalysisTab({
                   >
                     <option value="Selecione">Selecione</option>
                     <option value="Consolidada em cartório">Consolidada em cartório</option>
+                    <option value="Regular">Regular</option>
                     <option value="Pendente de averbação">Pendente de averbação</option>
+                    <option value="Irregular">Irregular</option>
                     <option value="Em leilão judicial (Execução)">Em leilão judicial (Execução)</option>
                     <option value="Não aplicável">Não aplicável</option>
                   </select>
@@ -813,12 +1003,42 @@ export default function SmartAnalysisTab({
                 </div>
               </div>
 
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs font-medium pt-1">
+                <label className="flex items-center gap-2 cursor-pointer bg-brand-bg/40 p-2.5 rounded-xl border border-brand-border/40">
+                  <input 
+                    type="checkbox" 
+                    checked={localData.intimacao_purga_mora} 
+                    onChange={e => handleChange('intimacao_purga_mora', e.target.checked)}
+                    className="rounded text-brand-primary focus:ring-brand-primary"
+                  />
+                  <span>Intimação Purga Mora</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer bg-brand-bg/40 p-2.5 rounded-xl border border-brand-border/40">
+                  <input 
+                    type="checkbox" 
+                    checked={localData.intimacao_leiloes} 
+                    onChange={e => handleChange('intimacao_leiloes', e.target.checked)}
+                    className="rounded text-brand-primary focus:ring-brand-primary"
+                  />
+                  <span>Intimação Leilões</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer bg-brand-bg/40 p-2.5 rounded-xl border border-brand-border/40">
+                  <input 
+                    type="checkbox" 
+                    checked={localData.averbacao_consolidacao} 
+                    onChange={e => handleChange('averbacao_consolidacao', e.target.checked)}
+                    className="rounded text-brand-primary focus:ring-brand-primary"
+                  />
+                  <span>Averbação na Matrícula</span>
+                </label>
+              </div>
+
               <div className="flex flex-col gap-1.5">
                 <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Observações do Registro de Consolidação</label>
                 <textarea
                   value={localData.observacoes_consolidacao || ''}
                   onChange={e => handleChange('observacoes_consolidacao', e.target.value)}
-                  placeholder="Averbações de leilões negativos passados, quitação de ITBI..."
+                  placeholder="Averbações de leilões negativos passados, quitação de ITBI, Lei 9.514/97..."
                   rows={2}
                   className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium resize-none"
                 />
@@ -841,28 +1061,39 @@ export default function SmartAnalysisTab({
                   className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium font-mono"
                 />
               </div>
-            </div>
+            </CollapsibleCard>
 
             {/* 3. Risco de Desocupação */}
-            <div className="bg-brand-paper p-6 rounded-3xl border border-brand-border space-y-5 shadow-sm hover:shadow-md transition-all">
-              <div className="flex justify-between items-center border-b border-black/5 pb-3">
-                <h5 className="font-serif font-medium text-lg flex items-center gap-2 text-brand-primary">
-                  <span className={`w-3 h-3 rounded-full shrink-0 ${localData.risco_desocupacao === 'Baixo' ? 'bg-emerald-500' : localData.risco_desocupacao === 'Alto' ? 'bg-red-500' : 'bg-amber-500'}`}></span>
-                  <AlertTriangle size={18} className="text-brand-primary/70" />
-                  Risco de Desocupação
-                </h5>
-                <div className="flex items-center gap-2">
-                  {renderSectionAIButton('desocupacao')}
-                  {renderProgressBadge(countRiscoDesocupacao().current, countRiscoDesocupacao().total)}
-                </div>
-              </div>
-
+            <CollapsibleCard
+              id="card-risco-desocupacao"
+              title="Risco de Desocupação"
+              icon={<AlertTriangle size={18} />}
+              statusDotColor={
+                (localData.risco_desocupacao || localData.nivel_risco_desocupacao) === 'Baixo' 
+                  ? 'bg-emerald-500' 
+                  : (localData.risco_desocupacao || localData.nivel_risco_desocupacao) === 'Alto' 
+                    ? 'bg-red-500' 
+                    : 'bg-amber-500'
+              }
+              summaryPreview={
+                <span>
+                  Risco: <strong>{localData.risco_desocupacao || localData.nivel_risco_desocupacao || 'Não avaliado'}</strong> | Prazo: <strong>{localData.estimativa_prazo_desocupacao || localData.prazo_estimado_desocupacao || 'N/D'}</strong>
+                </span>
+              }
+              isOpen={openSections.desocupacao}
+              onToggle={() => toggleSection('desocupacao')}
+              aiAction={renderSectionAIButton('desocupacao')}
+              badge={renderProgressBadge(countRiscoDesocupacao().current, countRiscoDesocupacao().total)}
+            >
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="flex flex-col gap-1.5">
                   <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Nível de Risco</label>
                   <select 
-                    value={localData.risco_desocupacao} 
-                    onChange={e => handleChange('risco_desocupacao', e.target.value)}
+                    value={localData.risco_desocupacao || localData.nivel_risco_desocupacao || 'Não avaliado'} 
+                    onChange={e => {
+                      handleChange('risco_desocupacao', e.target.value);
+                      handleChange('nivel_risco_desocupacao', e.target.value as any);
+                    }}
                     className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium"
                   >
                     <option value="Não avaliado">Não avaliado</option>
@@ -876,8 +1107,11 @@ export default function SmartAnalysisTab({
                   <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Estimativa de Prazo</label>
                   <input
                     type="text"
-                    value={localData.estimativa_prazo_desocupacao || ''}
-                    onChange={e => handleChange('estimativa_prazo_desocupacao', e.target.value)}
+                    value={localData.estimativa_prazo_desocupacao || localData.prazo_estimado_desocupacao || ''}
+                    onChange={e => {
+                      handleChange('estimativa_prazo_desocupacao', e.target.value);
+                      handleChange('prazo_estimado_desocupacao', e.target.value);
+                    }}
                     placeholder="Ex: 3 a 6 meses"
                     className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium"
                   />
@@ -895,6 +1129,45 @@ export default function SmartAnalysisTab({
                 </div>
               </div>
 
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs font-medium pt-1">
+                <label className="flex items-center gap-2 cursor-pointer bg-brand-bg/40 p-2.5 rounded-xl border border-brand-border/40">
+                  <input 
+                    type="checkbox" 
+                    checked={localData.liminar_bloqueando} 
+                    onChange={e => handleChange('liminar_bloqueando', e.target.checked)}
+                    className="rounded text-brand-primary focus:ring-brand-primary"
+                  />
+                  <span>Liminar Bloqueando</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer bg-brand-bg/40 p-2.5 rounded-xl border border-brand-border/40">
+                  <input 
+                    type="checkbox" 
+                    checked={localData.acao_anulatoria} 
+                    onChange={e => handleChange('acao_anulatoria', e.target.checked)}
+                    className="rounded text-brand-primary focus:ring-brand-primary"
+                  />
+                  <span>Ação Anulatória</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer bg-brand-bg/40 p-2.5 rounded-xl border border-brand-border/40">
+                  <input 
+                    type="checkbox" 
+                    checked={localData.embargos_pendentes} 
+                    onChange={e => handleChange('embargos_pendentes', e.target.checked)}
+                    className="rounded text-brand-primary focus:ring-brand-primary"
+                  />
+                  <span>Embargos Pendentes</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer bg-brand-bg/40 p-2.5 rounded-xl border border-brand-border/40">
+                  <input 
+                    type="checkbox" 
+                    checked={localData.recurso_pendente} 
+                    onChange={e => handleChange('recurso_pendente', e.target.checked)}
+                    className="rounded text-brand-primary focus:ring-brand-primary"
+                  />
+                  <span>Recurso Pendente</span>
+                </label>
+              </div>
+
               <div className="flex flex-col gap-1.5">
                 <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Estratégia Recomendada de Desocupação</label>
                 <textarea
@@ -905,22 +1178,42 @@ export default function SmartAnalysisTab({
                   className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium resize-none"
                 />
               </div>
-            </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider flex items-center justify-between">
+                  <span>Localização / Folhas nos Autos (ex: fls. 180 e 200)</span>
+                  {localData.folhas_ocupacao && (
+                    <span className="text-amber-700 font-mono font-bold bg-amber-100 px-1.5 py-0.5 rounded text-[10px]">
+                      {localData.folhas_ocupacao}
+                    </span>
+                  )}
+                </label>
+                <input
+                  type="text"
+                  value={localData.folhas_ocupacao || ''}
+                  onChange={e => handleChange('folhas_ocupacao', e.target.value)}
+                  placeholder="Ex: fls. 180 e 200"
+                  className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium font-mono"
+                />
+              </div>
+            </CollapsibleCard>
 
             {/* 4. Análise do Edital */}
-            <div className="bg-brand-paper p-6 rounded-3xl border border-brand-border space-y-5 shadow-sm hover:shadow-md transition-all">
-              <div className="flex justify-between items-center border-b border-black/5 pb-3">
-                <h5 className="font-serif font-medium text-lg flex items-center gap-2 text-brand-primary">
-                  <span className="w-3 h-3 rounded-full shrink-0 bg-emerald-500"></span>
-                  <FileText size={18} className="text-brand-primary/70" />
-                  Análise do Edital
-                </h5>
-                <div className="flex items-center gap-2">
-                  {renderSectionAIButton('edital')}
-                  {renderProgressBadge(countEdital().current, countEdital().total)}
-                </div>
-              </div>
-
+            <CollapsibleCard
+              id="card-analise-edital"
+              title="Análise do Edital"
+              icon={<FileText size={18} />}
+              statusDotColor="bg-emerald-500"
+              summaryPreview={
+                <span>
+                  Tipo: <strong>{localData.tipo_leilao || 'Não informado'}</strong> | IPTU: <strong>{localData.responsabilidade_iptu || 'N/D'}</strong> | Condomínio: <strong>{localData.responsabilidade_condominio || 'N/D'}</strong>
+                </span>
+              }
+              isOpen={openSections.edital}
+              onToggle={() => toggleSection('edital')}
+              aiAction={renderSectionAIButton('edital')}
+              badge={renderProgressBadge(countEdital().current, countEdital().total)}
+            >
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="flex flex-col gap-1.5">
                   <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Tipo de Leilão</label>
@@ -969,7 +1262,7 @@ export default function SmartAnalysisTab({
                 <textarea
                   value={localData.observacoes_edital}
                   onChange={e => handleChange('observacoes_edital', e.target.value)}
-                  placeholder="Detalhamento das datas de praça, formas de parcelamento, eventuais encargos extras (cite fls. se relevante)..."
+                  placeholder="Detalhamento das datas de praça, formas de parcelamento, eventuais encargos extras..."
                   rows={2}
                   className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium resize-none font-sans"
                 />
@@ -977,7 +1270,14 @@ export default function SmartAnalysisTab({
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Folhas do Edital (ex: fls. 210 e 211)</label>
+                  <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider flex items-center justify-between">
+                    <span>Folhas do Edital (ex: fls. 210 e 211)</span>
+                    {localData.folhas_edital && (
+                      <span className="text-amber-700 font-mono font-bold bg-amber-100 px-1.5 py-0.5 rounded text-[10px]">
+                        {localData.folhas_edital}
+                      </span>
+                    )}
+                  </label>
                   <input
                     type="text"
                     value={localData.folhas_edital || ''}
@@ -987,7 +1287,14 @@ export default function SmartAnalysisTab({
                   />
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Folhas da Avaliação (ex: fls. 150)</label>
+                  <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider flex items-center justify-between">
+                    <span>Folhas da Avaliação (ex: fls. 150)</span>
+                    {localData.folhas_avaliacao && (
+                      <span className="text-amber-700 font-mono font-bold bg-amber-100 px-1.5 py-0.5 rounded text-[10px]">
+                        {localData.folhas_avaliacao}
+                      </span>
+                    )}
+                  </label>
                   <input
                     type="text"
                     value={localData.folhas_avaliacao || ''}
@@ -997,27 +1304,38 @@ export default function SmartAnalysisTab({
                   />
                 </div>
               </div>
-            </div>
+            </CollapsibleCard>
 
           </div>
 
-          {/* RIGHT COLUMN */}
+          {/* ======================================================== */}
+          {/* RIGHT COLUMN:                                            */}
+          {/* 1. Análise da Matrícula                                  */}
+          {/* 2. Risco de Nulidade do Leilão                          */}
+          {/* 3. Débitos do Imóvel                                     */}
+          {/* ======================================================== */}
           <div className="space-y-6">
 
             {/* 1. Análise da Matrícula */}
-            <div className="bg-brand-paper p-6 rounded-3xl border border-brand-border space-y-5 shadow-sm hover:shadow-md transition-all">
-              <div className="flex justify-between items-center border-b border-black/5 pb-3">
-                <h5 className="font-serif font-medium text-lg flex items-center gap-2 text-brand-primary">
-                  <span className={`w-3 h-3 rounded-full shrink-0 ${localData.status_matricula === 'Regular sem gravames' ? 'bg-emerald-500' : 'bg-red-500'}`}></span>
-                  <FileText size={18} className="text-brand-primary/70" />
-                  Análise da Matrícula
-                </h5>
-                <div className="flex items-center gap-2">
-                  {renderSectionAIButton('matricula')}
-                  {renderProgressBadge(countMatricula().current, countMatricula().total)}
-                </div>
-              </div>
-
+            <CollapsibleCard
+              id="card-analise-matricula"
+              title="Análise da Matrícula"
+              icon={<FileText size={18} />}
+              statusDotColor={
+                localData.status_matricula === 'Regular sem gravames' 
+                  ? 'bg-emerald-500' 
+                  : 'bg-red-500'
+              }
+              summaryPreview={
+                <span>
+                  Status: <strong>{localData.status_matricula || 'Não informado'}</strong> | Matrícula: <strong>{localData.numero_matricula || 'N/D'}</strong>
+                </span>
+              }
+              isOpen={openSections.matricula}
+              onToggle={() => toggleSection('matricula')}
+              aiAction={renderSectionAIButton('matricula')}
+              badge={renderProgressBadge(countMatricula().current, countMatricula().total)}
+            >
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="flex flex-col gap-1.5">
                   <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Status Registral</label>
@@ -1047,7 +1365,7 @@ export default function SmartAnalysisTab({
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-2 text-xs font-medium pt-1">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs font-medium pt-1">
                 <label className="flex items-center gap-2 cursor-pointer bg-brand-bg/40 p-2.5 rounded-xl border border-brand-border/40">
                   <input 
                     type="checkbox" 
@@ -1060,8 +1378,11 @@ export default function SmartAnalysisTab({
                 <label className="flex items-center gap-2 cursor-pointer bg-brand-bg/40 p-2.5 rounded-xl border border-brand-border/40">
                   <input 
                     type="checkbox" 
-                    checked={localData.indisponibilidade_bens} 
-                    onChange={e => handleChange('indisponibilidade_bens', e.target.checked)}
+                    checked={localData.indisponibilidade_bens || localData.indisponibilidade} 
+                    onChange={e => {
+                      handleChange('indisponibilidade_bens', e.target.checked);
+                      handleChange('indisponibilidade', e.target.checked);
+                    }}
                     className="rounded text-brand-primary focus:ring-brand-primary"
                   />
                   <span>Indisponibilidade</span>
@@ -1069,11 +1390,41 @@ export default function SmartAnalysisTab({
                 <label className="flex items-center gap-2 cursor-pointer bg-brand-bg/40 p-2.5 rounded-xl border border-brand-border/40">
                   <input 
                     type="checkbox" 
-                    checked={localData.usufruto_hipoteca} 
-                    onChange={e => handleChange('usufruto_hipoteca', e.target.checked)}
+                    checked={localData.usufruto_hipoteca || localData.tem_hipoteca} 
+                    onChange={e => {
+                      handleChange('usufruto_hipoteca', e.target.checked);
+                      handleChange('tem_hipoteca', e.target.checked);
+                    }}
                     className="rounded text-brand-primary focus:ring-brand-primary"
                   />
                   <span>Usufruto/Hipoteca</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer bg-brand-bg/40 p-2.5 rounded-xl border border-brand-border/40">
+                  <input 
+                    type="checkbox" 
+                    checked={localData.alienacao_fiduciaria} 
+                    onChange={e => handleChange('alienacao_fiduciaria', e.target.checked)}
+                    className="rounded text-brand-primary focus:ring-brand-primary"
+                  />
+                  <span>Alienação Fiduciária</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer bg-brand-bg/40 p-2.5 rounded-xl border border-brand-border/40">
+                  <input 
+                    type="checkbox" 
+                    checked={localData.matricula_atualizada} 
+                    onChange={e => handleChange('matricula_atualizada', e.target.checked)}
+                    className="rounded text-brand-primary focus:ring-brand-primary"
+                  />
+                  <span>Matrícula Atualizada</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer bg-brand-bg/40 p-2.5 rounded-xl border border-brand-border/40">
+                  <input 
+                    type="checkbox" 
+                    checked={localData.acao_reipersecutoria} 
+                    onChange={e => handleChange('acao_reipersecutoria', e.target.checked)}
+                    className="rounded text-brand-primary focus:ring-brand-primary"
+                  />
+                  <span>Ação Reipersecutória</span>
                 </label>
               </div>
 
@@ -1105,28 +1456,39 @@ export default function SmartAnalysisTab({
                   className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium font-mono"
                 />
               </div>
-            </div>
+            </CollapsibleCard>
 
             {/* 2. Risco de Nulidade do Leilão */}
-            <div className="bg-brand-paper p-6 rounded-3xl border border-brand-border space-y-5 shadow-sm hover:shadow-md transition-all">
-              <div className="flex justify-between items-center border-b border-black/5 pb-3">
-                <h5 className="font-serif font-medium text-lg flex items-center gap-2 text-brand-primary">
-                  <span className={`w-3 h-3 rounded-full shrink-0 ${localData.risco_nulidade === 'Baixo' ? 'bg-emerald-500' : localData.risco_nulidade === 'Alto' ? 'bg-red-500' : 'bg-amber-500'}`}></span>
-                  <Scale size={18} className="text-brand-primary/70" />
-                  Risco de Nulidade do Leilão
-                </h5>
-                <div className="flex items-center gap-2">
-                  {renderSectionAIButton('nulidade')}
-                  {renderProgressBadge(countRiscoNulidade().current, countRiscoNulidade().total)}
-                </div>
-              </div>
-
+            <CollapsibleCard
+              id="card-risco-nulidade"
+              title="Risco de Nulidade do Leilão"
+              icon={<Scale size={18} />}
+              statusDotColor={
+                (localData.risco_nulidade || localData.risco_geral_nulidade) === 'Baixo' 
+                  ? 'bg-emerald-500' 
+                  : (localData.risco_nulidade || localData.risco_geral_nulidade) === 'Alto' 
+                    ? 'bg-red-500' 
+                    : 'bg-amber-500'
+              }
+              summaryPreview={
+                <span>
+                  Risco Nulidade: <strong>{localData.risco_nulidade || localData.risco_geral_nulidade || 'Não avaliado'}</strong> | Preço Vil: <strong>{localData.preco_vil_caracterizado ? 'Sim' : 'Não'}</strong>
+                </span>
+              }
+              isOpen={openSections.nulidade}
+              onToggle={() => toggleSection('nulidade')}
+              aiAction={renderSectionAIButton('nulidade')}
+              badge={renderProgressBadge(countRiscoNulidade().current, countRiscoNulidade().total)}
+            >
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="flex flex-col gap-1.5">
                   <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Risco Geral de Nulidade</label>
                   <select 
-                    value={localData.risco_nulidade} 
-                    onChange={e => handleChange('risco_nulidade', e.target.value)}
+                    value={localData.risco_nulidade || localData.risco_geral_nulidade || 'Não avaliado'} 
+                    onChange={e => {
+                      handleChange('risco_nulidade', e.target.value);
+                      handleChange('risco_geral_nulidade', e.target.value as any);
+                    }}
                     className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium"
                   >
                     <option value="Não avaliado">Não avaliado</option>
@@ -1149,12 +1511,15 @@ export default function SmartAnalysisTab({
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3 text-xs font-medium">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs font-medium pt-1">
                 <label className="flex items-center gap-2 cursor-pointer bg-brand-bg/40 p-2.5 rounded-xl border border-brand-border/40">
                   <input 
                     type="checkbox" 
-                    checked={localData.intimacao_executado} 
-                    onChange={e => handleChange('intimacao_executado', e.target.checked)}
+                    checked={localData.intimacao_executado || localData.citacao_regular} 
+                    onChange={e => {
+                      handleChange('intimacao_executado', e.target.checked);
+                      handleChange('citacao_regular', e.target.checked);
+                    }}
                     className="rounded text-brand-primary focus:ring-brand-primary"
                   />
                   <span>Intimação Executado OK</span>
@@ -1167,6 +1532,42 @@ export default function SmartAnalysisTab({
                     className="rounded text-brand-primary focus:ring-brand-primary"
                   />
                   <span>Intimação Cônjuge OK</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer bg-brand-bg/40 p-2.5 rounded-xl border border-brand-border/40">
+                  <input 
+                    type="checkbox" 
+                    checked={localData.intimacao_credor_fiduciario} 
+                    onChange={e => handleChange('intimacao_credor_fiduciario', e.target.checked)}
+                    className="rounded text-brand-primary focus:ring-brand-primary"
+                  />
+                  <span>Credor Fiduciário OK</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer bg-brand-bg/40 p-2.5 rounded-xl border border-brand-border/40">
+                  <input 
+                    type="checkbox" 
+                    checked={localData.publicacao_edital_ok} 
+                    onChange={e => handleChange('publicacao_edital_ok', e.target.checked)}
+                    className="rounded text-brand-primary focus:ring-brand-primary"
+                  />
+                  <span>Publicação Edital OK</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer bg-brand-bg/40 p-2.5 rounded-xl border border-brand-border/40">
+                  <input 
+                    type="checkbox" 
+                    checked={localData.coproprietario_intimado} 
+                    onChange={e => handleChange('coproprietario_intimado', e.target.checked)}
+                    className="rounded text-brand-primary focus:ring-brand-primary"
+                  />
+                  <span>Coproprietário OK</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer bg-brand-bg/40 p-2.5 rounded-xl border border-brand-border/40">
+                  <input 
+                    type="checkbox" 
+                    checked={localData.vicio_citacao} 
+                    onChange={e => handleChange('vicio_citacao', e.target.checked)}
+                    className="rounded text-brand-primary focus:ring-brand-primary"
+                  />
+                  <span>Vício de Citação</span>
                 </label>
               </div>
 
@@ -1183,7 +1584,14 @@ export default function SmartAnalysisTab({
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Folhas da Citação (ex: fls. 50 e 60)</label>
+                  <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider flex items-center justify-between">
+                    <span>Folhas da Citação (ex: fls. 50 e 60)</span>
+                    {localData.folhas_citacao && (
+                      <span className="text-amber-700 font-mono font-bold bg-amber-100 px-1.5 py-0.5 rounded text-[10px]">
+                        {localData.folhas_citacao}
+                      </span>
+                    )}
+                  </label>
                   <input
                     type="text"
                     value={localData.folhas_citacao || ''}
@@ -1193,7 +1601,14 @@ export default function SmartAnalysisTab({
                   />
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Folhas Intimação Leilão (ex: fls. 120-125)</label>
+                  <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider flex items-center justify-between">
+                    <span>Folhas Intimação Leilão (ex: fls. 120-125)</span>
+                    {localData.folhas_intimacao_leilao && (
+                      <span className="text-amber-700 font-mono font-bold bg-amber-100 px-1.5 py-0.5 rounded text-[10px]">
+                        {localData.folhas_intimacao_leilao}
+                      </span>
+                    )}
+                  </label>
                   <input
                     type="text"
                     value={localData.folhas_intimacao_leilao || ''}
@@ -1203,22 +1618,28 @@ export default function SmartAnalysisTab({
                   />
                 </div>
               </div>
-            </div>
+            </CollapsibleCard>
 
             {/* 3. Débitos do Imóvel */}
-            <div className="bg-brand-paper p-6 rounded-3xl border border-brand-border space-y-5 shadow-sm hover:shadow-md transition-all">
-              <div className="flex justify-between items-center border-b border-black/5 pb-3">
-                <h5 className="font-serif font-medium text-lg flex items-center gap-2 text-brand-primary">
-                  <span className={`w-3 h-3 rounded-full shrink-0 ${(localData.iptu_atraso + localData.condominio_atraso + localData.outros_debitos) > 0 ? 'bg-amber-500' : 'bg-emerald-500'}`}></span>
-                  <DollarSign size={18} className="text-brand-primary/70" />
-                  Débitos do Imóvel
-                </h5>
-                <div className="flex items-center gap-2">
-                  {renderSectionAIButton('debitos')}
-                  {renderProgressBadge(countDebitos().current, countDebitos().total)}
-                </div>
-              </div>
-
+            <CollapsibleCard
+              id="card-debitos-imovel"
+              title="Débitos do Imóvel"
+              icon={<DollarSign size={18} />}
+              statusDotColor={
+                (localData.iptu_atraso + localData.condominio_atraso + localData.outros_debitos) > 0 
+                  ? 'bg-amber-500' 
+                  : 'bg-emerald-500'
+              }
+              summaryPreview={
+                <span>
+                  Total Débitos: <strong>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format((localData.iptu_atraso || 0) + (localData.condominio_atraso || 0) + (localData.outros_debitos || 0))}</strong> (IPTU: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(localData.iptu_atraso || 0)})
+                </span>
+              }
+              isOpen={openSections.debitos}
+              onToggle={() => toggleSection('debitos')}
+              aiAction={renderSectionAIButton('debitos')}
+              badge={renderProgressBadge(countDebitos().current, countDebitos().total)}
+            >
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div className="flex flex-col gap-1">
                   <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">IPTU Atraso (R$)</label>
@@ -1279,29 +1700,31 @@ export default function SmartAnalysisTab({
                   className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium font-mono"
                 />
               </div>
-            </div>
+            </CollapsibleCard>
 
           </div>
 
         </div>
       </div>
 
-      {/* Bento Grid layout for complementary info */}
-      <div className="grid grid-cols-1 gap-8" id="smart-analysis-bento-grid">
+      {/* Bento Grid layout for complementary info (Collapsible) */}
+      <div className="space-y-6" id="smart-analysis-bento-grid">
         
-        {/* CARD: Informações do Imóvel */}
-        <div className="bg-brand-paper p-6 rounded-3xl border border-brand-border space-y-5 shadow-sm hover:shadow-md transition-all">
-          <div className="flex justify-between items-center border-b border-black/5 pb-3">
-            <h5 className="font-serif font-medium text-lg flex items-center gap-2 text-brand-primary">
-              <Home size={18} className="text-brand-primary/70" />
-              Informações do Imóvel (Extraídas do Edital/Matrícula)
-            </h5>
-            <div className="flex items-center gap-2">
-              {renderSectionAIButton('imovel')}
-              {renderProgressBadge(countImovel().current, countImovel().total)}
-            </div>
-          </div>
-
+        {/* CARD: Informações do Imóvel (Collapsible) */}
+        <CollapsibleCard
+          id="card-informacoes-imovel"
+          title="Informações do Imóvel (Extraídas do Edital/Matrícula)"
+          icon={<Home size={18} />}
+          summaryPreview={
+            <span>
+              Tipo: <strong>{localData.tipo_imovel || 'Não informado'}</strong> | Matrícula: <strong>{localData.numero_matricula || 'N/D'}</strong> | Área Terreno: <strong>{localData.area_terreno ? `${localData.area_terreno} m²` : 'N/D'}</strong> | Cartório: <strong>{localData.cartorio_registro || 'N/D'}</strong>
+            </span>
+          }
+          isOpen={openSections.imovel}
+          onToggle={() => toggleSection('imovel')}
+          aiAction={renderSectionAIButton('imovel')}
+          badge={renderProgressBadge(countImovel().current, countImovel().total)}
+        >
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="flex flex-col gap-1.5">
               <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Tipo de Imóvel</label>
@@ -1398,21 +1821,23 @@ export default function SmartAnalysisTab({
               className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium resize-none focus:border-brand-primary"
             />
           </div>
-        </div>
+        </CollapsibleCard>
 
-        {/* CARD: Dados dos Ex-Mutuários / Proprietários */}
-        <div className="bg-brand-paper p-6 rounded-3xl border border-brand-border space-y-5 shadow-sm hover:shadow-md transition-all">
-          <div className="flex justify-between items-center border-b border-black/5 pb-3">
-            <h5 className="font-serif font-medium text-lg flex items-center gap-2 text-brand-primary">
-              <User size={18} className="text-brand-primary/70" />
-              Dados do Ex-Mutuário / Proprietário Anterior (Devedores/Executados)
-            </h5>
-            <div className="flex items-center gap-2">
-              {renderSectionAIButton('ex_mutuario')}
-              {renderProgressBadge(countExMutuario().current, countExMutuario().total)}
-            </div>
-          </div>
-
+        {/* CARD: Dados dos Ex-Mutuários / Proprietários (Collapsible) */}
+        <CollapsibleCard
+          id="card-dados-ex-mutuario"
+          title="Dados do Ex-Mutuário / Proprietário Anterior (Devedores/Executados)"
+          icon={<User size={18} />}
+          summaryPreview={
+            <span>
+              Nome: <strong>{localData.nome_ex_mutuario || 'Não informado'}</strong> | CPF: <strong>{localData.cpf_ex_mutuario || 'N/D'}</strong> | Estado Civil: <strong>{localData.estado_civil_ex_mutuario || 'N/D'}</strong>
+            </span>
+          }
+          isOpen={openSections.ex_mutuario}
+          onToggle={() => toggleSection('ex_mutuario')}
+          aiAction={renderSectionAIButton('ex_mutuario')}
+          badge={renderProgressBadge(countExMutuario().current, countExMutuario().total)}
+        >
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="flex flex-col gap-1.5 sm:col-span-2">
               <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Nome Completo do Ex-Mutuário</label>
@@ -1493,87 +1918,84 @@ export default function SmartAnalysisTab({
               className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium resize-none focus:border-brand-primary"
             />
           </div>
-        </div>
+        </CollapsibleCard>
 
-      </div>
-
-      {/* Comentários e Pontos de Observação Crítica de Acordo com Análises */}
-      <div className="bg-brand-paper p-8 rounded-3xl border border-brand-border space-y-6 shadow-sm">
-        <div className="flex items-center gap-3 border-b border-black/5 pb-4">
-          <div className="p-2 bg-brand-primary/10 text-brand-primary rounded-xl">
-            <CheckSquare size={20} />
-          </div>
-          <div>
-            <h5 className="font-serif font-medium text-lg text-brand-primary">
-              Comentários e Observações Críticas (Matrícula, Edital e Processo)
-            </h5>
-            <p className="text-xs text-brand-ink/40">
-              Pontos de atenção estratégicos automatizados com base nas análises documentais realizadas
-            </p>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Comentário 1 */}
-          <div className="p-5 bg-brand-bg/25 border border-brand-border/40 rounded-2xl flex gap-4 items-start hover:border-brand-primary/25 transition-all">
-            <span className="shrink-0 flex items-center justify-center w-8 h-8 rounded-xl bg-brand-primary/15 text-brand-primary text-xs font-bold font-mono">
-              01
+        {/* CARD: Comentários e Observações Críticas (Collapsible) */}
+        <CollapsibleCard
+          id="card-comentarios-criticos"
+          title="Comentários e Observações Críticas (Matrícula, Edital e Processo)"
+          icon={<CheckSquare size={18} />}
+          summaryPreview={
+            <span>
+              4 pareceres automatizados de segurança registral, responsabilidades tributárias, estabilidade e plano de posse
             </span>
-            <div className="space-y-1">
-              <h6 className="text-xs font-bold text-brand-ink uppercase tracking-wide font-sans">Observações da Matrícula (Gravames)</h6>
-              <p className="text-xs text-brand-ink/75 leading-relaxed font-sans">
-                {localData.tem_penhora || localData.tem_hipoteca || localData.alienacao_fiduciaria || localData.tem_onus
-                  ? "Comentário: Existem ônus, penhoras ou gravames averbados na matrícula. Embora a arrematação judicial cancele as penhoras anteriores, é fundamental peticionar nos autos requerendo expressamente a expedição de ofícios para baixa de todos os gravames fiduciários e penhoras junto ao Cartório de Registro de Imóveis."
-                  : "Comentário: A matrícula analisada não apresenta ônus ou penhoras registradas até o momento, indicando uma situação registral altamente favorável e menor burocracia para registro pós-arrematação."}
-              </p>
+          }
+          isOpen={openSections.comentarios}
+          onToggle={() => toggleSection('comentarios')}
+        >
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Comentário 1 */}
+            <div className="p-5 bg-brand-bg/25 border border-brand-border/40 rounded-2xl flex gap-4 items-start hover:border-brand-primary/25 transition-all">
+              <span className="shrink-0 flex items-center justify-center w-8 h-8 rounded-xl bg-brand-primary/15 text-brand-primary text-xs font-bold font-mono">
+                01
+              </span>
+              <div className="space-y-1">
+                <h6 className="text-xs font-bold text-brand-ink uppercase tracking-wide font-sans">Observações da Matrícula (Gravames)</h6>
+                <p className="text-xs text-brand-ink/75 leading-relaxed font-sans">
+                  {localData.tem_penhora || localData.tem_hipoteca || localData.alienacao_fiduciaria || localData.tem_onus
+                    ? "Comentário: Existem ônus, penhoras ou gravames averbados na matrícula. Embora a arrematação judicial cancele as penhoras anteriores, é fundamental peticionar nos autos requerendo expressamente a expedição de ofícios para baixa de todos os gravames fiduciários e penhoras junto ao Cartório de Registro de Imóveis."
+                    : "Comentário: A matrícula analisada não apresenta ônus ou penhoras registradas até o momento, indicando uma situação registral altamente favorável e menor burocracia para registro pós-arrematação."}
+                </p>
+              </div>
+            </div>
+
+            {/* Comentário 2 */}
+            <div className="p-5 bg-brand-bg/25 border border-brand-border/40 rounded-2xl flex gap-4 items-start hover:border-brand-primary/25 transition-all">
+              <span className="shrink-0 flex items-center justify-center w-8 h-8 rounded-xl bg-brand-primary/15 text-brand-primary text-xs font-bold font-mono">
+                02
+              </span>
+              <div className="space-y-1">
+                <h6 className="text-xs font-bold text-brand-ink uppercase tracking-wide font-sans">Observações do Edital (Responsabilidades)</h6>
+                <p className="text-xs text-brand-ink/75 leading-relaxed font-sans">
+                  {localData.responsabilidade_iptu === 'Comprador' || localData.responsabilidade_condominio === 'Comprador'
+                    ? "Comentário: Atenção! O Edital atribui explicitamente ao arrematante a responsabilidade pelo pagamento de débitos anteriores de condomínio ou IPTU. Esses passivos devem ser rigorosamente provisionados e deduzidos do seu lance máximo para manter a margem de lucro intacta."
+                    : "Comentário: O edital prevê a sub-rogação de débitos fiscais (IPTU) sobre o preço da arrematação (conforme Art. 130, parágrafo único do CTN). O arrematante receberá o imóvel livre dessas pendências tributárias anteriores."}
+                </p>
+              </div>
+            </div>
+
+            {/* Comentário 3 */}
+            <div className="p-5 bg-brand-bg/25 border border-brand-border/40 rounded-2xl flex gap-4 items-start hover:border-brand-primary/25 transition-all">
+              <span className="shrink-0 flex items-center justify-center w-8 h-8 rounded-xl bg-brand-primary/15 text-brand-primary text-xs font-bold font-mono">
+                03
+              </span>
+              <div className="space-y-1">
+                <h6 className="text-xs font-bold text-brand-ink uppercase tracking-wide font-sans">Observações do Processo (Estabilidade)</h6>
+                <p className="text-xs text-brand-ink/75 leading-relaxed font-sans">
+                  {localData.embargos_pendentes || localData.acao_anulatoria || localData.recurso_pendente || localData.liminar_bloqueando
+                    ? "Comentário: Alerta Processual! Há ações anulatórias, embargos ou recursos pendentes de julgamento. Isso requer acompanhamento de perto pelo nosso corpo jurídico para garantir que eventuais alegações de vício de citação ou nulidade sejam superadas rapidamente."
+                    : "Comentário: Segurança Jurídica Alta! O processo transcorreu de forma regular, sem incidentes graves de nulidade ou embargos à execução pendentes de julgamento, mitigando drasticamente o risco de desfazimento da arrematação."}
+                </p>
+              </div>
+            </div>
+
+            {/* Comentário 4 */}
+            <div className="p-5 bg-brand-bg/25 border border-brand-border/40 rounded-2xl flex gap-4 items-start hover:border-brand-primary/25 transition-all">
+              <span className="shrink-0 flex items-center justify-center w-8 h-8 rounded-xl bg-brand-primary/15 text-brand-primary text-xs font-bold font-mono">
+                04
+              </span>
+              <div className="space-y-1">
+                <h6 className="text-xs font-bold text-brand-ink uppercase tracking-wide font-sans">Plano de Posse e Imissão</h6>
+                <p className="text-xs text-brand-ink/75 leading-relaxed font-sans">
+                  {(localData.situacao_ocupacional || localData.status_ocupacao) !== 'Desocupado'
+                    ? "Comentário: O imóvel encontra-se ocupado. Recomenda-se traçar um plano de abordagem amigável junto ao ocupante imediatamente após a emissão da guia de arrematação, aliando auxílio-mudança voluntário. Em caso de recusa, ativa-se o pedido de imissão forçada nos próprios autos."
+                    : "Comentário: Imóvel desocupado! Excelente cenário de liquidez, permitindo a imissão imediata na posse após o registro da carta de arrematação, reduzindo custos de carregamento e acelerando a reforma e revenda."}
+                </p>
+              </div>
             </div>
           </div>
+        </CollapsibleCard>
 
-          {/* Comentário 2 */}
-          <div className="p-5 bg-brand-bg/25 border border-brand-border/40 rounded-2xl flex gap-4 items-start hover:border-brand-primary/25 transition-all">
-            <span className="shrink-0 flex items-center justify-center w-8 h-8 rounded-xl bg-brand-primary/15 text-brand-primary text-xs font-bold font-mono">
-              02
-            </span>
-            <div className="space-y-1">
-              <h6 className="text-xs font-bold text-brand-ink uppercase tracking-wide font-sans">Observações do Edital (Responsabilidades)</h6>
-              <p className="text-xs text-brand-ink/75 leading-relaxed font-sans">
-                {localData.responsabilidade_iptu === 'Comprador' || localData.responsabilidade_condominio === 'Comprador'
-                  ? "Comentário: Atenção! O Edital atribui explicitamente ao arrematante a responsabilidade pelo pagamento de débitos anteriores de condomínio ou IPTU. Esses passivos devem ser rigorosamente provisionados e deduzidos do seu lance máximo para manter a margem de lucro intacta."
-                  : "Comentário: O edital prevê a sub-rogação de débitos fiscais (IPTU) sobre o preço da arrematação (conforme Art. 130, parágrafo único do CTN). O arrematante receberá o imóvel livre dessas pendências tributárias anteriores."}
-              </p>
-            </div>
-          </div>
-
-          {/* Comentário 3 */}
-          <div className="p-5 bg-brand-bg/25 border border-brand-border/40 rounded-2xl flex gap-4 items-start hover:border-brand-primary/25 transition-all">
-            <span className="shrink-0 flex items-center justify-center w-8 h-8 rounded-xl bg-brand-primary/15 text-brand-primary text-xs font-bold font-mono">
-              03
-            </span>
-            <div className="space-y-1">
-              <h6 className="text-xs font-bold text-brand-ink uppercase tracking-wide font-sans">Observações do Processo (Estabilidade)</h6>
-              <p className="text-xs text-brand-ink/75 leading-relaxed font-sans">
-                {localData.embargos_pendentes || localData.acao_anulatoria || localData.recurso_pendente || localData.liminar_bloqueando
-                  ? "Comentário: Alerta Processual! Há ações anulatórias, embargos ou recursos pendentes de julgamento. Isso requer acompanhamento de perto pelo nosso corpo jurídico para garantir que eventuais alegações de vício de citação ou nulidade sejam superadas rapidamente."
-                  : "Comentário: Segurança Jurídica Alta! O processo transcorreu de forma regular, sem incidentes graves de nulidade ou embargos à execução pendentes de julgamento, mitigando drasticamente o risco de desfazimento da arrematação."}
-              </p>
-            </div>
-          </div>
-
-          {/* Comentário 4 */}
-          <div className="p-5 bg-brand-bg/25 border border-brand-border/40 rounded-2xl flex gap-4 items-start hover:border-brand-primary/25 transition-all">
-            <span className="shrink-0 flex items-center justify-center w-8 h-8 rounded-xl bg-brand-primary/15 text-brand-primary text-xs font-bold font-mono">
-              04
-            </span>
-            <div className="space-y-1">
-              <h6 className="text-xs font-bold text-brand-ink uppercase tracking-wide font-sans">Plano de Posse e Imissão</h6>
-              <p className="text-xs text-brand-ink/75 leading-relaxed font-sans">
-                {localData.status_ocupacao !== 'Desocupado'
-                  ? "Comentário: O imóvel encontra-se ocupado. Recomenda-se traçar um plano de abordagem amigável junto ao ocupante imediatamente após a emissão da guia de arrematação, aliando auxílio-mudança voluntário. Em caso de recusa, ativa-se o pedido de imissão forçada nos próprios autos."
-                  : "Comentário: Imóvel desocupado! Excelente cenário de liquidez, permitindo a imissão imediata na posse após o registro da carta de arrematação, reduzindo custos de carregamento e acelerando a reforma e revenda."}
-              </p>
-            </div>
-          </div>
-        </div>
       </div>
 
       {/* Bottom Save Action Panel */}
@@ -1581,7 +2003,7 @@ export default function SmartAnalysisTab({
         <button
           onClick={handleLocalSave}
           disabled={isSaving}
-          className="flex items-center gap-2 bg-brand-primary text-black px-10 py-4 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-brand-primary/90 transition-all shadow-lg shadow-brand-primary/20"
+          className="flex items-center gap-2 bg-brand-primary text-black px-10 py-4 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-brand-primary/90 transition-all shadow-lg shadow-brand-primary/20 cursor-pointer"
         >
           {isSaving ? (
             <>

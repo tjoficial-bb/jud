@@ -77,6 +77,7 @@ import { analyzeAuctionDocuments, generateProcessStory, sendChatMessage } from '
 import SmartAnalysisTab, { SmartAnalysisData, getEmptySmartAnalysis } from './components/SmartAnalysisTab';
 import AssessoriaReport, { AssessoriaAnalysisData, getEmptyAssessoriaAnalysis } from './components/AssessoriaReport';
 import { exportElementToPDF } from './utils/pdfExporter';
+import { PdfExportModal } from './components/PdfExportModal';
 
 const SimulationContext = React.createContext<{ 
   simulationData: any, 
@@ -5899,6 +5900,9 @@ function MasterReportView({
   const [isGeneratingInsta, setIsGeneratingInsta] = useState(false);
 
   const [isAdminOpen, setIsAdminOpen] = useState(false);
+  const [isFinancialEditorOpen, setIsFinancialEditorOpen] = useState(false);
+  const [isPdfModalOpen, setIsPdfModalOpen] = useState(false);
+
   const [formTitle, setFormTitle] = useState(property?.title || '');
   const [formAddress, setFormAddress] = useState(property?.address || '');
   const [formCity, setFormCity] = useState(property?.city || '');
@@ -5908,6 +5912,7 @@ function MasterReportView({
   const [formExpectedSale, setFormExpectedSale] = useState(property?.expected_sale_value || 0);
   const [formAnonymize, setFormAnonymize] = useState(property?.anonymize_property || 0);
   const [isUpdatingProperty, setIsUpdatingProperty] = useState(false);
+  const [isSavingFinancials, setIsSavingFinancials] = useState(false);
 
   // Sync form state when property changes
   React.useEffect(() => {
@@ -5955,6 +5960,69 @@ function MasterReportView({
       alert("Erro de conexão ao salvar.");
     } finally {
       setIsUpdatingProperty(false);
+    }
+  };
+
+  const handleUpdateSimulationValue = (key: string, value: any, subkey?: string) => {
+    setState((prev: any) => {
+      const currentSim = prev.simulationData || {};
+      let updatedSim = { ...currentSim };
+      if (subkey) {
+        updatedSim = {
+          ...updatedSim,
+          [key]: {
+            ...(updatedSim[key] || {}),
+            [subkey]: value
+          }
+        };
+      } else {
+        updatedSim = {
+          ...updatedSim,
+          [key]: value
+        };
+      }
+      return {
+        ...prev,
+        simulationData: updatedSim
+      };
+    });
+  };
+
+  const handleSaveFinancialsToProperty = async () => {
+    if (!property?.id) {
+      alert("Valores ajustados na simulação atual com sucesso!");
+      return;
+    }
+    setIsSavingFinancials(true);
+    try {
+      const currentSim = state.simulationData || {};
+      const saleVal = currentSim.saleValue?.value || metrics.saleValue || property.expected_sale_value || 0;
+      const bidVal = currentSim.bid?.value || metrics.bid || property.min_bid || 0;
+      const valVal = currentSim.valuation?.value || property.valuation_value || 0;
+
+      const res = await fetch(`/api/properties/${property.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          expected_sale_value: saleVal,
+          min_bid: bidVal,
+          valuation_value: valVal
+        })
+      });
+
+      if (res.ok) {
+        alert("Valores financeiros sincronizados e salvos com sucesso no banco de dados!");
+      } else {
+        alert("Erro ao salvar valores no imóvel.");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Erro ao salvar valores.");
+    } finally {
+      setIsSavingFinancials(false);
     }
   };
 
@@ -6145,6 +6213,8 @@ Responda APENAS um objeto JSON válido, sem aspas adicionais, sem bloco de códi
     );
   }
 
+  const sim = state.simulationData || {};
+
   return (
     <div className="space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-500 relative">
       {/* Repeating Watermark, Header and Footer for PDF/Print */}
@@ -6159,6 +6229,257 @@ Responda APENAS um objeto JSON válido, sem aspas adicionais, sem bloco de códi
         <span>Emitido em: {new Date().toLocaleDateString('pt-BR')}</span>
         <span>Documento Confidencial - Uso Restrito</span>
       </div>
+
+      {/* TOP CONTROLS / ACTION BAR */}
+      <div className="no-print bg-brand-paper/80 backdrop-blur-md p-4 rounded-3xl border border-brand-primary/20 shadow-md flex flex-wrap items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-brand-primary/20 rounded-xl flex items-center justify-center text-brand-primary">
+            <FileText size={20} />
+          </div>
+          <div>
+            <h3 className="text-sm font-bold text-brand-primary">Central de Relatórios & Ajuste de Valores</h3>
+            <p className="text-xs text-brand-ink/50">Personalize seções para exportar em PDF ou edite valores da simulação em tempo real</p>
+          </div>
+        </div>
+
+        <div className="flex items-center flex-wrap gap-2">
+          {/* PDF Modal Trigger Button */}
+          <button
+            onClick={() => setIsPdfModalOpen(true)}
+            className="flex items-center gap-2 px-5 py-2.5 bg-brand-primary text-black font-bold text-xs uppercase tracking-wider rounded-xl hover:bg-brand-primary/90 transition-all shadow-sm hover:scale-[1.02] cursor-pointer"
+            title="Escolher o que vai aparecer no relatório e salvar em PDF"
+          >
+            <Download size={15} />
+            <span>Personalizar & Baixar PDF</span>
+          </button>
+
+          {/* Quick Financial Values Editor Toggle */}
+          <button
+            onClick={() => setIsFinancialEditorOpen(!isFinancialEditorOpen)}
+            className={cn(
+              "flex items-center gap-2 px-4 py-2.5 font-bold text-xs uppercase tracking-wider rounded-xl border transition-all cursor-pointer",
+              isFinancialEditorOpen 
+                ? "bg-brand-primary/20 text-brand-primary border-brand-primary/50 shadow-inner" 
+                : "bg-brand-bg text-brand-ink hover:text-brand-primary border-brand-border"
+            )}
+            title="Alterar valores financeiros de compra, venda, reforma, etc"
+          >
+            <TrendingUp size={15} />
+            <span>{isFinancialEditorOpen ? "Fechar Ajuste de Valores" : "Ajustar Valores do Estudo"}</span>
+          </button>
+
+          {/* Property Admin Toggle */}
+          <button
+            onClick={() => setIsAdminOpen(!isAdminOpen)}
+            className={cn(
+              "flex items-center gap-2 px-4 py-2.5 font-bold text-xs uppercase tracking-wider rounded-xl border transition-all cursor-pointer",
+              isAdminOpen 
+                ? "bg-brand-primary/20 text-brand-primary border-brand-primary/50" 
+                : "bg-brand-bg text-brand-ink hover:text-brand-primary border-brand-border"
+            )}
+            title="Ajustar dados cadastrais, endereço e título"
+          >
+            <Settings size={15} />
+            <span>Dados Cadastrais</span>
+          </button>
+        </div>
+      </div>
+
+      {/* FINANCIAL VALUES EDITOR PANEL */}
+      {isFinancialEditorOpen && (
+        <div className="no-print bg-brand-paper rounded-[2rem] border-2 border-brand-primary/30 shadow-lg p-6 sm:p-8 space-y-6 animate-in fade-in duration-300">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-brand-primary/10 pb-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-brand-primary/20 text-brand-primary rounded-xl">
+                <TrendingUp size={22} />
+              </div>
+              <div>
+                <h4 className="text-lg font-bold text-brand-primary">Ajuste de Parâmetros Financeiros do Estudo</h4>
+                <p className="text-xs text-brand-ink/50">Altere qualquer valor abaixo. Todos os cálculos de ROI, TIR, Lucro Líquido e tabelas serão recalculados instantaneamente.</p>
+              </div>
+            </div>
+            
+            <button
+              onClick={handleSaveFinancialsToProperty}
+              disabled={isSavingFinancials}
+              className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold uppercase tracking-wider rounded-xl transition-all disabled:opacity-50 cursor-pointer shadow-sm"
+            >
+              <Save size={15} />
+              <span>{isSavingFinancials ? "Salvando..." : "Sincronizar com Imóvel"}</span>
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            {/* Valor de Revenda */}
+            <div className="bg-brand-bg/50 p-4 rounded-2xl border border-brand-border space-y-1.5">
+              <label className="text-[10px] font-bold text-emerald-500 uppercase tracking-wider flex items-center justify-between">
+                <span>Valor de Revenda Estimado</span>
+                <span className="text-[9px] lowercase font-normal text-brand-ink/40">venda final</span>
+              </label>
+              <div className="relative">
+                <span className="absolute left-3 top-3 text-xs font-bold text-brand-ink/40">R$</span>
+                <input
+                  type="number"
+                  value={sim.saleValue?.value ?? (metrics.saleValue || property?.expected_sale_value || '')}
+                  onChange={(e) => handleUpdateSimulationValue('saleValue', Number(e.target.value) || 0, 'value')}
+                  className="w-full pl-9 pr-3 py-2.5 bg-brand-paper border border-brand-border rounded-xl text-sm font-bold text-emerald-500 outline-none focus:border-emerald-500 font-mono"
+                  placeholder="0.00"
+                />
+              </div>
+            </div>
+
+            {/* Lance Máximo / Investimento */}
+            <div className="bg-brand-bg/50 p-4 rounded-2xl border border-brand-border space-y-1.5">
+              <label className="text-[10px] font-bold text-brand-primary uppercase tracking-wider flex items-center justify-between">
+                <span>Lance de Arrematação</span>
+                <span className="text-[9px] lowercase font-normal text-brand-ink/40">custo compra</span>
+              </label>
+              <div className="relative">
+                <span className="absolute left-3 top-3 text-xs font-bold text-brand-ink/40">R$</span>
+                <input
+                  type="number"
+                  value={sim.bid?.value ?? (metrics.bid || property?.min_bid || '')}
+                  onChange={(e) => handleUpdateSimulationValue('bid', Number(e.target.value) || 0, 'value')}
+                  className="w-full pl-9 pr-3 py-2.5 bg-brand-paper border border-brand-border rounded-xl text-sm font-bold text-brand-primary outline-none focus:border-brand-primary font-mono"
+                  placeholder="0.00"
+                />
+              </div>
+            </div>
+
+            {/* Prazo do Projeto */}
+            <div className="bg-brand-bg/50 p-4 rounded-2xl border border-brand-border space-y-1.5">
+              <label className="text-[10px] font-bold text-brand-ink/70 uppercase tracking-wider flex items-center justify-between">
+                <span>Prazo Estimado da Operação</span>
+                <span className="text-[9px] lowercase font-normal text-brand-ink/40">meses</span>
+              </label>
+              <div className="relative">
+                <input
+                  type="number"
+                  value={sim.holdingMonths?.value ?? (sim.holdingMonths || 12)}
+                  onChange={(e) => handleUpdateSimulationValue('holdingMonths', Number(e.target.value) || 12)}
+                  className="w-full px-4 py-2.5 bg-brand-paper border border-brand-border rounded-xl text-sm font-bold text-brand-ink outline-none focus:border-brand-primary font-mono"
+                  placeholder="12"
+                  min="1"
+                  max="120"
+                />
+                <span className="absolute right-3 top-3 text-xs text-brand-ink/40">meses</span>
+              </div>
+            </div>
+
+            {/* Custos de Reforma */}
+            <div className="bg-brand-bg/50 p-4 rounded-2xl border border-brand-border space-y-1.5">
+              <label className="text-[10px] font-bold text-brand-ink/70 uppercase tracking-wider">Custos de Reforma e Pintura</label>
+              <div className="relative">
+                <span className="absolute left-3 top-3 text-xs font-bold text-brand-ink/40">R$</span>
+                <input
+                  type="number"
+                  value={sim.reforma?.value ?? 0}
+                  onChange={(e) => handleUpdateSimulationValue('reforma', Number(e.target.value) || 0, 'value')}
+                  className="w-full pl-9 pr-3 py-2.5 bg-brand-paper border border-brand-border rounded-xl text-sm font-bold text-brand-ink outline-none focus:border-brand-primary font-mono"
+                  placeholder="0.00"
+                />
+              </div>
+            </div>
+
+            {/* ITBI e Impostos */}
+            <div className="bg-brand-bg/50 p-4 rounded-2xl border border-brand-border space-y-1.5">
+              <label className="text-[10px] font-bold text-brand-ink/70 uppercase tracking-wider">ITBI e Impostos de Transferência</label>
+              <div className="relative">
+                <span className="absolute left-3 top-3 text-xs font-bold text-brand-ink/40">R$</span>
+                <input
+                  type="number"
+                  value={sim.itbi?.value ?? 0}
+                  onChange={(e) => handleUpdateSimulationValue('itbi', Number(e.target.value) || 0, 'value')}
+                  className="w-full pl-9 pr-3 py-2.5 bg-brand-paper border border-brand-border rounded-xl text-sm font-bold text-brand-ink outline-none focus:border-brand-primary font-mono"
+                  placeholder="0.00"
+                />
+              </div>
+            </div>
+
+            {/* Custas Cartorárias e Registro */}
+            <div className="bg-brand-bg/50 p-4 rounded-2xl border border-brand-border space-y-1.5">
+              <label className="text-[10px] font-bold text-brand-ink/70 uppercase tracking-wider">Custos de Registro e Cartório</label>
+              <div className="relative">
+                <span className="absolute left-3 top-3 text-xs font-bold text-brand-ink/40">R$</span>
+                <input
+                  type="number"
+                  value={sim.custosRegistro?.value ?? 0}
+                  onChange={(e) => handleUpdateSimulationValue('custosRegistro', Number(e.target.value) || 0, 'value')}
+                  className="w-full pl-9 pr-3 py-2.5 bg-brand-paper border border-brand-border rounded-xl text-sm font-bold text-brand-ink outline-none focus:border-brand-primary font-mono"
+                  placeholder="0.00"
+                />
+              </div>
+            </div>
+
+            {/* Despesas de Desocupação */}
+            <div className="bg-brand-bg/50 p-4 rounded-2xl border border-brand-border space-y-1.5">
+              <label className="text-[10px] font-bold text-brand-ink/70 uppercase tracking-wider">Despesas / Acordo de Desocupação</label>
+              <div className="relative">
+                <span className="absolute left-3 top-3 text-xs font-bold text-brand-ink/40">R$</span>
+                <input
+                  type="number"
+                  value={sim.desocupacaoAcordo?.value ?? 0}
+                  onChange={(e) => handleUpdateSimulationValue('desocupacaoAcordo', Number(e.target.value) || 0, 'value')}
+                  className="w-full pl-9 pr-3 py-2.5 bg-brand-paper border border-brand-border rounded-xl text-sm font-bold text-brand-ink outline-none focus:border-brand-primary font-mono"
+                  placeholder="0.00"
+                />
+              </div>
+            </div>
+
+            {/* Comissão do Leiloeiro */}
+            <div className="bg-brand-bg/50 p-4 rounded-2xl border border-brand-border space-y-1.5">
+              <label className="text-[10px] font-bold text-brand-ink/70 uppercase tracking-wider">Comissão do Leiloeiro (%)</label>
+              <div className="relative">
+                <input
+                  type="number"
+                  value={sim.commission?.value ?? 5}
+                  onChange={(e) => handleUpdateSimulationValue('commission', Number(e.target.value) || 0, 'value')}
+                  className="w-full px-4 py-2.5 bg-brand-paper border border-brand-border rounded-xl text-sm font-bold text-brand-ink outline-none focus:border-brand-primary font-mono"
+                  placeholder="5"
+                />
+                <span className="absolute right-3 top-3 text-xs text-brand-ink/40">%</span>
+              </div>
+            </div>
+
+            {/* Assessoria & Honorários */}
+            <div className="bg-brand-bg/50 p-4 rounded-2xl border border-brand-border space-y-1.5">
+              <label className="text-[10px] font-bold text-brand-ink/70 uppercase tracking-wider">Assessoria TJ INVEST (Entrada/Fixo)</label>
+              <div className="relative">
+                <span className="absolute left-3 top-3 text-xs font-bold text-brand-ink/40">R$</span>
+                <input
+                  type="number"
+                  value={sim.entrada?.value ?? 0}
+                  onChange={(e) => handleUpdateSimulationValue('entrada', Number(e.target.value) || 0, 'value')}
+                  className="w-full pl-9 pr-3 py-2.5 bg-brand-paper border border-brand-border rounded-xl text-sm font-bold text-brand-ink outline-none focus:border-brand-primary font-mono"
+                  placeholder="0.00"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Quick Metrics Live Summary */}
+          <div className="bg-brand-primary/5 p-4 rounded-2xl border border-brand-primary/20 flex flex-wrap items-center justify-between gap-4">
+            <div className="flex items-center gap-6">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-brand-ink/50">Lucro Líquido Estimado</p>
+                <p className="text-xl font-bold text-emerald-500 font-mono">
+                  {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(metrics.netProfit || 0)}
+                </p>
+              </div>
+              <div className="border-l border-brand-primary/20 pl-6">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-brand-ink/50">ROI Calculado</p>
+                <p className="text-xl font-bold text-emerald-500 font-mono">{roi.toFixed(2)}%</p>
+              </div>
+              <div className="border-l border-brand-primary/20 pl-6">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-brand-ink/50">TIR Estimada</p>
+                <p className="text-xl font-bold text-blue-500 font-mono">{tir.toFixed(2)}%</p>
+              </div>
+            </div>
+
+            <p className="text-xs text-brand-ink/40 italic">As métricas acima são recalculadas dinamicamente à medida que você digita.</p>
+          </div>
+        </div>
+      )}
 
       {/* PAINEL ADMINISTRATIVO COLLAPSIBLE CARD */}
       <div className="no-print bg-brand-paper rounded-[2rem] border border-brand-primary/20 shadow-sm overflow-hidden">
@@ -6339,7 +6660,7 @@ Responda APENAS um objeto JSON válido, sem aspas adicionais, sem bloco de códi
               <p className="text-sm text-brand-ink/40">{property?.title || "Imóvel em Análise"}</p>
             </div>
           </div>
-          <div className="flex gap-4">
+          <div className="flex items-center gap-4">
             <div className="text-center px-6 py-3 bg-green-500/10 border border-green-500/20 rounded-2xl">
               <p className="text-[10px] font-bold uppercase tracking-widest text-green-500/60 mb-1">ROI</p>
               <p className="text-xl font-bold text-green-500">{roi.toFixed(2)}%</p>
@@ -6362,19 +6683,25 @@ Responda APENAS um objeto JSON válido, sem aspas adicionais, sem bloco de códi
             <tbody className="divide-y divide-brand-border">
               <tr>
                 <td className="px-6 py-4 font-bold text-brand-ink/60 uppercase text-[10px] tracking-widest">Valor de Venda</td>
-                <td className="px-6 py-4 font-bold text-right">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(metrics.saleValue || 0)}</td>
+                <td className="px-6 py-4 font-bold text-right text-emerald-500 font-mono">
+                  {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(metrics.saleValue || 0)}
+                </td>
               </tr>
               <tr>
                 <td className="px-6 py-4 font-bold text-brand-ink/60 uppercase text-[10px] tracking-widest text-brand-primary">Lance Máximo</td>
-                <td className="px-6 py-4 font-bold text-right text-brand-primary">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(metrics.bid || 0)}</td>
+                <td className="px-6 py-4 font-bold text-right text-brand-primary font-mono">
+                  {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(metrics.bid || 0)}
+                </td>
               </tr>
               <tr>
                 <td className="px-6 py-4 font-bold text-brand-ink/60 uppercase text-[10px] tracking-widest">Prazo do Projeto</td>
-                <td className="px-6 py-4 font-bold text-right">{state.simulationData?.holdingMonths || 12} meses</td>
+                <td className="px-6 py-4 font-bold text-right font-mono">{state.simulationData?.holdingMonths || 12} meses</td>
               </tr>
               <tr>
                 <td className="px-6 py-4 font-bold text-brand-ink/60 uppercase text-[10px] tracking-widest">Resultado Líquido</td>
-                <td className="px-6 py-4 font-bold text-right text-green-500">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(metrics.netProfit || 0)}</td>
+                <td className="px-6 py-4 font-bold text-right text-green-500 font-mono">
+                  {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(metrics.netProfit || 0)}
+                </td>
               </tr>
             </tbody>
           </table>
@@ -6456,10 +6783,18 @@ Responda APENAS um objeto JSON válido, sem aspas adicionais, sem bloco de códi
 
       {/* Financial Analysis - Quick View */}
       <section className="bg-brand-paper/50 p-8 rounded-[2.5rem] border border-brand-primary/10 print-section-3">
-        <h3 className="text-xl font-bold text-brand-primary mb-8 flex items-center gap-3">
-          <TrendingUp size={20} />
-          Fluxo de Caixa Estimado
-        </h3>
+        <div className="flex items-center justify-between mb-8">
+          <h3 className="text-xl font-bold text-brand-primary flex items-center gap-3">
+            <TrendingUp size={20} />
+            Fluxo de Caixa Estimado
+          </h3>
+          <button
+            onClick={() => setIsFinancialEditorOpen(true)}
+            className="text-xs text-brand-primary font-bold hover:underline flex items-center gap-1 cursor-pointer no-print"
+          >
+            <span>Editar valores</span>
+          </button>
+        </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
@@ -6472,28 +6807,28 @@ Responda APENAS um objeto JSON válido, sem aspas adicionais, sem bloco de códi
             <tbody className="divide-y divide-brand-primary/5">
               <tr>
                 <td className="py-4 text-sm">Valor de Venda</td>
-                <td className="py-4 text-sm font-bold text-right text-green-500">
+                <td className="py-4 text-sm font-bold text-right text-green-500 font-mono">
                   {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(metrics.saleValue || 0)}
                 </td>
                 <td className="py-4 text-xs text-brand-ink/40 text-right">Mercado</td>
               </tr>
               <tr>
                 <td className="py-4 text-sm">Lance (Investimento)</td>
-                <td className="py-4 text-sm font-bold text-right text-red-500">
+                <td className="py-4 text-sm font-bold text-right text-red-500 font-mono">
                   -{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(metrics.bid || 0)}
                 </td>
                 <td className="py-4 text-xs text-brand-ink/40 text-right">Arrematação</td>
               </tr>
               <tr>
                 <td className="py-4 text-sm">Custos Totais (Reforma, ITBI, etc)</td>
-                <td className="py-4 text-sm font-bold text-right text-red-500">
+                <td className="py-4 text-sm font-bold text-right text-red-500 font-mono">
                   -{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(metrics.totalUpfrontExpenses || 0)}
                 </td>
                 <td className="py-4 text-xs text-brand-ink/40 text-right">Operacional</td>
               </tr>
               <tr className="bg-brand-primary/5">
                 <td className="py-4 px-4 text-sm font-bold">Lucro Líquido Estimado</td>
-                <td className="py-4 px-4 text-sm font-bold text-right text-green-500">
+                <td className="py-4 px-4 text-sm font-bold text-right text-green-500 font-mono">
                   {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(metrics.netProfit || 0)}
                 </td>
                 <td className="py-4 px-4 text-xs text-brand-ink/40 text-right">Final</td>
@@ -6502,6 +6837,23 @@ Responda APENAS um objeto JSON válido, sem aspas adicionais, sem bloco de códi
           </table>
         </div>
       </section>
+
+      {/* PDF Export Modal */}
+      <PdfExportModal
+        isOpen={isPdfModalOpen}
+        onClose={() => setIsPdfModalOpen(false)}
+        property={property}
+        metrics={metrics}
+        roi={roi}
+        tir={tir}
+        processStory={processStory}
+        reportSummary={state.report}
+        smartAnalysis={state.smartAnalysis}
+        assessoriaAnalysis={state.assessoriaAnalysis}
+        dossierAnalysis={state.dossierAnalysis}
+        simulationData={state.simulationData}
+        anonymizeProperty={Boolean(property?.anonymize_property)}
+      />
     </div>
   );
 }
@@ -7585,9 +7937,23 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
       const prompt = `Você é um advogado imobiliário sênior e especialista em leilões de imóveis (judiciais e extrajudiciais) no Brasil.
 Sua tarefa é analisar minuciosamente todos os documentos fornecidos do leilão (Edital, Matrícula de Cartório de Registro de Imóveis, e peças do processo judicial correspondente) e preencher um relatório estruturado em formato JSON contendo as informações jurídicas, de ocupação, financeiras e de riscos do leilão.
 
+DIRETRIZ CRÍTICA DE EXTRAÇÃO DE FOLHAS NOS AUTOS / PÁGINAS (LOCALIZAÇÃO):
+Você DEVE localizar e preencher obrigatoriamente onde cada prova/documento se encontra no processo judicial ou matrícula:
+- folhas_edital: páginas ou folhas onde o edital se encontra (ex: "fls. 210 e 211" ou "pág. 1-5")
+- folhas_avaliacao: páginas do laudo de avaliação do imóvel (ex: "fls. 150 a 165")
+- folhas_debitos: certidões de IPTU e condomínio nos autos (ex: "fls. 95 e 98")
+- folhas_ocupacao: auto de constatação de ocupação / mandado (ex: "fls. 180 e 200")
+- folhas_citacao: mandado/aviso de citação do executado (ex: "fls. 50 e 60")
+- folhas_intimacao_leilao: comprovação de intimação das datas do leilão (ex: "fls. 120-125")
+- folhas_consolidacao: averbação de consolidação ou notificação extrajudicial (ex: "Av. 06 / fls. 310")
+- folhas_penhora_matricula: averbações e registros de penhoras/ônus na matrícula (ex: "R. 03 / Av. 04 fls. 88")
+
 DIRETRIZ CRÍTICA DE PREENCHIMENTO AUTOMÁTICO DOS CHECKLISTS:
-- Na Análise da Matrícula (CRI): analise todas as averbações (AV-) e registros (R-). Marque true para matricula_atualizada, tem_onus, tem_penhora, tem_hipoteca, alienacao_fiduciaria, indisponibilidade ou acao_reipersecutoria se identificados na leitura das páginas da matrícula.
-- No Risco de Nulidade do Leilão: verifique o processo e o edital e marque true para os requisitos preenchidos/válidos: citacao_regular, intimacao_penhora, intimacao_leilao_executado, intimacao_credor_fiduciario, coproprietario_intimado, publicacao_edital_ok, e preco_vil (quando lance mínimo for >50% ou dentro do limite legal).
+- Na Análise da Matrícula (CRI): analise todas as averbações (AV-) e registros (R-). Defina status_matricula ("Regular sem gravames", "Possui penhoras averbadas", "Possui hipoteca/alienação", "Possui indisponibilidade", "Restrições graves") e marque true/false para matricula_atualizada, tem_onus, tem_penhora, tem_hipoteca, usufruto_hipoteca, alienacao_fiduciaria, indisponibilidade_bens, acao_reipersecutoria.
+- No Risco de Nulidade do Leilão: verifique o processo e edital. Defina risco_nulidade ("Baixo" | "Médio" | "Alto"), preco_vil_caracterizado (true/false) e marque true/false para intimacao_executado, intimacao_conjuge, intimacao_credor_fiduciario, coproprietario_intimado, publicacao_edital_ok, citacao_regular, vicio_citacao, vicio_avaliacao, vicio_publicacao.
+- Na Situação Ocupacional: defina situacao_ocupacional / status_ocupacao ("Desocupado", "Ocupado pelo Ex-Mutuário", "Ocupado por Inquilino/Terceiro", "Invasão", "Desconhecido"), risco_usucapiao ("Baixo" | "Médio" | "Alto"), nome_ocupante, cpf_ocupante, telefone_ocupante, tempo_ocupacao.
+- No Risco de Desocupação: defina risco_desocupacao / nivel_risco_desocupacao ("Baixo" | "Médio" | "Alto"), estimativa_prazo_desocupacao (ex: "3 a 6 meses"), custo_estimado_desocupacao (número), liminar_bloqueando, acao_anulatoria, embargos_pendentes, recurso_pendente.
+- Na Consolidação: defina status_consolidacao ("Consolidada em cartório", "Regular", "Pendente de averbação", "Irregular", "Em leilão judicial (Execução)", "Não aplicável"), data_consolidacao ("AAAA-MM-DD" ou vazio), intimacao_purga_mora, intimacao_leiloes, averbacao_consolidacao.
 
 Você deve responder APENAS com um objeto JSON válido, sem texto explicativo antes ou depois, seguindo estritamente este esquema de chaves e tipos de valores:
 
@@ -7600,49 +7966,16 @@ Você deve responder APENAS com um objeto JSON válido, sem texto explicativo an
   "responsabilidade_iptu": "Vendedor (Banco)" | "Comprador" | "Sub-rogado no preço",
   "responsabilidade_condominio": "Vendedor (Banco)" | "Comprador" | "Sub-rogado no preço",
   "observacoes_edital": "Observações sobre datas, regras do edital, parcelamentos autorizados, etc. Seja minucioso.",
+  "folhas_edital": "fls. 210 e 211",
+  "folhas_avaliacao": "fls. 150 a 165",
   
   "iptu_atraso": 1500.00,
   "condominio_atraso": 3000.00,
   "outros_debitos": 0.00,
   "observacoes_debitos": "Detalhamento das dívidas de IPTU, Condomínio, foro/laudêmio, etc.",
+  "folhas_debitos": "fls. 95 e 98",
   
-  "nivel_risco_desocupacao": "Baixo" | "Médio" | "Alto",
-  "liminar_bloqueando": false,
-  "acao_anulatoria": false,
-  "embargos_pendentes": false,
-  "recurso_pendente": false,
-  "prazo_estimado_desocupacao": "6 a 12 meses" | "3 a 6 meses" | "mais de 12 meses",
-  "observacoes_desocupacao": "Análise da dificuldade esperada de desocupação baseada no tipo de ocupante e nos recursos vigentes",
-  
-  "risco_geral_nulidade": "Baixo" | "Médio" | "Alto",
-  "citacao_regular": false,
-  "intimacao_penhora": false,
-  "intimacao_leilao_executado": false,
-  "intimacao_credor_fiduciario": false,
-  "coproprietario_intimado": false,
-  "publicacao_edital_ok": false,
-  "preco_vil": false,
-  "vicio_citacao": false,
-  "vicio_avaliacao": false,
-  "vicio_publicacao": false,
-  "vicio_procedimental": false,
-  "observacoes_nulidade": "Análise crítica dos riscos de nulidade ou anulação do leilão pelas defesas do executado",
-  
-  "status_consolidacao": "Regular" | "Irregular" | "Pendente" | "Não verificado",
-  "intimacao_purga_mora": false,
-  "intimacao_leiloes": false,
-  "averbacao_consolidacao": false,
-  "observacoes_consolidacao": "Análise de regularidade do procedimento de consolidação extrajudicial (Lei 9.514/97)",
-  
-  "matricula_atualizada": false,
-  "tem_onus": false,
-  "tem_penhora": false,
-  "tem_hipoteca": false,
-  "alienacao_fiduciaria": false,
-  "indisponibilidade": false,
-  "acao_reipersecutoria": false,
-  "observacoes_matricula": "Destaque exaustivamente todos os ônus, penhoras e restrições encontrados na matrícula e seus respectivos cancelamentos ou riscos",
-  
+  "situacao_ocupacional": "Desocupado" | "Ocupado pelo Ex-Mutuário" | "Ocupado por Inquilino/Terceiro" | "Invasão" | "Desconhecido",
   "status_ocupacao": "Ocupado pelo ex-mutuário" | "Ocupado por terceiro" | "Invasão" | "Desocupado",
   "relacao_ex_mutuario": "O próprio" | "Parente" | "Inquilino" | "Desconhecido",
   "nome_ocupante": "Nome completo do ocupante se mencionado nos autos ou edital, senão vazio",
@@ -7651,6 +7984,57 @@ Você deve responder APENAS com um objeto JSON válido, sem texto explicativo an
   "tempo_ocupacao": "Tempo estimado que o ocupante já está no imóvel se puder ser deduzido, senão vazio",
   "risco_usucapiao": "Baixo" | "Médio" | "Alto",
   "observacoes_ocupacao": "Histórico de tentativas de desocupação amigável ou imissões de posse anteriores se houver",
+  "folhas_ocupacao": "fls. 180 e 200",
+  
+  "risco_desocupacao": "Baixo" | "Médio" | "Alto",
+  "nivel_risco_desocupacao": "Baixo" | "Médio" | "Alto",
+  "estimativa_prazo_desocupacao": "3 a 6 meses" | "6 a 12 meses" | "mais de 12 meses",
+  "prazo_estimado_desocupacao": "3 a 6 meses" | "6 a 12 meses" | "mais de 12 meses",
+  "custo_estimado_desocupacao": 5000.00,
+  "liminar_bloqueando": false,
+  "acao_anulatoria": false,
+  "embargos_pendentes": false,
+  "recurso_pendente": false,
+  "observacoes_desocupacao": "Análise da dificuldade esperada de desocupação baseada no tipo de ocupante e nos recursos vigentes",
+  
+  "risco_nulidade": "Baixo" | "Médio" | "Alto",
+  "risco_geral_nulidade": "Baixo" | "Médio" | "Alto",
+  "preco_vil_caracterizado": false,
+  "preco_vil": false,
+  "intimacao_executado": true,
+  "intimacao_conjuge": true,
+  "intimacao_credor_fiduciario": true,
+  "coproprietario_intimado": true,
+  "publicacao_edital_ok": true,
+  "citacao_regular": true,
+  "vicio_citacao": false,
+  "vicio_avaliacao": false,
+  "vicio_publicacao": false,
+  "vicio_procedimental": false,
+  "observacoes_nulidade": "Análise crítica dos riscos de nulidade ou anulação do leilão pelas defesas do executado",
+  "folhas_citacao": "fls. 50 e 60",
+  "folhas_intimacao_leilao": "fls. 120-125",
+  
+  "status_consolidacao": "Consolidada em cartório" | "Regular" | "Pendente de averbação" | "Irregular" | "Em leilão judicial (Execução)" | "Não aplicável",
+  "data_consolidacao": "AAAA-MM-DD",
+  "intimacao_purga_mora": false,
+  "intimacao_leiloes": false,
+  "averbacao_consolidacao": false,
+  "observacoes_consolidacao": "Análise de regularidade do procedimento de consolidação extrajudicial (Lei 9.514/97)",
+  "folhas_consolidacao": "Av. 06 / fls. 310",
+  
+  "status_matricula": "Regular sem gravames" | "Possui penhoras averbadas" | "Possui hipoteca/alienação" | "Possui indisponibilidade" | "Restrições graves",
+  "matricula_atualizada": false,
+  "tem_onus": false,
+  "tem_penhora": false,
+  "tem_hipoteca": false,
+  "usufruto_hipoteca": false,
+  "alienacao_fiduciaria": false,
+  "indisponibilidade": false,
+  "indisponibilidade_bens": false,
+  "acao_reipersecutoria": false,
+  "observacoes_matricula": "Destaque exaustivamente todos os ônus, penhoras e restrições encontrados na matrícula e seus respectivos cancelamentos ou riscos",
+  "folhas_penhora_matricula": "R. 03 / Av. 04 fls. 88",
 
   "tipo_imovel": "Casa" | "Apartamento" | "Terreno" | "Comercial" | "Outros" | "Selecione",
   "numero_matricula": "Número de matrícula do imóvel se encontrado, senão vazio",
@@ -7745,22 +8129,22 @@ Busque atenta e minuciosamente nos anexos (Matrícula, Edital, Processo Judicial
 - endereco_ex_mutuario (endereço completo do devedor)
 - observacoes_ex_mutuario (detalhes importantes, falecimento, herdeiros, citações).
 NÃO DEIXE EM BRANCO se o nome ou CPF do devedor constar em qualquer trecho dos documentos.`;
-      } else if (sectionKey === 'ocupacao') {
-        sectionInstruction = `Sua missão prioritária é extrair TODOS os DADOS DE OCUPAÇÃO E INVESTIGAÇÃO DO OCUPANTE (status_ocupacao, relacao_ex_mutuario, nome_ocupante, cpf_ocupante, telefone_ocupante, tempo_ocupacao, risco_usucapiao, observacoes_ocupacao).`;
+      } else if (sectionKey === 'ocupacao' || sectionKey === 'ocupacional') {
+        sectionInstruction = `Sua missão prioritária é extrair TODOS os DADOS DE SITUAÇÃO OCUPACIONAL E INVESTIGAÇÃO DO OCUPANTE (situacao_ocupacional, status_ocupacao, relacao_ex_mutuario, nome_ocupante, cpf_ocupante, telefone_ocupante, tempo_ocupacao, risco_usucapiao, observacoes_ocupacao, folhas_ocupacao). Busque ativamente se há auto de constatação de ocupação e indique as folhas exatas no campo folhas_ocupacao (ex: fls. 180 e 200).`;
       } else if (sectionKey === 'matricula') {
-        sectionInstruction = `Sua missão prioritária é extrair a ANÁLISE DA MATRÍCULA (CRI) (matricula_atualizada, tem_onus, tem_penhora, tem_hipoteca, alienacao_fiduciaria, indisponibilidade, acao_reipersecutoria, observacoes_matricula).`;
+        sectionInstruction = `Sua missão prioritária é extrair a ANÁLISE DA MATRÍCULA (CRI) (status_matricula, numero_matricula, matricula_atualizada, tem_onus, tem_penhora, tem_hipoteca, usufruto_hipoteca, alienacao_fiduciaria, indisponibilidade_bens, indisponibilidade, acao_reipersecutoria, observacoes_matricula, folhas_penhora_matricula). Indique as R. e Av. e folhas nos autos no campo folhas_penhora_matricula (ex: R. 03 / Av. 04 fls. 88).`;
       } else if (sectionKey === 'consolidacao') {
-        sectionInstruction = `Sua missão prioritária é extrair os DADOS DA CONSOLIDAÇÃO DE PROPRIEDADE EXTRAJUDICIAL (status_consolidacao, intimacao_purga_mora, intimacao_leiloes, averbacao_consolidacao, observacoes_consolidacao).`;
+        sectionInstruction = `Sua missão prioritária é extrair os DADOS DA CONSOLIDAÇÃO DE PROPRIEDADE EXTRAJUDICIAL (status_consolidacao, data_consolidacao, intimacao_purga_mora, intimacao_leiloes, averbacao_consolidacao, observacoes_consolidacao, folhas_consolidacao). Indique as folhas e averbação no campo folhas_consolidacao (ex: Av. 06 / fls. 310).`;
       } else if (sectionKey === 'nulidade') {
-        sectionInstruction = `Sua missão prioritária é extrair a ANÁLISE DE RISCO DE NULIDADE DO LEILÃO (risco_geral_nulidade, citacao_regular, intimacao_penhora, intimacao_leilao_executado, intimacao_credor_fiduciario, coproprietario_intimado, publicacao_edital_ok, preco_vil, vicio_citacao, vicio_avaliacao, vicio_publicacao, vicio_procedimental, observacoes_nulidade).`;
+        sectionInstruction = `Sua missão prioritária é extrair a ANÁLISE DE RISCO DE NULIDADE DO LEILÃO (risco_nulidade, risco_geral_nulidade, preco_vil_caracterizado, preco_vil, intimacao_executado, intimacao_conjuge, intimacao_credor_fiduciario, coproprietario_intimado, publicacao_edital_ok, citacao_regular, vicio_citacao, vicio_avaliacao, vicio_publicacao, vicio_procedimental, observacoes_nulidade, folhas_citacao, folhas_intimacao_leilao). Indique as folhas nos autos para citação (folhas_citacao, ex: fls. 50 e 60) e intimação do leilão (folhas_intimacao_leilao, ex: fls. 120-125).`;
       } else if (sectionKey === 'desocupacao') {
-        sectionInstruction = `Sua missão prioritária é extrair o RISCO E PRAZO DE DESOCUPAÇÃO (nivel_risco_desocupacao, liminar_bloqueando, acao_anulatoria, embargos_pendentes, recurso_pendente, prazo_estimado_desocupacao, observacoes_desocupacao).`;
+        sectionInstruction = `Sua missão prioritária é extrair o RISCO E PRAZO DE DESOCUPAÇÃO (risco_desocupacao, nivel_risco_desocupacao, estimativa_prazo_desocupacao, prazo_estimado_desocupacao, custo_estimado_desocupacao, liminar_bloqueando, acao_anulatoria, embargos_pendentes, recurso_pendente, observacoes_desocupacao, folhas_ocupacao). Indique as folhas nos autos no campo folhas_ocupacao.`;
       } else if (sectionKey === 'debitos') {
-        sectionInstruction = `Sua missão prioritária é extrair os DÉBITOS DO IMÓVEL (iptu_atraso, condominio_atraso, outros_debitos, observacoes_debitos).`;
+        sectionInstruction = `Sua missão prioritária é extrair os DÉBITOS DO IMÓVEL (iptu_atraso, condominio_atraso, outros_debitos, observacoes_debitos, folhas_debitos). Indique as certidões e folhas nos autos no campo folhas_debitos (ex: fls. 95 e 98).`;
       } else if (sectionKey === 'edital') {
-        sectionInstruction = `Sua missão prioritária é extrair a ANÁLISE DO EDITAL (tipo_leilao, responsabilidade_iptu, responsabilidade_condominio, observacoes_edital).`;
+        sectionInstruction = `Sua missão prioritária é extrair a ANÁLISE DO EDITAL (tipo_leilao, responsabilidade_iptu, responsabilidade_condominio, observacoes_edital, folhas_edital, folhas_avaliacao). Indique as folhas do edital (folhas_edital, ex: fls. 210 e 211) e folhas da avaliação (folhas_avaliacao, ex: fls. 150 a 165).`;
       } else if (sectionKey === 'parecer') {
-        sectionInstruction = `Sua missão prioritária é gerar o PARECER FINAL DO INVESTIGADOR (risco_geral, recomendacao, justificativa).`;
+        sectionInstruction = `Sua missão prioritária é gerar o PARECER FINAL DO INVESTIDOR (risco_geral, recomendacao, justificativa).`;
       }
 
       const prompt = `Você é um especialista em leilões de imóveis.
