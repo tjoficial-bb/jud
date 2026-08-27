@@ -4,7 +4,7 @@ import {
   HelpCircle, AlertTriangle, AlertCircle, RefreshCw, Sparkles,
   TrendingUp, Scale, Gavel, User, Home, DollarSign, Calendar,
   Download, Edit3, Info, ChevronDown, ChevronUp, ChevronsUpDown,
-  Maximize2, Minimize2, CheckCircle2
+  Maximize2, Minimize2, CheckCircle2, Copy
 } from 'lucide-react';
 import { DocumentManager } from './DocumentManager';
 import { exportElementToPDF } from '../utils/pdfExporter';
@@ -94,6 +94,7 @@ export interface SmartAnalysisData {
   // Informações do Imóvel
   tipo_imovel: 'Selecione' | 'Casa' | 'Apartamento' | 'Terreno' | 'Comercial' | 'Outros';
   numero_matricula: string;
+  cadastro_imobiliario?: string;
   cartorio_registro: string;
   area_terreno: number;
   area_privativa: number;
@@ -218,6 +219,7 @@ export const getEmptySmartAnalysis = (): SmartAnalysisData => ({
   // Informações do Imóvel
   tipo_imovel: 'Selecione',
   numero_matricula: '',
+  cadastro_imobiliario: '',
   cartorio_registro: '',
   area_terreno: 0,
   area_privativa: 0,
@@ -1363,6 +1365,29 @@ export default function SmartAnalysisTab({
                     className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium"
                   />
                 </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider flex items-center justify-between">
+                    <span>Inscrição / Cadastro IPTU</span>
+                    {localData.cadastro_imobiliario && (
+                      <button
+                        type="button"
+                        onClick={() => navigator.clipboard.writeText(localData.cadastro_imobiliario || '')}
+                        className="text-brand-primary hover:underline text-[9px] lowercase"
+                        title="Copiar código IPTU"
+                      >
+                        copiar
+                      </button>
+                    )}
+                  </label>
+                  <input
+                    type="text"
+                    value={localData.cadastro_imobiliario || ''}
+                    onChange={e => handleChange('cadastro_imobiliario', e.target.value)}
+                    placeholder="Ex: 01.02.034.0056-7 ou SQL"
+                    className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium font-mono"
+                  />
+                </div>
               </div>
 
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs font-medium pt-1">
@@ -1640,6 +1665,22 @@ export default function SmartAnalysisTab({
               aiAction={renderSectionAIButton('debitos')}
               badge={renderProgressBadge(countDebitos().current, countDebitos().total)}
             >
+              {localData.cadastro_imobiliario && (
+                <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-2.5 flex items-center justify-between gap-2 text-xs">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-bold text-amber-800 dark:text-amber-300 uppercase tracking-wider">Inscrição / Cadastro IPTU para consulta na Prefeitura:</span>
+                    <span className="font-mono font-bold text-brand-ink">{localData.cadastro_imobiliario}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => navigator.clipboard.writeText(localData.cadastro_imobiliario || '')}
+                    className="px-2 py-0.5 bg-amber-200/80 dark:bg-amber-900/40 text-amber-900 dark:text-amber-200 hover:bg-amber-300 rounded-md text-[10px] font-bold transition-all shrink-0 flex items-center gap-1"
+                  >
+                    <Copy size={10} /> Copiar
+                  </button>
+                </div>
+              )}
+
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div className="flex flex-col gap-1">
                   <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">IPTU Atraso (R$)</label>
@@ -1753,13 +1794,36 @@ export default function SmartAnalysisTab({
               />
             </div>
 
-            <div className="flex flex-col gap-1.5 sm:col-span-2">
-              <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Cartório de Registro de Imóveis (CRI)</label>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider flex items-center justify-between">
+                <span>Inscrição / Cadastro IPTU</span>
+                {localData.cadastro_imobiliario && (
+                  <button
+                    type="button"
+                    onClick={() => navigator.clipboard.writeText(localData.cadastro_imobiliario || '')}
+                    className="text-brand-primary hover:underline text-[9px] lowercase"
+                    title="Copiar Inscrição/Cadastro para consulta de IPTU na Prefeitura"
+                  >
+                    copiar
+                  </button>
+                )}
+              </label>
+              <input
+                type="text"
+                value={localData.cadastro_imobiliario || ''}
+                onChange={e => handleChange('cadastro_imobiliario', e.target.value)}
+                placeholder="Ex: 01.02.034.0056-7 ou SQL"
+                className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium focus:border-brand-primary font-mono"
+              />
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Cartório de Registro (CRI)</label>
               <input
                 type="text"
                 value={localData.cartorio_registro || ''}
                 onChange={e => handleChange('cartorio_registro', e.target.value)}
-                placeholder="Ex: Oficial de Registro de Imóveis da Comarca..."
+                placeholder="Ex: Oficial de Registro de Imóveis..."
                 className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium focus:border-brand-primary"
               />
             </div>

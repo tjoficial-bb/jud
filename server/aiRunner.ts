@@ -850,12 +850,13 @@ export const runBackendAnalysis = async (
     specializedInstruction += "\n\nFOCO COMPLEMENTAR DE ALTÍSSIMA PRIORIDADE (MANDATÓRIO):" +
       "\nAnalise estritamente toda a MATRÍCULA DO IMÓVEL folha por folha, prestando atenção prioritária aos atos registrados sob as siglas 'R-' (Registro) e 'AV-' (Averbação)." +
       "\nVocê deve identificar e expor obrigatoriamente:" +
-      "\n1. LOCALIZAÇÃO E CARTÓRIO EXATOS (CRÍTICO): Identifique com precisão absoluta o Estado (UF), Comarca, Cidade e o Cartório de Registro de Imóveis do lote específico analisado. Nunca assuma 'São Paulo' ou 'SP' ou qualquer outro local se não estiver expressamente indicado no texto para este lote específico. Erros de localização geográfica são gravíssimos." +
-      "\n2. DIMENSÕES E METRAGEM (ÁREAS): Extraia com rigor as metragens (Área Total, Área Útil, Área Construída, Área do Terreno e Fração Ideal) e a descrição física. Não use placeholders ou valores fictícios." +
-      "\n3. HISTÓRICO COMPLETO DE PROPRIETÁRIOS: Identifique TODOS os adquirentes, proprietários antigos e atuais mencionados nos registros de Compra e Venda (R-). Extraia: Nome Completo, CPF/CNPJ, Estado Civil, Cônjuge (se houver), Profissão, e Endereço Completo de residência." +
-      "\n4. GARANTIAS E FIDUCIÁRIOS: Mapeie qualquer Alienação Fiduciária (geralmente sob R- ou AV-), apontando claramente quem é o Devedor Fiduciante e quem é o Credor Fiduciário (por exemplo, Banco do Brasil S/A, Bradesco, Caixa, etc.)." +
-      "\n5. CANCELAMENTO DE GARANTIAS E CONSOLIDAÇÃO: Verifique se houve cancelamento de gravames antigos e, crucialmente, se há Averbação de Consolidação da Propriedade (AV-) em nome do banco credor por inadimplemento (o que legitima o leilão). Liste as datas exatas destes atos." +
-      "\n6. ÔNUS, BLOQUEIOS E PENHORAS: Liste toda e qualquer penhora ativa, indisponibilidade de bens, hipotecas ou processos averbados." +
+      "\n1. CADASTRO IMOBILIÁRIO / INSCRIÇÃO IMOBILIÁRIA / SQL (CRÍTICO PARA IPTU): Busque com extrema atenção em todo o texto da matrícula qualquer número de Inscrição Imobiliária, Cadastro Imobiliário, Inscrição Municipal, SQL (Setor-Quadra-Lote), Inscrição Cadastral, Código Cartográfico ou Número de Contribuinte que vincule o imóvel à Prefeitura Municipal para fins de localização e consulta de débitos de IPTU e certidões tributárias municipais. Preencha obrigatoriamente no campo 'cadastro_imobiliario' dentro de 'identificacao_matricula'." +
+      "\n2. LOCALIZAÇÃO E CARTÓRIO EXATOS (CRÍTICO): Identifique com precisão absoluta o Estado (UF), Comarca, Cidade e o Cartório de Registro de Imóveis do lote específico analisado. Nunca assuma 'São Paulo' ou 'SP' ou qualquer outro local se não estiver expressamente indicado no texto para este lote específico. Erros de localização geográfica são gravíssimos." +
+      "\n3. DIMENSÕES E METRAGEM (ÁREAS): Extraia com rigor as metragens (Área Total, Área Útil, Área Construída, Área do Terreno e Fração Ideal) e a descrição física. Não use placeholders ou valores fictícios." +
+      "\n4. HISTÓRICO COMPLETO DE PROPRIETÁRIOS: Identifique TODOS os adquirentes, proprietários antigos e atuais mencionados nos registros de Compra e Venda (R-). Extraia: Nome Completo, CPF/CNPJ, Estado Civil, Cônjuge (se houver), Profissão, e Endereço Completo de residência." +
+      "\n5. GARANTIAS E FIDUCIÁRIOS: Mapeie qualquer Alienação Fiduciária (geralmente sob R- ou AV-), apontando claramente quem é o Devedor Fiduciante e quem é o Credor Fiduciário (por exemplo, Banco do Brasil S/A, Bradesco, Caixa, etc.)." +
+      "\n6. CANCELAMENTO DE GARANTIAS E CONSOLIDAÇÃO: Verifique se houve cancelamento de gravames antigos e, crucialmente, se há Averbação de Consolidação da Propriedade (AV-) em nome do banco credor por inadimplemento (o que legitima o leilão). Liste as datas exatas destes atos." +
+      "\n7. ÔNUS, BLOQUEIOS E PENHORAS: Liste toda e qualquer penhora ativa, indisponibilidade de bens, hipotecas ou processos averbados." +
       "\n\nESTRUTURA DE RETORNO OBRIGATÓRIA:" +
       "\n- **Apresente uma Tabela Cronológica de Registros e Averbações (R e AV)** contendo: Código (Ex: R-4, AV-7), Ato (Compra e Venda, Alienação, Consolidação), Partes Envolvidas (com todos os CPFs, profissões e endereços identificados) e Detalhes Importantes." +
       "\n- **Apresente uma Segunda Tabela Resumo dos Proprietários Atuais e de Direito**, deixando claro quem é o proprietário fiduciante executado e quem é o credor titular de direito (Ex: Banco do Brasil S/A). Qualquer lacuna de dados devido a digitalização fraca deve ser indicada expressamente em vez de silenciada." +
@@ -882,6 +883,9 @@ export const runBackendAnalysis = async (
       "\n  \"localizacao_resumo\": \"Cidade/UF\"," +
       "\n  \"identificacao_matricula\": {" +
       "\n    \"numero_matricula\": \"...\", " +
+      "\n    \"cadastro_imobiliario\": \"... (Inscrição Imobiliária, Cadastro Municipal ou SQL para busca de IPTU) ...\", " +
+      "\n    \"inscricao_municipal\": \"...\", " +
+      "\n    \"codigo_cartografico\": \"...\", " +
       "\n    \"cartorio\": \"...\", " +
       "\n    \"comarca\": \"...\", " +
       "\n    \"uf\": \"...\", " +
@@ -895,6 +899,7 @@ export const runBackendAnalysis = async (
       "\n    \"fracao_ideal\": \"...\", " +
       "\n    \"unidade_autonoma\": \"...\", " +
       "\n    \"valor_fiscal\": \"... R$ ... (Valor Fiscal, Venal, Referência ou de Lançamento se constar)\", " +
+      "\n    \"cadastro_imobiliario\": \"... (Inscrição IPTU se constar na descrição) ...\", " +
       "\n    \"descricao_completa\": \"...\"" +
       "\n  }," +
       "\n  \"condominio\": {" +

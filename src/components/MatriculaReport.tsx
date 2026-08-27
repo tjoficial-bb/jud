@@ -39,6 +39,9 @@ export interface MatriculaReportData {
   localizacao_resumo?: string;
   identificacao_matricula?: {
     numero_matricula?: string;
+    cadastro_imobiliario?: string;
+    inscricao_municipal?: string;
+    codigo_cartografico?: string;
     cartorio?: string;
     comarca?: string;
     uf?: string;
@@ -52,6 +55,8 @@ export interface MatriculaReportData {
     fracao_ideal?: string;
     unidade_autonoma?: string;
     valor_fiscal?: string;
+    cadastro_imobiliario?: string;
+    inscricao_imobiliaria?: string;
     descricao_completa?: string;
   };
   condominio?: {
@@ -400,6 +405,29 @@ export const MatriculaReport: React.FC<MatriculaReportProps> = ({
                   <span className="text-[10px] font-semibold text-brand-ink/45 block">Localização</span>
                   <span className="text-sm font-semibold text-brand-ink">{data.localizacao_resumo || 'Não informado'}</span>
                 </div>
+                <div className="col-span-2 bg-amber-500/10 border border-amber-500/20 rounded-xl p-2.5 flex items-center justify-between gap-2">
+                  <div>
+                    <span className="text-[10px] font-bold text-amber-800 dark:text-amber-300 uppercase tracking-wider block">
+                      Inscrição Imobiliária / IPTU (Prefeitura)
+                    </span>
+                    <span className="text-xs font-mono font-bold text-brand-ink">
+                      {data.identificacao_matricula?.cadastro_imobiliario || data.caracteristicas_fisicas?.cadastro_imobiliario || data.identificacao_matricula?.inscricao_municipal || 'Não identificada na matrícula'}
+                    </span>
+                  </div>
+                  {(data.identificacao_matricula?.cadastro_imobiliario || data.caracteristicas_fisicas?.cadastro_imobiliario || data.identificacao_matricula?.inscricao_municipal) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const val = data.identificacao_matricula?.cadastro_imobiliario || data.caracteristicas_fisicas?.cadastro_imobiliario || data.identificacao_matricula?.inscricao_municipal || '';
+                        navigator.clipboard.writeText(val);
+                      }}
+                      className="px-2 py-1 bg-amber-200/80 dark:bg-amber-900/40 text-amber-900 dark:text-amber-200 hover:bg-amber-300 rounded-lg text-[10px] font-bold transition-all shrink-0 flex items-center gap-1 shadow-xs"
+                      title="Copiar número para consulta de débitos de IPTU na Prefeitura"
+                    >
+                      <Copy size={11} /> Copiar IPTU
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -412,14 +440,21 @@ export const MatriculaReport: React.FC<MatriculaReportProps> = ({
             {/* Sec: Identificação */}
             <AccordionSection 
               id="identificacao" 
-              title="Identificação da matrícula" 
+              title="Identificação da matrícula e Cadastro Imobiliário (IPTU)" 
               icon={<FileText size={18} className="text-orange-500" />} 
               isOpen={accordionState.identificacao} 
               onToggle={() => toggleAccordion('identificacao')}
             >
               {data.identificacao_matricula ? (
                 <div className="divide-y divide-brand-border/40 text-sm font-sans">
-                  <GridRow label="Nº da matrícula text" value={data.identificacao_matricula.numero_matricula} />
+                  <GridRow label="Nº da matrícula" value={data.identificacao_matricula.numero_matricula} />
+                  <GridRow 
+                    label="Inscrição Imobiliária / Cadastro IPTU" 
+                    value={data.identificacao_matricula.cadastro_imobiliario || data.caracteristicas_fisicas?.cadastro_imobiliario || data.identificacao_matricula.inscricao_municipal || 'Não identificada na matrícula (verificar edital)'} 
+                  />
+                  {data.identificacao_matricula.codigo_cartografico && (
+                    <GridRow label="Código Cartográfico / SQL" value={data.identificacao_matricula.codigo_cartografico} />
+                  )}
                   <GridRow label="Cartório" value={data.identificacao_matricula.cartorio} />
                   <GridRow label="Comarca" value={data.identificacao_matricula.comarca} />
                   <GridRow label="UF" value={data.identificacao_matricula.uf} />
@@ -1208,6 +1243,15 @@ function parseHeuristics(
     const matMatch = text.match(/(?:Matrícula|Nº|Número)\s*(?:nº|no|num|:)?\s*(\d[\d\.\-\/]*)/i);
     if (matMatch && result.identificacao_matricula) {
       result.identificacao_matricula.numero_matricula = matMatch[1];
+    }
+
+    // 1.1. Try to find Inscrição Imobiliária / Cadastro Imobiliário / IPTU / SQL
+    const iptuMatch = text.match(/(?:Inscrição\s+Municipal|Inscrição\s+Imobiliária|Inscricao\s+Imobiliaria|Inscricao\s+Municipal|Cadastro\s+Imobiliário|Cadastro\s+Imobiliario|Cadastro\s+Municipal|Inscrição\s+Cadastral|Inscricao\s+Cadastral|Inscrição\s+do\s+Imóvel|Nº\s+do\s+Contribuinte|Contribuinte\s+nº?|SQL\s*[:\-\s]|Código\s+Cartográfico|IPTU\s*(?:nº|no|num|:|cadastrado sob|inscrição)?|Cód\.\s*Imóvel|Inscrição\s*nº)\s*(?:nº|no|num|:|de)?\s*([0-9A-Z\.\-\/\_]+)/i);
+    if (iptuMatch && result.identificacao_matricula) {
+      result.identificacao_matricula.cadastro_imobiliario = iptuMatch[1].trim();
+      if (result.caracteristicas_fisicas) {
+        result.caracteristicas_fisicas.cadastro_imobiliario = iptuMatch[1].trim();
+      }
     }
 
     // Try to parse valor_fiscal or valor venal using regex

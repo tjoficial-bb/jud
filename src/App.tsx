@@ -8038,6 +8038,7 @@ VocÃª deve responder APENAS com um objeto JSON vÃ¡lido, sem texto explicativo an
 
   "tipo_imovel": "Casa" | "Apartamento" | "Terreno" | "Comercial" | "Outros" | "Selecione",
   "numero_matricula": "NÃºmero de matrÃ­cula do imÃ³vel se encontrado, senÃ£o vazio",
+  "cadastro_imobiliario": "NÃºmero de InscriÃ§Ã£o ImobiliÃ¡ria / Cadastro Municipal / SQL / Contribuinte para busca de IPTU na Prefeitura se constar na matrÃ­cula ou edital",
   "cartorio_registro": "Nome do CartÃ³rio de Registro de ImÃ³veis (ex: 1Âº CRI da Comarca do ImÃ³vel) se encontrado, senÃ£o vazio",
   "area_terreno": 0.00,
   "area_privativa": 0.00,
@@ -8117,7 +8118,7 @@ Importante: se uma informaÃ§Ã£o nÃ£o for encontrada nos documentos, use o valor 
 
       let sectionInstruction = "";
       if (sectionKey === 'imovel') {
-        sectionInstruction = `Sua missÃ£o prioritÃ¡ria Ã© extrair TODOS os DADOS DO IMÃ“VEL dos documentos fornecidos (tipo_imovel, numero_matricula, cartorio_registro, area_terreno, area_privativa, area_util, area_construida, observacoes_imovel). Se houver nÃºmeros de Ã¡rea ou descriÃ§Ã£o no edital/matrÃ­cula, leia atentamente.`;
+        sectionInstruction = `Sua missÃ£o prioritÃ¡ria Ã© extrair TODOS os DADOS DO IMÃ“VEL dos documentos fornecidos (tipo_imovel, numero_matricula, cadastro_imobiliario, cartorio_registro, area_terreno, area_privativa, area_util, area_construida, observacoes_imovel). Se houver InscriÃ§Ã£o ImobiliÃ¡ria, Cadastro Municipal ou SQL para busca de IPTU, extraia no campo cadastro_imobiliario. Se houver nÃºmeros de Ã¡rea ou descriÃ§Ã£o no edital/matrÃ­cula, leia atentamente.`;
       } else if (sectionKey === 'ex_mutuario') {
         sectionInstruction = `Sua missÃ£o prioritÃ¡ria Ã© extrair TODOS os DADOS DO EX-MUTUÃRIO / PROPRIETÃRIO ANTERIOR / DEVEDORES / EXECUTADOS dos documentos fornecidos. 
 Busque atenta e minuciosamente nos anexos (MatrÃ­cula, Edital, Processo Judicial) por:
@@ -8132,7 +8133,7 @@ NÃƒO DEIXE EM BRANCO se o nome ou CPF do devedor constar em qualquer trecho dos 
       } else if (sectionKey === 'ocupacao' || sectionKey === 'ocupacional') {
         sectionInstruction = `Sua missÃ£o prioritÃ¡ria Ã© extrair TODOS os DADOS DE SITUAÃ‡ÃƒO OCUPACIONAL E INVESTIGAÃ‡ÃƒO DO OCUPANTE (situacao_ocupacional, status_ocupacao, relacao_ex_mutuario, nome_ocupante, cpf_ocupante, telefone_ocupante, tempo_ocupacao, risco_usucapiao, observacoes_ocupacao, folhas_ocupacao). Busque ativamente se hÃ¡ auto de constataÃ§Ã£o de ocupaÃ§Ã£o e indique as folhas exatas no campo folhas_ocupacao (ex: fls. 180 e 200).`;
       } else if (sectionKey === 'matricula') {
-        sectionInstruction = `Sua missÃ£o prioritÃ¡ria Ã© extrair a ANÃLISE DA MATRÃCULA (CRI) (status_matricula, numero_matricula, matricula_atualizada, tem_onus, tem_penhora, tem_hipoteca, usufruto_hipoteca, alienacao_fiduciaria, indisponibilidade_bens, indisponibilidade, acao_reipersecutoria, observacoes_matricula, folhas_penhora_matricula). Indique as R. e Av. e folhas nos autos no campo folhas_penhora_matricula (ex: R. 03 / Av. 04 fls. 88).`;
+        sectionInstruction = `Sua missÃ£o prioritÃ¡ria Ã© extrair a ANÃLISE DA MATRÃCULA (CRI) (status_matricula, numero_matricula, cadastro_imobiliario, matricula_atualizada, tem_onus, tem_penhora, tem_hipoteca, usufruto_hipoteca, alienacao_fiduciaria, indisponibilidade_bens, indisponibilidade, acao_reipersecutoria, observacoes_matricula, folhas_penhora_matricula). Indique as R. e Av. e folhas nos autos no campo folhas_penhora_matricula (ex: R. 03 / Av. 04 fls. 88).`;
       } else if (sectionKey === 'consolidacao') {
         sectionInstruction = `Sua missÃ£o prioritÃ¡ria Ã© extrair os DADOS DA CONSOLIDAÃ‡ÃƒO DE PROPRIEDADE EXTRAJUDICIAL (status_consolidacao, data_consolidacao, intimacao_purga_mora, intimacao_leiloes, averbacao_consolidacao, observacoes_consolidacao, folhas_consolidacao). Indique as folhas e averbaÃ§Ã£o no campo folhas_consolidacao (ex: Av. 06 / fls. 310).`;
       } else if (sectionKey === 'nulidade') {
@@ -10719,2044 +10720,98 @@ Gere as 3 grandes seÃ§Ãµes descritas nas instruÃ§Ãµes do sistema para o tipo 'do
 
         <div className="bg-brand-bg rounded-[2rem] p-6 space-y-6 max-h-[350px] overflow-y-auto border border-brand-primary/10">
           {msgs.map((msg, idx) => (
-            <div key={idx} className={cn(
-              "flex gap-4 max-w-[85%]",
-              msg.role === 'user' ? "ml-auto flex-row-reverse" : ""
-            )}>
-              <div className={cn(
-                "w-8 h-8 rounded-lg flex items-center justify-center shrink-0",
-                msg.role === 'assistant' ? "bg-brand-primary text-black" : "bg-brand-ink/10 text-brand-ink/40"
-              )}>
-                {msg.role === 'assistant' ? <Cpu size={14} /> : <Users size={14} />}
-              </div>
-              <div className={cn(
-                "p-4 rounded-2xl text-sm font-medium leading-relaxed",
-                msg.role === 'assistant' ? "bg-brand-paper shadow-sm markdown-body !text-sm text-brand-ink" : "bg-brand-primary text-black whitespace-pre-wrap"
-              )}>
-                {msg.role === 'assistant' ? (
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
-                ) : (
-                  msg.content
-                )}
-              </div>
-            </div>
-          ))}
-          {sending && (
-            <div className="flex gap-4 max-w-[85%]">
-              <div className="w-8 h-8 bg-brand-primary rounded-lg flex items-center justify-center text-black shrink-0">
-                <Loader2 size={14} className="animate-spin" />
-              </div>
-              <div className="p-4 rounded-2xl bg-brand-paper shadow-sm text-sm font-medium text-brand-ink/20 italic">
-                IA estÃ¡ pensando...
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Attached files list */}
-        {chatAttachments.length > 0 && (
-          <div className="flex flex-wrap gap-2 mb-3 max-h-32 overflow-y-auto p-1 border-b border-brand-primary/5 pb-3">
-            {chatAttachments.map((doc: any) => (
-              <div 
-                key={doc.id} 
-                className="flex items-center gap-2 bg-brand-primary/10 border border-brand-primary/25 text-brand-primary rounded-xl px-3.5 py-2 text-xs font-semibold select-none shadow-sm animate-fade-in"
-              >
-                <FileText size={14} className="shrink-0 text-brand-primary/70" />
-                <span className="truncate max-w-[180px] text-brand-ink">{doc.filename}</span>
-                <button
-                  type="button"
-                  onClick={() => handleTranscribeDoc(doc.id)}
-                  className="flex items-center gap-1 px-2 py-0.5 bg-brand-primary/20 hover:bg-brand-primary/30 text-brand-primary rounded-md text-[10px] font-bold transition-all cursor-pointer ml-1"
-                  title="Transcrever texto completo com OCR IA (visÃ£o)"
-                >
-                  <Sparkles size={11} />
-                  <span>OCR IA</span>
-                </button>
-                <button 
-                  type="button"
-                  onClick={async () => {
-                    // Local optimistic delete
-                    setPropertyDocs((prev: any) => prev.filter((d: any) => d.id !== doc.id));
-                    setState((prev: any) => ({
-                      ...prev,
-                      adHocDocs: prev.adHocDocs.filter((d: any) => d.id !== doc.id)
-                    }));
-                    // Backend delete
-                    try {
-                      await fetch(`/api/documents/${doc.id}`, {
-                        method: 'DELETE',
-                        headers: { 'Authorization': `Bearer ${token}` }
-                      });
-                    } catch (e) {
-                      console.error("Erro ao deletar anexo:", e);
-                    }
-                  }}
-                  className="text-brand-ink/40 hover:text-red-500 cursor-pointer transition-colors p-0.5 rounded-full hover:bg-red-500/10 ml-1"
-                  title="Remover anexo do chat"
-                >
-                  <X size={14} />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-
-        <div className="relative flex gap-3">
-          <div className="relative flex-1">
-            <input 
-              type="text" 
-              value={inputVal}
-              onChange={e => setInputVal(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && handleSendTabChat(tab)}
-              placeholder={placeholder}
-              className="w-full bg-brand-bg border border-brand-primary/10 rounded-2xl py-5 px-6 pr-16 focus:ring-2 focus:ring-brand-primary outline-none font-medium text-brand-ink"
-            />
-            <button 
-              onClick={() => handleSendTabChat(tab)}
-              disabled={sending || !inputVal.trim()}
-              className="absolute right-3 top-1/2 -translate-y-1/2 w-12 h-12 bg-brand-primary text-black rounded-xl flex items-center justify-center hover:bg-brand-primary/90 transition-all disabled:opacity-50"
-            >
-              <Send size={20} />
-            </button>
-          </div>
-          <label className="w-14 h-14 bg-brand-bg border border-brand-primary/20 text-brand-primary rounded-2xl flex items-center justify-center cursor-pointer hover:bg-brand-primary/5 transition-all shrink-0">
-            {uploading ? (
-              <Loader2 size={24} className="animate-spin text-brand-primary" />
-            ) : (
-              <Plus size={24} />
-            )}
-            <input 
-              type="file" 
-              className="hidden" 
-              multiple 
-              disabled={uploading}
-              onChange={(e) => handleAnalysisFileUpload(e, attachmentType)} 
-            />
-          </label>
-        </div>
-        <p className="text-[10px] text-brand-ink/40 font-semibold mt-1 flex items-center gap-1">
-          <Info size={12} className="text-brand-primary" />
-          <span>Envie novos documentos (+) para incluir no contexto desta conversa com a IA.</span>
-        </p>
-      </div>
-    );
-  };
-
-
-
-  return (
-    <div className="space-y-12">
-      <div className="flex items-center justify-between no-print">
-        <div>
-          <h2 className="text-4xl font-serif font-medium tracking-tight text-brand-primary">Central de InteligÃªncia</h2>
-          <p className="text-brand-ink/40 font-medium text-lg">Fluxo completo: Consulta CNJ, Documentos e AnÃ¡lise de IA.</p>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-10">
-        {/* Sidebar: Configuration */}
-        {!isPublicView && (
-          <div className="lg:col-span-1 space-y-8 no-print">
-            <Card title="Contexto da AnÃ¡lise">
-            <div className="space-y-6">
-              <select 
-                className="w-full bg-brand-bg border-none rounded-2xl py-4 px-6 focus:ring-2 focus:ring-brand-primary font-bold text-sm text-brand-primary"
-                value={selectedPropertyId || ''}
-                onChange={e => {
-                  updateState({ 
-                    selectedPropertyId: e.target.value,
-                    report: null,
-                    chatMessages: [],
-                    adHocDocs: e.target.value ? adHocDocs : []
-                  });
-                }}
-              >
-                <option value="">AnÃ¡lise Avulsa (Sem ImÃ³vel)</option>
-                {properties.map(p => <option key={p.id} value={p.id}>{p.title}</option>)}
-              </select>
-              
-              
-              <div className="pt-2">
-                <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-brand-ink/30 mb-2 block font-sans">1. Provedor / API Key</label>
-                <select 
-                  className="w-full bg-brand-bg border-none rounded-2xl py-4 px-6 focus:ring-2 focus:ring-brand-primary font-bold text-xs text-brand-primary"
-                  value={state.selectedKeySource}
-                  onChange={e => {
-                    const nextSource = e.target.value as any;
-                    let nextModel = state.selectedModel;
-                    if (nextSource === 'system_default' || nextSource === 'gemini_custom') {
-                      nextModel = 'gemini-3.7-flash';
-                    } else if (nextSource === 'openai_custom') {
-                      nextModel = 'gpt-4o';
-                    }
-                    updateState({ selectedKeySource: nextSource, selectedModel: nextModel });
-                  }}
-                >
-                  <option value="system_default">PadrÃ£o do Sistema (Google AI Studio - Gemini)</option>
-                  <option value="openai_custom">OpenAI / ChatGPT (Minha Chave)</option>
-                  <option value="gemini_custom">Google Gemini (Minha Chave)</option>
-                </select>
-                
-                  {/* Status Indicator Badge */}
-                  <div className="mt-2 ml-1 text-[10px] font-medium transition-all">
-                    {state.selectedKeySource === 'system_default' && (
-                      <span className="text-emerald-500 font-bold flex items-center gap-1.5">
-                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> 
-                        Chave Integrada Ativa (Plano Atual Ativo)
-                      </span>
-                    )}
-                  {state.selectedKeySource === 'openai_custom' && (
-                    state.aiConfig?.openai_key?.trim() ? (
-                      <span className="text-emerald-500 font-bold flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-500"></span> Chave OpenAI Cadastrada</span>
-                    ) : (
-                      <span className="text-amber-500 font-bold flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span> Chave nÃ£o cadastrada (ConfiguraÃ§Ã£o de IA)</span>
-                    )
-                  )}
-                  {state.selectedKeySource === 'gemini_custom' && (
-                    state.aiConfig?.gemini_key?.trim() ? (
-                      <span className="text-emerald-500 font-bold flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-500"></span> Chave Gemini Cadastrada</span>
-                    ) : (
-                      <span className="text-amber-500 font-bold flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span> Chave nÃ£o cadastrada (ConfiguraÃ§Ã£o de IA)</span>
-                    )
-                  )}
-                </div>
-              </div>
-
-              <div className="pt-2">
-                <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-brand-ink/30 mb-2 block font-sans">2. CÃ©rebro de IA (Modelo)</label>
-                <select 
-                  className="w-full bg-brand-bg border-none rounded-2xl py-4 px-6 focus:ring-2 focus:ring-brand-primary font-bold text-xs text-brand-primary"
-                  value={selectedModel}
-                  onChange={e => updateState({ selectedModel: e.target.value as AIModel })}
-                >
-                  {(state.selectedKeySource === 'system_default' || state.selectedKeySource === 'gemini_custom') && (
-                    <optgroup label="Google Gemini">
-                      <option value="gemini-3.7-flash">Gemini 3.7 Flash (Recomendado - Mais EstÃ¡vel e Veloz)</option>
-                      <option value="gemini-2.5-flash">Gemini 2.5 Flash (PadrÃ£o)</option>
-                      <option value="gemini-2.5-pro">Gemini 2.5 Pro (RaciocÃ­nio AvanÃ§ado)</option>
-                      <option value="gemini-3.5-flash">Gemini 3.5 Flash</option>
-                      <option value="gemini-3.1-pro-preview">Gemini 3.1 Pro (Preview)</option>
-                    </optgroup>
-                  )}
-                  {state.selectedKeySource === 'openai_custom' && (
-                    <optgroup label="OpenAI GPT">
-                      <option value="gpt-5">GPT-5 (Nova GeraÃ§Ã£o)</option>
-                      <option value="gpt-4o">GPT-4o (Omni)</option>
-                      <option value="o1-preview">OpenAI o1 (RaciocÃ­nio)</option>
-                    </optgroup>
-                  )}
-                </select>
-              </div>
-
-              <div className="pt-2">
-                <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-brand-ink/30 mb-4 block">Tipo de LeilÃ£o (PrecisÃ£o)</label>
-                <div className="flex bg-brand-bg rounded-xl p-1 border border-brand-border/50">
-                  <button 
-                    onClick={() => updateState({ manualAuctionType: 'auto' })}
-                    className={cn(
-                      "flex-1 py-2 text-[9px] font-bold uppercase tracking-widest rounded-lg transition-all",
-                      state.manualAuctionType === 'auto' ? "bg-brand-primary text-black shadow-sm" : "text-brand-ink/40 hover:text-brand-primary"
-                    )}
-                  >
-                    Auto
-                  </button>
-                  <button 
-                    onClick={() => updateState({ manualAuctionType: 'judicial' })}
-                    className={cn(
-                      "flex-1 py-2 text-[9px] font-bold uppercase tracking-widest rounded-lg transition-all",
-                      state.manualAuctionType === 'judicial' ? "bg-brand-primary text-black shadow-sm" : "text-brand-ink/40 hover:text-brand-primary"
-                    )}
-                  >
-                    Judicial
-                  </button>
-                  <button 
-                    onClick={() => updateState({ manualAuctionType: 'extrajudicial' })}
-                    className={cn(
-                      "flex-1 py-2 text-[9px] font-bold uppercase tracking-widest rounded-lg transition-all",
-                      state.manualAuctionType === 'extrajudicial' ? "bg-brand-primary text-black shadow-sm" : "text-brand-ink/40 hover:text-brand-primary"
-                    )}
-                  >
-                    Extra
-                  </button>
-                </div>
-                <p className="text-[9px] text-brand-ink/30 italic mt-2 px-1">
-                  {state.manualAuctionType === 'auto' ? 'A IA detectarÃ¡ o tipo automaticamente.' : 
-                   state.manualAuctionType === 'judicial' ? 'ForÃ§a anÃ¡lise para leilÃ£o judicial.' : 
-                   'ForÃ§a anÃ¡lise para leilÃ£o extrajudicial (Caixa/Bancos).'}
-                </p>
-              </div>
-
-              <div className="pt-2">
-                <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-brand-ink/30 mb-2 block font-sans">Foco da AnÃ¡lise (Opcional)</label>
-                <input 
-                  type="text" 
-                  placeholder="Ex: Ãguas de LindÃ³ia, Lote 72" 
-                  className="w-full bg-brand-bg border-none rounded-2xl py-4 px-6 focus:ring-2 focus:ring-brand-primary text-xs text-brand-primary font-bold placeholder-brand-ink/30"
-                  value={state.analysisFocusKeyword || ''}
-                  onChange={e => updateState({ analysisFocusKeyword: e.target.value })}
-                />
-                <p className="text-[9px] text-brand-ink/30 italic mt-2 px-1">
-                  Recomendado para editais com mÃºltiplos imÃ³veis para guiar a IA ao lote desejado.
-                </p>
-              </div>
-
-              {!selectedPropertyId && (
-                <div className="p-5 bg-brand-primary/5 rounded-2xl border border-brand-primary/10">
-                  <p className="text-[10px] font-bold text-brand-primary uppercase tracking-widest leading-relaxed">
-                    VocÃª estÃ¡ em modo de anÃ¡lise avulsa. Suba os documentos abaixo para analisar sem cadastrar um imÃ³vel.
-                  </p>
-                </div>
-              )}
-            </div>
-          </Card>
-
-
-          <button 
-            onClick={handleAnalyze}
-            disabled={analyzing}
-            className="w-full bg-brand-primary text-black py-5 rounded-2xl font-bold hover:bg-brand-primary/90 transition-all shadow-lg shadow-brand-primary/20 flex items-center justify-center gap-3 disabled:opacity-50"
-          >
-            {analyzing ? <Loader2 className="animate-spin" size={20} /> : <Cpu size={20} />}
-            Executar AnÃ¡lise IA
-          </button>
-        </div>
-        )}
-
-        {/* Main Area: Results & Tabs */}
-        <div className={cn("space-y-6", isPublicView ? "lg:col-span-4" : "lg:col-span-3")}>
-          <div className="bg-brand-paper rounded-[2.5rem] border border-brand-primary/10 shadow-sm overflow-hidden flex flex-col min-h-[600px]">
-            {/* Tabs Header */}
-            <div className="flex border-b border-brand-primary/10 bg-brand-bg/30 overflow-x-auto no-print">
-              <AnalysisTab active={activeSubTab === 'report'} onClick={() => updateState({ activeSubTab: 'report' })} icon={<Brain size={16} />} label="RelatÃ³rio" />
-              <AnalysisTab active={activeSubTab === 'smart_analysis'} onClick={() => updateState({ activeSubTab: 'smart_analysis' })} icon={<Cpu size={16} />} label="AnÃ¡lise Smart" />
-              <AnalysisTab active={activeSubTab === 'assessoria'} onClick={() => updateState({ activeSubTab: 'assessoria' })} icon={<Scale size={16} />} label="AnÃ¡lise de Assessoria" />
-              <AnalysisTab active={activeSubTab === 'dossier'} onClick={() => updateState({ activeSubTab: 'dossier' })} icon={<Clipboard size={16} />} label="DossiÃª de ArremataÃ§Ã£o" />
-              <AnalysisTab active={activeSubTab === 'edital'} onClick={() => updateState({ activeSubTab: 'edital' })} icon={<FileText size={16} />} label="Edital" />
-              <AnalysisTab active={activeSubTab === 'matricula'} onClick={() => updateState({ activeSubTab: 'matricula' })} icon={<BookOpen size={16} />} label="MatrÃ­cula" />
-              <AnalysisTab active={activeSubTab === 'processos'} onClick={() => updateState({ activeSubTab: 'processos' })} icon={<Search size={16} />} label="Processos" />
-              {!isPublicView && <AnalysisTab active={activeSubTab === 'documents'} onClick={() => updateState({ activeSubTab: 'documents' })} icon={<Files size={16} />} label="Documentos" />}
-              <AnalysisTab active={activeSubTab === 'simulations'} onClick={() => updateState({ activeSubTab: 'simulations' })} icon={<TrendingUp size={16} />} label="SimulaÃ§Ã£o" />
-              <AnalysisTab active={activeSubTab === 'investors'} onClick={() => updateState({ activeSubTab: 'investors' })} icon={<Users size={16} />} label="Investidores" />
-              <AnalysisTab active={activeSubTab === 'instagram'} onClick={() => updateState({ activeSubTab: 'instagram' })} icon={<Instagram size={16} />} label="CaptaÃ§Ã£o" />
-            </div>
-
-            {/* Tab Content */}
-            <div className="flex-1 p-4 sm:p-6 md:p-10">
-              {activeSubTab === 'report' && (
-                <div className="space-y-8">
-                  <MasterReportView 
-                    state={state} 
-                    setState={setState} 
-                    property={selectedProperty} 
-                    metrics={metrics} 
-                    tir={tir} 
-                    roi={roi}
-                    token={token}
-                  />
-                  <SmartResetPanel
-                    tabName="Painel Principal"
-                    tabKey="report"
-                    hasAnalysis={!!state.report}
-                    onResetTab={() => handleResetSubTab('report')}
-                    onResetAll={handleResetAllPropertyData}
-                    onApplySettings={(settings) => updateState({ aiDepth: settings.depth, aiFocus: settings.focus })}
-                  />
-                </div>
-              )}
-              {activeSubTab === 'dossier' && (
-                <div className="space-y-6">
-                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                    <div>
-                      <h3 className="text-2xl font-bold text-brand-primary">DossiÃª de ArremataÃ§Ã£o Inteligente</h3>
-                      <p className="text-sm text-brand-ink/50 mt-1">
-                        Sintetiza de forma automatizada e cruzada os dados da MatrÃ­cula, Edital e Processos para preenchimento de sistemas de arremataÃ§Ã£o.
-                      </p>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      <button 
-                        onClick={handleAnalyzeDossier} 
-                        disabled={analyzing} 
-                        className="bg-brand-primary text-black px-6 py-3 rounded-xl font-bold hover:bg-brand-primary/90 transition-all disabled:opacity-50 flex items-center gap-2 shadow-md shadow-brand-primary/10"
-                      >
-                        {analyzing ? <Loader2 className="animate-spin" size={16} /> : <Sparkles size={16} />}
-                        {state.dossierAnalysis ? 'Atualizar DossiÃª com IA' : 'Gerar DossiÃª com IA'}
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Upload de Documentos Integrado */}
-                  {!isPublicView && (
-                    <div className="bg-brand-paper p-6 sm:p-8 rounded-[2.5rem] border border-brand-border shadow-sm space-y-6" id="dossier-documents-upload">
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-brand-primary/10 pb-4">
-                        <div>
-                          <h5 className="text-sm font-bold text-brand-primary flex items-center gap-2 uppercase tracking-wider">
-                            <FileText size={18} className="text-brand-primary" />
-                            Documentos do LeilÃ£o para o DossiÃª
-                          </h5>
-                          <p className="text-xs text-brand-ink/50 mt-1">
-                            Envie os arquivos do leilÃ£o diretamente nesta aba para preencher o dossiÃª integrado via InteligÃªncia Artificial.
-                          </p>
-                        </div>
-                        {dossierDocs.length > 0 && (
-                          <span className="text-[10px] font-bold px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200/50 rounded-full shrink-0 self-start sm:self-center">
-                            Documentos DisponÃ­veis para IA
-                          </span>
-                        )}
-                      </div>
-
-                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        {['Edital', 'MatrÃ­cula', 'Processo Judicial', 'Outros'].map(category => (
-                          <div key={category} className="bg-brand-bg/10 p-5 rounded-2xl border border-brand-border/30">
-                            <DocumentManager 
-                              label={category} 
-                              docs={dossierDocs} 
-                              onUpload={(e, type) => handleAnalysisFileUpload(e, type)}
-                              onDelete={handleDeleteDocument}
-                              onTranscribe={handleTranscribeDoc}
-                              uploading={uploading} 
-                            />
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {!state.dossierAnalysis && !analyzing && (
-                    <div className="bg-brand-bg/10 rounded-3xl border border-brand-primary/10 p-8 sm:p-12 text-center max-w-2xl mx-auto space-y-6 mt-6">
-                      <div className="w-16 h-16 bg-brand-primary/10 rounded-2xl flex items-center justify-center text-brand-primary mx-auto border border-brand-primary/10">
-                        <Clipboard size={32} />
-                      </div>
-                      <div className="space-y-2">
-                        <h4 className="text-xl font-bold text-brand-primary">Gerar DossiÃª de ArremataÃ§Ã£o</h4>
-                        <p className="text-sm text-brand-ink/60">
-                          Este recurso inovador reÃºne e analisa os documentos de MatrÃ­cula, Edital e Processos Judiciais juntos para gerar um dossiÃª integrado completo de viabilidade, jurÃ­dico e financeiro.
-                        </p>
-                      </div>
-                      <button 
-                        onClick={handleAnalyzeDossier}
-                        className="bg-brand-primary text-black px-8 py-3.5 rounded-xl font-bold hover:bg-brand-primary/90 transition-all font-sans"
-                      >
-                        Iniciar CompilaÃ§Ã£o Inteligente
-                      </button>
-                    </div>
-                  )}
-
-                  {analyzing && !state.dossierAnalysis && (
-                    <div className="py-20 flex flex-col items-center justify-center space-y-4">
-                      <Loader2 className="animate-spin text-brand-primary" size={48} />
-                      <div className="text-center">
-                        <p className="font-bold text-lg text-brand-primary">Gerando DossiÃª Integrado...</p>
-                        <p className="text-xs text-brand-ink/40 mt-1">Nossos agentes de IA estÃ£o analisando matrÃ­cula, edital e o processo para extrair o dossiÃª consolidado.</p>
-                      </div>
-                    </div>
-                  )}
-
-                  {state.dossierAnalysis && (
-                    <div className="space-y-6">
-                      {/* Integrabilidade com a Calculadora TJInvest */}
-                      <div className="bg-brand-primary/5 rounded-3xl border border-brand-primary/10 p-6 space-y-4">
-                        <div className="flex items-center gap-3">
-                          <div className="p-2 bg-brand-primary/10 rounded-xl text-brand-primary">
-                            <Calculator size={20} />
-                          </div>
-                          <div>
-                            <h4 className="font-bold text-brand-primary"> IntegraÃ§Ã£o d'Arremate (Calculadora TJInvest)</h4>
-                            <p className="text-xs text-brand-ink/50">Transmita facilmente estes dados para sua calculadora externa em <code className="text-brand-primary font-mono text-[11px]">calculadora.tjinvest.com.br</code></p>
-                          </div>
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
-                          <div className="bg-brand-bg/40 p-4 rounded-2xl border border-brand-primary/5 space-y-2">
-                            <span className="text-[10px] font-bold text-brand-primary uppercase tracking-wider">CÃ³pia RÃ¡pida para Cadastro</span>
-                            <p className="text-xs text-brand-ink/60">Use a cÃ³pia rÃ¡pida abaixo para copiar os dados limpos em formato estruturado pronto para colar em tabelas e calculadoras de lances.</p>
-                            <button 
-                              onClick={() => {
-                                navigator.clipboard.writeText(state.dossierAnalysis || '');
-                                alert("DossiÃª copiado com sucesso em Markdown!");
-                              }}
-                              className="text-xs bg-brand-primary/10 hover:bg-brand-primary/20 text-brand-primary px-3 py-1.5 rounded-lg font-bold transition-all flex items-center gap-2"
-                            >
-                              <Copy size={12} /> Copiar DossiÃª Completo
-                            </button>
-                          </div>
-                          <div className="bg-brand-bg/40 p-4 rounded-2xl border border-brand-primary/5 space-y-2">
-                            <span className="text-[10px] font-bold text-brand-primary uppercase tracking-wider">CÃ³pia RÃ¡pida dos Valores Chave</span>
-                            <p className="text-xs text-brand-ink/60">Copia de uma vez as variÃ¡veis numÃ©ricas tratadas (Valor Mercado, Lance MÃ­nimo, Lance MÃ¡ximo Sugerido) para alimentar a calculadora.</p>
-                            <button 
-                              onClick={() => {
-                                const numericPayload = {
-                                  valuation: metrics?.valuation || 0,
-                                  min_bid: metrics?.bid || 0,
-                                  suggested_max_bid: (metrics?.bid || 0) * 1.3,
-                                  condominium_debts: metrics?.debtsCondo || 0,
-                                  iptu_debts: metrics?.debtsIPTU || 0,
-                                  address: selectedProperty?.address || "",
-                                  city: selectedProperty?.city || "",
-                                  state: selectedProperty?.state || ""
-                                };
-                                navigator.clipboard.writeText(JSON.stringify(numericPayload, null, 2));
-                                alert("Valores numÃ©ricos copiados no formato JSON!");
-                              }}
-                              className="text-xs bg-brand-primary/10 hover:bg-brand-primary/20 text-brand-primary px-3 py-1.5 rounded-lg font-bold transition-all flex items-center gap-2"
-                            >
-                              <Copy size={12} /> Copiar JSON de IntegraÃ§Ã£o
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-
-                      <Card title="Resultado do DossiÃª Integrado">
-                        <div className="flex justify-between items-center mb-6 border-b border-brand-primary/10 pb-4 no-print gap-4 flex-wrap">
-                          <span className="text-xs font-mono text-brand-ink/40">AnÃ¡lise gerada via {selectedModel}</span>
-                          <div className="flex gap-2">
-                            <button
-                              type="button"
-                              onClick={handleAnalyzeDossier}
-                              disabled={analyzing}
-                              className="flex items-center gap-2 bg-brand-primary text-black px-4 py-2 rounded-xl text-xs font-bold hover:bg-brand-primary/90 transition-all disabled:opacity-50 shadow-sm"
-                            >
-                              {analyzing ? <Loader2 className="animate-spin" size={14} /> : <Cpu size={14} />}
-                              Recalcular DossiÃª
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                navigator.clipboard.writeText(state.dossierAnalysis || '');
-                                alert("Copiado!");
-                              }}
-                              className="flex items-center gap-2 bg-brand-bg hover:bg-brand-primary/10 border border-brand-primary/10 text-brand-primary px-4 py-2 rounded-xl text-xs font-bold transition-all"
-                            >
-                              <Copy size={14} /> Copiar Texto
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => window.print()}
-                              className="flex items-center gap-2 bg-brand-bg hover:bg-brand-primary/10 border border-brand-primary/10 text-brand-primary px-4 py-2 rounded-xl text-xs font-bold transition-all"
-                            >
-                              <Printer size={14} /> Imprimir DossiÃª
-                            </button>
-                          </div>
-                        </div>
-                        <div className="markdown-body font-sans text-brand-ink/90 leading-relaxed text-sm antialiased space-y-4">
-                          <ReactMarkdown remarkPlugins={[remarkGfm]}>{state.dossierAnalysis}</ReactMarkdown>
-                        </div>
-                      </Card>
-                    </div>
-                  )}
-                  {renderTabChat('dossier')}
-                  <SmartResetPanel
-                    tabName="DossiÃª de ArremataÃ§Ã£o"
-                    tabKey="dossier"
-                    hasAnalysis={!!state.dossierAnalysis}
-                    onResetTab={() => handleResetSubTab('dossier')}
-                    onResetAll={handleResetAllPropertyData}
-                    onApplySettings={(settings) => updateState({ aiDepth: settings.depth, aiFocus: settings.focus })}
-                  />
-                </div>
-              )}
-              {activeSubTab === 'edital' && (
-                <div className="space-y-6">
-                  <h3 className="text-2xl font-bold text-brand-primary font-serif">AnÃ¡lise de Edital</h3>
-                  <div className="grid grid-cols-1 gap-6">
-                    <Card title="Upload e GestÃ£o do Edital">
-                      <p className="text-sm text-brand-ink/60 mb-4 font-sans">Envie o documento do Edital de LeilÃ£o para que o CÃ©rebro EstratÃ©gico possa extrair as datas importantes, regras de comissÃ£o, Ã´nus e parcelamentos.</p>
-                      <DocumentManager 
-                        label="Edital" 
-                        docs={editalDocsFiltered} 
-                        onUpload={(e, type) => handleAnalysisFileUpload(e, type)}
-                        onDelete={handleDeleteDocument}
-                        onTranscribe={handleTranscribeDoc}
-                        uploading={uploading}
-                      />
-                      <div className="mt-6 pt-6 border-t border-brand-primary/10">
-                        <button 
-                          onClick={handleAnalyzeEdital} 
-                          disabled={analyzing} 
-                          className="w-full bg-brand-primary text-black py-4 rounded-xl font-bold hover:bg-brand-primary/90 transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-md shadow-brand-primary/10"
-                        >
-                          {analyzing ? <Loader2 className="animate-spin" size={16} /> : <Cpu size={16} />}
-                          {analyzing ? 'Analisando Edital...' : 'Executar AnÃ¡lise de Edital'}
-                        </button>
-                      </div>
-                    </Card>
-                    
-                    {state.editalAnalysis && (
-                      <Card title="Resultado da AnÃ¡lise de Edital">
-                        {!isPublicView && (
-                          <div className="flex justify-end gap-3 mb-4 no-print">
-                            <button
-                              type="button"
-                              onClick={handleShare}
-                              className="flex items-center gap-2 bg-brand-primary text-black px-4 py-2 rounded-xl text-xs font-bold hover:bg-brand-primary/90 transition-all shadow-sm"
-                            >
-                              <Globe size={14} /> Compartilhar / Gerar Link PÃºblico
-                            </button>
-                          </div>
-                        )}
-                        <div className="p-1 sm:p-2 bg-brand-paper rounded-3xl border border-brand-border shadow-lg">
-                          <EditalReport 
-                            rawAnalysis={state.editalAnalysis} 
-                            propertyAddress={selectedProperty?.address}
-                            propertyCity={selectedProperty?.city}
-                            propertyState={selectedProperty?.state}
-                            valuation={metrics?.valuation}
-                          />
-                        </div>
-                      </Card>
-                    )}
-                  </div>
-                  <div className="mt-8 no-print border-t border-brand-primary/10 pt-8">
-                    <LegalGlossaryForLaypeople />
-                  </div>
-                  {renderTabChat('edital')}
-                  <SmartResetPanel
-                    tabName="AnÃ¡lise de Edital"
-                    tabKey="edital"
-                    hasAnalysis={!!state.editalAnalysis}
-                    onResetTab={() => handleResetSubTab('edital')}
-                    onResetAll={handleResetAllPropertyData}
-                    onApplySettings={(settings) => updateState({ aiDepth: settings.depth, aiFocus: settings.focus })}
-                  />
-                </div>
-              )}
-              {activeSubTab === 'matricula' && (
-                <div className="space-y-6">
-                  <h3 className="text-2xl font-bold text-brand-primary font-serif">AnÃ¡lise de MatrÃ­cula</h3>
-                  <div className="grid grid-cols-1 gap-6">
-                    <Card title="Upload e GestÃ£o da CertidÃ£o de MatrÃ­cula">
-                      <p className="text-sm text-brand-ink/60 mb-4 font-sans">Envie o documento da CertidÃ£o de MatrÃ­cula do ImÃ³vel para auditar a cadeia de proprietÃ¡rios, averbaÃ§Ãµes de penhoras, hipotecas ou alienaÃ§Ãµes fiduciÃ¡rias ativas.</p>
-                      <DocumentManager 
-                        label="MatrÃ­cula" 
-                        docs={matriculaDocsFiltered} 
-                        onUpload={(e, type) => handleAnalysisFileUpload(e, type)}
-                        onDelete={handleDeleteDocument}
-                        onTranscribe={handleTranscribeDoc}
-                        uploading={uploading}
-                      />
-                      <div className="mt-6 pt-6 border-t border-brand-primary/10">
-                        <button 
-                          onClick={handleAnalyzeMatricula} 
-                          disabled={analyzing} 
-                          className="w-full bg-brand-primary text-black py-4 rounded-xl font-bold hover:bg-brand-primary/90 transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-md shadow-brand-primary/10"
-                        >
-                          {analyzing ? <Loader2 className="animate-spin" size={16} /> : <Cpu size={16} />}
-                          {analyzing ? 'Analisando MatrÃ­cula...' : 'Executar AnÃ¡lise de MatrÃ­cula'}
-                        </button>
-                      </div>
-                    </Card>
-                    
-                    {state.matriculaAnalysis && (
-                      <Card title="Resultado da AnÃ¡lise de MatrÃ­cula">
-                        {!isPublicView && (
-                          <div className="flex justify-end gap-3 mb-4 no-print">
-                            <button
-                              type="button"
-                              onClick={handleShare}
-                              className="flex items-center gap-2 bg-brand-primary text-black px-4 py-2 rounded-xl text-xs font-bold hover:bg-brand-primary/90 transition-all shadow-sm"
-                            >
-                              <Globe size={14} /> Compartilhar / Gerar Link PÃºblico
-                            </button>
-                          </div>
-                        )}
-                        <div className="p-1 sm:p-2 bg-brand-paper rounded-3xl border border-brand-border shadow-lg">
-                          <MatriculaReport 
-                            rawAnalysis={state.matriculaAnalysis} 
-                            propertyAddress={selectedProperty?.address}
-                            propertyCity={selectedProperty?.city}
-                            propertyState={selectedProperty?.state}
-                            valuation={metrics?.valuation}
-                            bidValue={metrics?.bid}
-                          />
-                        </div>
-                      </Card>
-                    )}
-                  </div>
-                  <div className="mt-8 no-print border-t border-brand-primary/10 pt-8">
-                    <LegalGlossaryForLaypeople />
-                  </div>
-                  {renderTabChat('matricula')}
-                  <SmartResetPanel
-                    tabName="AnÃ¡lise de MatrÃ­cula"
-                    tabKey="matricula"
-                    hasAnalysis={!!state.matriculaAnalysis}
-                    onResetTab={() => handleResetSubTab('matricula')}
-                    onResetAll={handleResetAllPropertyData}
-                    onApplySettings={(settings) => updateState({ aiDepth: settings.depth, aiFocus: settings.focus })}
-                  />
-                </div>
-              )}
-              {activeSubTab === 'processos' && (
-                <div className="space-y-6">
-                  <h3 className="text-2xl font-bold text-brand-primary font-serif">AnÃ¡lise de Processos</h3>
-                  <div className="grid grid-cols-1 gap-6">
-                    <Card title="Upload e GestÃ£o de Processos Judiciais">
-                      <p className="text-sm text-brand-ink/60 mb-4 font-sans">Gerencie as petiÃ§Ãµes, execuÃ§Ãµes de tÃ­tulo extrajudicial ou processos originÃ¡rios vinculados a este imÃ³vel para auditar o risco de nulidade.</p>
-                      <DocumentManager 
-                        label="Processo Judicial" 
-                        docs={processDocsFiltered} 
-                        onUpload={(e, type) => handleAnalysisFileUpload(e, type)}
-                        onDelete={handleDeleteDocument}
-                        onTranscribe={handleTranscribeDoc}
-                        uploading={uploading}
-                      />
-                      <div className="mt-6 pt-6 border-t border-brand-primary/10">
-                        <button 
-                          onClick={handleAnalyzeProcesses}
-                          disabled={analyzing}
-                          className="w-full bg-brand-primary text-black py-4 rounded-xl font-bold hover:bg-brand-primary/90 transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-md shadow-brand-primary/10"
-                        >
-                          {analyzing ? <Loader2 className="animate-spin" size={16} /> : <Cpu size={16} />}
-                          {analyzing ? 'Analisando Processos...' : 'Executar AnÃ¡lise de Processos'}
-                        </button>
-                      </div>
-                    </Card>
-                    
-                    {state.processAnalysis && (
-                      <Card title="Resultado da AnÃ¡lise de Processos">
-                        {!isPublicView && (
-                          <div className="flex justify-end gap-3 mb-4 no-print">
-                            <button
-                              type="button"
-                              onClick={handleShare}
-                              className="flex items-center gap-2 bg-brand-primary text-black px-4 py-2 rounded-xl text-xs font-bold hover:bg-brand-primary/90 transition-all shadow-sm"
-                            >
-                              <Globe size={14} /> Compartilhar / Gerar Link PÃºblico
-                            </button>
-                          </div>
-                        )}
-                        <div className="p-1 sm:p-2 bg-brand-paper rounded-3xl border border-brand-border shadow-lg">
-                          <ProcessoReport 
-                            rawAnalysis={state.processAnalysis} 
-                            propertyAddress={selectedProperty?.address}
-                            propertyCity={selectedProperty?.city}
-                            propertyState={selectedProperty?.state}
-                            valuation={metrics?.valuation}
-                          />
-                        </div>
-                      </Card>
-                    )}
-                  </div>
-                  <div className="mt-8 no-print border-t border-brand-primary/10 pt-8">
-                    <LegalGlossaryForLaypeople />
-                  </div>
-                  {renderTabChat('processos')}
-                  <SmartResetPanel
-                    tabName="AnÃ¡lise de Processos"
-                    tabKey="processos"
-                    hasAnalysis={!!state.processAnalysis}
-                    onResetTab={() => handleResetSubTab('processos')}
-                    onResetAll={handleResetAllPropertyData}
-                    onApplySettings={(settings) => updateState({ aiDepth: settings.depth, aiFocus: settings.focus })}
-                  />
-                </div>
-              )}
-              {isPasteModalOpen && (
-                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-6">
-                  <motion.div 
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    className="bg-brand-paper w-full max-w-2xl rounded-[2.5rem] p-12 shadow-2xl border border-brand-primary/10"
-                  >
-                    <div className="flex items-center justify-between mb-8">
-                      <h3 className="text-2xl font-bold text-brand-primary">Colar Texto para AnÃ¡lise</h3>
-                      <button onClick={() => setIsPasteModalOpen(false)} className="p-2 hover:bg-brand-primary/10 rounded-full text-brand-primary"><X size={24} /></button>
-                    </div>
-                    <div className="space-y-6">
-                      <div>
-                        <label className="block text-xs font-bold uppercase tracking-widest text-brand-ink/40 mb-2">TÃ­tulo da Nota</label>
-                        <input 
-                          type="text" 
-                          placeholder="Ex: Notas sobre a vistoria"
-                          className="w-full bg-brand-bg border-none rounded-2xl py-4 px-6 focus:ring-2 focus:ring-brand-primary text-brand-ink" 
-                          value={pasteTitle}
-                          onChange={e => setPasteTitle(e.target.value)}
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-bold uppercase tracking-widest text-brand-ink/40 mb-2">ConteÃºdo</label>
-                        <textarea 
-                          rows={8}
-                          className="w-full bg-brand-bg border-none rounded-2xl py-4 px-6 focus:ring-2 focus:ring-brand-primary resize-none text-brand-ink"
-                          placeholder="Cole aqui o texto, links ou observaÃ§Ãµes..."
-                          value={pasteText}
-                          onChange={e => setPasteText(e.target.value)}
-                        />
-                      </div>
-                      <button 
-                        onClick={handlePasteText}
-                        className="w-full bg-brand-primary text-black py-4 rounded-2xl font-bold hover:bg-brand-primary/90 transition-all"
-                      >
-                        Adicionar ao DossiÃª
-                      </button>
-                    </div>
-                  </motion.div>
-                </div>
-              )}
-
-              {activeSubTab === 'report' && (
-                <div className="space-y-10">
-                  {report ? (
-                    <div className="space-y-10">
-                      <div className="flex flex-col md:flex-row md:items-center justify-between border-b border-brand-border pb-8 gap-6">
-                        <div className="space-y-2">
-                          <h4 className="text-3xl font-serif font-bold text-brand-primary">
-                            {anonymizeProperty ? "AnÃ¡lise EstratÃ©gica de Oportunidade" : (selectedPropertyId ? properties.find(p => p.id === selectedPropertyId)?.title : "RelatÃ³rio EstratÃ©gico")}
-                          </h4>
-                          {!anonymizeProperty && selectedPropertyId && (
-                            <div className="flex items-center gap-2 text-brand-ink/40 text-sm font-medium">
-                              <Search size={14} />
-                              <span>{properties.find(p => p.id === selectedPropertyId)?.address}, {properties.find(p => p.id === selectedPropertyId)?.city} - {properties.find(p => p.id === selectedPropertyId)?.state}</span>
-                            </div>
-                          )}
-                          
-                          {propertyAnalyses.length > 0 && (
-                            <div className="flex items-center gap-3 mt-4 no-print">
-                              <span className="text-[10px] font-bold uppercase tracking-widest text-brand-ink/30">VersÃ£o:</span>
-                              <select 
-                                className="bg-brand-bg border border-brand-primary/10 rounded-lg px-3 py-1 text-xs font-bold text-brand-primary outline-none"
-                                value={state.analysisId || ''}
-                                onChange={(e) => {
-                                  const selected = propertyAnalyses.find(a => a.id === e.target.value);
-                                  if (selected) {
-                                    updateState({ 
-                                      report: selected.exec_summary, 
-                                      selectedModel: selected.ia_used,
-                                      analysisId: selected.id
-                                    });
-                                  }
-                                }}
-                              >
-                                {propertyAnalyses.map((a, idx) => (
-                                  <option key={a.id} value={a.id}>
-                                    {idx === 0 ? 'Ãšltima AnÃ¡lise' : `AnÃ¡lise #${propertyAnalyses.length - idx}`} ({a.ia_used}) - {new Date(a.created_at).toLocaleDateString()}
-                                  </option>
-                                ))}
-                              </select>
-                              <div className="px-3 py-1 bg-brand-primary/10 border border-brand-primary/20 rounded-lg text-[10px] font-bold text-brand-primary uppercase tracking-wider">
-                                IA: {selectedModel}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                        <div className="flex flex-wrap gap-3 no-print">
-                          <div className="flex bg-brand-bg rounded-xl p-1">
-                            <button 
-                              className={cn("px-4 py-2 rounded-lg text-xs font-bold transition-all", simulationData.paymentType === 'vista' ? "bg-brand-primary text-black" : "text-brand-ink/40")}
-                              onClick={() => updateState({ simulationData: { ...simulationData, paymentType: 'vista' } })}
-                            >
-                              Ã€ Vista
-                            </button>
-                            <button 
-                              className={cn("px-4 py-2 rounded-lg text-xs font-bold transition-all", simulationData.paymentType === 'parcelado' ? "bg-brand-primary text-black" : "text-brand-ink/40")}
-                              onClick={() => updateState({ simulationData: { ...simulationData, paymentType: 'parcelado' } })}
-                            >
-                              Parcelado
-                            </button>
-                          </div>
-                          <button 
-                            onClick={() => updateState({ activeSubTab: 'documents' })}
-                            className="flex items-center gap-2 px-6 py-3 rounded-xl text-xs font-bold bg-brand-bg text-brand-ink hover:bg-brand-bg/80 transition-all"
-                          >
-                            <Files size={16} />
-                            Adicionar Documentos
-                          </button>
-                          <button 
-                            onClick={() => updateState({ activeSubTab: 'simulations' })}
-                            className="flex items-center gap-2 px-6 py-3 rounded-xl text-xs font-bold bg-brand-primary text-black hover:bg-brand-primary/90 transition-all shadow-lg shadow-brand-primary/20"
-                          >
-                            <TrendingUp size={16} />
-                            Editar SimulaÃ§Ã£o
-                          </button>
-                          {!isPublicView && (
-                            <>
-                              {!selectedPropertyId && (
-                                <button 
-                                  onClick={handleSaveAsProperty}
-                                  className="flex items-center gap-2 bg-brand-primary text-black px-6 py-3 rounded-xl text-xs font-bold hover:bg-brand-primary/90 transition-all shadow-lg shadow-brand-primary/20"
-                                >
-                                  <Save size={16} /> Salvar
-                                </button>
-                              )}
-                              <button 
-                                onClick={handleShare}
-                                className="flex items-center gap-2 bg-brand-primary text-black px-6 py-3 rounded-xl text-xs font-bold hover:bg-brand-primary/90 transition-all shadow-lg shadow-brand-primary/20"
-                              >
-                                <Globe size={16} /> Compartilhar / Gerar Link PÃºblico
-                              </button>
-                            </>
-                          )}
-                          <button 
-                            type="button"
-                            onClick={handlePrint}
-                            className="flex items-center gap-2 bg-brand-paper border border-brand-border text-brand-ink/60 px-6 py-3 rounded-xl text-xs font-bold hover:text-brand-primary hover:border-brand-primary/30 transition-all font-sans"
-                            title="Salvar como PDF ou Imprimir o relatÃ³rio completo"
-                          >
-                            <Printer size={16} /> Salvar PDF / Imprimir
-                          </button>
-                          <button 
-                            type="button"
-                            onClick={() => handleCopyText(report || '', setCopiedReport)}
-                            className="flex items-center gap-2 bg-brand-paper border border-brand-border text-brand-ink/60 px-6 py-3 rounded-xl text-xs font-bold hover:text-brand-primary hover:border-brand-primary/30 transition-all font-sans"
-                            title="Copiar relatÃ³rio formatado em texto para a Ã¡rea de transferÃªncia"
-                          >
-                            {copiedReport ? (
-                              <>
-                                <Check size={16} className="text-emerald-500" /> Copiado!
-                              </>
-                            ) : (
-                              <>
-                                <Copy size={16} /> Copiar RelatÃ³rio
-                              </>
-                            )}
-                          </button>
-                          {!isPublicView && (
-                            <button 
-                              type="button"
-                              onClick={handleNewAnalysis}
-                              className="flex items-center gap-2 bg-brand-bg border border-brand-primary/20 text-brand-primary hover:bg-brand-primary/10 px-6 py-3 rounded-xl text-xs font-bold transition-all font-sans"
-                              title="Iniciar uma nova anÃ¡lise jurÃ­dica/financeira do zero"
-                            >
-                              <RefreshCw size={16} /> Nova AnÃ¡lise
-                            </button>
-                          )}
-                          {state.analysisId && !isPublicView && (
-                            <div className="flex gap-2">
-                              <button 
-                                type="button"
-                                onClick={() => updateState({ isEditingReport: !state.isEditingReport })}
-                                className={cn(
-                                  "flex items-center gap-2 px-6 py-3 rounded-xl text-xs font-bold transition-all",
-                                  state.isEditingReport ? "bg-brand-primary text-black" : "bg-brand-paper border border-brand-border text-brand-ink/60 hover:text-brand-primary"
-                                )}
-                              >
-                                <Edit size={16} /> {state.isEditingReport ? "Visualizar" : "Editar"}
-                              </button>
-                              <button 
-                                type="button"
-                                onClick={handleDeleteAnalysis}
-                                className="flex items-center gap-2 bg-red-500/10 text-red-500 border border-red-500/20 px-6 py-3 rounded-xl text-xs font-bold hover:bg-red-500 hover:text-white transition-all"
-                              >
-                                <Trash2 size={16} /> Excluir
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Property Summary Cards */}
-                      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
-                        <div className="bg-brand-paper/50 p-4 sm:p-5 rounded-2xl sm:rounded-3xl border border-brand-border">
-                          <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-brand-ink/30 mb-2">Valor de Venda</p>
-                          <p className="text-sm sm:text-lg font-bold text-brand-ink break-all">
-                            {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(metrics.saleValue || 0)}
-                          </p>
-                        </div>
-                        <div className="bg-brand-paper/50 p-4 sm:p-5 rounded-2xl sm:rounded-3xl border border-brand-border">
-                          <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-brand-ink/30 mb-2">Custos da ArremataÃ§Ã£o</p>
-                          <p className="text-sm sm:text-lg font-bold text-brand-primary break-all">
-                            {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(metrics.totalInvestment || 0)}
-                          </p>
-                        </div>
-                        <div className="bg-brand-paper/50 p-4 sm:p-5 rounded-2xl sm:rounded-3xl border border-brand-border">
-                          <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-brand-ink/30 mb-2">Lucro Estimado</p>
-                          <p className="text-sm sm:text-lg font-bold text-emerald-500 break-all">
-                            {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(metrics.netProfit)}
-                          </p>
-                        </div>
-                        <div className="bg-brand-paper/50 p-4 sm:p-5 rounded-2xl sm:rounded-3xl border border-brand-border">
-                          <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-brand-ink/30 mb-2">ROI (Total)</p>
-                          <p className="text-sm sm:text-lg font-bold text-brand-primary break-all">
-                            {metrics.roi.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%
-                          </p>
-                        </div>
-                        <div className="bg-brand-paper/50 p-4 sm:p-5 rounded-2xl sm:rounded-3xl border border-brand-border">
-                          <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-brand-ink/30 mb-2">TIR (Anual)</p>
-                          <p className="text-sm sm:text-lg font-bold text-brand-primary break-all">
-                            {tir.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="bg-brand-paper rounded-2xl sm:rounded-[2.5rem] border border-brand-border shadow-inner overflow-hidden">
-                        <div className="p-4 sm:p-6 md:p-10 markdown-body max-w-none text-brand-ink break-words">
-                          {report ? (
-                            <ReactMarkdown remarkPlugins={[remarkGfm]} components={reportComponents}>{report}</ReactMarkdown>
-                          ) : (
-                            <div className="p-8 bg-brand-primary/5 rounded-2xl border border-brand-primary/10 text-center">
-                              <p className="text-brand-primary font-bold">AnÃ¡lise concluÃ­da, mas o relatÃ³rio textual nÃ£o foi gerado.</p>
-                              <p className="text-brand-ink/60 mt-2">Os dados da simulaÃ§Ã£o foram extraÃ­dos com sucesso e estÃ£o disponÃ­veis no dashboard.</p>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Chat with AI */}
-                      <div className="space-y-6 pt-10 border-t border-black/5">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 bg-brand-primary rounded-xl flex items-center justify-center text-black">
-                            <MessageSquare size={20} />
-                          </div>
-                          <h5 className="text-lg font-bold text-brand-primary">Enriquecer AnÃ¡lise</h5>
-                        </div>
-
-                        <div className="bg-brand-bg rounded-[2rem] p-8 space-y-6 max-h-[400px] overflow-y-auto border border-brand-primary/10">
-                          {chatMessages.map((msg, idx) => (
-                            <div key={idx} className={cn(
-                              "flex gap-4 max-w-[85%]",
-                              msg.role === 'user' ? "ml-auto flex-row-reverse" : ""
-                            )}>
-                              <div className={cn(
-                                "w-8 h-8 rounded-lg flex items-center justify-center shrink-0",
-                                msg.role === 'assistant' ? "bg-brand-primary text-black" : "bg-brand-ink/10 text-brand-ink/40"
-                              )}>
-                                {msg.role === 'assistant' ? <Cpu size={14} /> : <Users size={14} />}
-                              </div>
-                              <div className={cn(
-                                "p-4 rounded-2xl text-sm font-medium leading-relaxed",
-                                msg.role === 'assistant' ? "bg-brand-paper shadow-sm markdown-body !text-sm" : "bg-brand-primary text-black"
-                              )}>
-                                {msg.role === 'assistant' ? (
-                                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
-                                ) : (
-                                  msg.content
-                                )}
-                              </div>
-                            </div>
-                          ))}
-                          {sendingChat && (
-                            <div className="flex gap-4 max-w-[85%]">
-                              <div className="w-8 h-8 bg-brand-primary rounded-lg flex items-center justify-center text-black shrink-0">
-                                <Loader2 size={14} className="animate-spin" />
-                              </div>
-                              <div className="p-4 rounded-2xl bg-brand-paper shadow-sm text-sm font-medium text-brand-ink/20 italic">
-                                IA estÃ¡ pensando...
-                              </div>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Attached files list */}
-                        {analysisDocs.filter((d: any) => d.doc_type === 'Anexo Chat').length > 0 && (
-                          <div className="flex flex-wrap gap-2 mb-3 max-h-32 overflow-y-auto p-1 border-b border-brand-primary/5 pb-3">
-                            {analysisDocs.filter((d: any) => d.doc_type === 'Anexo Chat').map((doc: any) => (
-                              <div 
-                                key={doc.id} 
-                                className="flex items-center gap-2 bg-brand-primary/10 border border-brand-primary/25 text-brand-primary rounded-xl px-3.5 py-2 text-xs font-semibold select-none shadow-sm animate-fade-in"
-                              >
-                                <FileText size={14} className="shrink-0 text-brand-primary/70" />
-                                <span className="truncate max-w-[180px] text-brand-ink">{doc.filename}</span>
-                                <button 
-                                  type="button"
-                                  onClick={async () => {
-                                    // Local optimistic delete
-                                    setPropertyDocs((prev: any) => prev.filter((d: any) => d.id !== doc.id));
-                                    setState((prev: any) => ({
-                                      ...prev,
-                                      adHocDocs: prev.adHocDocs.filter((d: any) => d.id !== doc.id)
-                                    }));
-                                    // Backend delete
-                                    try {
-                                      await fetch(`/api/documents/${doc.id}`, {
-                                        method: 'DELETE',
-                                        headers: { 'Authorization': `Bearer ${token}` }
-                                      });
-                                    } catch (e) {
-                                      console.error("Erro ao deletar anexo:", e);
-                                    }
-                                  }}
-                                  className="text-brand-ink/40 hover:text-red-500 cursor-pointer transition-colors p-0.5 rounded-full hover:bg-red-500/10 ml-1"
-                                  title="Remover anexo do chat"
-                                >
-                                  <X size={14} />
-                                </button>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-
-                        <div className="relative flex gap-3">
-                          <div className="relative flex-1">
-                            <input 
-                              type="text" 
-                              value={chatInput}
-                              onChange={e => setChatInput(e.target.value)}
-                              onKeyDown={e => e.key === 'Enter' && handleSendChat()}
-                              placeholder="Pergunte algo sobre o edital, riscos ou cÃ¡lculos..."
-                              className="w-full bg-brand-bg border border-brand-primary/10 rounded-2xl py-5 px-6 pr-16 focus:ring-2 focus:ring-brand-primary outline-none font-medium text-brand-ink"
-                            />
-                            <button 
-                              onClick={handleSendChat}
-                              disabled={sendingChat || !chatInput.trim()}
-                              className="absolute right-3 top-1/2 -translate-y-1/2 w-12 h-12 bg-brand-primary text-black rounded-xl flex items-center justify-center hover:bg-brand-primary/90 transition-all disabled:opacity-50"
-                            >
-                              <Send size={20} />
-                            </button>
-                          </div>
-                          <label className="w-14 h-14 bg-brand-bg border border-brand-primary/20 text-brand-primary rounded-2xl flex items-center justify-center cursor-pointer hover:bg-brand-primary/5 transition-all shrink-0">
-                            {uploading ? (
-                              <Loader2 size={24} className="animate-spin text-brand-primary" />
-                            ) : (
-                              <Plus size={24} />
-                            )}
-                            <input 
-                              type="file" 
-                              className="hidden" 
-                              multiple 
-                              disabled={uploading}
-                              onChange={(e) => handleAnalysisFileUpload(e, 'Anexo Chat')} 
-                            />
-                          </label>
-                        </div>
-                        <p className="text-[10px] text-brand-ink/40 font-semibold mt-1 flex items-center gap-1">
-                          <Info size={12} className="text-brand-primary" />
-                          <span>Envie novos documentos (+) para incluir no contexto desta conversa com a IA.</span>
-                        </p>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="space-y-10">
-                      <div className="text-center max-w-2xl mx-auto">
-                        <div className="w-16 h-16 bg-brand-primary/10 rounded-2xl flex items-center justify-center text-brand-primary mx-auto mb-6">
-                          <Files size={32} />
-                        </div>
-                        <h3 className="text-2xl font-bold mb-2 text-brand-primary">
-                          {selectedPropertyId ? "DossiÃª Digital do ImÃ³vel" : "DossiÃª de AnÃ¡lise Avulsa"}
-                        </h3>
-                        <p className="text-brand-ink/40 font-medium">
-                          {selectedPropertyId 
-                            ? "Complete as informaÃ§Ãµes essenciais para uma anÃ¡lise de IA precisa." 
-                            : "Suba os documentos abaixo para realizar uma anÃ¡lise rÃ¡pida sem cadastrar o imÃ³vel."}
-                        </p>
-                      </div>
-
-                      
-                      <div className="flex flex-col items-center pt-8 border-t border-black/5">
-                        <button 
-                          onClick={handleAnalyze}
-                          disabled={analyzing}
-                          className="bg-[#5A5A40] text-white px-12 py-5 rounded-2xl font-bold hover:bg-[#4A4A30] transition-all shadow-xl shadow-[#5A5A40]/20 flex items-center gap-3 disabled:opacity-50 disabled:shadow-none"
-                        >
-                          {analyzing ? <Loader2 className="animate-spin" size={20} /> : <Cpu size={20} />}
-                          Iniciar AnÃ¡lise EstratÃ©gica
-                        </button>
-                        <p className="mt-4 text-[10px] font-bold uppercase tracking-widest text-black/30">
-                          {analysisDocs.length > 0 ? "Pronto para analisar os documentos enviados." : "Suba ao menos um documento para iniciar."}
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {activeSubTab === 'smart_analysis' && (
-                <div className="space-y-12">
-                  <SmartAnalysisTab 
-                    data={state.smartAnalysis}
-                    onSave={handleSaveSmartAnalysis}
-                    onTriggerAI={handleAnalyzeSmart}
-                    onExtractSection={handleExtractSectionSmart}
-                    isAnalyzing={analyzingSmart}
-                    hasDocuments={smartAnalysisDocs.length > 0}
-                    docs={smartAnalysisDocs}
-                    onUpload={(e, type) => handleAnalysisFileUpload(e, type)}
-                    onDelete={handleDeleteDocument}
-                    onTranscribe={handleTranscribeDoc}
-                    uploading={uploading}
-                  />
-                  <div className="mt-8 no-print border-t border-brand-primary/10 pt-8">
-                    <LegalGlossaryForLaypeople />
-                  </div>
-                  {renderTabChat('smart_analysis')}
-                  <SmartResetPanel
-                    tabName="AnÃ¡lise Smart"
-                    tabKey="smart_analysis"
-                    hasAnalysis={!!state.smartAnalysis}
-                    onResetTab={() => handleResetSubTab('smart_analysis')}
-                    onResetAll={handleResetAllPropertyData}
-                    onApplySettings={(settings) => updateState({ aiDepth: settings.depth, aiFocus: settings.focus })}
-                  />
-                </div>
-              )}
-
-              {activeSubTab === 'assessoria' && (
-                <div className="space-y-12">
-                  <AssessoriaReport 
-                    data={state.assessoriaAnalysis}
-                    onSave={handleSaveAssessoriaAnalysis}
-                    onTriggerAI={handleAnalyzeAssessoria}
-                    onExtractSection={handleExtractSectionAssessoria}
-                    isAnalyzing={analyzingAssessoria}
-                    isPublicView={state.isPublicView}
-                    docs={assessoriaDocs}
-                    onUpload={(e, type) => handleAnalysisFileUpload(e, type)}
-                    onDelete={handleDeleteDocument}
-                    onTranscribe={handleTranscribeDoc}
-                    uploading={uploading}
-                  />
-                  <div className="mt-8 no-print border-t border-brand-primary/10 pt-8">
-                    <LegalGlossaryForLaypeople />
-                  </div>
-                  {renderTabChat('assessoria')}
-                  <SmartResetPanel
-                    tabName="AnÃ¡lise de Assessoria"
-                    tabKey="assessoria"
-                    hasAnalysis={!!state.assessoriaAnalysis}
-                    onResetTab={() => handleResetSubTab('assessoria')}
-                    onResetAll={handleResetAllPropertyData}
-                    onApplySettings={(settings) => updateState({ aiDepth: settings.depth, aiFocus: settings.focus })}
-                  />
-                </div>
-              )}
-
-              {activeSubTab === 'investors' && (
-                <div className="space-y-12">
-                  <InvestorsTabContent simulationData={simulationData} report={report} />
-                  {renderTabChat('investors')}
-                  <SmartResetPanel
-                    tabName="RelatÃ³rio de Investidores"
-                    tabKey="investors"
-                    hasAnalysis={!!report}
-                    onResetTab={() => handleResetSubTab('report')}
-                    onResetAll={handleResetAllPropertyData}
-                    onApplySettings={(settings) => updateState({ aiDepth: settings.depth, aiFocus: settings.focus })}
-                  />
-                </div>
-              )}
-
-              {activeSubTab === 'instagram' && (
-                <div className="space-y-12">
-                  <InstagramMarketingView 
-                    state={state} 
-                    setState={setState} 
-                    property={selectedProperty} 
-                    metrics={metrics} 
-                    tir={tir} 
-                    roi={roi}
-                    token={token}
-                  />
-                  {renderTabChat('instagram')}
-                  <SmartResetPanel
-                    tabName="Material de CaptaÃ§Ã£o (Instagram)"
-                    tabKey="instagram"
-                    hasAnalysis={true}
-                    onResetTab={() => {}}
-                    onResetAll={handleResetAllPropertyData}
-                    onApplySettings={(settings) => updateState({ aiDepth: settings.depth, aiFocus: settings.focus })}
-                  />
-                </div>
-              )}
-
-              {activeSubTab === 'cnj' && (
-                <div className="space-y-10">
-                  {cnjResult ? (
-                    <div className="space-y-12">
-                      <div className="flex items-center justify-between border-b border-brand-primary/5 pb-8">
-                        <div className="flex items-center gap-6">
-                          <div className="w-16 h-16 bg-brand-primary/10 rounded-2xl flex items-center justify-center text-brand-primary border border-brand-primary/10">
-                            <Gavel size={32} />
-                          </div>
-                          <div>
-                            <h4 className="text-3xl font-serif font-medium text-brand-primary">Processo {cnjResult.cnj_number}</h4>
-                            <p className="text-[10px] font-bold text-brand-ink/30 uppercase tracking-[0.2em] mt-1">Consulta DataJud em tempo real</p>
-                          </div>
-                        </div>
-                        <button 
-                          onClick={handleSaveAsProperty}
-                          className="flex items-center gap-3 bg-brand-primary text-black px-8 py-4 rounded-2xl text-xs font-bold uppercase tracking-widest hover:bg-brand-primary/90 transition-all shadow-xl shadow-brand-primary/20"
-                        >
-                          <Save size={18} /> Salvar como Novo ImÃ³vel
-                        </button>
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
-                        <DataJudField label="Tribunal" value={cnjResult.court} />
-                        <DataJudField label="Classe" value={cnjResult.class} />
-                        <DataJudField label="Ã“rgÃ£o Julgador" value={cnjResult.chamber} />
-                        <DataJudField label="Partes" value={cnjResult.parties} />
-                        <DataJudField label="Data de DistribuiÃ§Ã£o" value="12/04/2023" />
-                        <DataJudField label="Ãšltima MovimentaÃ§Ã£o" value={cnjResult.last_movement} />
-                      </div>
-
-                      <div className="space-y-8 pt-12 border-t border-brand-primary/5">
-                        <h5 className="text-xl font-serif font-medium flex items-center gap-3 text-brand-primary">
-                          <Files size={24} className="text-brand-primary/40" />
-                          Documentos Relevantes do Processo
-                        </h5>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                          {[
-                            { name: 'Planilha de DÃ©bitos Atualizada.pdf', type: 'DÃ©bitos', date: 'HÃ¡ 2 dias' },
-                            { name: 'CertidÃ£o de CitaÃ§Ã£o.pdf', type: 'CitaÃ§Ã£o', date: 'HÃ¡ 15 dias' },
-                            { name: 'Auto de AvaliaÃ§Ã£o.pdf', type: 'AvaliaÃ§Ã£o', date: 'HÃ¡ 1 mÃªs' },
-                            { name: 'Edital de LeilÃ£o.pdf', type: 'Edital', date: 'HÃ¡ 5 dias' }
-                          ].map((file, i) => (
-                            <div key={i} className="flex items-center justify-between p-6 bg-brand-bg/30 rounded-3xl border border-brand-primary/5 hover:border-brand-primary/30 transition-all group cursor-pointer">
-                              <div className="flex items-center gap-5">
-                                <div className="w-12 h-12 bg-brand-bg rounded-2xl flex items-center justify-center text-brand-primary shadow-sm group-hover:bg-brand-primary group-hover:text-black transition-all duration-500 border border-brand-primary/10">
-                                  <FileText size={24} />
-                                </div>
-                                <div>
-                                  <p className="font-bold text-base tracking-tight">{file.name}</p>
-                                  <div className="flex gap-3 mt-2">
-                                    <span className="text-[10px] font-bold uppercase tracking-widest text-brand-primary bg-brand-primary/10 px-2.5 py-1 rounded-lg">{file.type}</span>
-                                    <span className="text-[10px] text-brand-ink/30 font-medium uppercase tracking-widest">{file.date}</span>
-                                  </div>
-                                </div>
-                              </div>
-                              <button className="p-3 hover:bg-brand-primary/10 rounded-xl text-brand-ink/20 hover:text-brand-primary transition-all">
-                                <Download size={20} />
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="flex flex-col items-center justify-center h-[400px] text-black/10 space-y-4">
-                      <Search size={64} />
-                      <p className="font-bold uppercase tracking-widest text-xs">Realize uma consulta CNJ na barra lateral</p>
-                    </div>
-                  )}
-                  {renderTabChat('cnj')}
-                  <SmartResetPanel
-                    tabName="Consulta CNJ"
-                    tabKey="cnj"
-                    hasAnalysis={!!cnjResult}
-                    onResetTab={() => handleResetSubTab('cnj')}
-                    onResetAll={handleResetAllPropertyData}
-                    onApplySettings={(settings) => updateState({ aiDepth: settings.depth, aiFocus: settings.focus })}
-                  />
-                </div>
-              )}
-
-              {activeSubTab === 'documents' && !isPublicView && (
-                <div className="space-y-12">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <h4 className="text-2xl font-serif font-medium text-brand-primary">RepositÃ³rio Organizado</h4>
-                    {!isPublicView && (
-                      <button
-                        type="button"
-                        onClick={handleShare}
-                        className="flex items-center gap-2 bg-brand-primary text-black px-4 py-2 rounded-xl text-xs font-bold hover:bg-brand-primary/90 transition-all shadow-sm"
-                      >
-                        <Globe size={14} /> Compartilhar / Gerar Link PÃºblico
-                      </button>
-                    )}
-                  </div>
-                  
-                  {/* Link do leiloeiro */}
-                  {selectedProperty ? (
-                    <div className="premium-card p-6 bg-brand-primary/5 rounded-[2rem] border border-brand-primary/10 space-y-4">
-                      <div>
-                        <h5 className="text-sm font-bold text-brand-primary flex items-center gap-2 uppercase tracking-wider">
-                          <Globe size={16} className="text-brand-primary animate-pulse" />
-                          Link do LeilÃ£o / Leiloeiro (ImÃ³vel Cadastrado)
-                        </h5>
-                        <p className="text-xs text-brand-ink/65 mt-1 leading-relaxed">
-                          Adicione a URL oficial do lote no portal do leiloeiro. O CÃ©rebro da IA irÃ¡ rastrear este link para extrair regras de parcelamento, valores atualizados e dados do leilÃ£o direto da fonte.
-                        </p>
-                      </div>
-                      
-                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-                        <input 
-                          type="url"
-                          placeholder="https://www.leiloeiro.com.br/lote/..."
-                          value={state.auctionUrlInputValue !== undefined ? state.auctionUrlInputValue : (selectedProperty.auction_url || '')}
-                          onChange={(e) => updateState({ auctionUrlInputValue: e.target.value })}
-                          className="flex-1 px-4 py-3.5 text-xs bg-brand-bg rounded-xl border border-brand-primary/10 text-brand-ink focus:border-brand-primary focus:outline-none"
-                        />
-                        <button 
-                          onClick={async () => {
-                            const urlValue = state.auctionUrlInputValue !== undefined ? state.auctionUrlInputValue : (selectedProperty.auction_url || '');
-                            updateState({ isSavingAuctionUrl: true, auctionUrlSaveSuccess: false, auctionUrlSaveError: null });
-                            try {
-                              const res = await fetch(`/api/properties/${selectedProperty.id}`, {
-                                method: 'PUT',
-                                headers: {
-                                  'Content-Type': 'application/json',
-                                  'Authorization': `Bearer ${token}`
-                                },
-                                body: JSON.stringify({
-                                  ...selectedProperty,
-                                  auction_url: urlValue
-                                })
-                              });
-                              if (!res.ok) throw new Error('NÃ£o foi possÃ­vel salvar o link.');
-                              
-                              if (onPropertyCreated) {
-                                onPropertyCreated();
-                              }
-                              updateState({ auctionUrlSaveSuccess: true, isSavingAuctionUrl: false });
-                              setTimeout(() => {
-                                updateState({ auctionUrlSaveSuccess: false });
-                              }, 3000);
-                            } catch (err: any) {
-                              updateState({ auctionUrlSaveError: err.message || 'Erro ao salvar o link.', isSavingAuctionUrl: false });
-                            }
-                          }}
-                          disabled={state.isSavingAuctionUrl}
-                          className="px-6 py-3.5 bg-brand-primary hover:bg-brand-primary hover:scale-[1.01] text-black text-xs font-bold uppercase tracking-widest rounded-xl transition-all cursor-pointer whitespace-nowrap flex items-center justify-center gap-2 select-none"
-                        >
-                          {state.isSavingAuctionUrl ? (
-                            <>
-                              <Loader2 size={14} className="animate-spin text-black" />
-                              <span>Salvando...</span>
-                            </>
-                          ) : (
-                            <span>Salvar Link</span>
-                          )}
-                        </button>
-                      </div>
-                      
-                      {state.auctionUrlSaveSuccess && (
-                        <div className="text-xs text-emerald-400 font-bold flex items-center gap-1.5 animate-bounce mt-2">
-                          <Check size={14} /> Link do leiloeiro atualizado com sucesso!
-                        </div>
-                      )}
-                      
-                      {state.auctionUrlSaveError && (
-                        <div className="text-xs text-red-500 font-bold flex items-center gap-1.5 mt-2">
-                          <AlertTriangle size={14} /> {state.auctionUrlSaveError}
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="premium-card p-6 bg-brand-primary/5 rounded-[2rem] border border-brand-primary/10 space-y-4 font-sans">
-                      <div>
-                        <h5 className="text-sm font-bold text-brand-primary flex items-center gap-2 uppercase tracking-wider">
-                          <Globe size={16} className="text-brand-primary animate-pulse" />
-                          Link do LeilÃ£o / Leiloeiro (AnÃ¡lise Avulsa)
-                        </h5>
-                        <p className="text-xs text-brand-ink/65 mt-1 leading-relaxed">
-                          Adicione a URL oficial do lote no portal do leiloeiro. O CÃ©rebro da IA irÃ¡ ler e rastrear este link em tempo real durante a execuÃ§Ã£o da anÃ¡lise para extrair regras de parcelamento e dados atualizados.
-                        </p>
-                      </div>
-                      
-                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-                        <input 
-                          type="url"
-                          placeholder="https://www.leiloeiro.com.br/lote/..."
-                          value={state.auctionUrls && state.auctionUrls[0] ? state.auctionUrls[0] : ''}
-                          onChange={(e) => {
-                            const newUrl = e.target.value;
-                            updateState({ auctionUrls: [newUrl] });
-                          }}
-                          className="flex-1 px-4 py-3.5 text-xs bg-brand-bg rounded-xl border border-brand-primary/10 text-brand-ink focus:border-brand-primary focus:outline-none"
-                        />
-                        <button 
-                          className="px-6 py-3.5 bg-brand-primary/20 text-brand-primary text-xs font-bold uppercase tracking-widest rounded-xl transition-all cursor-default whitespace-nowrap flex items-center justify-center gap-2 select-none"
-                          disabled={true}
-                        >
-                          <Check size={14} className="text-brand-primary" />
-                          <span>Link Ativo</span>
-                        </button>
-                      </div>
-                      <p className="text-[10px] text-brand-ink/40">
-                        O link inserido acima serÃ¡ enviado e analisado junto com os seus documentos quando vocÃª clicar no botÃ£o <strong>"Executar AnÃ¡lise IA"</strong>.
-                      </p>
-                    </div>
-                  )}
-                  
-                  {['Edital', 'MatrÃ­cula', 'Processo Judicial', 'Outros'].map(category => (
-                    <DocumentManager 
-                      key={category} 
-                      label={category} 
-                      docs={documentsDocsFiltered} 
-                      onUpload={(e, type) => handleAnalysisFileUpload(e, type)}
-                      onDelete={handleDeleteDocument}
-                      onTranscribe={handleTranscribeDoc}
-                      uploading={uploading}
-                    />
-                  ))}
-                  
-                  {documentsDocsFiltered.length === 0 && (
-                    <div className="py-20 text-center text-black/20 font-bold uppercase tracking-widest text-xs">
-                      Nenhum documento vinculado.
-                    </div>
-                  )}
-
-                  <div className="mt-6 pt-6 border-t border-brand-primary/10">
-                    <button 
-                      onClick={() => handleAnalyze()} 
-                      disabled={analyzing} 
-                      className="w-full bg-brand-primary text-black py-4 rounded-xl font-bold hover:bg-brand-primary/90 transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-md shadow-brand-primary/10 font-sans"
-                    >
-                      {analyzing ? <Loader2 className="animate-spin" size={16} /> : <Cpu size={16} />}
-                      {analyzing ? 'Analisando Documentos...' : 'Executar AnÃ¡lise de RelatÃ³rio com IA'}
-                    </button>
-                  </div>
-
-                  {renderTabChat('documents')}
-                  <SmartResetPanel
-                    tabName="Documentos do LeilÃ£o"
-                    tabKey="documents"
-                    hasAnalysis={documentsDocsFiltered.length > 0}
-                    onResetTab={() => handleResetSubTab('documents')}
-                    onResetAll={handleResetAllPropertyData}
-                    onApplySettings={(settings) => updateState({ aiDepth: settings.depth, aiFocus: settings.focus })}
-                  />
-                </div>
-              )}
-
-              {activeSubTab === 'simulations' && (
-                <div className="space-y-6">
-                  <div className="flex items-center justify-between border-b border-brand-border/40 pb-4">
-                    <div>
-                      <h4 className="text-2xl font-bold text-brand-primary font-sans">ParÃ¢metros Financeiros Resumidos</h4>
-                      <p className="text-xs text-brand-ink/40 mt-1 font-sans">Defina os valores do imÃ³vel e custos para complementar sua viabilidade documental.</p>
-                    </div>
-                  </div>
-
-                  <SimulationContext.Provider 
-                    value={{ 
-                      simulationData, 
-                      updateState, 
-                      onJumpToSimulation: onJumpToSimulation || (() => {}),
-                      selectedPropertyId: state.selectedPropertyId,
-                      analysisId: state.analysisId,
-                      token,
-                      report: state.report,
-                      editalAnalysis: state.editalAnalysis,
-                      matriculaAnalysis: state.matriculaAnalysis,
-                      processAnalysis: state.processAnalysis,
-                      dossierAnalysis: state.dossierAnalysis,
-                      handleSaveAsProperty,
-                      properties: properties
-                    }}
-                  >
-                    <InteractiveSimulationTable />
-                  </SimulationContext.Provider>
-                  {renderTabChat('simulations')}
-                  <SmartResetPanel
-                    tabName="Simulador de Custos"
-                    tabKey="simulations"
-                    hasAnalysis={true}
-                    onResetTab={() => handleResetSubTab('simulations')}
-                    onResetAll={handleResetAllPropertyData}
-                    onApplySettings={(settings) => updateState({ aiDepth: settings.depth, aiFocus: settings.focus })}
-                  />
-                </div>
-               )}
-            </div>
-
-            {/* NOVO: Gerenciador Global de AnÃ¡lise e Reset Inteligente */}
-            <div className="bg-brand-primary/[0.02] border-t border-brand-primary/10 p-6 sm:p-8 space-y-6 font-sans no-print">
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-brand-primary/10 pb-5">
-                <div className="flex items-start gap-3">
-                  <div className="p-2.5 bg-brand-primary/10 text-brand-primary rounded-2xl">
-                    <Sliders size={20} />
-                  </div>
-                  <div>
-                    <h4 className="text-md font-bold text-brand-ink">Painel de Controle e ReinicializaÃ§Ã£o</h4>
-                    <p className="text-xs text-brand-ink/50 mt-0.5">
-                      Monitore o status do seu leilÃ£o atual, alterne o modelo de IA ou limpe os relatÃ³rios para iniciar novos estudos de viabilidade.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    onClick={handleExportAllAnalyses}
-                    className="flex items-center gap-2 text-xs font-bold text-brand-primary hover:text-white bg-brand-primary/5 hover:bg-brand-primary px-4 py-2.5 rounded-xl border border-brand-primary/20 hover:border-brand-primary transition-all shadow-sm"
-                    title="Exporta o compilado de todas as abas de anÃ¡lise em Markdown"
-                  >
-                    <Download size={14} />
-                    Exportar RelatÃ³rio Geral
-                  </button>
-                  <button
-                    onClick={handleCopyAllAnalyses}
-                    className="flex items-center gap-2 text-xs font-bold text-brand-ink/70 hover:text-brand-ink bg-black/5 hover:bg-black/10 px-4 py-2.5 rounded-xl border border-brand-border/30 transition-all"
-                  >
-                    {copiedAllAnalyses ? <Check size={14} className="text-emerald-600" /> : <Copy size={14} />}
-                    {copiedAllAnalyses ? 'Copiado!' : 'Copiar Todas as Abas'}
-                  </button>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Lado Esquerdo: DiagnÃ³stico e Checklist do LeilÃ£o Atual */}
-                <div className="space-y-3">
-                  <span className="text-[10px] font-bold text-brand-primary uppercase tracking-wider block">Status da Cobertura de Dados</span>
-                  
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between text-xs p-3 bg-white/50 rounded-xl border border-brand-border/30">
-                      <div className="flex items-center gap-2">
-                        <FileText size={14} className={analysisDocs.some((d: any) => d.doc_type === 'Edital' || d.doc_type?.toLowerCase() === 'edital') ? "text-emerald-500" : "text-brand-ink/40"} />
-                        <span className="font-semibold text-brand-ink/80">AnÃ¡lise de Edital</span>
-                      </div>
-                      {state.editalAnalysis ? (
-                        <span className="text-[10px] font-bold px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200/50 rounded-full">Pronto</span>
-                      ) : (
-                        <span className="text-[10px] font-bold px-2 py-0.5 bg-black/5 text-brand-ink/40 rounded-full">Ausente</span>
-                      )}
-                    </div>
-
-                    <div className="flex items-center justify-between text-xs p-3 bg-white/50 rounded-xl border border-brand-border/30">
-                      <div className="flex items-center gap-2">
-                        <BookOpen size={14} className={analysisDocs.some((d: any) => d.doc_type === 'MatrÃ­cula' || d.doc_type?.toLowerCase() === 'matricula' || d.doc_type?.toLowerCase() === 'matrÃ­cula') ? "text-emerald-500" : "text-brand-ink/40"} />
-                        <span className="font-semibold text-brand-ink/80">AnÃ¡lise de MatrÃ­cula</span>
-                      </div>
-                      {state.matriculaAnalysis ? (
-                        <span className="text-[10px] font-bold px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200/50 rounded-full">Pronto</span>
-                      ) : (
-                        <span className="text-[10px] font-bold px-2 py-0.5 bg-black/5 text-brand-ink/40 rounded-full">Ausente</span>
-                      )}
-                    </div>
-
-                    <div className="flex items-center justify-between text-xs p-3 bg-white/50 rounded-xl border border-brand-border/30">
-                      <div className="flex items-center gap-2">
-                        <Search size={14} className={analysisDocs.some((d: any) => d.doc_type === 'Processo Judicial' || d.doc_type?.toLowerCase() === 'processo judicial') ? "text-emerald-500" : "text-brand-ink/40"} />
-                        <span className="font-semibold text-brand-ink/80">Processos Judiciais</span>
-                      </div>
-                      {state.processAnalysis ? (
-                        <span className="text-[10px] font-bold px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200/50 rounded-full">Pronto</span>
-                      ) : (
-                        <span className="text-[10px] font-bold px-2 py-0.5 bg-black/5 text-brand-ink/40 rounded-full">Ausente</span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Meio: Controle de Modelo de IA RÃ¡pido */}
-                <div className="space-y-4 bg-brand-primary/[0.01] p-4 rounded-2xl border border-brand-primary/5">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold text-brand-primary uppercase tracking-wider block">InteligÃªncia Artificial</span>
-                    <span className="text-[9px] font-bold px-1.5 py-0.5 bg-emerald-500/10 text-emerald-600 rounded-full uppercase">Conectado</span>
-                  </div>
-
-                  <div className="space-y-3 pt-1">
-                    <div>
-                      <label className="block text-[10px] font-bold uppercase tracking-wider text-brand-ink/50 mb-1">Modelo Selecionado</label>
-                      <select 
-                        value={state.selectedModel}
-                        onChange={(e) => updateState({ selectedModel: e.target.value as any })}
-                        className="w-full text-xs font-semibold px-3 py-2.5 rounded-xl border border-brand-border bg-white text-brand-ink focus:outline-none focus:border-brand-primary"
-                      >
-                        <option value="gemini-3.7-flash">Gemini 3.7 Flash (Mais EstÃ¡vel e Veloz - Recomendado)</option>
-                        <option value="gemini-2.5-flash">Gemini 2.5 Flash (PadrÃ£o)</option>
-                        <option value="gemini-2.5-pro">Gemini 2.5 Pro (RaciocÃ­nio JurÃ­dico AvanÃ§ado)</option>
-                      </select>
-                    </div>
-
-                    <div className="bg-white p-2.5 rounded-xl border border-brand-border/30 text-[10px] text-brand-ink/60 flex items-start gap-2">
-                      <Cpu size={14} className="text-brand-primary shrink-0 mt-0.5" />
-                      <span>Utilize "Gemini 3.7 Flash" para respostas rÃ¡pidas e sem erros de instabilidade, ou "Gemini 2.5 Pro" para anÃ¡lises complexas.</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Lado Direito: AÃ§Ãµes de Reset com ExplicaÃ§Ã£o */}
-                <div className="space-y-3">
-                  <span className="text-[10px] font-bold text-rose-500 uppercase tracking-wider block">Zona de Limpeza e ReinÃ­cio</span>
-                  
-                  <div className="grid grid-cols-1 gap-2.5">
-                    {/* BotÃ£o Refazer AnÃ¡lise Atual */}
-                    <button
-                      onClick={() => handleResetAnalysis(false)}
-                      className="w-full flex items-center justify-center gap-2.5 text-xs font-bold text-amber-600 hover:text-white bg-amber-500/5 hover:bg-amber-500 border border-amber-500/20 hover:border-amber-500 py-3 rounded-xl transition-all shadow-sm"
-                      title="Apaga as interpretaÃ§Ãµes da IA, mas mantÃ©m seus arquivos carregados"
-                    >
-                      <RefreshCw size={14} />
-                      Refazer AnÃ¡lise Atual
-                    </button>
-
-                    {/* BotÃ£o Resetar Tudo (Novo LeilÃ£o) */}
-                    <button
-                      onClick={() => handleResetAnalysis(true)}
-                      className="w-full flex items-center justify-center gap-2.5 text-xs font-bold text-rose-600 hover:text-white bg-rose-500/5 hover:bg-rose-500 border border-rose-500/20 hover:border-rose-500 py-3 rounded-xl transition-all shadow-sm"
-                      title="Apaga permanentemente todos os relatÃ³rios, conversas e arquivos enviados"
-                    >
-                      <Trash2 size={14} />
-                      Limpar Tudo (Novo LeilÃ£o)
-                    </button>
-                  </div>
-                  <p className="text-[10px] text-brand-ink/40 leading-relaxed text-center lg:text-left">
-                    * Ao limpar tudo, os arquivos temporÃ¡rios e relatÃ³rios nÃ£o salvos serÃ£o removidos definitivamente.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {uploadProgressText && (
-        <div className="fixed bottom-8 right-8 z-[9999] bg-brand-paper border border-brand-primary/20 p-6 rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.3)] flex items-center gap-4 max-w-sm">
-          <Loader2 className="animate-spin text-brand-primary shrink-0" size={24} />
-          <div>
-            <h5 className="text-sm font-bold text-brand-primary">Processando Documento</h5>
-            <p className="text-xs font-semibold text-brand-ink/60 mt-1">{uploadProgressText}</p>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function AnalysisTab({ active, onClick, icon, label }: { active: boolean, onClick: () => void, icon: React.ReactNode, label: string }) {
-  return (
-    <button 
-      onClick={onClick}
-      className={cn(
-        "flex items-center gap-3 px-10 py-6 text-[10px] font-bold uppercase tracking-[0.2em] transition-all border-b-2 shrink-0 whitespace-nowrap",
-        active ? "bg-brand-paper border-brand-primary text-brand-primary" : "border-transparent text-brand-ink/30 hover:text-brand-primary/60"
-      )}
-    >
-      {icon}
-      {label}
-    </button>
-  );
-}
-
-
-function DossierCard({ title, description, icon, hasFile, onUpload, uploading }: { title: string, description: string, icon: React.ReactNode, hasFile: boolean, onUpload: (e: React.ChangeEvent<HTMLInputElement>) => void, uploading: boolean }) {
-  const uniqueId = React.useId();
-  const id = `dossier-${title.toLowerCase().replace(/\s+/g, '-')}-${uniqueId.replace(/:/g, '')}`;
-  return (
-    <div className={cn(
-      "bg-brand-paper p-8 rounded-[2rem] border transition-all flex flex-col h-full",
-      hasFile ? "border-emerald-500/20 shadow-lg shadow-emerald-500/5" : "border-brand-primary/10 hover:border-brand-primary/30"
-    )}>
-      <div className={cn(
-        "w-12 h-12 rounded-2xl flex items-center justify-center mb-6",
-        hasFile ? "bg-emerald-500 text-white" : "bg-brand-bg text-brand-ink/40"
-      )}>
-        {hasFile ? <CheckCircle2 size={24} /> : icon}
-      </div>
-      <h4 className="text-lg font-bold mb-2 text-brand-primary">{title}</h4>
-      <p className="text-sm text-brand-ink/40 font-medium mb-8 flex-1">{description}</p>
-      
-      <div className="relative mt-auto">
-        <input 
-          type="file" 
-          id={id}
-          className="hidden" 
-          onChange={onUpload}
-          disabled={uploading}
-        />
-        <label 
-          htmlFor={id}
-          className={cn(
-            "w-full py-4 px-6 rounded-2xl font-bold text-xs uppercase tracking-widest flex items-center justify-center gap-2 cursor-pointer transition-all",
-            hasFile 
-              ? "bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20" 
-              : "bg-brand-primary text-black hover:bg-brand-primary/90 shadow-lg shadow-brand-primary/10"
-          )}
-        >
-          {uploading ? <Loader2 className="animate-spin" size={14} /> : (hasFile ? <RefreshCw size={14} /> : <Plus size={14} />)}
-          {hasFile ? "Substituir" : "Subir Documento"}
-        </label>
-      </div>
-    </div>
-  );
-}
-
-function AIKeyInput({ label, value, onChange }: { label: string, value: string, onChange: (val: string) => void }) {
-  const isInvalidGemini = value && label.includes("Gemini") && !value.trim().startsWith("AIza") && !value.trim().startsWith("AQ");
-  return (
-    <div>
-      <label className="block text-[10px] font-bold uppercase tracking-[0.2em] text-brand-ink/30 mb-3 ml-1">{label}</label>
-      <input 
-        type="password" 
-        className={cn(
-          "w-full bg-brand-bg border-none rounded-2xl py-5 px-8 focus:ring-2 focus:ring-brand-primary font-mono text-sm text-brand-primary",
-          isInvalidGemini && "ring-2 ring-red-200"
-        )}
-        value={value || ''}
-        onChange={e => onChange(e.target.value)}
-        placeholder={label.includes("Gemini") ? "Insira a chave AIza ou AQ..." : "Insira a chave sk-..."}
-      />
-      {isInvalidGemini && (
-        <p className="text-[10px] text-red-500 mt-2 ml-1 font-bold">AtenÃ§Ã£o: Chaves Gemini devem comeÃ§ar com 'AIza' ou 'AQ'</p>
-      )}
-    </div>
-  );
-}
-
-function UsersView({ token }: { token: string }) {
-  const [users, setUsers] = useState<User[]>([]);
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    fetchUsers();
-  }, []);
-
-  const fetchUsers = () => {
-    fetch('/api/users', { headers: { 'Authorization': `Bearer ${token}` } })
-      .then(res => {
-        if (!res.ok) throw new Error("Erro ao carregar usuÃ¡rios");
-        return parseJsonResponse(res);
-      })
-      .then(data => setUsers(data))
-      .catch(err => console.error(err));
-  };
-
-  const handleDeleteUser = async (id: string) => {
-    if (!confirm("Tem certeza que deseja excluir este usuÃ¡rio?")) return;
-    
-    try {
-      const res = await fetch(`/api/users/${id}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (res.ok) {
-        fetchUsers();
-        alert("UsuÃ¡rio excluÃ­do com sucesso.");
-      } else {
-        const errText = await res.text();
-        let errData;
-        try {
-          const trimmed = errText.trim().toLowerCase();
-          if (trimmed.includes('<!doctype') || trimmed.includes('<html') || trimmed.includes('<body')) {
-            throw new Error("Resposta do servidor Ã© HTML");
-          }
-          errData = JSON.parse(errText);
-        } catch (e) {
-          errData = { error: errText || res.statusText };
-        }
-        alert(`Erro ao excluir usuÃ¡rio: ${errData.error || errText || res.statusText}`);
-      }
-    } catch (err) {
-      console.error(err);
-      alert("Erro ao excluir usuÃ¡rio.");
-    }
-  };
-
-  return (
-    <div className="space-y-12">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-4xl font-serif font-medium tracking-tight text-brand-primary">GestÃ£o de UsuÃ¡rios</h2>
-          <p className="text-brand-ink/40 font-medium text-lg">Administre os acessos ao sistema profissional.</p>
-        </div>
-        <button className="bg-brand-primary text-black px-8 py-4 rounded-2xl font-bold text-xs uppercase tracking-widest flex items-center gap-3 shadow-xl shadow-brand-primary/20 hover:bg-brand-primary/90 transition-all">
-          <Plus size={20} /> Novo UsuÃ¡rio
-        </button>
-      </div>
-
-      <div className="premium-card overflow-hidden">
-        <table className="w-full text-left border-collapse">
-          <thead>
-            <tr className="bg-brand-bg text-brand-ink/30 text-[10px] font-bold uppercase tracking-[0.2em]">
-              <th className="px-10 py-8">Nome</th>
-              <th className="px-10 py-8">UsuÃ¡rio / Email</th>
-              <th className="px-10 py-8">Cargo</th>
-              <th className="px-10 py-8">Status</th>
-              <th className="px-10 py-8 text-right">AÃ§Ãµes</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-brand-primary/5">
-            {users.map(u => (
-              <tr key={u.id} className="hover:bg-brand-bg/30 transition-all group">
-                <td className="px-10 py-8 font-serif text-xl font-bold text-brand-primary">{u.name}</td>
-                <td className="px-10 py-8">
-                  <p className="text-base font-bold tracking-tight">{u.username}</p>
-                  <p className="text-xs text-brand-ink/40 font-medium">{u.email}</p>
-                </td>
-                <td className="px-10 py-8">
-                  <span className="px-3 py-1 bg-brand-primary/10 text-brand-primary rounded-lg text-[10px] font-bold uppercase tracking-widest">
-                    {u.role}
-                  </span>
-                </td>
-                <td className="px-10 py-8">
-                  <span className="px-3 py-1 bg-emerald-50 text-emerald-600 rounded-lg text-[10px] font-bold uppercase tracking-widest">
-                    {u.status}
-                  </span>
-                </td>
-                <td className="px-10 py-8 text-right">
-                  <div className="flex items-center justify-end gap-3 opacity-0 group-hover:opacity-100 transition-all">
-                    <button className="p-3 hover:bg-brand-paper rounded-xl text-brand-ink/20 hover:text-brand-primary transition-all shadow-sm"><Edit size={18} /></button>
-                    <button onClick={() => handleDeleteUser(u.id)} className="p-3 hover:bg-red-500/10 rounded-xl text-brand-ink/20 hover:text-red-500 transition-all shadow-sm"><Trash2 size={18} /></button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
-
-function SettingsView({ 
-  token, 
-  aiConfig, 
-  onConfigUpdate 
-}: { 
-  token: string; 
-  aiConfig: AIConfig | null; 
-  onConfigUpdate: (config: AIConfig) => void; 
-}) {
-  const [activeSubTab, setActiveSubTab] = useState<'ai' | 'general'>('ai');
-  const [master, setMaster] = useState(() => {
-    return getMasterBudgetConfigs();
-  });
-
-  const handleUpdate = (key: string, field: 'value' | 'type', val: any) => {
-    setMaster((prev: any) => {
-      const updated = {
-        ...prev,
-        [key]: {
-          ...(prev[key] || { value: 0, type: 'BRL' }),
-          [field]: val
-        }
-      };
-      return updated;
-    });
-  };
-
-  const handleSaveMaster = () => {
-    localStorage.setItem('QUADRO_RESUMO_INVESTIMENTO_MASTER', JSON.stringify(master));
-    if ((window as any).customToast) {
-      (window as any).customToast("Quadro Resumo (MASTER) atualizado com sucesso!", "success");
-    } else {
-      alert("Quadro Resumo (MASTER) cadastrado com sucesso!");
-    }
-  };
-
-  const fields = [
-    { key: 'comissaoLeiloeiro', label: 'ComissÃ£o do Leiloeiro', desc: 'Default da taxa para arremate, tipicamente 5%' },
-    { key: 'itbi', label: 'ITBI Estimado', desc: 'Imposto Estadual de TransmissÃ£o de Bens ImÃ³veis' },
-    { key: 'transfRegistro', label: 'Registro e Custas', desc: 'Emolumentos de cartÃ³rio e taxas de averbaÃ§Ã£o' },
-    { key: 'desocupacaoAcordo', label: 'DÃ­vidas IPTU / Condo', desc: 'PendÃªncias de impostos e condomÃ­nio associados ao imÃ³vel' },
-    { key: 'reforma', label: 'Reforma / DesocupaÃ§Ã£o', desc: 'ProvisÃ£o de recursos para reforma ou remoÃ§Ã£o do ocupante' },
-    { key: 'assessoria', label: 'Assessoria TJ INVEST', desc: 'ComissÃ£o devida pelo assessoramento integral' },
-    { key: 'entrada', label: 'Entrada TJ INVEST', desc: 'Pagamento inicial fixo de consultoria jurÃ­dica' },
-    { key: 'extraFees', label: 'Despesas Extra / Outros', desc: 'Margem para despesas nÃ£o listadas ou imprevistos' }
-  ];
-
-  return (
-    <div className="space-y-8">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-brand-primary/10 pb-6">
-        <div>
-          <h2 className="text-4xl font-serif font-medium tracking-tight text-brand-primary">ConfiguraÃ§Ãµes</h2>
-          <p className="text-brand-ink/40 font-medium text-lg">Gerencie as chaves de API das InteligÃªncias Artificiais e parÃ¢metros globais do sistema.</p>
-        </div>
-        
-        {/* Tab system inside settings */}
-        <div className="flex bg-brand-bg/50 p-1.5 rounded-2xl border border-brand-primary/10 self-start md:self-auto uppercase tracking-wider text-[10px] font-bold">
-          <button
-            onClick={() => setActiveSubTab('ai')}
-            className={cn(
-              "px-5 py-2.5 rounded-xl transition-all cursor-pointer",
-              activeSubTab === 'ai' 
-                ? "bg-brand-primary text-black shadow-lg" 
-                : "text-brand-ink/40 hover:text-brand-primary"
-            )}
-          >
-            ConfiguraÃ§Ã£o de IA
-          </button>
-          <button
-            onClick={() => setActiveSubTab('general')}
-            className={cn(
-              "px-5 py-2.5 rounded-xl transition-all cursor-pointer",
-              activeSubTab === 'general' 
-                ? "bg-brand-primary text-black shadow-lg" 
-                : "text-brand-ink/40 hover:text-brand-primary"
-            )}
-          >
-            ParÃ¢metros Gerais
-          </button>
-        </div>
-      </div>
-
-      <div className="pt-4 animate-fade-in">
-        {activeSubTab === 'ai' ? (
-          <AIConfigView 
-            token={token} 
-            aiConfig={aiConfig} 
-            onConfigUpdate={onConfigUpdate} 
-          />
-        ) : (
-          <div className="space-y-8">
-            <Card title="QUADRO RESUMO DE INVESTIMENTO (MASTER)">
-              <div className="space-y-8">
-                <div className="p-6 bg-brand-primary/5 rounded-3xl border border-brand-primary/10">
-                  <p className="text-xs text-brand-primary font-sans leading-relaxed">
-                    âš™ï¸ **ConfiguraÃ§Ã£o Master Global**: Defina aqui o padrÃ£o de cÃ¡lculo para todas as simulaÃ§Ãµes do sistema. Quando uma nova anÃ¡lise for executada, ela serÃ¡ calculada inicialmente com estes parÃ¢metros. Caso deseje alterÃ¡-los para um caso especÃ­fico, vocÃª poderÃ¡ sobrescrevÃª-los diretamente na aba de **SimulaÃ§Ã£o** do imÃ³vel para garantir flexibilidade ("nÃ£o ficar engessado").
-                  </p>
-                </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {fields.map(f => {
-                    const fd = master[f.key] || { value: 0, type: 'BRL' };
-                    return (
-                      <div key={f.key} className="flex flex-col gap-2 p-5 bg-brand-bg/30 rounded-3xl border border-brand-border hover:border-brand-primary/20 transition-all">
-                        <div className="flex items-center justify-between font-sans">
-                          <span className="text-xs font-bold uppercase tracking-widest text-brand-primary">{f.label}</span>
-                          
-                          <div className="flex bg-brand-bg rounded-lg p-0.5 border border-brand-border">
-                            <button 
-                              type="button"
-                              onClick={() => handleUpdate(f.key, 'type', 'BRL')}
-                              className={cn(
-                                "px-2 py-0.5 text-[8px] font-bold uppercase tracking-widest rounded transition-all cursor-pointer",
-                                fd.type === 'BRL' ? "bg-brand-primary text-black shadow-sm" : "text-brand-ink/40 hover:text-brand-primary"
-                              )}
-                            >
-                              R$
-                            </button>
-                            <button 
-                              type="button"
-                              onClick={() => handleUpdate(f.key, 'type', 'PERCENT')}
-                              className={cn(
-                                "px-2 py-0.5 text-[8px] font-bold uppercase tracking-widest rounded transition-all cursor-pointer",
-                                fd.type === 'PERCENT' ? "bg-brand-primary text-black shadow-sm" : "text-brand-ink/40 hover:text-brand-primary"
-                              )}
-                            >
-                              %
-                            </button>
-                          </div>
-                        </div>
-                        
-                        <div className="flex items-center gap-2 bg-brand-bg/40 rounded-2xl px-4 py-2.5 border border-brand-border">
-                          <span className="text-brand-ink/40 text-xs font-bold font-mono">
-                            {fd.type === 'BRL' ? 'R$' : '%'}
-                          </span>
-                          <input 
-                            type="number"
-                            step="any"
-                            value={fd.value}
-                            onChange={(e) => handleUpdate(f.key, 'value', parseFloat(e.target.value) || 0)}
-                            className="w-full bg-transparent border-none focus:ring-0 text-sm font-bold p-0 text-brand-ink outline-none font-mono"
-                            placeholder="0,00"
-                          />
-                        </div>
-                        <span className="text-[9px] text-brand-ink/30 italic font-sans">{f.desc}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-                
-                <div className="flex justify-end pt-4 border-t border-brand-border/40">
-                  <button
-                    onClick={handleSaveMaster}
-                    className="bg-brand-primary text-black px-8 py-4 rounded-2xl font-bold hover:bg-brand-primary/95 transition-all shadow-lg shadow-brand-primary/10 flex items-center gap-2 text-xs uppercase tracking-widest cursor-pointer"
-                  >
-                    <Save size={14} />
-                    Salvar Quadro Resumo (MASTER)
-                  </button>
-                </div>
-              </div>
-            </Card>
-
-            <Card title="PreferÃªncias do Sistema">
-              <div className="space-y-6">
-                <div className="flex items-center justify-between p-6 bg-brand-bg/50 rounded-3xl border border-brand-border/45">
-                  <span className="font-bold text-brand-primary text-xs uppercase tracking-wider font-sans">Alertas de Novos LeilÃµes</span>
-                  <div className="w-14 h-7 bg-brand-primary rounded-full relative cursor-pointer">
-                    <div className="absolute right-1 top-1 w-5 h-5 bg-white rounded-full shadow-sm" />
-                  </div>
-                </div>
-                <div className="flex items-center justify-between p-6 bg-brand-bg/50 rounded-3xl border border-brand-border/45">
-                  <span className="font-bold text-brand-primary text-xs uppercase tracking-wider font-sans">RelatÃ³rios de IA por Email</span>
-                  <div className="w-14 h-7 bg-brand-ink/10 rounded-full relative cursor-pointer">
-                    <div className="absolute left-1 top-1 w-5 h-5 bg-white rounded-full shadow-sm" />
-                  </div>
-                </div>
-              </div>
-            </Card>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
+            <div key={idx} className={cnxœì½ÛrG’6x¯§Ö¨§
+T( PVA54< 	P;¶\•U¨J)+³”€ fÿ>Á^üWÿ§í‹±n3]õ®ÙÚÜâMööÖ=™‘™‘™…¢DIÌ¶¦Pyˆ£‡‡»‡ûç½OHáêœûô-™:‹ş™;oû—ıWvÿğº³^zoOQèSrpp@ºiL£.ù‚tæ~ßI“`)ı(¼ìGô‚F1í=ÒéÊX»yX*sßõ.ÈÄwâø™3§×“ WzÚwÙ@fğÿ(L—º}Ê*#^BçqBƒ„Fä»4N¼ó+ù3E^ğ}³Ò‹r? j/Nœ aOûãÈ	Üş"òæNtEú6é}gò=ëOö
+ßØÚ³;;›RuÕ.rmiÁşá"%±÷Æbkç†l<„Z÷_ÂXÇ…»7åqÜ€\jpqÖåÀßú¼Gñœœ‡AÒŸS×KçÄ§ëS˜YßyKİ¥ÇÔY°™q\ ¨ø{ø3èC÷ŠÜ“5Ç´8ìÕi!—3 ƒxáL(<¥ıËÈYÜuªÃƒù‚:“ä©h2‰(¶şÄO§^\¿â¿¿:Ÿ¿¾yÈŠÀø)Şìo>¬6d:¨«P)¤úMƒù¯ÜZ+|uÓ '•üë¿–ª/‘‰=ÔP[¶j+s×f+óœ­èêî?	—FCe‰(q¨7¡ıxáX;K,Ê*1Ò´nù”˜ÄpºìøŞDÓ“ã¡qrû#YĞ †ÂÁ`°ÌTç3-e¿¯7>#£$q&3ê’sÏ§1ñòÉgù7×“™“ğ—æ0ñÀ§Á4™‘‡d³L.Zba[.DF6C2÷·íÌúÛCÂöpîÃp]ñcÑß"ã0‚	ì³?TŠÙØ%(¡4\•FÎE¯ç†“=âWkäàaeY±ÆVÆü{zupß<÷¦ú´Ü·µòî•)7Ş}w†»*I”—P×âm{ ¾‚ÂÙ›ocNP1{ãĞwIL}:IúAP…ø$¥ŸÃj R+³AÍÂyp5èW\ršæn|¾©YKP"pâ@-#‰Ò`’¼cëÁæâíë2“È& É1€¯€ib1šÒÇi’„†[&W¨Œ?.÷¯08„÷ıÁuQÆ*†Cıñ$òÆôQ8éq¨°ÖFD°…s6ÄÛ„‰«,ù’ı^åÉ¶np3Z˜»üé«-6hŒØü'Ør/ñÂ ïø>™¤QFıEè±H¶¥„ÄK|è‚è6Ši¬øLÂùÂ§üòüğò¡Ş…ßş-\«T˜™ÓìpÈM%mİèÈCÈC^‡qš7øD	 ºL[P€_ÂéàZó"!äI8q|.oÜÑ›V\Bµ¯Ç49‰BØ’+ £¸×9ä"çBøIføS~ßj#÷@ø„·ö'Sé§	, r±=}Û	-ß¬
+iürÜ?‡lçoYö»IµeŞ˜šãø%lİ hØ†/‚7õÅ¹t¼„œÓd2ë}»á,¼hHÊøıÆ§’i»nüÄ(šÌBèQ÷ÑÑ“£³£®iX™Q"`X®Iw”ÂW‘÷ÎÁ%Öİ#ß~I–Ë§×Iı¹ù–èØıX cu ¤G×Œ­q/‰t@£(Œz#øqB>vN“Bß†{uBMuhîŞÔğ³Š#8»ÚİÜ,ó…ûLB?İdÁød[ç)ğ¤Œá‰BpW¬aL/è?â’#¸Å7ä?ÿQĞ³4U”“K/À³\´*É>¨%Ş%™Ä\”Y¬ïÃÀ”„:/X¤I™Óq.‡“Ó)?ºpü€}öã—çøìzSxƒâÊ¶r,ŞìÑ×”&VDeƒ§ÀÙ.ñ)€ÈÄÕ¦#¤‡.
+…|G=…µ~æŒ¡¦¤—8ãJQåév0\+?ÊïôFNÙÎ9Z…+ 2UP‡y÷æûÀìú[÷a¤ñ^„ÚìPıQÜÃ4ñ½€rùÊ,ÊI³Du†­J+ˆÔ›ëÅÎØ§îA¦µıõ¯äœéAÍîU>RU 1ğ•„°È›ÎÆ“d–!é³¥ì£ĞxÅn\ö·† ¶mU¥ZUSdÕZÎ øüq³,ÄÈNî… Ì{	L\ÉšRY»8lbÙ7+Ë^·ä+Ë}ßwÆÔ/ÒÛÖÀNc’Ze¸a“A*1XÃ˜í–‡Ì _§?d&1£¤,ÍÊ²¦W™_g½Ø?ñÓX)¾üÉMc>‡
+A…Ï)­y®KƒÊóÔO<hË÷óe”™KâF-ĞQàøW±£¾ô’}Û£ëÄÉ´Ï3hîZI{Ü(#´üV‰÷•MYıÕº¨
+ÎĞ>ZIqû9ÎC¹KoB€~¢¹Ô~\x”áE)‡ÁŸ½[# ı;Ä&~êEğa–+T-\'şD£°ÃDÿAYößßXÈÊĞ0AçæOŸ|‚»nD“4
+¹•7Sn&6Ì:­µMhWá˜&—”Ğpì(ã¶_f³aeävp‰óI‰¼óâ†¿Ä&AÎ«[Q¡-(.%ÇĞ*ß›Şş#˜xÎşÆlX¨¹J"U²P÷)ÚyøØOßæúİ9V‡CŸ}½Nå“HÉ(¸ıÑ÷bÊ‚´0PkÑ¤Tåi*şƒ²a´éO÷òŸ;œ0U…©SÏ¥c'bí;÷¦iÄï¢QêŸ¤cØ<¿ñèe
+*…úúHcĞIt3Ì>?t"WŠ¡‡í:Ù ”ß7PßıªY”›j¬†%£ˆÃ’<³Ãå™f’Œb2¨š×%	VÚ&DIŞtêJíöØE¹£Û­ª%áR§à¤6®Ê^ëxBªõí‘¢lª×Ş"º£d0Šú7P‘xJãØ™RPğ^½Ö¿¥¨ÆÅjaÍü^§hi”²Šò¥QLĞÆ ¤Î‡¼Óy˜-ÃÑEêÇìÒ99ßşó‚úkûüuÍyÆ‚šG¹%tó g&Î3pŠ©e?ÂÍßdåjNø¬”k´ÿ¬ØÏ“şPg¸¯H_zsWº€®M”ŒŸ¾Úé¼²=no¢µ¤W?9•3e™:·Èê‚ºaD6Èèä˜€RSÙ•³†™Ví/´nßÆÖm¾rq™äz‚†i4¡:[@ƒ¥Ë-	µ<á‘ƒò
+qb4éí°õ°oŸ†.Ìö)¶İÕ›iO­UÎø*†-üKÏØÈºÈ‘Ê¯LA6
+¼70´I8ïší-j›ÄGıíÁçıs˜âY×dÇ¡>Ğ¡®e°ş§uµ°4vBSeÚ»ENZ™ä=e<ÖIa”÷”ºõ†*¹Hkn)r­âœt8ntû7fÂ9õğ°±¯Âp
+"ùè˜œ&©ë…¤O¾bCnaj•Š
+CÜyø~B5ç¯NÎHï©ÌüyAÛ”[ ˜ÎCÑVŞ¾¦…š8e…9âÅ„˜AP”A£Ÿ8	ğ¥/wJBRz‰£‚Ø?dö´ê	A.z*º¢†û²v8…~­UÎŠ•öU~°YtNA´åFÄœ¥´•Á®¡‘Úò/ûh¨ÀŠÕ*¥6»€D8¡sè…¼Ø3)|9(ı%Şî‰ï€J3JRÒñV¨·ƒ3Ğhà¥=X²‘¡˜GŸâx\xşb ¾ƒ]ÿa285hv¹‰[f~òá/–ó!}œàXÇÓà7aî“3ÃÖ¼úååè÷.@8ÉúFz™®sûŸŒY¢Úµfí²æîdUÜ›“•øîWGV‚$«»‘•ŞQ¦ä^"î~pâÿp@oÿÑq$FvuƒÂµß® J~$½X)äÆª´?:–rd3‘ñº×JÔ ±¾[3s1”ô¦0Âæù SîŒ‡V@Ìµ9W;ä1Ş!½tÎià:.
+·O/&GèÌŠ;¡ä ¶wV™Ô\íp°[ªîÈj…°}‡¢QX(eè3ñÂÉíOˆê£'¸ıOè×’•lWÚ¿-Û¿l[Øjôø¼ğè¥Rìoı	PÓ^ö”‡îù{”Ø*D)DĞaS$0UØNà‹ş.é=APıŠ
+¦ßzš˜ÊÛÑ{>¯QË4e„[ùlˆŞ„[2Zõd˜®rOÚá{Rçá™·`[Ğêù¸?#©N¸«•y+Òd¨[ê<˜¹SO+ù]­Õ±ªrf]Ü(æN zÑ(àÌâ9Øé¢_gW»3àUã’Î¯wŠPœ _ı±v.=<nR=ŒKJ°Éû‡/êJW„o8ë=: ÷ÂdëV¯šÚÜÀzôËf­ÓM¨Ñ‡nÕ“ı]êzÏñ;÷èCô¯EÑ‰‡nEÎooöKİúPIà›Ùjşµ
+œŞõàÏƒm·@˜íqQuYã×u#fÚ¡æÒ6p'ºı‘„$ÁŸƒ²ëM<˜¦ƒ.«®ÿp÷qì
+J´8Wc®
+¾Ø}å›ÆzìŸhToÇ{ël|é“0^hÎI‡ê…Yù°¤ı8œNÄAJ\€h8¾EnÑúöàeñcÄKõì½İ#·ÿû4¥å&/poÿé9ëäI˜PòùP[ÀÏ£¡›õreì•¾Æ¹öøÎ‘NGX=(—ĞjÓ|6¯+ª¢Ôë¸Î•vÅüBU›Ùâ¢.|Ê3ú
+Íoÿ‹ùr…1ñØ8Üg/MS]¢‘‰8!ñ‘`3 ßA)åˆ©ËîúÆçA«ÅU#Ä4q»Å 1«Ûª^,7º…•ŒCEâ3ï•åPNıŞòhlÿ‘h&!t™Ê’ñ@‡¹&Èi:vHÑÌ‰TçÅ0M1"M”Içb.ıêLiçÊ°u•	+¾èÕóğu’µP&ù(Î~ïJ‡å¹ï [Kï*¾ƒ£˜_rÁE4›ÏÆ³Bô ±GüUqK­õ;eNêu·%çÒ¬ÿ®,Iñ–ª{.Æ2çñÍü^qŞÒIŠ±Ù.s<*ÌhY¶±¸çãëSÇÈ(¢Î°t|‹É¿’3gNY5ÒŠG×:)8<¨:—í0¹O½³İ)Æ—9E)vTÁ«á`7Â¹Æ»=÷Ë)¹,Éc/¡-dîıYÿÕıMdea6
+f1/•#g½½Á£‰1ù‹Ì?kŞ[çip½ƒÚ¤w-4‰8‰€UÆşo2¡{yuoìŠŠúİ^öîmÄ›„ÁÁõş—…ğƒ½ÏhPZá^`DÆí?#/Ô
+7kfÃ‘¼‘nËæ–>V›­ -•Süxù†ÃlÓ8#ÏiÙhåCµÁ§Ç§5M†Me”}½|Óİ0=µl·üª0Ê¾·‡èªmø#ü¶Flw„1ÿ	7¸.ßt&ìø-[.>R^ä-¶ûˆ}°|+¡£‘7Iı¶¤‘WXaø=šˆõm}
+ßÜş„-ßŞENªÚ®¿ü»%S'šÌô­=‘_h[uYnLÏ"È±5EËïÊ¤›èY
+nªHCçÍSŸ9l·fwÊ—j‹Ï"æôr¡oö)ûî+Ï.@Â£¶Î¿S›\Àh)¶ö˜}à¹aDuTÒ¸¹ N#gŞº¹ò;µ¹Çò®¾É‡ÎÂÄÙtŠ“'È!Ç+i$O ±´íx¾· }{îî•ÂDÉF9 ™Z–yşëÕ«§ ’Ğè+‘­Q³#ŒĞÊ5ì¥Çîü/Ã‹ÂMûªê]oø`N‘…Æ×âÃk‰\Ã?†ÇQè\Ã?z-j>±Íš7ô‘üLŞ ±š&'N@u¶h(Ùó‰8¡‹úä$À‰·€½Èôú¿Ó+ÅÑ¿3sb¹b®ïİã¶ş¾waÀ	TŒºdw9eõ$UlØ¢ˆ‘ïK%QşÎ"ÿA0};Z,ü«Sš$ÀÒ Í½Xü©[¼Ş#ºHf{D¾3pñ÷:<`¶å³J¬îÚèzZ»Ş21©Õ‚«FÂèŞ.©,îDÃ¿­¡ZÈ`¾(ÇlÍ¶+&•¢ş­‹Ñ2É}2bÛ¸¿1Û6ÖZµãT®6v7Y0ŸÅ	öÃCïƒ9£¹“ÙËß¡ï%“(e¡QôDü—äÕ:á‚ ¼˜É-ÜT³ˆ`P'3	XzÌı¶™ÉÕQ»¬³Ù°.êì6üq:š ™ı!l‡YxéÍ:89ø$^:Sùm­f¯1ø°ô«şv!xº½ÑGc«1x¥©`îêD[Z4^f
+\ÊúÃ…´ş”QbîëÀì”Ú8sHr}vz„ÎØ@ô‘K­ÅÇ#<Æé¢Lå©Ûy©…xõöcÖh†xŒ0®%ÄRú•‡{„£Rµİ „â“ª4³-‰{¹])gáÄs:bôû™rÑçÑÓæ…ieòĞ´ŒÉÃßµL~XoxZŒ[lù)n	»:îlµ°›–œÁòYšÇšPVß´‹Ï®^
+İÁIg#ÆëC¹4lc²1ÛµYuC+ƒ5ÛĞğâQåxtız<¶<;`u½ˆ&ü(˜,”Ü;…-†øZ÷²%vá9ÅpjØ¸¶øa¯µã†mŒ?´’ÒµX*MÉŒ™W)UëV^9çA„1
+·Utx'×úÏ7ËèsòÉps§¤àgA¼6rŞ‡ñ\•ì'ìšÙSèì‘/Âàö§ü®`¼¯¦Ù%/ƒ(nc½ìi«xô![·za•_×¯º\hê®“n.Já/)Ceî8xóyšDaÜ}Í¢pùn¿Ğ VÍ¢tå7Z?2~×¯?Xî~ÛúsE¥f9OagŸB)Ö·‰0(Í¬yvø@]µ_„ß=‚c9
+Ôq°—Ìb„,÷!“ò ÿ%»_ÿu(K(àÖA¨è#ö±°²ø^´V·|Z=RÏÕòëú^>~w/—ÛË1œÊ%…o×”u˜È³%œÇÄÌ1'q‰ÌÅ!T&ÛàÎd^öU0Û­û
+t_öÙ
+êG#LÈÆ-á  š[>¶Øà­³¬ë¹0³†ÔNU¨S©‹BzY±ùcÇRauú¾õÅˆ‡EòÈá…ƒĞ ½ı¯€*}JŞĞÌmZl°
+¾KÙ'Ü[…
+Ç‡ª ’aoBÙ ´Œ=ßÍ˜Úw)Ô……Pş¹8Á„z‘Qı¶J.ö¿›½ÅøSŒ ÁåTãÜY­µZ{à¤Eä&Ãó«¶ÕênZ`™fÖÚŒ™¢#ífÉ%À
+˜/Ö¹Y‘ªÓöµpaœí<°±£RËnã9Pb5è	l`9›©?¹B>ìrmgGj;ÏBÆ	F9±7Dg* )ÁV°s…‘PÉHB" …/:˜zªŠÃAB‘G„¶F¯p—¿#%Ú-Â¬†Ïä\Hö'€Â8³CÎ¾æië‰®j‹C^#©â~ƒea°wTleür{&\q…Cê(Ü.ê‹ÑD¨	#jbé»Yo[©v¡@’]î
+™€¢ku•ÖìR«½™¢óÉòsX…äÜ™x>·8@TÒÙrŒS‡L”–@94
+t’ÜŸ„H¶6£€çƒP‚vl1ß,¥ÄAò?_ÀŒ£ı,ö¡•;ÕNSİã:yîV4æbğH7«Š÷;›¤’RÁ²wI1”UÚÌ–ÒÜgö ÃÛ.<‡¼¸ıq¼‰‚ ëŒ¬MMh¥Õ—èZK&¼ºHT§:ÔNÂJ)ÙáïÍˆİ7ç‡A DåDi’2Év<Ì_úğ!¼˜ şî ŞŸBul“òQÂŒí!ëN¼È¯’‚¡[^sáM‘9&R›\FÀGÑ.ÚÓoBÌŞ€†­^O£¤×É`¹ìKšo·062IË½Nm‘ZXmõÒÌ¸Ÿ„[=¤,æ…`ö?ETÆ,*¦´ #µI<æ—}òq	W
+ŒèÆCšYÊÑ=Š¬¢³|§Áîó[d1¸¶¿q|tâ(+e3lºpÅ§s‡\ĞwˆæpáD"Àš
+Òùíß#Ú‰ÍLÑ‘kyŠÍwÃuòyyŠaİsåçoá'9MAİõÜP Â‚À‹»)‹ÖPwº_ŒÑ0;Ğé¡—'Î;ª;hğ!Ïaşj{Ò/ç‹Av¹Ñ¦9¿@~Í½àÍØs•2àWã¯ãt:EÁÄ}3wŞòrz•‚ÖÈgdk°İ¤<7Dô„á7ÆI¬´‹ı>Ä7Ï[$©¾œã“³—‹q\¨Ÿù»İ¤¾ˆGXTÇâYè¡—\é
+ÂûÍKa;®ö€—S[ÌMı^eß¿>}şjÄ`4ĞŞ{E*^ç¨dhÊÈ¡^bO”|F.û0–ÛcŒ@ÎR°Àz?î‹–Ë¼/âĞItg©Û¼ï½Ñnñ³ ©XÈ<je%İ¤­R\>ß/ÌÁ|úv£³ş,”D¨"™Ç]ÑîÛ2µV®•Ò9æp¼hÂ…­Ï•KĞJõ›³1¥^­¬aLx¥^u©ÔkIc.¿jƒàª×ùÓJÖá
+P¶|È‰»»ûTÂ'°œkÔN50NŸâ³|½ B˜Š¸s4ã)ï•Ş> 5ğïo+ŞÎjÉ{<5ÑiMÂÀ-Ó®×di” 1V·Çí¨{NÎİ7µŸ /=f/lû¨æÌ)_¿³éEï|v¤Îğñ›ä­Í¬ÖZYÌ"œ–÷rØ
+J±ïYF'H<PRA/wÙûI«dÀZUŸ¸ÑhÈ÷Vêaí0âŠF2	Uæô¯}¹]ä‡1fÒô‹ hRbí—bA¬ÿ}ƒÈÈÓUÄ‚,‰¡¤ÙQDs ,î‰a
+Á¨=á°9ô!áØğ¡ü@Ô"\{§Øû$PÜ~±¹ûI^—ŠÈll?¤øf†p{„@Éíß§è=² jÎ’ÑÖÔ‰p*ğäàõ:p°©8˜„s/F4Âurû)@`™ÜÆzæÜØ—°–l|{r¢CçÁÇ,E)Õ%j–×êİ—u¼ƒË ÖYĞğvcÇ
+ôxÃc»LËN–q5«7ÊêUL>×VÇv7K@®ìü,Á7Œ•;ÄâØÅ¶;ÆãT@%šVÕå,|f†¡Ö­B¸dìÙƒS/7ZİYÌBö¦É8W©÷g1[ÄMmäã{D¥6&¾äØ=sÕöK[“NgN¤M2¤^˜EhEÖŸı¯üpLËºñöÎÄóaXÈá¯O`»''·ÿ…tğŞÍÀ–]­êq´Å}¨Õá/ ™\¦Šd˜uĞÖ`¾LxÈ½ıh/r.s)_·fkÜçe¨ıˆŸU#î³£$;ÉÊr=]Ø>?FjVB =B²—‘3fH ÊÑ£íS‹ƒ×ÒÊ¥^-4ÆJV‘<c­0‚"‹¾}RéÔñaéˆ]=£'p¯s¿ê1LM,ë¿BÏYú«Ù"¬Š/µ¼£Õ{Kkbyµ×Öçß·Ö«À}hŠoğK(¿9Äœ“®H4£@7ıÚ°±rT”EÆLá‚’"is—rçäÉ‘G“Û#/ØyaŒ–©ÿ›ûl/h0C×¸u2óaBÑ&LÑ›…òµsÏM'–€é1YØjõc
+«FGÎHô£š¬÷W¢&?•óøQSşíiÊùz¶jËJ”ñ¥1g<fuJsƒã£â,®ŠóïZqÎv†%uçÊêı¨>7QŸ	{î7—_u³ı¨r¯XåÎ•¬kİÊcÕ¼³´P¾«‹jyı»f ~ß*¸‚Ìû¡©àYğÿ/¡k±V®}ÃLƒ‰Ç.hâqıwP_s9¹ı)IırZĞš³Ù#aäM½€+İäÂx8hÏ,ØR&†(ªí!‰¼xÂ:¤<>x¥jvÇ§VÛıù¨këßı•èÚbŞ©U€iéóüQÓş 4íŒ)Zí“&şCÒ³wY–ƒÔT²?*Ù•lsƒåJYRÇ.­ÜöÇê÷¤-çúĞŠµå|¯°*ËûkZe¹¼:–W•kzÿ{R•a×Æ$OC×ñYRFêñ¹‡^ ëóÌ]¸}¡ê7†ÿº0Fp'P;|‡Ø›¯ë…J“»?‘°	Ú÷#0®¯‰b÷Èæ:‰1ü5øã®)KH’…/·²/·LŸ™Á³…ÌGV ´È¤ØMduÔÔoàµ(RåèY®Llg9BCø2˜‹«à’3X“ı«i¤u\¢ÍŞ¹ãÇ ×–‘®ÌqS°b]‹÷ÿCbY1©fID¾¶ö#ù…eçªdæåu«² 9Y§`nŒ!ÃgÂÌRş³0qŒéw³¶ÓğÊ«&¯¼*iy±ú˜Äá8Bä¢ó"yû)¿~ÆÄ¼ÙÈYû$Rî.PÏP²‰*¥$»lw•ßõŠét-ÂíòÈ¬¿½±´N·ÿå†õ”†E€–åØF<
+/aS}°¤e…T’5°^N‰bš.`˜@ù?¤áèá:ñá{æ*c]_¡Á``+´@…PÎ2DˆñÑï›[bÅÔ÷ç³åòæ¶G‡¡U8Ğ¬.wÂÒÙDr©¹$Xj²T®4ƒ±õšF¾h‰ûi±İ®.”7DÈf”jqş—¾&ZèëmI–ì¬¨Fâ²ªÔ×ğ¦«¹ÇLÕLkÁôÃ™¶¦„ù1—Æç8?iÀH0-qO“Ìü©ë{À“Î½Àí-‰,ËH¦úÉÚf_Ä<Çy‚ÜBŒaÇH_‡Òy}¯ÚM Ø¦™Øm“h2áUwºBÖ—9u½t^39¨dƒîÔ€©²OTÌõs -Aëd™¯™	ˆô—ú–Û~AĞÕöYéÄF"™©ŒÙh›ô*M©bá›[«ISÀÆâ¦êø†F{»×d°±lºê òôún&GÍZ
+”V†°¥C ¨”‡iR—¬ê1Ñ„ìÃmD2÷õ±ËQ]êìõª8Ô£1f$ $wr@*ÆV‡ƒå9ru”„«z¼B€ÿg\x­QËHÉÀÔèªÙæœÃÓğhşMœÎqBÖ›–R ¶R
+óœ7iLİ&0yxå“¨–á6úú¦Ñ¸Ö“E-tOİêÒqÌéÓsÖ‰ç¾]«Ëé#¯ıpÁĞ!Yz¤¥IñìG}3XS FFƒ›xĞyû?ıVZfÁÎo3±à_>5²Ë>¶üæÛÒÃÊù¤Ş¬á¾ĞKò)ÎL@CxI'Y$á“iE¢UšÃ:½Á{]ß;s¢š¼,NCµì°|f”1­¶ˆ<Ãó[¾kí(öÊ°rµ£R½~‡í¸%
+&sçv³­T[’ºK)©‹Údr1cóú®'A¯S=µ•ÓnÃZZ'yşr<M,œ+t¿9»ZP®~¡AÌé¢ÌnÑiQRïTR»H—5	x±e@[d0o®¥½{Yco'ùUGÍ·ÿ|ƒeİùøøC›N„â†¿–)U|÷i=‘…İy^ëq½›L»u°TSÈæ°¹K»µÃĞ@{Ôæò­Ò—ÊÄŠÄP¶U§šš©ğªY4èJXL±k}?7oåÉ­³×`†W=9ÿ2S¨1E¶õá¤u³ZÜìj§úİ@Ğx¹h>ßGÜ«ö”iq“Ùnç:eÖ±šë{ËXÑÍ6¼ÊŞaÎÅ²¾&2îİ]ÅšàÏCfüj¢‹ìã@6OÿÂ‰êç¦Ñ–_c$b5äe {óZ?«E÷Àû«pl,áY™•İ®Ü„šû‹–®Ps¹ó>Sr/±8(Vƒ0Z’F¦Sp·Û'OÃÉ=ùŠG°Àœ<zŒ§LlH¢ü”@f·¼ÃW¥UY«{#«úçZ– 'Õ‹”ÙA­8Lc6Îu<ÃE eêr¿Ó»Ë7¿QºhÓ
+ñüèóNy “p\rÈíè‡àR^ã9xøå)ñz¢L‘ñ4¿jÅtßŸQØ2rÒ.'äYŞ7;Ü¶Ş«å½öº×ğtpÍWğÀï«xàùAá][j?Y|Âi3áâqÏè¥İ6¿Zâ×Ø4ÍkUcmÈ–[ÎÙ‚–‰w1æ`&´bËôÇÎF–ü˜û¼£‘u7iñ‚G4^I÷Ö/­èw6rX	·zØ…)[ê²IEZĞm¨¼F¡÷bÔ;AU}!Nª„Sxé~­rWÑŞ×@i¹« l*lP¥¾wì†wÙºM{rıÜÕzƒİ »Z\R×ÆQøÆ‹SÇ÷Ş9ë4·Itê=š©ï›ÀÕ¨Û¦¼¼)7(Ûî³´âw‰ä[Ã–òZ^J,—3hK«\â,râÙ°HGo'~j•ÕÙ§•Ç÷tÀeÏ…ùª3O¥S~ÄN0)n‘›º0Äğ¶üç6ñ§ÊÏ]q¢†ï`Ê«~lEv²±ËÓb²Xºİ‚'%ÜjKg?Î«"¼ú#œBñwvşÈ<%HößĞÀuêr#k!dkŠiâŠFú1èß³•P£àÙùqøƒgé|L£ÇL%éuIÿË Ü]Ã^p…ñ(İI!ÂÜ”Âİ/_<A›ö€«22—ã v|ÊpgxBG»lK^ßî$÷7H/‡iœ°œÉÅ$ï…pä¦şO&Ï³¤ãÎGº#	=I'<¯Ì®»jÊQ”ü_šnšÀÎvîÙMP‰ÅJ,/“Ş®ÀµƒÇÈÙB/óèŞ\
+Á`ày:áÙk<ò¦&ñİZÇpHíTÖşğ‘N–¥“³ã¤7
+Ò†N/ú•ĞGM
+[+í˜¨%ñ­‡‘ğ‚ ~ ştîÃÏ™çº4h!”g¤{#[}ĞõŠyìx ²&2MLæ%4Ç†æR®“5­q.;v˜-
+xÀK?ÌîÜ<·š§¶kb†®Üƒª7gqı7IµÈuîz;YuÙi ápÙ)ˆp“0 ÷ö'×Á…ÏÃ°Xï$@ğ¶óĞãi…CœYmc$f[‚<å9Ê¹.—vãÜÃÏIœ9fƒ¦±$ßÀ@R{F‰„“ób˜ÏÛŸ.¨Ç²» ¿ó¬µüuqDÄ —^2#£ãxâ ™G°‚óÁ vÛ&¹®–´ò½Ä¦ÌX{*ñª
+PXƒbT¬™·§@Î”ş:‘ônÖxÕ»ğÍv+äZ³O!ÈäıÒ	TàİÚ=¢½¡ø¿
+\‡$§ä¿³ş«M¶ÉgŒşªï¤IX‡ù`eË V1ä"`O›F°ş°@ôãogÏvÄöòêÁî^×³¡y 8úÂ6iÄÜ_ç>¢Ù(ŒRÌ;vÛáZmĞCiŞYùaå<€…ó@uú­]&ñ¤œïû›LúÅq€¦¡s4òÎ#¯.æû¾Áµ>QÂU,-¬¤G¤½—0—q«¤ã‚–œ¼E)®[YNà»²9cBa†´V’Äî‰–”Îfªóüg°Q¨Q‹¼ÄXÕ‚V"›èLÿ¼”Jî~µ’ˆ—šcYîMËŠå`‹üµmØ’dcÆí¿	_Sü3×àÀF‚uæ<ÁÛYê¼¯¨°ã"Õñ‡WnLhåMÅ_1øGLûÃDƒÁÏAµ2±ñ9
+¾£$q&3ê’sæñòRb‘%\*0.œ3äâ^Ïİ#NpÅ¤wà†“7Iñ2
+èÛÉ×İµ!×¢Ã†hÙrÖö°"b!à£Ô!×úãÙú®=fâ<Ï_¯uš2‚œ©“à \º¢cãv»:;‘i÷¶¿=ØåAT…£ä˜Î=&¿s}n¢È—¥äçÀG`®àƒYĞcRÏ“$sÓtgãóÍ\JÇ¥Á:!¹øÖ¦”‚²	Ä…ÀWàXmÍÚù&(Ş	N|LH¯q0<!„YıFíÎxâ2ï†FŸÇìÔ€Ã*Â:ëõ ä‹é×ç’{°êøRXkùÍjãNE¥jzÍúJ0n¿lÍîş9œ`¿öxO²ßMúÔ¨›¦]‡yúötXn1=	¬í¦cã\:^BÎi2™õ¾İpŞF;·ñ©äYß®7.d@šÌB¡î££'GgGİ¦ÃNÈŒ¢4c¨cw”B)‘÷Å€u÷È·_R'ööéuÂxÜ|Û €_Í à=L`2#ˆ*Ñ´·+âû€FQõ:GğÄŒbs…ğQ¸¹ìuÖI3ğˆ&0€XÃŒ–Ã‚#ôš¤QFıEÈ}ïÏ Iè‡ 5.ú›ƒÜîÊp»ÊF¸	ÍışVŞ•!˜Ï±>Pèí‰Ö’Å-ıGœ®fõb ]é¨ÉnlŞb†fï‚’Lig{,|_k_+‰WChI¼,Îù1İ \º„w(?m„'‹úw
+{×e Ê¢Ñ¸Dx„+€A¨‰(2à¾ƒ¹¶ĞRà	¦)E
+ÈÌğœ»ë<Á	CœÜşèOR?¬CÄ«	Lb-¼@NÜ~„Q«)~¢
+ócQÄì½¨YŠå¥r¤Ÿ˜£ºÊ“{¨šÿ_ÿJîeD8H ·õs­êÉcØR˜éÈ›ÎPr’´™!é36ê£||Ån\"–ğÿ±¶1ûß%mÈ½êqÌ›¬
+' z
+#ºƒ#ºsÇ¸ˆÄdİ —6KÃìV;fòt;MbŠœ¡Ù‚£;€©›´FaC'~0™kÎV¶Ç .V»Ç(£!Níë¾˜§~â!`c^R›I^è2[J¨‚i¢ÆlPsvW‡â[ã™£qÙÒ¨È(Zmó¤¿¥YN(¨Ø…ıãà<”òÛ°&×†Œ9#Ï'„xTÁ^Ş¿­ñøA/`nêxÎØXˆÎ<şÄƒ.‡ ;äx4¨Óım¹ÊlÙƒÌ«p¬Š{„‚‚?Ë¬r-Â/QŒ˜á?6X÷FìUÃE{Ğ†hÃt-a¡l­ì¨ìkõÑ««-Èk%×
+Ãhí”aÂ\©_ÉhÏÎ¡äc—æyF©;–†{‰\É€Qu²ò*èí!gé½€¹¤Š¤‚˜-`9ù²Ä8AGÉVr<B›ÌXï †‘Ã¨¦c‡×»3v¼·"d8¢< ©XItûãÂCg:'ÇuöƒÜE¦ÂuÀëÖ½áiÃµZ„K.,!LI³ŒCË²©ôŞO=`¯şew´;ÚÙ›TMdf¦´Ô`¿ú—ÑÎh?×¢j¼ÍşÊ*B‰Ğ„«K¶—İÙAO­Kg™Äy\Ö.&Îã÷lƒ,ãnµXÒ‚®Ú‹\„ê.ç-ËHu»Æ—¦p¸£OKîdX </`TZûD t•t2æàÀ–BxJlö¦Øˆİm½·z¤—G‚1Ô9`máõ!Å<É””V±*m]'q$¼o¬~aJ¿„C*,Ói“Î@ÛÒht\âLìcÓGGè9INé„'.ã_ïZ
+ğâ‘\±
+s³|0sb‰±†éŞÔ~•hXÿ=Ï>[ùÎÔ½U¦]&åì’éf›¦šÕgPûõår+­ÍU&tc_Ù3¹ko‘Î­ÑZnÌ­I÷Óİê¹·ƒYŠcÌ­´"Î=Ê
+´eºT9wŞ„¶ì{ÔøKÏK¸#¯+EÏÍë¿ÊA;2¼ƒü‘çcú‘‹¯_!WÖèŠSræ$hçäNÍ{Z.Ş|]7`åucğ;gãÈ£UÉßÇ²<$Bîf[‚‰Tø}#EÈ .ƒA¬LÛyÃW@ÚJ!´à°¢=7ŒhMÊÙ¬¨[ôoyZ¹³>Ò±wL#g¾2:å¡:ÅÎ0,íàÅ"E5KJdxE8ˆá©.ÿËğ¢L“QÍxmø@Rg®¯%^t€Á´†ÇQèÁú==u0¦áÖÔt¿¬.X9C+X°Oa¥û¸\…€Ï ½lÚÖê®x¯ÁÂM¢Ô`L¬.ÚkƒëÓïzmN‚ïV”ïJ‚qKı%Rş™!èÚ§9nànNƒÜ4F³æég=ÜºCt!4õ+Ğ¸üf^M<,êcf@¬ºeÇc2å¼BrøëMÀMnêòÚN¤MàNÂ 1A¿Ú1ªYŞ[l‹ƒ‰‘œ¯S—CÌÎ!;*ªƒl¨9M¬yÜú ¦9~}ƒLx5øæªyXÛän}Ò4‡>·N
+aÿ@Å“f€ÖÏÂ‹ì´ué£v %0¸-D…P±á
+`pÛÜaÂÆ	öÅ>ö(Ìs÷8èœºÂFÛÉ-óÕ¦F]ÀRâ!ö€êÊÃíË»ıïÑ%‹¯S
+óéJ9Œ)´.ûĞ0ª%2”{ºDkñŠD¼8Á¡õ˜X$kèl76w€F‡ÛV‡ı@ˆoOÃ3N¡h¥ñ0ÎÉô™fæ›Ú¬ÎÉQîã2Â°ÆŞb=PÖÀ ˜7;jéSQpú(¹Àiâ„vêâ„ò´8ˆkM/h$¹qY¸„½ %¨T®_Y÷Ék‚±J{¤{â;fv`ä{û÷±‡}%‘Õu÷¼Ëíˆ·!^€;(üÂ?ßşH†ÄõLÆcçÈª<Ä¬³.-Â$]¬)»]¬jk·e]£”yk‘¬OW‘ò T™ßş£EM·–)FO¨çWêá‹Ud±Ôğš‡¢Gã:ñÚCÜ´¯ƒHMDµ°&ø¬\önõ?…r%gÙÖÑÑzacA¦’4Î×
+*È²Â{
+ÉºÛ×Ë:…‡ŠlUvÒN#f¹Óàÿ¶TÄ”‚)øç²ÏšDr7ÑÄ{i½,¡Æ=è;¯q!Dœe-P’l‹66[à$5(Cº<ò[¦İé±ö‡<ÚvK‰ò—ıF^Ò8¾´¶ÙU=Hİ]‘q›æMiH:°½$§¦À¶%ÏA3»€`ÌqR‚ÊnĞC.ÂS°æ!McĞîzÑz«Õ£æŞÉ÷ÅrTK†Ä¤8‡ÁÜI9ÕŒ‡½Jh2ƒ~ßÆïLl©fu¿;_0ÏQÊG'ÒhpøìkÈØ‰"‡`ĞOd±´q«Z{Ñæ·;ï¡Òt»E*lt“)*w8‡1vîwnèUrš6KÒöTÆº\ãùDşÂ¿­"¦²^g>¶3¢ğb~¢ø<š‚jó4›Ì†ÍS‰İÄÈ=›A4´KCx÷ôƒ¥äÇ+I?ol–¶bZÁ»¥´ï…zîgbª:–ºño¨õ>¨r!õ¢Ğ ¦S9-l|@²ˆèÈ¸?q"·¨yU±L.aMoƒ-°&ª¥j ‘°J&<aYvÊ årîI;âªt_¤>Z­"”œO¡š¹=Éf¶'¼äPÄt¸¡«£ÆŒS=}€¥VhİåÑoe;[ûEbfJòòÅ£:‹òÃƒ×z(ˆ;²gòœŞş=¢ãñ[1BÆ‹n$ö„!Ä¹¢ÄÇ¡a~íÖÃœzSx-"k8³x­£É]3ˆ#­Cè9/1fy½96¢	«I‡šÁ³–s’_2&Fİ¥8Áâ  ªGyÏªK¨Då{AYç fI²ˆ÷66.//ùüMÂù`màoÔ` s°päJ™—ãËÈgqë<u"Ñ ;9÷Še–WAl/ó5ùâèOUi×­„³–„(M­{¤ÔP“ş«4Ñ°äv‡hUrééì9¡sœmz {Y<RÑÌ“d³ü·8ãké„úGB`Âø¬Ø¦|åÔaGµ)'„;u.ĞÁ6«n ÷ÇºB(,ú# ‘}œ;ÀòËOb'Ú#‚_Ô!û4ÁAâÃ‡ï@ƒ…$†<Š`H•ñhŠŒ”!"¼<k ‡”Ã 50¸t…`ÿØQêp@Ëñ&ÌŒ¸ñ]ğ—êá–j©± ã…øª{äëÓçÏ1Ë6 JC#/`‹åÁoÒ+…^÷²Rß‘:¯z@)Pbz÷€¦á÷k$™án„é[íöºÏ$<¨11b¯Ã¾Å£C¶OêÖ•qsTë9T‡ ÀÈ5Aµª|Ô«mJæiO(,uÎt‚1CfoNI÷šá5jYÓúoÖÉöææfÍ{9ÆX	¹ºvÚZ)˜!6˜sˆqÆ—%Y‰ªî2À¶Y¶’)ˆ;"T¢Ü„†û–õ6şŠ>l8uá·cLoÒµ5ØÜRŠ­\XTİº¨/—À`XÀ2WÒ‚¡ŸÖ*qeJÁ×\2šØ4Àõ)AjíÒq‚@èõönv¬À|q8o“ƒ{é)FòJ¹%¢¾R«=½‘_ş¡ávEÀW8’ŠW‹î!•S™vlgsS¡y<¬29¯c ı	­?G+&7çæŸª‰%×+Õ”$æçÖ4NL›‘e\ôã*1›Œiı |Ø~Ï"+¿dK3·~ÉóÃğ­à¬ç=¾”œãM`åËj+AÇü¶í_°ŒÕYÁ
+N½Ìå‚¡4ú–NRéà*x0Œf™}L±™}4ˆé¯ŸÅ ÆvÉÊÍW›¯56vôæn+KW›¨|(}”L^ml&J3÷È+^àëaİ*ÿŞj*äJ5—;\ó~5Uã2ÇVáÕJ”»; Û™F‰wÖÃçİA¤nVhavÏùVáx"»3Aïlø‹€¦/p†àïïRÜP…] ¦iwè‡µrNnÿó@&Â½l²|ûÀÃ`ú°s„ûO¢b4:0Vü±i?Y‘‡‰îÔóUîÎÚ}ê$ÑíO“ÔwğWÀóuê²=o>O¡¥q—»²b>…iKÈèÉº/½¬ŸÂ0NÈdN®²8#&÷£¯ã0d®Ãğ˜úSsfÕ"2,‡É°4*Cs\«Õ;“éèE;ªâ]X,yd*úÃUXÈİ©z‚7›;c¾5k	Ïh0+à~]xR¸ê›mEiîj -XæÉûµp&×ûv—õÊäùöÌ ²:´>Ó»üqgŠ3¦‡ë[µºñnÉıXæ®>–lkSÑ#µİ5‘ÍR¨}¨å•Qûø=Ó²-TÓñ­÷‘<:„ã.Š®Õu÷¥ã‘AÀµí¶æ(¢²Gbîœ¶¿D%ş&WeíŠYıÜ­|ÊÅÖÈw±f~çŒ94I[@}ÔªbËù½]ŒÍ‹6¡ÓæÔh4)åf¬'ºı?b(ş±8ÁaŒ>‹Ó9ÈŸ±-$º‘9fgS€qç•>B7 †+]~Üå„[ 	\€Ìü1ax½,01"qêÀNéŒ=ßs÷eû§ã›“F·N3‡Ù?Í¨år`‰\ qM¿=	[Àµió*ã¬›^S–‘ñ0ø:/ÎÂ¼‰{š{x'#oÖLÖUøä=a£¨>1•!±ôòoó;¦oØ¹¾é!ÇÂ‘…ñ_¦wyJÉ^å7Å»¦oaŸŒ<”¹ÊŸW˜JXpU¤ü}é¶ékqµiTşºtÛôµ.ßÒNáI²§ü­}YkÀ1¬«cds‚Óf„w†2“	İÌ¼¬šàÌ¨,|;=oŒF,H”qœğÊ¼şƒËè€*ë:ûÛİÏËVŸFêgÏ¿y¾‡^İµ'Ï6x„l&¢0
+­#H¬¾7Å­¹âimÌÜ.öW›ƒÍáëP€ `Åó½bz÷lÛË0+»¼İ>ws;:ü]şPc³Åd]«E¨æ%C}5¹îPgëÜªË€c’€N}dq]D›y³7G—i(ĞÜLh.(1yÀ\×€wX
+m¤2ÚG0ì Ç,65šv™Ğ´90G?/	Yf/Ü9˜İí™›4;‚EŠJF€¯ÍC—ú¡HeÂ‹Ş|AQ‹2}-. ‹œ%4NRæ‚MUáËd¨ĞŠa†y1‰`5I}«‡¡zš´DÔ”âdŞ¢˜¬“3pj ¦l/SµÛk^‰õäY4GÔ¿¢,æFI‰Xs>’—jDÚÅàˆä‰|¼@‚gò¹‡û(’GºNŒ™5œ1?ªÌ2éœÈ”ïº‚+¥ÈjI§(©¶øÑ	V³Csš9Wïb|®	Æ#¤fC!¯Ú‚N„ZAQh>Q×“páQW´OÕäH§ û›…Y¨`L“­Um}]øå€{Ì0Å~DäLRä(Rk†2Sƒ–iéYV-¼ŠUIgX`¡a¸˜âR¹áyä9ÓàöŸ˜'~Ø ²ìëŠ«ƒSÑF™¬†]¼†£™œQÈØ'°iŠ-ÊMs²iq@‡YL‡rÙ!“kS{C\œŒ1hÜ›®¢;àš÷2Q‚5Cy1GIÎ©5ı¼8aCSAşè‹A>	/its‰Ú	¾Éêî&;)¬Ü]\¹{¤šÂ©c‡¸*“Y1u[©´0¢ªu™·Û~’k=§½Ö™	¬ª×bk Ïİä¢o>JE'ÈÏ++òÉpsS¥4<æ`…ARsrmw=]®ùro©šóŠí¥1RoM­î~¿ƒ•ûe~ÿ|\ÁÊUNÄ¬ŞÌÕôeQô²ÜóÎŞ}ÉWL{WıÇUÿ>W}æNk¾ê÷Ò`5/äGßÉ~ÁE-{Ë.xÉO!ıÃk­±ıãzş×sã¦õÚÏSêÒ“YÖpPÍV/XŠL=Z†I5Ø©šWĞ¢»õš,JÈÂVÂÕœ›Ô”÷¦y	Ë÷í?ĞJNF4†±ÛLZóÇ
+¥mq(¹ÊRÙÌ,½Š’_ ¸¼İüšN†£cj“å°Ö¤á2@ÙeNÔ+™ŞÙH¶K.éºcl çS<aõÂ€õÚš${ŸÆš]èòä–UcöÀ­ÁO(”RN@‹JpeÅO¨ºkÌ\Ù>4´İÊL•mñzŸoÕ±Ûâ¾ÀP¸`ëqy
+¼şöàóş9tuÖyø»CàyŒwHï)¦>Š“Û¹[Ã70ïïHŸ¼ ØíŒÛXÛßàå¶­Æ«T1 ¨øÄq£Û¿İ­pØXEŸ`ÏHvrûSà¡b¹‹F©Ñ…Üşg“ŞÀúf„eõÔh$fT°hiá4{eß/ø÷å^–ŠC]£:‰gÔÒÏÎu,è€Œ	¾L<ô×)VG¦!´2–i£+3GÓ(â‡5,Š<®YÇŸNqB;2g-×¶bálóÖ‰­Ñ°«Üî™±ó‘Q/m$Rq»òØİŞ2T	õóÚ8a )‹¯¬ÛdÿW`ä™ÔŞ9â@ÔVÏ²§5ØÌ*vdFÆSAÑ/¹oÿzî¼£Š_¦ÙFÌ*¶¢Ïiı{¹·¼{,–ß¸!T·ƒf®´J`Pij4?“*t‡iü)Ê!ÊÙHv³Ä#ò—Ë'eù¼c‰³©E®çf£…3uxêyèã"¢‰Ì>ÏÂ×ÉÍ ¹ıûœs8Ñ©‡§°'Š(¦*hé3¼” ¼bvxYŠFdc`òà¤Rğ0&…ÅŞc9/ÄÉÅÚû#HtÀùé‘±
+9J>¢RcÆ[ŠÄ˜½Z¦Åìı•’"°5 7ìáœùÆ$!ô}Ö1¨Z³-&#H™Ó¼%9E°‡›Ğ"2S=ÕÔĞ£î™iËj³U'.„ˆøS>å>=¯ú÷ğë32
+™Ïô	*Öq˜³ÑdqÁ°“3'ZpÉp! 
+ğBÉÏÑqíóç°£'Ş‹Özeh}2l‡›Ö[¥…ŸÅ^Äü€ 1³s«‚ëuEyöpXÇ!Ìâ¼ÿ€DˆÈÿ}š'\¯5ŞYd+Æèó€ŞXjz±0^m¾Â¿ÙÅ¢éØém®³ÿ¶×^‚íw€'¿í³EUŠš=h?;&\üªjºh@fm+†mTƒëõÎHV[ŞıM‘³J3¿eÌ|±æœİ[ûÓ'7Ÿ|r,î˜HFî×„û™®KÆ¿N@ñÖyì¹Ù#ò= ‡j½º' ì.BÏåŸíÁ†oØ¿ÏB”Y9è‚‹Ğ` Ø² kØÓ(ôZŠ€Ê6 ñ‡Ühûî$È)İ˜ı
+m(Œ¥ßon_™ÃJŒ_®€$tJÀo'wæ†ö`íºÒWCo÷àSá‰MÆ†Ya«¨ÿ&h{ ¥N‘$m\ã<É1½f³#©%gòœ`rŠyÄ]§ÈŠaÛÜ:ğGŒRdZ©$š™ÃB&×³èÊõ<P‘ÓûV’C¡Œü¦’Dá:äµ !Rù7¾]Àxíÿùìé†~xÄã*äšµ++O§À^¼Rzì’QpÃ/œÆßğğÙ·Â«¼ÿé5ëZñ¬ ì¡·ñ¿Åÿ¶]ëö»k7ğ®,=a=†§ßş©²@ŠÌ\!ÿ2}¡¬€¥DÑE?Ø·TKÍè·hÒ“à÷şTş¥>ßU©·â£jÍ5ÃIví&ÛôŒ‡®ç™_Ze{™û÷•¥ªöµ`f%¹œÉ;¤ 'Tt²µ–säë¼hî¯uèEŸ»”¬®Çâ–¯qŸ…!ÏØ|,}ÜJ;'ÅBÊEÍnÏ5’˜
+Óå?àD‚[’²TÕ½H?U&e!„ÍI“PÙİ«˜#c3“tÔÛ{pí¹ª¢¡T0ó\—…÷sË«dê·yH¬&`Z‘„‘Zùr–ÌıÇadnL0q2Õ‡Ë2ˆŠÅ
+ÌáÎãbKxu%oÃbøŠ¤Ë’„ZY•ƒ†İL+½8Üì”KSWŒ&ŠØ+\á-•8j¥&EUe£|†ÛóÊÙS®^ÃGÊ?7±²ø;§éf,I½ˆ1øéE¹àØÉ?+V(ÌÀ(Éÿ;½b;lËìãunp^ÏßvR˜x'ÿ)ß…¾Ãy?Û,‹£˜xÍÏ^ê¬–Lüˆ·'l¢5–Ú‚½5€’ç°/2pü¿xÉ¬×¿sjßùKgM»/fƒu×£¥Lô«ÈXÀ·ÉÜgLËKå‰*14ÎÎĞ’KØç”¥aä•À{ØdÄÉ[Tî<e—§oå‡08UÀ”šˆÔy„DÃõå–¡rˆòÃÄtD%WÒÙA|¾Êfœ"štş,gÏ)KşìÀ”ÂTT©k#mÁ
+;f‡Öv2™aNX$(´Éş‚@S¸æJ/Äß÷ñ‰¬i#—«]Wtj»AC" #—œŞ:G	˜™}bb"jpé£1Şş'O]KºØş.v ;úKWÙjkÔº—1bÌ…‚":Æ
+‰ÿ,+`|)¿Jñ“u2c¿†Å·ØQå>ŞyõúaïÕkEæ}%ø*ûæ	ÿ[ıJ«ÿ„†
+¸wt~N'Eì^ÄÍjã²ôÍ:a5dUä/@¹•/{]áÍŞ]‡îå¸Úğ®ÉM=Hf4è1ŒpùËŠòÜ‘ ¼ÂdA'SnYê(ğ]‚KÖÓ¯cM¸€¾Q¬-{­ÔóĞBKä\°kÙ;a†ñ(PY”5
+ş]ãC©Œ¢
+Bƒå!:GŸ÷Üƒç=g½†/Ï½hŞëœ!IÒ(ÁóPSPK£ß!^,>O îÉÑY[æ=cÿ¨ ív0v6“Ÿ^—a×3xõGGOÎÀó–3·xì«œà¼¾2]òËAÜÎ^ç¥è,‚ÛŸŠ0§ƒ|îoEàå¼XŞy˜"f£“€Õ#ÓP«‚™Â÷0²4¿Y»çÅá	2:‚Ğñ‚å–YP>U89ì³ø*ç¡İı{n8Áİª»†ÌZóŠ¾Æ‡ˆüŞ]+ƒ]WÖÌqœÊ£è"4®FäöïµóN¡•ª%†úÈ åÙZê‰î*åØÛÅväŸ_³c[¨Í&:ƒãÏCûØ¥¼ÒÔ+W¼$~I÷{@c¢¾±\c7ßæ$òI±İ°zK¥¸°åW‚M­ÉHğ&ã6‚.kØ]ü­Ê–ÕıÙ°²WîXò2…jUÚ¯€éˆ´Ãr1"~Æ°Pkuƒ6ê¶B›†ÙÅ}ñ3Ù¡ğ£Dœu¸IçÆõŸ{qŒE%,Œ²	¶š´²&Å×ƒ"šÒİuCnùŠSn˜7-ÖB5mòŠÊÃÃ„	;:’ó¡ŒKñ¸¨xvaÆvûĞd¡Ş+£›0üƒ÷I‰yú¾³@ï7µñ	n%}i'«já)¹·4Q$ª¡èÉ¬\ÉÍÓ:Ÿø·¿‘ÌZ|’íHähîx~ËÏAâ[~ÃÍZ}$$cÿW¸ T€;˜
+|£4Yû	n6j%@E°
+úWDüaw)½fb1Luè…H
+“0Åü/;Sq©ğÜÚºœØº¨ÿÄ5Œ‹Âù:·Ã
+á‰Ìœœ¸-*Òûéhø$’°Ò‚rêæÍß‘-wsSÀ"…	³r)R¯¾Ğ•ôµì“$İ"·ÚB(øÓv~ª±é´:ØúˆY½GÓû	“/¾ê\¼Êà¢Ñ{ƒëÑUÓXÜ¡+6V‰W¸YÈü.ïnmZ·O¥êfÙ­Ù‰Î*[++÷1ÆSÚ-à&næ•mÕºåêeùæÚ±KÂ8Ò&U·´§XúRtx©íÑ‰²JXå-©Œ˜
+ÏqCReA&Ÿ´°İJ„ a±ùD‚wá_wˆºø”ı`˜Nğã%ó#'Ÿ0«|]êòR?Û#£cşù+Kªö§j9{¤7)½œ|áõ¢HEıc¦Ÿ‘r£`5ê:^*íNi€¤û°‡wTÒÜ¹:b¥<eìGªÁGh0Sùâ—©ó¶JëÑZÅæ!†é€ô`CÏmÜçõÑœÀŒŒ¬‰Lñe¶ğ<6ŒWœ5­×éô¢ü8;"f5¡kƒÁ ?É­¯ ¯‹YßàV.{„ºâµ4Èorahæ—/tI_îë”u¡¸fæ©(ŠAmJ¡Á<„ g¼£%S›Nÿ4	#gŠqÉ1ğÅ^÷//G^<óâèôåÓçoŸ}stzvüôèÙÙó7OG§gG/`4Kyàød¯	å­½K/€,"Ö‘p~Â‹¹ly©×ùKê¸QÈaCÒãU¯™RĞtÖI'æYv2¹h¤ªµ¡ØI–Y¶XlEßÖKœ#´t½b¯	#Â.|
+:¤fy;º™gL÷=cÊmHÔğÄ`bŞuHâ¼u„gyjC3L¼…7á.jd÷]™²OÖì%cO©ìøìËcŒœ€}ÂUê8£‰Á1ÇM9ÒÃ¡ÎšFÉ—4ˆ	O¸ëÅ•z›>A§¨K«İ“·Ç‚sâ¼Ö£yèg˜°ª_†²rœØÆÜE½R'NRØ~p4åO­öÑíOÌuÿøäì%hIÀ6ÔŸÀ®Î·¸C?ï?úNğÅ9Ä€Í,dhÌ" `4+ÍˆèyÍBŸÙ¨ö‘h"ï@^=¢óÉ(;¾eôÿ6L™/¢È]VLr¥zh$’dä©-e7ÉÙ×„¯Õ¼z…ä(Y`à”,Hä?Á£ä)òğr…ğÖƒZÛ¿£«êÄ™fåñÌ/çŞ[Öm\0@×¬ß‰§Z&iyLi¬Î-}fğ!Œ²@©Ï*}ŠJs>®|™9{"¾®h^˜tàÂÎ{—-ä×Ígìv³÷1wÿgµ½ñ7©À¯Àì&ÀYÄÛ„Ÿˆ!¸àÉ1akV¬ŒóĞJèBÁÕ".¡ÇÚ¸½Îj¢Ëş@zD0¯ğ#Œç}%[,¸ÎkçWµì¢Cì–*UïŠy¯¨.¡€*Ø/ô’©‰y,+^E—Æ­¿$µ—7.šu0‹S!¨^íjb
+­É;eğÔ*„4ÊŒ±ü»Iæ'Rq=!Ú˜{£²Tt²/GQP—ÁßDÔtA%¨jËÌ‰”œ?„‰‘mùÌŠ¶ğt^l‹s}Å@ü3K×vî¸Ú¬¬<$:Òs.a_êX¨í‡„©qâ¼²øHês×ò¯ÒE•¹L+¿/+ne0„ú=N¼‡ş¿2È…+„+äÑQõL|®d5Õ¥{ÆÁíZ¶ÛÔZ4\V İ¦¿ûÿçÿøÿşŸÿƒ|öY‰q‹Cê~öÙ˜íÎ©GBØŞXˆ1“nô'©rA&ƒ€äÆ2º-ßùÈ_xN¢¤Ç ¼PÒİDÉ3á¡ì³êL{jK"I}®G ¦ƒ§ü±ºÙÈ¡‡Ü€rğÓÛû¾”[awŸàs·&·?Á~®‹ôH‹ĞeµÅá8B/Rzqûö¡ëaœ¯G`ÌB=?ûìTöğoágŸ©ö¬¦)ü$^Ä¤,/ƒ¬ïu˜„wÎR1Ñ`Š1nØY»[à&˜´6”¶ôüç°)B!°®=²cŠssB:¡i¢áë×¯Îµ¦}r¹‚¬«&ì);a5Ü˜å\î†ºèï’ÒQIİê÷,~áÃ†fUİÔÔcÕçeåjC›&‘Óçœ¤/a]b[³jdSÕt¿àX"Æ)°ö¿¥cº¸ï#×–Ï/­M™o]=Foë™‘±ƒ_V©zuT@.`?hx°!¶¥„U½ÎİADÅVj3É*ë¡¥
+RÕ«fpíÄAÈ‹OíÔS“ıO¼õËÒØÉÑ‹C^~ût&;ú+¥µ?Ü™Ô¬øgµï°ûğmRİ"¸0æİ­€K/É«õ{Uaâª»Wæ%^³\ëV÷Å§úÖt»õ;]}6b¹øƒñ#ìt’ÑC=jÈQ¸¬C¿Ø_vÒ¬€;i
+?cZçÀıĞIÊNî(ªmÖ,m^>5TPÜÿ73GP¬_Éä[Âs’ÓomR!Ïóæúæ¦íuÄaÍú³€¤U=³kØ›¨‚Wh®‘­,Ğ¦bÖr-«20Î :0#ƒ>J–Èì®©òã¾ZDı»8.šœwGùæP/ƒ‡ã°odiƒÔô×àïpÊDê 4Nÿ´Lı™¡Vß\
+¿x­/%D˜‚Eæ$¢ç fËC­œr»@cŒN)m¯P¬4Ü<ŞLÜØ1 AjñPM 5¤©|b„'¿ü ğËÇÂPPØ‡-±4—ı­2ë^Í™Z€dÌÂaKti ÂR%Î8ı4¡·c‹$áş½m{Æ5n‡S¨RŞÚ$ô1İş-ÓÁ†ƒ¡.ÂHúÕ.O	¸?mm¾B@ç_€,|ÉøR¶kš|¢ş   ÿÿ w»È
