@@ -12,30 +12,24 @@ export function loadPdfJs(): Promise<any> {
     // Load PDF.js main script
     const script = document.createElement('script');
     script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
-    script.onload = async () => {
-      const pdfjsLib = (window as any).pdfjsLib;
+    script.crossOrigin = 'anonymous';
+    script.onload = () => {
       try {
-        // Fetch worker text and create Blob URL to bypass Same-Origin Policy for workers
-        const response = await fetch('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js');
-        if (!response.ok) throw new Error("Status " + response.status);
-        const workerText = await response.text();
-        const blob = new Blob([workerText], { type: 'application/javascript' });
-        const workerUrl = URL.createObjectURL(blob);
-        pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl;
-        console.log("[PDFJS Client] Worker initialized successfully using Blob URL.");
-      } catch (err) {
-        console.warn("[PDFJS Client] Falha ao criar worker Blob, usando URL direta:", err);
-        try {
+        const pdfjsLib = (window as any).pdfjsLib;
+        if (pdfjsLib?.GlobalWorkerOptions) {
           pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-        } catch (e) {
-          // Ignore failure
         }
+        console.log("[PDFJS Client] PDF.js loaded and worker configured.");
+        resolve(pdfjsLib);
+      } catch (err) {
+        console.warn("[PDFJS Client] Worker configuration warning:", err);
+        resolve((window as any).pdfjsLib);
       }
-      resolve(pdfjsLib);
     };
     script.onerror = (err) => {
       pdfjsPromise = null; // Reset on error
-      reject(err);
+      console.warn("[PDFJS Client] Failed to load PDF.js script from CDN:", err);
+      reject(new Error("Não foi possível carregar o leitor de PDF do navegador."));
     };
     document.head.appendChild(script);
   });

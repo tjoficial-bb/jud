@@ -1,4 +1,4 @@
-import { parseJsonResponse } from './apiService';
+import { parseJsonResponse, robustFetch } from './apiService';
 import { extractTextFromPdfClientSide } from '../lib/pdfExtractor';
 
 export async function uploadDocuments(
@@ -42,7 +42,7 @@ export async function uploadDocuments(
         onProgress(`Enviando texto extraído de ${file.name} (${(file.size / (1024 * 1024)).toFixed(1)}MB) para análise rápida...`);
       }
 
-      const res = await fetch('/api/documents/text-only', {
+      const res = await robustFetch('/api/documents/text-only', {
         method: 'POST',
         headers: { 
           'Authorization': `Bearer ${token}`,
@@ -57,8 +57,8 @@ export async function uploadDocuments(
       });
 
       if (!res.ok) {
-        const errText = await res.text();
-        throw new Error(`Erro ao enviar o texto do PDF: ${errText}`);
+        const errorData = await parseJsonResponse(res).catch(() => ({}));
+        throw new Error(errorData.error || `Erro ao enviar o texto do PDF (${res.status})`);
       }
 
       const data = await parseJsonResponse(res);
@@ -87,21 +87,15 @@ export async function uploadDocuments(
       formData.append('extracted_text', clientExtractedText);
     }
 
-    const res = await fetch('/api/documents', {
+    const res = await robustFetch('/api/documents', {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${token}` },
       body: formData
     });
 
     if (!res.ok) {
-      const errText = await res.text();
-      let errData;
-      try {
-        errData = JSON.parse(errText);
-      } catch(e) {
-        errData = { error: errText };
-      }
-      throw new Error(errData.error || `Erro ao enviar o arquivo "${file.name}"`);
+      const errorData = await parseJsonResponse(res).catch(() => ({}));
+      throw new Error(errorData.error || `Erro ao enviar o arquivo "${file.name}" (${res.status})`);
     }
     
     const data = await parseJsonResponse(res);
@@ -120,7 +114,7 @@ export async function linkDocuments(
   propertyId: string, 
   token: string
 ) {
-  const res = await fetch('/api/documents/link', {
+  const res = await robustFetch('/api/documents/link', {
     method: 'PUT',
     headers: { 
       'Authorization': `Bearer ${token}`,
@@ -129,7 +123,10 @@ export async function linkDocuments(
     body: JSON.stringify({ temp_property_id: tempPropertyId, property_id: propertyId })
   });
 
-  if (!res.ok) throw new Error("Erro ao vincular documentos");
+  if (!res.ok) {
+    const errorData = await parseJsonResponse(res).catch(() => ({}));
+    throw new Error(errorData.error || "Erro ao vincular documentos");
+  }
   
   return await parseJsonResponse(res);
 }
@@ -138,12 +135,15 @@ export async function deleteDocument(
   documentId: string, 
   token: string
 ) {
-  const res = await fetch(`/api/documents/${documentId}`, {
+  const res = await robustFetch(`/api/documents/${documentId}`, {
     method: 'DELETE',
     headers: { 'Authorization': `Bearer ${token}` }
   });
 
-  if (!res.ok) throw new Error("Erro ao deletar documento");
+  if (!res.ok) {
+    const errorData = await parseJsonResponse(res).catch(() => ({}));
+    throw new Error(errorData.error || "Erro ao deletar documento");
+  }
   
   return await parseJsonResponse(res);
 }

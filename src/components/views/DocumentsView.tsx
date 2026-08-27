@@ -8,6 +8,7 @@ import {
 import { cn } from '../../lib/utils';
 import { Property } from '../../types';
 import { uploadDocuments } from '../../services/documentService';
+import { parseJsonResponse, robustFetch } from '../../services/apiService';
 
 interface Document {
   id: string;
@@ -62,13 +63,16 @@ export function DocumentsView({ token, properties, onSelectProperty }: Documents
   const fetchDocuments = async () => {
     try {
       setLoading(true);
-      const res = await fetch('/api/all-documents', {
+      const res = await robustFetch('/api/all-documents', {
         headers: {
           'Authorization': `Bearer ${token}`
         }
       });
-      if (!res.ok) throw new Error('Não foi possível carregar o repositório de documentos.');
-      const data = await res.json();
+      if (!res.ok) {
+        const errData = await parseJsonResponse(res).catch(() => ({}));
+        throw new Error(errData.error || 'Não foi possível carregar o repositório de documentos.');
+      }
+      const data = await parseJsonResponse(res);
       setDocuments(data);
     } catch (err: any) {
       setError(err.message || 'Erro ao carregar documentos.');
@@ -87,11 +91,14 @@ export function DocumentsView({ token, properties, onSelectProperty }: Documents
     try {
       setIsDeleting(true);
       setError(null);
-      const res = await fetch(`/api/documents/${id}`, {
+      const res = await robustFetch(`/api/documents/${id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });
-      if (!res.ok) throw new Error('Erro ao excluir documento.');
+      if (!res.ok) {
+        const errData = await parseJsonResponse(res).catch(() => ({}));
+        throw new Error(errData.error || 'Erro ao excluir documento.');
+      }
       
       setDocumentToDelete(null);
       setSuccessMsg('Documento excluído com sucesso.');
@@ -110,11 +117,14 @@ export function DocumentsView({ token, properties, onSelectProperty }: Documents
     try {
       setIsClearingAll(true);
       setError(null);
-      const res = await fetch('/api/documents-clear', {
+      const res = await robustFetch('/api/documents-clear', {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });
-      if (!res.ok) throw new Error('Erro ao limpar repositório.');
+      if (!res.ok) {
+        const errData = await parseJsonResponse(res).catch(() => ({}));
+        throw new Error(errData.error || 'Erro ao limpar repositório.');
+      }
       
       setShowClearAllModal(false);
       setSuccessMsg('Repositório limpo com sucesso! Todos os arquivos foram apagados.');
@@ -333,12 +343,12 @@ export function DocumentsView({ token, properties, onSelectProperty }: Documents
                           e.stopPropagation();
                           setTranscribingId(doc.id);
                           try {
-                            const res = await fetch(`/api/documents/${doc.id}/transcribe`, {
+                            const res = await robustFetch(`/api/documents/${doc.id}/transcribe`, {
                               method: 'POST',
                               headers: { 'Authorization': `Bearer ${token}` }
                             });
                             if (!res.ok) {
-                              const errData = await res.json().catch(() => ({}));
+                              const errData = await parseJsonResponse(res).catch(() => ({}));
                               throw new Error(errData.error || "Erro na transcrição");
                             }
                             setSuccessMsg("Documento transcrevido em Markdown com sucesso!");

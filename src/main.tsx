@@ -11,30 +11,34 @@ if (typeof window !== 'undefined') {
     if (originalFetch) {
       const customFetch = async function (input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
         let attempts = 0;
-        const maxAttempts = 4; // Allow up to 4 attempts for slower reboots
-        const delayMs = 1500;
+        const maxAttempts = 3;
+        const delayMs = 1000;
+
+        // Determine URL string
+        let urlStr = '';
+        if (typeof input === 'string') {
+          urlStr = input;
+        } else if (input instanceof URL) {
+          urlStr = input.href;
+        } else if (input && typeof input === 'object' && 'url' in input) {
+          urlStr = (input as any).url;
+        }
+
+        const isApiRequest = urlStr.includes('/api/');
 
         while (attempts < maxAttempts) {
           try {
             const response = await originalFetch(input, init);
             
-            // Determine URL string
-            let urlStr = '';
-            if (typeof input === 'string') {
-              urlStr = input;
-            } else if (input instanceof URL) {
-              urlStr = input.href;
-            } else if (input && typeof input === 'object' && 'url' in input) {
-              urlStr = (input as any).url;
-            }
-
-            const isApiRequest = urlStr.includes('/api/');
-            
             if (isApiRequest) {
               const contentType = response.headers.get('content-type') || '';
               if (contentType.toLowerCase().includes('text/html')) {
-                // If the request was successful or partially completed, check if we received HTML instead of JSON
-                // This typically occurs during proxy redirects or server container startup phases
+                // Bypass retries for authentication codes (401, 403)
+                if (response.status === 401 || response.status === 403) {
+                  return response;
+                }
+
+                // If the request returned HTML on an API endpoint (e.g. proxy starting up), retry
                 const clonedResponse = response.clone();
                 const text = await clonedResponse.text();
                 const trimmed = text.trim();
@@ -46,11 +50,6 @@ if (typeof window !== 'undefined') {
                                lowerTrimmed.startsWith('<');
                 
                 if (isHtml) {
-                  // Bypass retries for authentication codes (401, 403)
-                  if (response.status === 401 || response.status === 403) {
-                    return response;
-                  }
-                  
                   console.warn(`[Resilience] API call returned HTML on status ${response.status}. Retrying (${attempts + 1}/${maxAttempts}) in ${delayMs}ms for: ${urlStr}`);
                   attempts++;
                   if (attempts >= maxAttempts) {
@@ -64,12 +63,19 @@ if (typeof window !== 'undefined') {
             
             return response;
           } catch (error: any) {
-            console.warn(`[Resilience] Network/Connection error. Retrying (${attempts + 1}/${maxAttempts}) in ${delayMs}ms. Error:`, error);
-            attempts++;
-            if (attempts >= maxAttempts) {
-              throw error;
+            const isNetworkError = error instanceof TypeError || (error?.message && (error.message.includes('fetch') || error.message.includes('network') || error.message.includes('Failed to fetch')));
+            
+            if (isNetworkError && attempts < maxAttempts - 1) {
+              console.warn(`[Resilience] Network error for ${urlStr || 'request'}. Retrying (${attempts + 1}/${maxAttempts}) in ${delayMs}ms...`);
+              attempts++;
+              await new Promise(resolve => setTimeout(resolve, delayMs));
+              continue;
             }
-            await new Promise(resolve => setTimeout(resolve, delayMs));
+            
+            if (isNetworkError && isApiRequest) {
+              throw new Error("Erro de conexão temporário com o servidor. Por favor, tente novamente em instantes.");
+            }
+            throw error;
           }
         }
         
