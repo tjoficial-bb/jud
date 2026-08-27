@@ -1,4 +1,4 @@
-import { parseJsonResponse } from './apiService';
+import { parseJsonResponse, robustFetch } from './apiService';
 
 /**
  * Lightweight client-side proxy service for AI features.
@@ -27,7 +27,7 @@ export const analyzeAuctionDocuments = async (
   }
 
   try {
-    const res = await fetch("/api/ai/analyze", {
+    const res = await robustFetch("/api/ai/analyze", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -72,7 +72,7 @@ export const analyzeAuctionDocuments = async (
         (window as any).customToast(`Servidores do modelo sob alta demanda. Redirecionando automaticamente para ${fallbackTarget}...`, "info");
       }
       
-      const retryRes = await fetch("/api/ai/analyze", {
+      const retryRes = await robustFetch("/api/ai/analyze", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -99,7 +99,7 @@ export const generateProcessStory = async (
   apiKey?: string
 ) => {
   const token = localStorage.getItem("token") || "";
-  const res = await fetch("/api/ai/story", {
+  const res = await robustFetch("/api/ai/story", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -131,7 +131,7 @@ export const sendChatMessage = async (
   }
 
   try {
-    const res = await fetch("/api/ai/chat", {
+    const res = await robustFetch("/api/ai/chat", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -176,7 +176,7 @@ export const sendChatMessage = async (
         (window as any).customToast(`Servidores sob alta demanda temporária. Redirecionando chat para ${fallbackTarget}...`, "info");
       }
       
-      const retryRes = await fetch("/api/ai/chat", {
+      const retryRes = await robustFetch("/api/ai/chat", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
