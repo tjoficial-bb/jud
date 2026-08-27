@@ -708,7 +708,7 @@ try {
 async function startServer() {
   console.log("Iniciando startServer...");
   const app = express();
-  const PORT = Number(process.env.PORT) || 3000;
+  const PORT = 3000;
 
   // Global CORS and Preflight headers to support all environments, iframes and clients
   app.use((req, res, next) => {

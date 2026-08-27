@@ -120,33 +120,99 @@ export function renderTextWithLeafBadges(text: any) {
   if (!text) return null;
   const strText = typeof text === 'string'
     ? text
-    : (Array.isArray(text) ? text.join('\n') : (typeof text === 'object' ? JSON.stringify(text) : String(text)));
+    : (Array.isArray(text) ? text.join('\n\n') : (typeof text === 'object' ? JSON.stringify(text) : String(text)));
 
   if (!strText || strText.trim() === '') return null;
 
-  const regex = /(fls?\.\s*\d+(?:\s*[-–a]\s*\d+)?(?:\s*e\s*\d+)?|folhas?\s*\d+(?:\s*[-–a]\s*\d+)?(?:\s*e\s*\d+)?|págs?\.\s*\d+(?:\s*[-–a]\s*\d+)?|Av\.\s*\d+|R\.\s*\d+(?:\/\d+)?)/gi;
+  const rawLines = strText.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
 
-  const parts = strText.split(regex);
-  if (parts.length === 1) return strText;
+  const highlightTokens = (rawStr: string, keyPrefix: string) => {
+    const tokenRegex = /(fls?\.\s*\d+(?:\s*[-–a]\s*\d+)?(?:\s*e\s*\d+)?|folhas?\s*\d+(?:\s*[-–a]\s*\d+)?(?:\s*e\s*\d+)?|págs?\.\s*\d+(?:\s*[-–a]\s*\d+)?|Av\.\s*\d+(?:\/\d+)?|R\.\s*\d+(?:\/\d+)?|Evento\s*\d+(?:\s*[-–a]\s*\d+)?|Eventos\s*\d+(?:\s*[-–a]\s*\d+)?|1º\s*CRI(?:\/RTD)?|2º\s*CRI(?:\/RTD)?|3º\s*CRI(?:\/RTD)?|\bCRI\b|art\.\s*\d+[\w\s\.\/]*(?:Lei\s*[\d\.]+)?)/gi;
+    
+    const parts = rawStr.split(tokenRegex);
+    if (parts.length === 1) return rawStr;
+
+    return (
+      <span key={keyPrefix}>
+        {parts.map((part, idx) => {
+          if (tokenRegex.test(part)) {
+            const isEvent = /evento/i.test(part);
+            const isLaw = /art\./i.test(part);
+            const isCri = /cri/i.test(part);
+            return (
+              <span 
+                key={`${keyPrefix}-${idx}`} 
+                className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-mono font-bold mx-0.5 shadow-xs align-baseline ${
+                  isEvent 
+                    ? 'bg-blue-100 dark:bg-blue-950/70 text-blue-900 dark:text-blue-200 border border-blue-300 dark:border-blue-700/80'
+                    : isLaw
+                      ? 'bg-purple-100 dark:bg-purple-950/70 text-purple-900 dark:text-purple-200 border border-purple-300 dark:border-purple-700/80'
+                      : isCri
+                        ? 'bg-emerald-100 dark:bg-emerald-950/70 text-emerald-900 dark:text-emerald-200 border border-emerald-300 dark:border-emerald-700/80'
+                        : 'bg-amber-100 dark:bg-amber-950/70 text-amber-900 dark:text-amber-200 border border-amber-300 dark:border-amber-700/80'
+                }`}
+                title={isEvent ? "Evento Processual" : isLaw ? "Dispositivo Legal" : "Localização do Documento no Processo / Matrícula"}
+              >
+                <FileText size={11} className="shrink-0 opacity-80" />
+                {part}
+              </span>
+            );
+          }
+          return part;
+        })}
+      </span>
+    );
+  };
+
+  const renderFormattedInline = (lineStr: string, lineKey: string) => {
+    const boldParts = lineStr.split(/(\*\*[^*]+\*\*)/g);
+    if (boldParts.length === 1) {
+      return highlightTokens(lineStr, `${lineKey}-0`);
+    }
+
+    return (
+      <span key={lineKey}>
+        {boldParts.map((bPart, bIdx) => {
+          if (bPart.startsWith('**') && bPart.endsWith('**')) {
+            const boldInner = bPart.slice(2, -2);
+            return (
+              <strong key={`${lineKey}-b-${bIdx}`} className="font-bold text-brand-ink">
+                {highlightTokens(boldInner, `${lineKey}-b-${bIdx}-inner`)}
+              </strong>
+            );
+          }
+          return highlightTokens(bPart, `${lineKey}-txt-${bIdx}`);
+        })}
+      </span>
+    );
+  };
 
   return (
-    <span>
-      {parts.map((part, index) => {
-        if (regex.test(part)) {
+    <div className="space-y-3">
+      {rawLines.map((line, lIdx) => {
+        const numMatch = line.match(/^(\d+[\.\)]|\•|\-)\s+(.*)$/);
+        if (numMatch) {
+          const marker = numMatch[1];
+          const rest = numMatch[2];
           return (
-            <span 
-              key={index} 
-              className="inline-flex items-center gap-1 bg-amber-100 dark:bg-amber-950/70 text-amber-900 dark:text-amber-200 border border-amber-300 dark:border-amber-700/80 px-1.5 py-0.5 rounded text-[11px] font-mono font-bold mx-0.5 shadow-xs align-baseline"
-              title="Localização do Documento no Processo / Matrícula"
-            >
-              <FileText size={11} className="text-amber-700 dark:text-amber-400 shrink-0" />
-              {part}
-            </span>
+            <div key={lIdx} className="flex items-start gap-2.5 leading-relaxed text-brand-ink/90 font-sans">
+              <span className="shrink-0 font-bold text-brand-ink text-xs select-none pt-0.5">
+                {marker}
+              </span>
+              <div className="flex-1 text-xs leading-relaxed">
+                {renderFormattedInline(rest, `line-${lIdx}`)}
+              </div>
+            </div>
           );
         }
-        return part;
+
+        return (
+          <div key={lIdx} className="text-xs leading-relaxed text-brand-ink/90 font-sans">
+            {renderFormattedInline(line, `line-${lIdx}`)}
+          </div>
+        );
       })}
-    </span>
+    </div>
   );
 }
 
@@ -593,13 +659,16 @@ export default function SmartAnalysisTab({
     return { current: count, total: 1 };
   };
 
-  const handleInsertTemplate = (templateText: string) => {
+  const handleInsertTemplate = (title: string, bodyText: string) => {
     setLocalData(prev => {
       const rawCurrent = prev.comentarios_importantes;
       const current = typeof rawCurrent === 'string' 
         ? rawCurrent.trim() 
         : (rawCurrent ? String(rawCurrent).trim() : '');
-      const updated = current ? `${current}\n\n${templateText}` : templateText;
+      const existingMatches = current.match(/(?:^|\n)\s*(\d+)[\.\)]\s+/g) || [];
+      const nextNum = existingMatches.length + 1;
+      const newEntry = `${nextNum}. **${title}:** ${bodyText}`;
+      const updated = current ? `${current}\n\n${newEntry}` : newEntry;
       return { ...prev, comentarios_importantes: updated };
     });
   };
@@ -2078,7 +2147,7 @@ export default function SmartAnalysisTab({
           aiAction={renderSectionAIButton('comentarios_importantes')}
           badge={renderProgressBadge(countComentarios().current, countComentarios().total)}
         >
-          {/* Banner de Orientação & Propósito Prático */}
+          {/* Banner de Orientação & Padrão Estruturado */}
           <div className="bg-amber-500/10 border border-amber-500/25 rounded-2xl p-4 space-y-3">
             <div className="flex items-start gap-3">
               <div className="p-2 bg-amber-500/20 text-amber-900 dark:text-amber-300 rounded-xl shrink-0 mt-0.5">
@@ -2086,26 +2155,26 @@ export default function SmartAnalysisTab({
               </div>
               <div className="space-y-1">
                 <h6 className="text-xs font-bold text-amber-900 dark:text-amber-300 uppercase tracking-wider">
-                  Cruzamento Analítico de Fontes & Informações que Agregam Valor
+                  Cruzamento Analítico & Padrão de Comentários Estruturados
                 </h6>
                 <p className="text-xs text-brand-ink/80 leading-relaxed">
-                  Utilize este espaço para registrar ou extrair com IA observações cirúrgicas que fazem a diferença na tomada de decisão do investidor, comparando <strong>Página do Leiloeiro / Edital</strong> com <strong>Matrícula (CRI)</strong>, <strong>Guia de IPTU</strong> e <strong>Processo Judicial</strong>.
+                  Os comentários devem manter a <strong>organização numerada com títulos em destaque</strong>, confrontando os fatos entre <strong>Edital/Página do Leiloeiro</strong>, <strong>Matrícula (CRI)</strong>, <strong>IPTU/Prefeitura</strong> e <strong>Processo Judicial (Eventos e Folhas)</strong>.
                 </p>
               </div>
             </div>
 
-            {/* Exemplos Práticos */}
+            {/* Guia de Estrutura Padrão */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-[11px] pt-1 text-brand-ink/75">
               <div className="p-2.5 bg-brand-bg/60 rounded-xl border border-amber-500/20 flex gap-2 items-start">
-                <span className="text-amber-600 font-bold shrink-0">Exemplo 1:</span>
+                <span className="text-amber-600 font-bold shrink-0">1 & 2:</span>
                 <span>
-                  <strong>Divergência de Metragem:</strong> Na página do leiloeiro consta 100m² de área construída, mas na Matrícula (R.03) ou na guia de IPTU consta 150m² (área real superior / valorização oculta).
+                  <strong>Regularidade & Decisões:</strong> Validação de notificações (comprovantes e assinaturas no CRI/RTD) e decisões judiciais (despachos, liminares e situação do certame).
                 </span>
               </div>
               <div className="p-2.5 bg-brand-bg/60 rounded-xl border border-amber-500/20 flex gap-2 items-start">
-                <span className="text-amber-600 font-bold shrink-0">Exemplo 2:</span>
+                <span className="text-amber-600 font-bold shrink-0">3 & 4:</span>
                 <span>
-                  <strong>Validação de Notificação:</strong> Devedor alega nos embargos que não foi notificado, porém às fls. 142 e Av.05 da matrícula consta certidão de intimação pessoal realizada com êxito.
+                  <strong>Divergência & Desocupação:</strong> Confronto de áreas/metragens (Edital x Matrícula x Prefeitura) e aspecto social/saúde do ocupante com previsão de acordo ou imissão (Lei 9.514/97).
                 </span>
               </div>
             </div>
@@ -2114,52 +2183,60 @@ export default function SmartAnalysisTab({
           {/* Modelos Rápidos / Atalhos de Inserção */}
           <div className="space-y-2 pt-1">
             <label className="text-[10px] font-bold text-brand-ink/60 uppercase tracking-wider flex items-center gap-1.5">
-              <Plus size={12} className="text-brand-primary" /> Modelos Rápidos para Adicionar aos Comentários:
+              <Plus size={12} className="text-brand-primary" /> Inserir Tópico Estruturado (Numeração Automática):
             </label>
             <div className="flex flex-wrap gap-2">
               <button
                 type="button"
-                onClick={() => handleInsertTemplate("• DIVERGÊNCIA DE METRAGEM: No portal do leiloeiro/edital consta área de [X] m², porém na Matrícula (Av./R. [X]) e cadastro de IPTU constam [Y] m² de área construída/privativa.")}
+                onClick={() => handleInsertTemplate("Regularidade da Notificação", "Embora a petição inicial da Anulatória sustente falta de intimação prévia para purgação da mora, no Evento [X] / fls. [Y] a própria autora acostou o comprovante de notificação do 1º CRI/RTD devidamente assinado por ela em [DD/MM/AAAA].")}
                 className="px-3 py-1.5 bg-brand-bg hover:bg-brand-primary/15 border border-brand-border hover:border-brand-primary/40 rounded-xl text-[11px] font-semibold text-brand-ink transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
               >
-                <span>📐</span> Divergência de Metragem (Edital x Matrícula/IPTU)
+                <span>📬</span> 1. Regularidade da Notificação
               </button>
 
               <button
                 type="button"
-                onClick={() => handleInsertTemplate("• VALIDAÇÃO DE INTIMAÇÃO/NOTIFICAÇÃO: Embora o executado alegue vício de intimação, consta nos autos às fls. [X] e certidão do Oficial de Justiça a devida notificação pessoal do devedor e seu cônjuge.")}
+                onClick={() => handleInsertTemplate("Decisão Judicial", "Em despacho proferido em [DD/MM/AAAA] (Evento [X]), a Juíza determinou a regularização do pedido antes de apreciar a tutela de urgência, não havendo suspensão formal do leilão até o momento.")}
                 className="px-3 py-1.5 bg-brand-bg hover:bg-brand-primary/15 border border-brand-border hover:border-brand-primary/40 rounded-xl text-[11px] font-semibold text-brand-ink transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
               >
-                <span>📬</span> Validação de Intimação / Notificação
+                <span>⚖️</span> 2. Decisão Judicial
               </button>
 
               <button
                 type="button"
-                onClick={() => handleInsertTemplate("• DIVERGÊNCIA DE ENDEREÇO/NUMERAÇÃO: O número predial indicado no edital (Nº [X]) difere da numeração averbada na matrícula (Nº [Y]), necessitando mera atualização cadastral pós-arrematação.")}
+                onClick={() => handleInsertTemplate("Divergência de Área", "Identificou-se que a descrição do edital do leilão aponta uma área construída de [X]m², enquanto o documento oficial da Prefeitura (em anexo) registra o total de [Y]m², o que configura uma inconsistência formal no anúncio do certame.")}
                 className="px-3 py-1.5 bg-brand-bg hover:bg-brand-primary/15 border border-brand-border hover:border-brand-primary/40 rounded-xl text-[11px] font-semibold text-brand-ink transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
               >
-                <span>📍</span> Divergência de Endereço / Numeração
+                <span>📐</span> 3. Divergência de Área
               </button>
 
               <button
                 type="button"
-                onClick={() => handleInsertTemplate("• INCONSISTÊNCIA DE AVALIAÇÃO: O laudo pericial (fls. [X]) avaliou o imóvel em R$ [X], valor substancialmente abaixo do mercado atual da região, propiciando excelente margem de segurança.")}
+                onClick={() => handleInsertTemplate("Aspecto Social e Desocupação", "Pelo estado de vulnerabilidade do ocupante, sugere-se provisionar prazo de 6 a 12 meses e tentar acordo de desocupação amigável ou suporte para transição, minimizando impactos processuais em eventual pedido liminar de imissão de posse (art. 30 da Lei 9.514/97).")}
                 className="px-3 py-1.5 bg-brand-bg hover:bg-brand-primary/15 border border-brand-border hover:border-brand-primary/40 rounded-xl text-[11px] font-semibold text-brand-ink transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
               >
-                <span>💰</span> Inconsistência de Avaliação (Laudo x Mercado)
+                <span>🤝</span> 4. Aspecto Social e Desocupação
               </button>
 
               <button
                 type="button"
-                onClick={() => handleInsertTemplate("• VAGAS DE GARAGEM / FRAÇÃO IDEAL: O imóvel possui vaga(s) de garagem com matrícula autônoma (Nº [X]) ou vinculada à fração ideal, descrita às fls. [X].")}
+                onClick={() => handleInsertTemplate("Inconsistência de Avaliação", "O laudo pericial (fls. [X]) avaliou o imóvel em R$ [X], valor substancialmente abaixo do mercado atual da região, propiciando excelente margem de segurança ao investidor.")}
                 className="px-3 py-1.5 bg-brand-bg hover:bg-brand-primary/15 border border-brand-border hover:border-brand-primary/40 rounded-xl text-[11px] font-semibold text-brand-ink transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
               >
-                <span>🚗</span> Vagas de Garagem / Matrícula Autônoma
+                <span>💰</span> Inconsistência de Avaliação
               </button>
 
               <button
                 type="button"
-                onClick={() => handleInsertTemplate("• BENFEITORIAS NÃO AVERBADAS: Constatada a existência de edificação/reforma substancial no terreno que ainda não foi formalmente averbada na matrícula imobiliária.")}
+                onClick={() => handleInsertTemplate("Vagas de Garagem / Fração Ideal", "O imóvel possui vaga(s) de garagem com matrícula autônoma (Nº [X]) ou vinculada à fração ideal, descrita às fls. [X] e na certidão do CRI.")}
+                className="px-3 py-1.5 bg-brand-bg hover:bg-brand-primary/15 border border-brand-border hover:border-brand-primary/40 rounded-xl text-[11px] font-semibold text-brand-ink transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
+              >
+                <span>🚗</span> Vagas de Garagem
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleInsertTemplate("Benfeitorias Não Averbadas", "Constatada a existência de edificação/reforma substancial no terreno que ainda não foi formalmente averbada na matrícula imobiliária.")}
                 className="px-3 py-1.5 bg-brand-bg hover:bg-brand-primary/15 border border-brand-border hover:border-brand-primary/40 rounded-xl text-[11px] font-semibold text-brand-ink transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
               >
                 <span>🛠️</span> Benfeitorias Não Averbadas
@@ -2171,7 +2248,7 @@ export default function SmartAnalysisTab({
           <div className="flex flex-col gap-2 pt-2">
             <div className="flex items-center justify-between">
               <label className="text-[10px] font-bold text-brand-ink/60 uppercase tracking-wider flex items-center gap-1.5">
-                <FileText size={12} /> Comentários Importantes, Divergências & Destaques da Análise:
+                <FileText size={12} /> Comentários Importantes & Cruzamento de Dados (Estrutura Numerada):
               </label>
               <div className="flex items-center gap-2">
                 {localData.comentarios_importantes && (
@@ -2201,18 +2278,24 @@ export default function SmartAnalysisTab({
             <textarea
               value={localData.comentarios_importantes || ''}
               onChange={e => handleChange('comentarios_importantes', e.target.value)}
-              placeholder="Exemplo de comentários relevantes:&#10;• Divergência de Área: Na página do leiloeiro consta 100m² de área construída, porém na Matrícula (R.03) e na guia de IPTU constam 150m² de área construída.&#10;• Notificação: O devedor alega falta de notificação, mas na matrícula (Av.05) e no processo (fls. 142) consta a intimação pessoal regular com certidão positiva do oficial.&#10;• Inscrição IPTU: Inscrição Imobiliária municipal localizada no carnê confere com os registros do CRI."
-              rows={7}
+              placeholder={`1. **Regularidade da Notificação:** Embora a petição inicial da Anulatória sustente falta de intimação prévia para purgação da mora, no Evento 8 a própria autora acostou o comprovante de notificação do 1º CRI/RTD devidamente assinado por ela em 13/05/2026.
+
+2. **Decisão Judicial:** Em despacho proferido em 26/08/2026 (Evento 5), a Juíza determinou a regularização do pedido de justiça gratuita antes de apreciar a tutela de urgência, não havendo suspensão formal do leilão até o momento.
+
+3. **Divergência de Área:** Identificou-se que a descrição do edital do leilão aponta uma área construída de 111m², enquanto o documento oficial da Prefeitura (em anexo) registra o total de 174m², o que configura uma inconsistência formal no anúncio do certame.
+
+4. **Aspecto Social e Desocupação:** Pelo estado de saúde vulnerável da ocupante, sugere-se provisionar prazo de 6 a 12 meses e tentar acordo de desocupação amigável ou suporte para transição, minimizando impactos processuais em eventual pedido liminar de imissão de posse (art. 30 da Lei 9.514/97).`}
+              rows={8}
               className="p-4 border border-brand-border bg-brand-bg rounded-2xl outline-none text-xs font-medium resize-y focus:border-brand-primary leading-relaxed shadow-inner"
             />
 
-            {/* Painel de Visualização Formatada com Badges de Folhas */}
+            {/* Painel de Visualização Formatada com Destaques e Badges */}
             {typeof localData.comentarios_importantes === 'string' && localData.comentarios_importantes.trim().length > 0 && (
-              <div className="p-4 bg-brand-bg/40 border border-brand-border/60 rounded-2xl space-y-2">
-                <div className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider flex items-center gap-1.5">
-                  <CheckSquare size={12} className="text-emerald-500" /> Pré-Visualização Formatada (Destaque Automático de Folhas e Averbações):
+              <div className="p-4 bg-brand-bg/50 border border-brand-border/70 rounded-2xl space-y-2.5">
+                <div className="text-[10px] font-bold text-brand-ink/60 uppercase tracking-wider flex items-center gap-1.5">
+                  <CheckSquare size={12} className="text-emerald-500" /> Pré-Visualização Formatada (Tópicos Numerados & Destaques de Eventos/Folhas):
                 </div>
-                <div className="text-xs text-brand-ink/85 leading-relaxed whitespace-pre-wrap font-sans">
+                <div className="p-3 bg-brand-surface rounded-xl border border-brand-border/40 text-xs text-brand-ink leading-relaxed font-sans">
                   {renderTextWithLeafBadges(localData.comentarios_importantes)}
                 </div>
               </div>

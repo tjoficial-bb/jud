@@ -32,7 +32,7 @@ let fallbackServer = null;
 function startFallbackServer(error) {
   if (fallbackServer) return; // Already running
   
-  const PORT = process.env.PORT || 3000;
+  const PORT = 3000;
   logToFile(`Starting fallback server on port ${PORT}...`);
   
   try {
