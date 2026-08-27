@@ -117,6 +117,9 @@ export default function AssessoriaReport({
     if (!onExtractSection) return;
     setExtractingSection(sectionKey);
     try {
+      if (onSave) {
+        await onSave(localData);
+      }
       await onExtractSection(sectionKey);
     } finally {
       setExtractingSection(null);

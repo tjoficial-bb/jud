@@ -4,7 +4,8 @@ import {
   HelpCircle, AlertTriangle, AlertCircle, RefreshCw, Sparkles,
   TrendingUp, Scale, Gavel, User, Home, DollarSign, Calendar,
   Download, Edit3, Info, ChevronDown, ChevronUp, ChevronsUpDown,
-  Maximize2, Minimize2, CheckCircle2, Copy
+  Maximize2, Minimize2, CheckCircle2, Copy, Plus, Trash2,
+  GitCompare, FileCheck2, MessageSquare, Check, Sparkle
 } from 'lucide-react';
 import { DocumentManager } from './DocumentManager';
 import { exportElementToPDF } from '../utils/pdfExporter';
@@ -110,15 +111,23 @@ export interface SmartAnalysisData {
   conjuge_ex_mutuario: string;
   endereco_ex_mutuario: string;
   observacoes_ex_mutuario: string;
+
+  // Comentários Importantes & Divergências de Fontes
+  comentarios_importantes?: string;
 }
 
-export function renderTextWithLeafBadges(text: string | undefined | null) {
+export function renderTextWithLeafBadges(text: any) {
   if (!text) return null;
-  
+  const strText = typeof text === 'string'
+    ? text
+    : (Array.isArray(text) ? text.join('\n') : (typeof text === 'object' ? JSON.stringify(text) : String(text)));
+
+  if (!strText || strText.trim() === '') return null;
+
   const regex = /(fls?\.\s*\d+(?:\s*[-–a]\s*\d+)?(?:\s*e\s*\d+)?|folhas?\s*\d+(?:\s*[-–a]\s*\d+)?(?:\s*e\s*\d+)?|págs?\.\s*\d+(?:\s*[-–a]\s*\d+)?|Av\.\s*\d+|R\.\s*\d+(?:\/\d+)?)/gi;
 
-  const parts = text.split(regex);
-  if (parts.length === 1) return text;
+  const parts = strText.split(regex);
+  if (parts.length === 1) return strText;
 
   return (
     <span>
@@ -139,6 +148,44 @@ export function renderTextWithLeafBadges(text: string | undefined | null) {
       })}
     </span>
   );
+}
+
+export function normalizeSmartAnalysis(raw: any): SmartAnalysisData {
+  const empty = getEmptySmartAnalysis();
+  if (!raw || typeof raw !== 'object') return empty;
+
+  const normalized: any = { ...empty, ...raw };
+
+  const stringFields = [
+    'justificativa', 'justificativa_pessoal', 'observacoes_edital', 'folhas_edital', 'folhas_avaliacao',
+    'observacoes_debitos', 'folhas_debitos', 'observacoes_desocupacao', 'prazo_estimado_desocupacao',
+    'estimativa_prazo_desocupacao', 'folhas_ocupacao', 'observacoes_matricula', 'folhas_penhora_matricula',
+    'data_consolidacao', 'observacoes_consolidacao', 'folhas_consolidacao', 'observacoes_nulidade',
+    'folhas_citacao', 'folhas_intimacao_leilao', 'nome_ocupante', 'cpf_ocupante', 'telefone_ocupante',
+    'tempo_ocupacao', 'relacao_ex_mutuario', 'observacoes_ocupacao', 'numero_matricula',
+    'cadastro_imobiliario', 'cartorio_registro', 'observacoes_imovel', 'nome_ex_mutuario',
+    'cpf_ex_mutuario', 'estado_civil_ex_mutuario', 'profissao_ex_mutuario', 'conjuge_ex_mutuario',
+    'endereco_ex_mutuario', 'observacoes_ex_mutuario', 'comentarios_importantes'
+  ];
+
+  for (const field of stringFields) {
+    const val = normalized[field];
+    if (val !== undefined && val !== null) {
+      if (typeof val !== 'string') {
+        if (Array.isArray(val)) {
+          normalized[field] = val.map((v: any) => typeof v === 'string' ? v : JSON.stringify(v)).join('\n');
+        } else if (typeof val === 'object') {
+          normalized[field] = JSON.stringify(val, null, 2);
+        } else {
+          normalized[field] = String(val);
+        }
+      }
+    } else {
+      normalized[field] = '';
+    }
+  }
+
+  return normalized;
 }
 
 export const getEmptySmartAnalysis = (): SmartAnalysisData => ({
@@ -235,6 +282,9 @@ export const getEmptySmartAnalysis = (): SmartAnalysisData => ({
   conjuge_ex_mutuario: '',
   endereco_ex_mutuario: '',
   observacoes_ex_mutuario: '',
+
+  // Comentários Importantes & Divergências de Fontes
+  comentarios_importantes: '',
 });
 
 interface SmartAnalysisTabProps {
@@ -343,7 +393,7 @@ export default function SmartAnalysisTab({
   onTranscribe,
   uploading
 }: SmartAnalysisTabProps) {
-  const [localData, setLocalData] = React.useState<SmartAnalysisData>(data || getEmptySmartAnalysis());
+  const [localData, setLocalData] = React.useState<SmartAnalysisData>(normalizeSmartAnalysis(data));
   const [isSaving, setIsSaving] = React.useState(false);
   const [isEditingParecer, setIsEditingParecer] = React.useState(false);
   const [extractingSection, setExtractingSection] = React.useState<string | null>(null);
@@ -386,6 +436,9 @@ export default function SmartAnalysisTab({
     if (!onExtractSection) return;
     setExtractingSection(sectionKey);
     try {
+      if (onSave) {
+        await onSave(localData);
+      }
       await onExtractSection(sectionKey);
     } finally {
       setExtractingSection(null);
@@ -416,7 +469,7 @@ export default function SmartAnalysisTab({
 
   React.useEffect(() => {
     if (data) {
-      setLocalData(data);
+      setLocalData(normalizeSmartAnalysis(data));
     }
   }, [data]);
 
@@ -529,6 +582,26 @@ export default function SmartAnalysisTab({
     if (localData.profissao_ex_mutuario && localData.profissao_ex_mutuario.trim() !== '') count++;
     if (localData.endereco_ex_mutuario && localData.endereco_ex_mutuario.trim() !== '') count++;
     return { current: count, total: 5 };
+  };
+
+  const countComentarios = () => {
+    let count = 0;
+    const txt = typeof localData.comentarios_importantes === 'string' 
+      ? localData.comentarios_importantes 
+      : (localData.comentarios_importantes ? String(localData.comentarios_importantes) : '');
+    if (txt.trim().length > 10) count++;
+    return { current: count, total: 1 };
+  };
+
+  const handleInsertTemplate = (templateText: string) => {
+    setLocalData(prev => {
+      const rawCurrent = prev.comentarios_importantes;
+      const current = typeof rawCurrent === 'string' 
+        ? rawCurrent.trim() 
+        : (rawCurrent ? String(rawCurrent).trim() : '');
+      const updated = current ? `${current}\n\n${templateText}` : templateText;
+      return { ...prev, comentarios_importantes: updated };
+    });
   };
 
   const renderProgressBadge = (current: number, total: number) => {
@@ -1984,77 +2057,232 @@ export default function SmartAnalysisTab({
           </div>
         </CollapsibleCard>
 
-        {/* CARD: Comentários e Observações Críticas (Collapsible) */}
+        {/* CARD: Comentários Importantes, Divergências e Cruzamento de Fontes (Collapsible) */}
         <CollapsibleCard
           id="card-comentarios-criticos"
-          title="Comentários e Observações Críticas (Matrícula, Edital e Processo)"
-          icon={<CheckSquare size={18} />}
+          title="Comentários Importantes & Cruzamento de Fontes (Divergências, Inconsistências e Alertas Estratégicos)"
+          icon={<Sparkles size={18} className="text-amber-500" />}
           summaryPreview={
-            <span>
-              4 pareceres automatizados de segurança registral, responsabilidades tributárias, estabilidade e plano de posse
-            </span>
+            (typeof localData.comentarios_importantes === 'string' && localData.comentarios_importantes.trim().length > 0) ? (
+              <span className="truncate max-w-xl text-brand-ink font-medium">
+                {localData.comentarios_importantes.replace(/\n+/g, ' ').slice(0, 100)}...
+              </span>
+            ) : (
+              <span>
+                Cruzamento de fontes: divergências de metragem (edital vs matrícula/IPTU), validação de notificações alegadas e alertas
+              </span>
+            )
           }
           isOpen={openSections.comentarios}
           onToggle={() => toggleSection('comentarios')}
+          aiAction={renderSectionAIButton('comentarios_importantes')}
+          badge={renderProgressBadge(countComentarios().current, countComentarios().total)}
         >
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Comentário 1 */}
-            <div className="p-5 bg-brand-bg/25 border border-brand-border/40 rounded-2xl flex gap-4 items-start hover:border-brand-primary/25 transition-all">
-              <span className="shrink-0 flex items-center justify-center w-8 h-8 rounded-xl bg-brand-primary/15 text-brand-primary text-xs font-bold font-mono">
-                01
-              </span>
+          {/* Banner de Orientação & Propósito Prático */}
+          <div className="bg-amber-500/10 border border-amber-500/25 rounded-2xl p-4 space-y-3">
+            <div className="flex items-start gap-3">
+              <div className="p-2 bg-amber-500/20 text-amber-900 dark:text-amber-300 rounded-xl shrink-0 mt-0.5">
+                <FileCheck2 size={18} />
+              </div>
               <div className="space-y-1">
-                <h6 className="text-xs font-bold text-brand-ink uppercase tracking-wide font-sans">Observações da Matrícula (Gravames)</h6>
-                <p className="text-xs text-brand-ink/75 leading-relaxed font-sans">
-                  {localData.tem_penhora || localData.tem_hipoteca || localData.alienacao_fiduciaria || localData.tem_onus
-                    ? "Comentário: Existem ônus, penhoras ou gravames averbados na matrícula. Embora a arrematação judicial cancele as penhoras anteriores, é fundamental peticionar nos autos requerendo expressamente a expedição de ofícios para baixa de todos os gravames fiduciários e penhoras junto ao Cartório de Registro de Imóveis."
-                    : "Comentário: A matrícula analisada não apresenta ônus ou penhoras registradas até o momento, indicando uma situação registral altamente favorável e menor burocracia para registro pós-arrematação."}
+                <h6 className="text-xs font-bold text-amber-900 dark:text-amber-300 uppercase tracking-wider">
+                  Cruzamento Analítico de Fontes & Informações que Agregam Valor
+                </h6>
+                <p className="text-xs text-brand-ink/80 leading-relaxed">
+                  Utilize este espaço para registrar ou extrair com IA observações cirúrgicas que fazem a diferença na tomada de decisão do investidor, comparando <strong>Página do Leiloeiro / Edital</strong> com <strong>Matrícula (CRI)</strong>, <strong>Guia de IPTU</strong> e <strong>Processo Judicial</strong>.
                 </p>
               </div>
             </div>
 
-            {/* Comentário 2 */}
-            <div className="p-5 bg-brand-bg/25 border border-brand-border/40 rounded-2xl flex gap-4 items-start hover:border-brand-primary/25 transition-all">
-              <span className="shrink-0 flex items-center justify-center w-8 h-8 rounded-xl bg-brand-primary/15 text-brand-primary text-xs font-bold font-mono">
-                02
-              </span>
-              <div className="space-y-1">
-                <h6 className="text-xs font-bold text-brand-ink uppercase tracking-wide font-sans">Observações do Edital (Responsabilidades)</h6>
-                <p className="text-xs text-brand-ink/75 leading-relaxed font-sans">
-                  {localData.responsabilidade_iptu === 'Comprador' || localData.responsabilidade_condominio === 'Comprador'
-                    ? "Comentário: Atenção! O Edital atribui explicitamente ao arrematante a responsabilidade pelo pagamento de débitos anteriores de condomínio ou IPTU. Esses passivos devem ser rigorosamente provisionados e deduzidos do seu lance máximo para manter a margem de lucro intacta."
-                    : "Comentário: O edital prevê a sub-rogação de débitos fiscais (IPTU) sobre o preço da arrematação (conforme Art. 130, parágrafo único do CTN). O arrematante receberá o imóvel livre dessas pendências tributárias anteriores."}
-                </p>
+            {/* Exemplos Práticos */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-[11px] pt-1 text-brand-ink/75">
+              <div className="p-2.5 bg-brand-bg/60 rounded-xl border border-amber-500/20 flex gap-2 items-start">
+                <span className="text-amber-600 font-bold shrink-0">Exemplo 1:</span>
+                <span>
+                  <strong>Divergência de Metragem:</strong> Na página do leiloeiro consta 100m² de área construída, mas na Matrícula (R.03) ou na guia de IPTU consta 150m² (área real superior / valorização oculta).
+                </span>
+              </div>
+              <div className="p-2.5 bg-brand-bg/60 rounded-xl border border-amber-500/20 flex gap-2 items-start">
+                <span className="text-amber-600 font-bold shrink-0">Exemplo 2:</span>
+                <span>
+                  <strong>Validação de Notificação:</strong> Devedor alega nos embargos que não foi notificado, porém às fls. 142 e Av.05 da matrícula consta certidão de intimação pessoal realizada com êxito.
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Modelos Rápidos / Atalhos de Inserção */}
+          <div className="space-y-2 pt-1">
+            <label className="text-[10px] font-bold text-brand-ink/60 uppercase tracking-wider flex items-center gap-1.5">
+              <Plus size={12} className="text-brand-primary" /> Modelos Rápidos para Adicionar aos Comentários:
+            </label>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => handleInsertTemplate("• DIVERGÊNCIA DE METRAGEM: No portal do leiloeiro/edital consta área de [X] m², porém na Matrícula (Av./R. [X]) e cadastro de IPTU constam [Y] m² de área construída/privativa.")}
+                className="px-3 py-1.5 bg-brand-bg hover:bg-brand-primary/15 border border-brand-border hover:border-brand-primary/40 rounded-xl text-[11px] font-semibold text-brand-ink transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
+              >
+                <span>📐</span> Divergência de Metragem (Edital x Matrícula/IPTU)
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleInsertTemplate("• VALIDAÇÃO DE INTIMAÇÃO/NOTIFICAÇÃO: Embora o executado alegue vício de intimação, consta nos autos às fls. [X] e certidão do Oficial de Justiça a devida notificação pessoal do devedor e seu cônjuge.")}
+                className="px-3 py-1.5 bg-brand-bg hover:bg-brand-primary/15 border border-brand-border hover:border-brand-primary/40 rounded-xl text-[11px] font-semibold text-brand-ink transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
+              >
+                <span>📬</span> Validação de Intimação / Notificação
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleInsertTemplate("• DIVERGÊNCIA DE ENDEREÇO/NUMERAÇÃO: O número predial indicado no edital (Nº [X]) difere da numeração averbada na matrícula (Nº [Y]), necessitando mera atualização cadastral pós-arrematação.")}
+                className="px-3 py-1.5 bg-brand-bg hover:bg-brand-primary/15 border border-brand-border hover:border-brand-primary/40 rounded-xl text-[11px] font-semibold text-brand-ink transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
+              >
+                <span>📍</span> Divergência de Endereço / Numeração
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleInsertTemplate("• INCONSISTÊNCIA DE AVALIAÇÃO: O laudo pericial (fls. [X]) avaliou o imóvel em R$ [X], valor substancialmente abaixo do mercado atual da região, propiciando excelente margem de segurança.")}
+                className="px-3 py-1.5 bg-brand-bg hover:bg-brand-primary/15 border border-brand-border hover:border-brand-primary/40 rounded-xl text-[11px] font-semibold text-brand-ink transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
+              >
+                <span>💰</span> Inconsistência de Avaliação (Laudo x Mercado)
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleInsertTemplate("• VAGAS DE GARAGEM / FRAÇÃO IDEAL: O imóvel possui vaga(s) de garagem com matrícula autônoma (Nº [X]) ou vinculada à fração ideal, descrita às fls. [X].")}
+                className="px-3 py-1.5 bg-brand-bg hover:bg-brand-primary/15 border border-brand-border hover:border-brand-primary/40 rounded-xl text-[11px] font-semibold text-brand-ink transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
+              >
+                <span>🚗</span> Vagas de Garagem / Matrícula Autônoma
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleInsertTemplate("• BENFEITORIAS NÃO AVERBADAS: Constatada a existência de edificação/reforma substancial no terreno que ainda não foi formalmente averbada na matrícula imobiliária.")}
+                className="px-3 py-1.5 bg-brand-bg hover:bg-brand-primary/15 border border-brand-border hover:border-brand-primary/40 rounded-xl text-[11px] font-semibold text-brand-ink transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
+              >
+                <span>🛠️</span> Benfeitorias Não Averbadas
+              </button>
+            </div>
+          </div>
+
+          {/* Campo de Texto Principal */}
+          <div className="flex flex-col gap-2 pt-2">
+            <div className="flex items-center justify-between">
+              <label className="text-[10px] font-bold text-brand-ink/60 uppercase tracking-wider flex items-center gap-1.5">
+                <FileText size={12} /> Comentários Importantes, Divergências & Destaques da Análise:
+              </label>
+              <div className="flex items-center gap-2">
+                {localData.comentarios_importantes && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(localData.comentarios_importantes || '');
+                        if ((window as any).customToast) (window as any).customToast("Comentários copiados para a área de transferência!", "success");
+                      }}
+                      className="text-brand-primary hover:underline text-[10px] font-bold flex items-center gap-1 cursor-pointer"
+                    >
+                      <Copy size={11} /> Copiar texto
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleChange('comentarios_importantes', '')}
+                      className="text-red-500 hover:underline text-[10px] font-bold flex items-center gap-1 cursor-pointer"
+                    >
+                      <Trash2 size={11} /> Limpar
+                    </button>
+                  </>
+                )}
               </div>
             </div>
 
-            {/* Comentário 3 */}
-            <div className="p-5 bg-brand-bg/25 border border-brand-border/40 rounded-2xl flex gap-4 items-start hover:border-brand-primary/25 transition-all">
-              <span className="shrink-0 flex items-center justify-center w-8 h-8 rounded-xl bg-brand-primary/15 text-brand-primary text-xs font-bold font-mono">
-                03
-              </span>
-              <div className="space-y-1">
-                <h6 className="text-xs font-bold text-brand-ink uppercase tracking-wide font-sans">Observações do Processo (Estabilidade)</h6>
-                <p className="text-xs text-brand-ink/75 leading-relaxed font-sans">
-                  {localData.embargos_pendentes || localData.acao_anulatoria || localData.recurso_pendente || localData.liminar_bloqueando
-                    ? "Comentário: Alerta Processual! Há ações anulatórias, embargos ou recursos pendentes de julgamento. Isso requer acompanhamento de perto pelo nosso corpo jurídico para garantir que eventuais alegações de vício de citação ou nulidade sejam superadas rapidamente."
-                    : "Comentário: Segurança Jurídica Alta! O processo transcorreu de forma regular, sem incidentes graves de nulidade ou embargos à execução pendentes de julgamento, mitigando drasticamente o risco de desfazimento da arrematação."}
-                </p>
-              </div>
-            </div>
+            <textarea
+              value={localData.comentarios_importantes || ''}
+              onChange={e => handleChange('comentarios_importantes', e.target.value)}
+              placeholder="Exemplo de comentários relevantes:&#10;• Divergência de Área: Na página do leiloeiro consta 100m² de área construída, porém na Matrícula (R.03) e na guia de IPTU constam 150m² de área construída.&#10;• Notificação: O devedor alega falta de notificação, mas na matrícula (Av.05) e no processo (fls. 142) consta a intimação pessoal regular com certidão positiva do oficial.&#10;• Inscrição IPTU: Inscrição Imobiliária municipal localizada no carnê confere com os registros do CRI."
+              rows={7}
+              className="p-4 border border-brand-border bg-brand-bg rounded-2xl outline-none text-xs font-medium resize-y focus:border-brand-primary leading-relaxed shadow-inner"
+            />
 
-            {/* Comentário 4 */}
-            <div className="p-5 bg-brand-bg/25 border border-brand-border/40 rounded-2xl flex gap-4 items-start hover:border-brand-primary/25 transition-all">
-              <span className="shrink-0 flex items-center justify-center w-8 h-8 rounded-xl bg-brand-primary/15 text-brand-primary text-xs font-bold font-mono">
-                04
-              </span>
-              <div className="space-y-1">
-                <h6 className="text-xs font-bold text-brand-ink uppercase tracking-wide font-sans">Plano de Posse e Imissão</h6>
-                <p className="text-xs text-brand-ink/75 leading-relaxed font-sans">
-                  {(localData.situacao_ocupacional || localData.status_ocupacao) !== 'Desocupado'
-                    ? "Comentário: O imóvel encontra-se ocupado. Recomenda-se traçar um plano de abordagem amigável junto ao ocupante imediatamente após a emissão da guia de arrematação, aliando auxílio-mudança voluntário. Em caso de recusa, ativa-se o pedido de imissão forçada nos próprios autos."
-                    : "Comentário: Imóvel desocupado! Excelente cenário de liquidez, permitindo a imissão imediata na posse após o registro da carta de arrematação, reduzindo custos de carregamento e acelerando a reforma e revenda."}
-                </p>
+            {/* Painel de Visualização Formatada com Badges de Folhas */}
+            {typeof localData.comentarios_importantes === 'string' && localData.comentarios_importantes.trim().length > 0 && (
+              <div className="p-4 bg-brand-bg/40 border border-brand-border/60 rounded-2xl space-y-2">
+                <div className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider flex items-center gap-1.5">
+                  <CheckSquare size={12} className="text-emerald-500" /> Pré-Visualização Formatada (Destaque Automático de Folhas e Averbações):
+                </div>
+                <div className="text-xs text-brand-ink/85 leading-relaxed whitespace-pre-wrap font-sans">
+                  {renderTextWithLeafBadges(localData.comentarios_importantes)}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Grid com os 4 Pareceres Automatizados de Segurança Complementares */}
+          <div className="space-y-2 pt-4 border-t border-brand-border/40">
+            <h6 className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">
+              Pareceres Automatizados de Segurança Registral, Tributária e Estabilidade:
+            </h6>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Comentário 1 */}
+              <div className="p-5 bg-brand-bg/25 border border-brand-border/40 rounded-2xl flex gap-4 items-start hover:border-brand-primary/25 transition-all">
+                <span className="shrink-0 flex items-center justify-center w-8 h-8 rounded-xl bg-brand-primary/15 text-brand-primary text-xs font-bold font-mono">
+                  01
+                </span>
+                <div className="space-y-1">
+                  <h6 className="text-xs font-bold text-brand-ink uppercase tracking-wide font-sans">Observações da Matrícula (Gravames)</h6>
+                  <p className="text-xs text-brand-ink/75 leading-relaxed font-sans">
+                    {localData.tem_penhora || localData.tem_hipoteca || localData.alienacao_fiduciaria || localData.tem_onus
+                      ? "Comentário: Existem ônus, penhoras ou gravames averbados na matrícula. Embora a arrematação judicial cancele as penhoras anteriores, é fundamental peticionar nos autos requerendo expressamente a expedição de ofícios para baixa de todos os gravames fiduciários e penhoras junto ao Cartório de Registro de Imóveis."
+                      : "Comentário: A matrícula analisada não apresenta ônus ou penhoras registradas até o momento, indicando uma situação registral altamente favorável e menor burocracia para registro pós-arrematação."}
+                  </p>
+                </div>
+              </div>
+
+              {/* Comentário 2 */}
+              <div className="p-5 bg-brand-bg/25 border border-brand-border/40 rounded-2xl flex gap-4 items-start hover:border-brand-primary/25 transition-all">
+                <span className="shrink-0 flex items-center justify-center w-8 h-8 rounded-xl bg-brand-primary/15 text-brand-primary text-xs font-bold font-mono">
+                  02
+                </span>
+                <div className="space-y-1">
+                  <h6 className="text-xs font-bold text-brand-ink uppercase tracking-wide font-sans">Observações do Edital (Responsabilidades)</h6>
+                  <p className="text-xs text-brand-ink/75 leading-relaxed font-sans">
+                    {localData.responsabilidade_iptu === 'Comprador' || localData.responsabilidade_condominio === 'Comprador'
+                      ? "Comentário: Atenção! O Edital atribui explicitamente ao arrematante a responsabilidade pelo pagamento de débitos anteriores de condomínio ou IPTU. Esses passivos devem ser rigorosamente provisionados e deduzidos do seu lance máximo para manter a margem de lucro intacta."
+                      : "Comentário: O edital prevê a sub-rogação de débitos fiscais (IPTU) sobre o preço da arrematação (conforme Art. 130, parágrafo único do CTN). O arrematante receberá o imóvel livre dessas pendências tributárias anteriores."}
+                  </p>
+                </div>
+              </div>
+
+              {/* Comentário 3 */}
+              <div className="p-5 bg-brand-bg/25 border border-brand-border/40 rounded-2xl flex gap-4 items-start hover:border-brand-primary/25 transition-all">
+                <span className="shrink-0 flex items-center justify-center w-8 h-8 rounded-xl bg-brand-primary/15 text-brand-primary text-xs font-bold font-mono">
+                  03
+                </span>
+                <div className="space-y-1">
+                  <h6 className="text-xs font-bold text-brand-ink uppercase tracking-wide font-sans">Observações do Processo (Estabilidade)</h6>
+                  <p className="text-xs text-brand-ink/75 leading-relaxed font-sans">
+                    {localData.embargos_pendentes || localData.acao_anulatoria || localData.recurso_pendente || localData.liminar_bloqueando
+                      ? "Comentário: Alerta Processual! Há ações anulatórias, embargos ou recursos pendentes de julgamento. Isso requer acompanhamento de perto pelo nosso corpo jurídico para garantir que eventuais alegações de vício de citação ou nulidade sejam superadas rapidamente."
+                      : "Comentário: Segurança Jurídica Alta! O processo transcorreu de forma regular, sem incidentes graves de nulidade ou embargos à execução pendentes de julgamento, mitigando drasticamente o risco de desfazimento da arrematação."}
+                  </p>
+                </div>
+              </div>
+
+              {/* Comentário 4 */}
+              <div className="p-5 bg-brand-bg/25 border border-brand-border/40 rounded-2xl flex gap-4 items-start hover:border-brand-primary/25 transition-all">
+                <span className="shrink-0 flex items-center justify-center w-8 h-8 rounded-xl bg-brand-primary/15 text-brand-primary text-xs font-bold font-mono">
+                  04
+                </span>
+                <div className="space-y-1">
+                  <h6 className="text-xs font-bold text-brand-ink uppercase tracking-wide font-sans">Plano de Posse e Imissão</h6>
+                  <p className="text-xs text-brand-ink/75 leading-relaxed font-sans">
+                    {(localData.situacao_ocupacional || localData.status_ocupacao) !== 'Desocupado'
+                      ? "Comentário: O imóvel encontra-se ocupado. Recomenda-se traçar um plano de abordagem amigável junto ao ocupante imediatamente após a emissão da guia de arrematação, aliando auxílio-mudança voluntário. Em caso de recusa, ativa-se o pedido de imissão forçada nos próprios autos."
+                      : "Comentário: Imóvel desocupado! Excelente cenário de liquidez, permitindo a imissão imediata na posse após o registro da carta de arrematação, reduzindo custos de carregamento e acelerando a reforma e revenda."}
+                  </p>
+                </div>
               </div>
             </div>
           </div>

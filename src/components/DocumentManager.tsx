@@ -24,12 +24,22 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({
   const [docToDelete, setDocToDelete] = useState<string | null>(null);
   const [transcribingId, setTranscribingId] = useState<string | null>(null);
 
+  const normalize = (str: string) => (str || '').normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+  const normalizedLabel = normalize(label);
+
   const categoryDocs = docs.filter(d => {
-    if (d.doc_type && d.doc_type.includes(':')) {
-      const [, category] = d.doc_type.split(':');
-      return category === label;
+    let cat = d.doc_type || '';
+    if (cat.includes(':')) {
+      const parts = cat.split(':');
+      cat = parts.slice(1).join(':');
     }
-    return d.doc_type === label;
+    const normCat = normalize(cat);
+    if (normCat === normalizedLabel) return true;
+    if (normalizedLabel.includes('matricula') && normCat.includes('matricula')) return true;
+    if (normalizedLabel.includes('edital') && normCat.includes('edital')) return true;
+    if (normalizedLabel.includes('processo') && normCat.includes('processo')) return true;
+    if (normalizedLabel.includes('outro') && (normCat.includes('outro') || !normCat)) return true;
+    return false;
   });
   const uniqueId = React.useId();
   const idInput = `upload-${label.toLowerCase().replace(/\s+/g, '-')}-${uniqueId.replace(/:/g, '')}`;

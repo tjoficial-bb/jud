@@ -494,7 +494,7 @@ const EF_DOCUMENTATION_KNOWLEDGE = `
 > 5. **Atenção:** Em licitações, a comissão do leiloeiro (geralmente 5%) é paga pelo comprador.
 `;
 
-const analyzeWithGemini = async (files: any[], systemInstruction: string, model: string, apiKey: string, auctionUrls?: string[]) => {
+const analyzeWithGemini = async (files: any[], systemInstruction: string, model: string, apiKey: string, auctionUrls?: string[], analysisType?: string) => {
   const ai = new GoogleGenAI({ apiKey, httpOptions: { headers: { 'User-Agent': 'aistudio-build' } } });
   const mappedModel = mapModelId(model);
   const budget = getPayloadBudget(model);
@@ -548,6 +548,10 @@ const analyzeWithGemini = async (files: any[], systemInstruction: string, model:
     systemInstruction,
     temperature: 0.2,
   };
+
+  if (analysisType === 'smart_analysis' || analysisType === 'assessoria_analysis') {
+    config.responseMimeType = "application/json";
+  }
 
   const response = await generateContentWithFallback(ai, mappedModel, {
     contents: {
@@ -997,10 +1001,12 @@ export const runBackendAnalysis = async (
       "\n\nSiga estritamente estes pontos para dar ao investidor de arrematação uma visão clara e cirúrgica para que ele possa alimentar o sistema de cadastro e lances com 100% de firmeza.";
   }
 
-  // Inject critical bidder checklist and strategic brain consultation
-  specializedInstruction += "\n\nDIRETRIZ CRÍTICA DE EXECUÇÃO (MANDATÓRIO): " +
-    "\n- Você DEVE consultar ativamente o CONTEXTO ESTRATÉGICO DO USUÁRIO (CÉREBRO ESTRATÉGICO) fornecido nas instruções do sistema para extrair as lições, diretrizes e checklists de todos os professores, cursos e documentos cadastrados." +
-    "\n- Em vez de se limitar estritamente a um único checklist rígido (como o PML), consolide todos os conhecimentos, checklists e estratégias presentes no Cérebro de forma natural e integrada. Gere um 'CHECKLIST CONSOLIDADO DE VIABILIDADE JURÍDICA E ESTRATÉGICA' contendo as principais regras de proteção de capital lidas no seu Cérebro Estratégico, atribuindo os status [CONFIRMADO], [PENDENTE] ou [ATENÇÃO] de maneira altamente fluida, natural e profissional.";
+  // Inject critical bidder checklist and strategic brain consultation for text/markdown analysis types
+  if (analysisType !== 'smart_analysis' && analysisType !== 'assessoria_analysis') {
+    specializedInstruction += "\n\nDIRETRIZ CRÍTICA DE EXECUÇÃO (MANDATÓRIO): " +
+      "\n- Você DEVE consultar ativamente o CONTEXTO ESTRATÉGICO DO USUÁRIO (CÉREBRO ESTRATÉGICO) fornecido nas instruções do sistema para extrair as lições, diretrizes e checklists de todos os professores, cursos e documentos cadastrados." +
+      "\n- Em vez de se limitar estritamente a um único checklist rígido (como o PML), consolide todos os conhecimentos, checklists e estratégias presentes no Cérebro de forma natural e integrada. Gere um 'CHECKLIST CONSOLIDADO DE VIABILIDADE JURÍDICA E ESTRATÉGICA' contendo as principais regras de proteção de capital lidas no seu Cérebro Estratégico, atribuindo os status [CONFIRMADO], [PENDENTE] ou [ATENÇÃO] de maneira altamente fluida, natural e profissional.";
+  }
 
   const timeoutMessage = `Tempo limite de processamento de IA atingido (Limite de 300 segundos).
 
@@ -1042,7 +1048,7 @@ Para resolver esta lentidão de forma imediata:
 
   const runTask = async () => {
     if (provider === 'gemini') {
-      return analyzeWithGemini(analyzedFiles, specializedInstruction, model, apiKey, auctionUrls);
+      return analyzeWithGemini(analyzedFiles, specializedInstruction, model, apiKey, auctionUrls, analysisType);
     } else if (provider === 'claude') {
       return analyzeWithClaude(analyzedFiles, specializedInstruction, model, apiKey, auctionUrls);
     } else if (provider === 'openai') {
