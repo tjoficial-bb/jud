@@ -10617,82 +10617,2234 @@ Gere as 3 grandes seÃ§Ãµes descritas nas instruÃ§Ãµes do sistema para o tipo 'do
       setInput = setAssessoriaChatInput;
       setMsgs = setAssessoriaChatMessages;
       setSending = setSendingAssessoriaChat;
-      promptContext = `RelatÃ³rxœì½[oG¶.øŞ¿"TÛ½«èfïj5-Ê(S”›n]Ø$åÙ3Ú‚”¬V¥•YÎ/b˜y?ó0Os€O?lt~ês€A¿òŸœ?0aÖŠKfDfDdV‘²e[e@feeFÆeÅºÅZß
-bâS2LSš¦qxä«<¹ùÁFf¹’ŞcÏS²—fIå	~YÚş÷è“«4ó2:ğŠ'‡‘^¦AJ>'_½x>€‚hœ^ölw.“(Ãe²¾D¶Iç9&ùÔ#^tó}¤ûU>Cèå™çÃAä{ƒÎõÛÏ~CàsMhw§¤—y'dgg‡tGÑ7İ%rÅ~'$ˆfyFvÈ,‰GØ\º;ñ²}¼ø™¸c¥ã´zÓ3øËÓTŞ—RşÜXÛƒEsÕÛ-ÑÈ‡™â7‹/Ú3ò^èÚt–íÆQF/°oå]d÷ùW°\ÁY¬¬ÌÁ!Mó0³-HqƒyFq„?z¬ñ¹f?ˆÎhšÅIjX?åSeÎ5Ğnr¯Áck{Ú<nhÑ´Ú3Ö58¤¡—İü#	ØFÚgCü8¡©²	ÅIFşò9½$)SÜUí&š'Şô×0±Ï`â`ã‡8­»Ş,ónşãæ¯19ŞüãŒ†w?½i0Íá± ÿ×0Áœ±Ãì±qóé}D^4¢Aâ)ó[NÌc‚…ŸèwéLåˆN‰/ß—–ïSä7ì¸ ÷Ø” ùioi	ÖäNôÿ¹RFò”&0EÛD™ÒIân“.şŞ]Æ›3˜†m±†×Ÿ)MDô\Î&<ùj0Èe\–Í¿æ÷‹åè)O,¿°…ëu»å±=—tIô:K.z
-)ïÿpü‰^Â»;‚XÏ¼ é4`KÊ%§¸ oÃ9’×J:%z«À€âğŒòïr…hHGõáÊQœ'#º\¼l™ÈŸÅ>—Øf*:&vKù*ŞÓ{ôÍ wî9¥ÙhÒë®x³`ÅúüX‰òIB&Ôói’nÃru‡y6ñş‘Mw›¼ı‚z	MÈ'WYü-®ß]Èç®—>+şÆ)(Ş>ˆ¿]ÒŞÀ{ÇúBıb2yg^’Ò¯Ò8‚gp-ÛQÚç+‰“ÖëÍz¶jÉåÙyDzWh¯•“·]y×õ’ÖÔ"ë¢5è^RÌ‘ØC„¬¬?çˆzÍØñ²ÌMS ù,Œa	|Ø$›€–5Õ¶%7¬9¸Š\:££à4à:…_Îpã½Fô"f»—Î;‘»º øe¨tVC(À«ÒÁi³ïõürığÒ7k˜³şÊbz•=¥Œp7»Ğö£½ƒFãlB‘U•vj¼ı÷èß£°„ùÍ÷(M<hN€‘¥tœÀ_Ò‚éÃE4g˜CfTÖ4£|öQo:ñÄÔ 	–êÕJBOiró÷h Ë}[®jµÇ°.{ğf)±yZ&Á6pÙé	MØ”©[ 2ßÁHúı>Ù~óŸw÷_Ç/ÈğğÏ/÷¿†ÿ?ßû·!|ÿä* ¿#k×Ûğ¼×„FŞ”"±u‘?§´{M ­›Æw11sóO» l,
-®šbÃì
-ó&‰°ùÛ£â1økLf7ÿEğ„¢%‚@¼ä»4^œå›ïÉ™÷.ˆ—º×Í]Ãix²ÿÌ5|ŒZS%ó)6§ìD°‘‚Á¤Àÿ±Ô+šPäÇ2)®¾9&¨I2âŞüW2”3Èâ—³Mv=`VK×l5a~Wô‘^c÷?¹:ú_÷½98|ñìà˜];€Í}êÅÉ²è9fŒvVôKÒø$¡’Lq|pj/‚â)[ ŠU©Œá'ÈvŠ›‚Ëøo„	ò«ÊSo@å»S:^J€¼P…ËÇùÍßñ~òEâ¥AH˜„oõP¼Á[eî4®¨\W.PWùô4ˆ¨/~—B¹”ì(ıµÕ)	˜˜ xt”©ÚD±äÈ†qg°pÛ C®_/Isä'=š$‚«])„Íà—8ÁßÚB>Æ®–:Mg¾/–†©—4÷ĞÃ–¦òúDIŸy8Åt q=hl0åm}>¢Q˜û4íu·V7ºLŠX~ù|øõpÿéğ‹§{İ%•?V;÷wæÚ;ÌúŠİ˜ÁªÆ‰ê;ë§«‘—$t2 
-fz÷‘¼†Æ,^Zèúvëööş?ÿ	ˆ[*åŠ•xaXªjŠ6wê$o„¯I –{'Lşí0‹ú@ı óÂ.ş6õ@™ÒË¾.öF˜ ®ò¿…âÎ¾¥S/ÉŞHAÉ.•öıøÿÒâæß¤™ÈZÑ¬šBL ©eARERâµ0!:‰CQå¦D™~Y*Áğ£sø5ÿò†),•¦©¿z÷kµ	iÃ°iş¬4
-ÛLLfI‹EßßüĞKóŠÉ»µ šÊ€øÆ¡He’áÍï]œ"G„Yc&JˆF’Î4HSätÀ’B„1XF1P]¹ÉÊIá]4YsûåMğmÏ|ß”›|e+uc¯´ôØ_eCv›¶¤¼æ©óØÜÀ¹ñöy¦&w/L çƒLN(ÓŠN)ÊP„@Zƒí ÏN‚ÉŠÔ2‡Ew›§ñ™õV1“Z[“©5gŸÏrïšæ3HGyA/…wî«µÂ$©R#QöºIA3îó¹TfSÌ¼(q-³iwxÖfÓîËœ¶ò‹VfÓà¿4Í¦ä}¦¹¤'^1%1yŒwŞüì3}Æl›L¶™GÎO[¡x0•hÔ "r*ğ7ÈW^`ŠÙî‡]‘)¨6Öé½oÜÇ–§ÒiTüÜ8±JS®i•bÄ0±CÅ¿ş¸TÌ(Ù^Àí´%¥¢d…µ@ü”ñMèØ8,|Ñ$ƒVñW˜W°ñ¦8Ã°Í2Ç¬:übÕyµİ:må«ÍmÍmftêb¹‰v=RÌø>ÙD¸H›^†dœÀ®¢îGi4š -.ãôÍ¸÷lîHË¯°†ô¢?Í3n«Ú&˜õ_Á4Oò‘óv1Ñµ6'»Ö¬}Â¥Ç0Ù¨–0…`L˜±¬Ók„¶ÏL<
-Tâe7ƒİ¢Ÿ=1S)õÂ3®Ğ³`ÄçH³ø3ß–)/Ûjï¡ı^1Ùzk3­7ØöĞÌ®_©§NmE2¾Üü-‡ÿ‚Ì“<£0lâÂ%âÛ4¬^™N¾Ì\A=(jâ‚¤ØçohÉl3ï'5ÌG	cà°	èoæ¦Å¿šN¹lÔ¨õöåsK,Vw4âÙå2™xé‡	Å(›ÑÕ,v‚äılçÓ|¬eS´øaôÅQU×ªìrEåZ&Çû‡ËäğÅ>2I`‘³8ø:¡–@AK&3ª;µw|¿/·7kœŸˆéZ|ègd‚XxfÂN'Á*õ/û÷É,ë¯­’“8ëgòXÅoW¶H÷gIeø;Wo±³ı´c ”¾Ìõ£ÂõS}ËiH/HÑiÚ¡9’±7ëotÊ'êÏœcw&¬Oãş	z± 	\’$F?ß¿I½åo@~§—ò+:=ù(´·ÁûÄ
-}—ƒT'iğî\­¯^“­W+Ğ-íÂdKí%k>“S`ı vñBµ¿GWl]?\™l)“Ä›¶NZ1ì“q1âWë	¾&3X¯rå¦ŞEÒµ±µ:»xMâ3šœ†ñ9üäå`ò…,ÖSíØÊÚª6)W¸SoÖëÁ_Ë°ÔüKŸ8ìç·ôrç
-~¿Vz|5Šô;	á+‹½ÉºyŞõ`ë·¯;Ë•ûàutÇq.ÄdÉç¤3ù°•~cJ(Œ.¥<'îhm,]?ª´Y™OCï çı@dŠ	Æ¥l"©t;áÛşjmÕq”ELŒÒÄñ¿Cã°2*!á•ÍÕNåuõ!ó%´õàáî,t¾¶‰to}øæ:Õ®^Wç±ºZO.®ºœØuØ¬lDé”o–)õƒ|JBê!7í£â‚úÏ©7c+Òè_ü-üÁô/É=ùf}Nõi¯/9Ÿ ğúRÿ<ñf·]„ú4ÁdRo”=]&xp’|{æcPov®^ñï_N__?bM/5ğíÁzG0ÂôB¥‘ú3-Ö¿viI{êJ
-ËıWï¨
-†:{h ¶b×Z%C›m¬¬s±£ëSøğ)'ëÊQ:âEğŞŒöÓYutÉa™ºú`ª»ÄJÓ¦íSaë«ı¼ÁÈ0’âÄeF£ê@¥Zd©Ë•®J°«•O	Wa¨OğL8%!P>ùt¥|æÊ~¸^%#±0Q€‘‘Í:™ô7„ÜX¯	¿Y­|f¸Ef'MÄĞI&åYºA&ŠÎÖæœ‰I<Èüëú¯ÒzÂW
-Í<œõ-ƒ¢*L³‹şÆ }	³;/RNP)Lá'¥ı(¨B|’ÒOa7 ©UÙ aã<8ÆS{ãÎ‘[ÎĞİ•ß¯ö´œ8Ò”¯$FhŞ±ö€i@&ÿHQ ¦‰ÍZ?É³,Ü5lPÇØÏÕqã'vaÇ}»sÕc”1ÃÈáıé(	N(¨ï=N5ÖÚŠÖpÍÖqÅVaáj[~‚d¿]ûeÃ4¹-L…ªújMš¢ÀbÏ¦Ù{aHFy’ÆI¬G ’­™&i¸;1lTÓDPt!å»‡È‡zg|,Õª¯¬ÌÑ$rAIk×&òòˆ¿ÃºÌ+|!­Pß¦sP€—^F#Ò«…Ø”Ÿ•ò4MÏ²`
-Ü1D·s÷ÈìÍÀj„~3›†Oîí0›	O‹1ÓZ·®o'E8›ågÏÿc<Â~nóßÛôÑØæµ­ë0_€èEÃ5}j0e­³Jâ[…X8 V>‘Lûí²õyP£h6‰aDİÇ{O÷÷º¶iY<±:æ¹(ãG–¬½ÕIŠH6w^ÂcÕ¶;Ë„ÚŞa¸zİÀÏjŒàTìz<hkuµÊ_î3ŠÃl“ã{’mæÀ“
-†'A©ØÀ˜éâEW2Šø–üçß4û¨5K1hSº\¹aéÚî`Ç·yYhÌnï‰v?LLE©ãAÎ•şr.‡‹Ó©ştæ…9L€t¼U×øH½1ÜAqg+®· yi6`MÔ$`ı‰g;Ä£tğ-†¾¢Ù´‡ôĞE¥KT¯3è°¬5¥8w®”/Õû4;‚‘“êiq»K4E$òÊæûÀìúk÷A„òtİA\+_tùçYD”ëWvU^'Í
-ÕYD•Qiš6?H½“ú;…Õö—¿{r¥Ed½c½à+y†ÇãIÊxƒÎ²²Núl+‡¨4^²çıµuôèÕµZÕ›Ç¹gQ|ş°ZUbä ·c0æƒ®âM©í]œ6›SĞ¼åë®ÂĞ;¡aÅ§¹‰3°ÙšäÖ:Üz›Iª0XËœmU§Ìb_ñˆp¤“º3£b,¯Ûe“›´:É&ïÅÃƒ0O•æ«\·æshÔøœÒÛIàû4ªİ1ÍÃ, …¶z½ÜFÅÙ¹$
-êbƒÊƒm´—^²g{˜l¡{ó+ÖcÅGÍ­æY.¾ÎjBY(ıu­›‚Ó¬‹U¢‹Ÿıè4–RrıÚ¢˜škí{ÑYÀb;õàŞï–x<8¸ƒÈ¡iáÓ4cÑñèö˜áê?¨êşWfò‹25LÑÁØL”ºÚ1‰ídm½tó	‡Ü…'4;§4*OPôcıla½6s›¸Åù¢$Á©.0à—(`2ä¼Æƒ‡]ŠQ7!O7ÌhŒyÔÎÃ•Éºöæ:‰ÔÉB•Sá¸óèI˜_”öİ6ÙU²@—õx!5ˆ-ĞÌB­ºK©:Ë=NğÔS Íp¼]~İä„©r,ôH>=ñÖ¿Ó`œ'LñÖR÷‚ô ?áùu@Ï›üPğRx_iº ‰ãi…Ùã»^âK5´ˆà÷ËXŸêı¶#ºº[”»jœ%«ŠÃŠ>³Éõ™všLåÌKw¯K¬õM¨’2_Z·û>ËîèÖMŠŠri2pò™‚…›²W&¾Œÿ/ß·MtİÔl½ñ|Ñm¡h¼c¤œo“W¯Íw)¦±şZ£ÅoŸ7Z£¬f|ô1 ©ó)ïtÛpx–‡À1{˜‘ rd—®ğÛç3>iåĞ®ƒlœ¹8gÌÁ)––}yÿ“§¢]ÃÉ_•êİ_kşó¬¿nrÜ×´/³»+Ç|™‘“RğÓW«ƒu<f­ğÁUô6ƒöÆ §r¦*SçÑÚ Î(FB¬áÁ>£¦&•‹ÙvíO´o/ÒVû¶Ü¹æ<D“/ ÅÖ-sl/2Ş¶ë;ÄKÑidöK`N >ËòzŠ4X-ÛÇü Æ½¨/eá/—)ˆğ7>=õ@u‘#Uoƒno0J-V£ªµOâ¡şÆà÷ıSXâI×æÇ)"rª¯…ıys¿¶Æfl{™ñªÎIk‹¼­ÌG%Ót[y·ÙQepİ-:×Ò×¤óèÀó5àOÀÆ¾Œã1¨äÃ}r”å~“>ù’M¹ƒ©Õ^¤MqçÑø
-®°€/IïYM<üzFçiW£˜Î#ÑWŞ¿¶Ú8e9â‡)=°‚`(íG×š_úÂóÇTSz”Ö+ÔşuæO«Ÿ”ª§b+¸/ë‡…S˜÷Zí¬Xé_íà»E§T[îD,YšÅZlY:ilÿ¼Šuİé¬X}¥´fg IA…6‡YùÀ[â"'Ác,@º¡&ÇÏa°,f?8#ã~ŒKîé×Š}öuXÏâ9úŸß%¨Á8±‹-Ü"ëS®Ÿx±w1:<ç|Zâ&ìcò0³ú=Œ¨l×Bo|trÄQ16Ò+l"r¸ä²áêd¥‹Çöd%ûÙ‘•`ãÉêvde”©„—ˆ«œú¿> »7KèI"f¤:ªAñÒ/×P5¿š¿Y­zc]ÛîK=²ÊxeG±ªõs0±%;CMoË0#lw:šrgÕ8Œ
-bi€È¹
-\!Oğ
-éÊÜ!•Ûg˜+»‡Á\`¸J¾b{çÔIí¯]lU^Wäk…²}‹¦gI¬5†2ŒÁ+F7?D ªÏ¼èæ?`\¾d£ÖÿÙÿE\Ã^cÄçY@Ï•f×xïøıe¿2â0ış5¶Q
-Õl˜Ö	LÄ	<Ñß"½ç1(ª_RÁôç^&f„òÆ6aö^LÌ2CñZ¹b4ñšFFw½6ƒëƒ”I›\&u3&‚Ò dyN@ª#jeE¦“SîJ™"œR?­ä_V¶L´ÎÀªÚ™µ.(¦^vÑ0gy&x†pyw’?!éüÓáAJä«?4®Ày€ÇMj„qÅ¶EÿğM]Šˆg£qg”Q˜,`İUÓ(À-¬Ç¼m†Ğ;Ó‚Zcèîz±°AøËYğrDê¢KŠŸtá€×/oõ+ÃúPI`»9×ú8sèÁ‘2o0ßã¬²Æ?W­˜iwˆF˜O3à^ró=‰I†’c7	ø«.L«iü­7p÷Iœ€îZâP³P…PH_y§õ=îÇ5ZÓÛ.¼•/¼h§KÃ9©v¨®­Ê‡¥­,è'ñH;-qÆàíB‡ŞbŒíÁ#?jœ`gïb›ÜüãœÃ5<"ÿæˆâğ4Î(ùıº±ÇB·ÛåÊÜ+cÑæ¹ñøNæ?Á×ƒ¡q½¶À7Xó¦¦jF½‰›Biï˜_¨f3Û\2+HY¬ĞôæŸ,–+NIÀÎÀá:»iœLÄ‹Iˆ¤ Â€~ƒh‹o»«{†˜£WÏ3ä}léIcí³|]s]Ë©Ÿ]VVS9Í²åk°Øş.2Ñ(,BÌ
-è±Ğ„9ÊO¼* ä	ğ@±HuC8„F¤‹2!ùT¬eX_)ãZYDW5°Û¹‚Q=~£.²Q*4%Øï]å°¼Œd{é]-vĞÁqj‹KÖBD‹õl0+TP{Ä_µ°ÔÆ¸S¤Şy[	.-ÆéÊ2˜Ôšo©†çb.s™ßÌ¯é“¸Çë$¥”Ùj+ZÕmáùxÄúÌ"2L¨·Mxm„”ü+9öNRí”Õ(­Dt--ğôA5¸l“é}ê•olÅà¹£%lÀ`‹4D·—é~E"%ƒ%eî%ô…Lƒî¯"»¨ÃÔ°Yø#Ëy©9›ıÎMâdŒÌ¿èŞÏó´„ŞÁÛdt-tI€WÃ.cÿs,qOx”W÷Úm¨¨Ïm¡l#Á(v®~‘ Qˆ8ØûŒ¥®,ş`Jn×Í
-œØ|İ­B„*İV€ôNWàÈî¸Ë5_§US¥ÃG#/¤]ÖjÕ,Şu‰;8_¿¤Vu–Ã`vc0¨±ã¶û`Î¿@+Z¼ëu¾K(Z¥ãÕL^½ßCuá^–°£óuTÊUw`‹.bs_ĞÒ…û[ÂzÎ×_ÊW¥dê%£‰¹·’˜¡³õåÖô,ç¥èo¸B©¥âÖ1¡Š´äx
- ÕœìNyRíñqÂÓœ^ÎÌİV*œ,N#%¸Û|VÀ™•.k-zo5l¸[tWÂ¨ÍÛİ=Zén®fîr‰ÃVë°ÉpúÙåx%­ô	töµN·)iêoWÒDËV= YVDş›Í«g`’ĞäµÈö¨=FXåˆv‹ÈÒÆcwş—åF¦}Y®·<0¥ÈBÓ+ñ‡å¶,Hv®àËÏIì\Á?f-KjŞ¹Í†;Ì™üLß µšf^DM¾h‚¥FøB€ÒECr Şñd‘íö?ÑKLÅ1ß3ñR¹cv®îİSKF™GÇjÃĞHÏºdW9eõ$UY|Ø¢‰aJ#Q~/2ÿA°=;œÍÂË#šeÀÒ Ï½TüiÚ¼Ác:Ë&ÛDŞ3ğñ;Ö¦a¾åæ•²xİĞÍ&´q¿jÒ\®	cº»b²øÛEÿv¦j1@"‹û¢š³¥ı6Ù¨¹TtûÛ”£eÓûdÆöñáÊdÃúÖº§†tµ²µÊ’ùA°G˜šï¼²Œ†ô—¿ÃØ/JFIÎş*jwø*
-ü² Ó‡½…»j$"1‡%gE½XÜ6s¹zêM>6D“ß†ÿ`]6èAöx×a~Ìn¸má“ø1¹zìw-{ƒÃ‡å _ö7´äéù>_%Úp]º
-¦¾ÙA´ftAãÇNy¸rŞŸ*JÌ}˜ò6ÎÜR*’vY06}R É£·xˆÇ8]Œƒ©ı`{‹ë¼ÔA¼fÿ1ë4(C<G¸É^`İ[BüİÊ«İ%<‰ZÕƒv¾%q­ô+•,D;böû…qÑçÙÓöédòĞµ‚ÉÃßL~½Ùñ4;±ŠÙû¯Ä*!ÜlvÛ–³xŞG÷Xªæûƒùò³ë…î€àd°ãõEõ×œh0¨†ßëM?k'ĞğÃ³Êñè€W Keq½ÌªDñRBK%ÇÂkªÈ‚©yÉØëA±ÅÎOO§Áaõ;<ìuÜ"ÆøNRº[…¡)Ù1ój­ÃÊkç<ˆ0ÆQáÖô€w¢…Öÿ~µŠ>'Y_]Å%ÑâÌˆ7°FNû0¿I†»’}ã„İ°z
-=f5an~(é4ç}}2í!éø±¨â.ÖË~+}í[³²Ê?W¯º\iê.“n©Já·ZE¼ø"Ï’8í¾fY¸ˆ|7_ĞkfYºò‰k#‡?3~×o>Xá~æsEåÍrŸdC+Î»‰p(İl¸¤Fº£nŒÆ'âˆKO„àXf@ì&»!Û}Ì@È¤>È¿Éá7?]¢Ê4üÀ¦
-È}Ä=NßÀ‹–š¶Ï\?©çjåçêY?~w¯Ôç×c8•K
-ßh<:'¨ë0•gM	™Ì1'q‹LÅ!”‚È9¶½èü>‚İ7‚}ÎõcP&dçİ­[l¬[à«l¹œ0»†
-Ôf]h2©u%½jXƒş±éxasú¾›õía5×„2ä%Ğâ3V$!¡7ÿŒ(–Šà±•èèfƒ5ı•,óëÎáÑ*T>Ô•{Ó¯T\(ªnBûeu+»îâĞ\Ü+~;;úãÌ0V 3Ë`µ¹ÍÚı-!»°AX÷íÜ­íhá¦Ë´³ÖvÌiW+!NÀ|±Ïí†T“µo„ãìhó‹Uz®0pÏÑX@…Õ`$°…å`ñÛZñ¹Á`àÖûÛX;›ÒÚy3NàyU¿²ê_cÉV°S…‘PÉH”òI<LÕÄQŠÛ¹:}‡Rş–”èö³7¬|*×¢¨ñÇÂv½pÄË×xäø+~fñ˜^íÈk¥UÜo±-,ş†J*MmØpÅi¢p·ª/f¡&¬¨‰•GÜJf³o¥¦¸•I"u¹+tŠ¡ÕuJXrk	ìííüGL—ŸÂ.$§Ş(Eñâ”m`æHgÛK5”@;4‰<’|8Š‘l]NÏG±íXc±YJ‹ƒì~¾<€08I®`³œÜ©q™š~n²˜§~ÍbŞ$–ˆt{³ªz¿¹Jj%›q‹´QCÙKÛùRÚÇÌ‚Ú½ùÇ,ğÈáÍ÷3àMœ˜@ÜäÄ`}jCƒ¨­¾ÄĞZ2â¯KÄëÔ€ÚQ<C-¥8Ü	,Ä…ÔÇƒ@‰Äª‡y–3Í$	æˆ'CxnÌĞ~÷ïO¡º²Frê„l8Mú"ÿTbìİòygÁ™Ó`$­™Áy|ı¢=³bÑğ4lõã…4ÉzòH æ‘ëŞ°¥¹¸…¹‘EZîu›4Âj«ÃŠ›ø¹E¹5CÊb]æÿSTe½®UE!6;©mê1ÿ¸¥H<»T`DWÖÌÈRÎî®°hÜTäTå=-¤Ï/‘ÅàŞşÚYÑX†òq§l†-îø|ê‘3úÑÎ¼$@¤ØSQ>½ù[@?±›2:Òc½!Ï°û~¼L"¯ Ï0­{ª|ış¾’#QgY Â‚Â‹Ò”ek¨’î'c4ÌlzåwÉêvZ<ÈósX¼Ú¶ŒËù|P\Cn´j¯/P~¦Aôæ$ğ•6à[ë§Ó|<FÅÄ3õ.x;½ZCKäS²6ØhÓL‡#zBğ'Yªô‹}ßÅZw/˜e¹¹ıƒã—­›ñ|«ôn×@A?ˆŸ°©5ÅSa]šÂëí[aÈÔû·ÓØÌu³¬rËÁ¯^<‡7b2Xï=Š—9*Y·UäP?B&J>#·=«ŸÎÄcŠ@ÎR±À÷~”‹].âÔItgiÛ¼oÙèöø¹ĞT,d5ƒº’Éo2¯Q\=ß×Ö`zöv«³ş"•D˜"EÄÛ1ÊmYZ«´Ê´r%/¯ÌÎ•+ĞJÍÂÙZR¯Q×°¼R?M¥ÔÏ‚Î\şiL‚«¨ŸVñorP€ªçC.ÜíÃ§Êş[1€ÅB£6ë‰qæŸÕÏ!ÊTÒ"œ£Oy¯ôö™»\¾İ±8k$ï“±N
-®Ù¤^›­QÄ¸;·©Ê8\œÛµ ÏPfÏL|ÔkæT?¿²åÅè|v¤®ğş»Ü›¹[o¥^E¸8¬Êr•Ü÷¢"‚e©`—û­üıd®bÀFÕ\¸ÕlÈ÷¹4ÃÚaÆMdª"èßxó|™ÖœIÛc,Dt`êŸl•âü¯;DfŞE.È™J™E5Êâ‘¶ŒÆW f‰Àn„åº`‰äÚ[å~Ü 
-àˆ‹-ÃOÊw©øÌÇö]w·{´‘İümŒÑ#3 æò }ı@§‚	OQ/‹S€Q<RD#\&7ÿ=Êñ  Ş0–ÉC`œgÎ­c	+iÉÖûxô ':|ÂJ”RS¡fù¹ûğÁEo2h´Üİ:°#ŞğØ®°²³EBÍš²f“¯µ3âq¾Ä› W6”äÆÊ-rqÜjÛ-óqj m_Õ–,|e†¡Ö­C¸ìÙšƒÓ¬7:ÃYìJñ¢PÉ8Wig±{Ä<Ã]‘ä-ó{ÄK]4,|É±{¦ª?ì§ö&M¼ÄXdHı|`¡;òş<ü2ŒOhÕ6‚ìÌ‚¦…¬ñúÄ=9¸ù'ÒÁ{w;¤Z=âhÇP«Ó¯!ÙB¦ô2¬:èê0ß&<åŞ}´—xç¥–oÚ³áó2Õ~ÈÏ‹ê÷ÅQ’›de;»)mŸ#µk¡€0!¹Û($ åèÑõ¨#ÀkaãÒlZs%ëŠHY‰±QA•Åß€1©tì…°õ@ÅM.ŸÄÉS¸WŒµ_Í˜¶.Ví_açÜùkNÃ—:î1Ú½•=±¸Ùëó¯ÛêU`Œ>4Ã·LGø)Œ_ìbÍI_šQ ›~kØúr4”EÅL‚’#ió ŸòàäÉI@³›ï“ Ø}á=SÿƒÇlÏh4ÁĞ¸e2	fqF1&Î1š…Fò¶ÓÀÏG¶€å±XØİÚÇ*Vƒ\èG3Ù|ïÏÄL~&×ñ£¥üË³”Ëıì´–•,ãÊb.xÌİÍ-$ÆGÃY|>Î¿jÃ¹ÚÎµİûÑ|nc>rø_s\~5Ìö£É}Ç&widİ±Õ­È§å]t`ã»¾©·¿&à×m‚+È¼š	^$ÿÿ¸{àÎ­oÀ4¬ğçŒf·—	Eõµ´™³›²<¬–Å«¹X='Á8ˆ¸ÑMÎ‚ˆ§ƒ€õÌ’-eaİlI¤#6Ø(çùÁwjf×p|­m1¶¶ùŞŸ‰­-Ö:˜9c?ZÚ„¥]0E§¡}PÂÄHv¶à.wge— õìFöG#ÛŞa¹S´±+;÷£…ıñ€ú=YË¥=tÇÖr)+œÆòÌ}›ÑX®îÅMå†ÑÿšLeÚXÄâYì{!+ªÓÊ<>0"ˆ s}^¹Åš~'ğæ®ä	Z‡ïÛ`õu³Ri³aNcdì‚qÂƒ(ÀŒ«+"”Øm²ºLR, ş°eKÄš¤öäZñäší1;x¶ĞÙKàÈ„6™Ò¤EUGÃû-œ¢Eªš=Ê•í,æá@hˆP&sq\rgqaU2­€´ö+´Ù;õÂìÚ*Ò•=oJ+6õøá¿I,+¦Õ,ˆÈ7¯ÿH>á\µÊ¼¼¢n]´ë4 Ì`Êğ±p³€–ÿ<Î<kùİ¢/Ö2¼òÓPW~jeyñõ)Iã“‘‹Î¬‹Xü§üó#æ-fÎ9&Qrw†„zŒv”KU©ÙeÒU>×ÓËé:”ÛÅ‘YzcenşéÇÍ”†M€•å¹f<‰ÏA¨>XĞ‹r‡Tš5°ŞN…bÚn`˜@ùßåáèñ2	áy*Ÿ¤49±BƒÁÀÕ¨F…ĞÎ"DˆùÑï›çÄŠ=hÏ-f‹ÕÍvˆ^á8Â ²¦Ú	W)u¤öš`ó©ÉBµÒ,ÎÖ+Şù|NÜO‡ïöîÊA™qC„n6E©çàkb„¾ŞdÉÎŠ4.§I}åoºœÌUÍ¬,?\XkJši|ë“Gì€Ë÷ÅÌ?—¶~ <é4ˆüŞ™ÈløŒdê,}>`şE¬s\ÈÕr;ÎDú&”Î«{õaÁ¶­ÄîZD›¯.é´ª/Sêù´aqĞÈÖ
-ƒn6€©²GTÌÕk =AËd‘§™ˆôz–û~ZAĞ5ö9éÄE"…«Œùè<åUÚRÅÂ7·öV“¶8€­Õ-,Õñ5M0÷v»ÍdcØr5ä™íİB²ºµ(­aË„@Q?)ó´ ®Y5c¢	İ‡ûˆdíë}Ÿ£º4ùëUu¨G[bÌH@Iîd‡ÔŒíÛóäî¨(WÍx3„ ÿ/¸ğR«‘Šƒ©Õ# T3á\ÂÓğhşMšOqA–Û¶¢[)Ş›<¥~˜<ü”‹¨¶á·zúºÕ¼6“E#tOÓî2q¬éÓó–Ià_,5Õô‘Ÿ‡ñŒ¡C²ò>HK×’âÙ—æn°®À®âAçÍ	3Øi…wO8ßjÁ¿|be—}ìùõÛkÒÃ—óE½^B¹Ñsò)ÎŒÀ~CxI/[dñÓiE¢ÕšÃ½ÂGİ<:{¡š²-NCì°zfT0­yyÖ5æwø®³°?Ü®ÂÊ5ÎJ3ôú-Äñœ(<†ÊíD©±%UJ)©³Æbr-1cË÷]¢^§~j+—İ…µ´LÊúåxš0˜y—~s|9£ÜüB‡˜×EİaÓ¢¦Ş©)¤n•?Î"àzÏ€¶È`0Ğ/.¥¿ÛEg¯-'å§‰šoşwò5¶uëããm9Šÿ\–Téğí—õ@6vëumÆõn³ìÎÉR]!ÛXÃZÔ.í6NCëÑXË·N_*Ó‰¡ê«:¯<hë¦ÂOÃ¦ÁPB½Ä®óşÒ½Ust®^‹¾ë,éü§YBƒ+rŞàAÆ0»uG˜]ãRcX (/gí×{GÕ±)mB#n³Úó…A›M¬æêŞ"ÎÖt;Ÿjt˜wF‡©|_÷ö¡bmHğÇ!3şic‹<Ä‰Òƒ6¼ğÌKš×¦•Èop±†Ú.ò"€¿¼um^U=<ğş]„¶ÖğœÌÊíWnCíãE«GWh¹ÜZÎTÂKŠõ$Œ¹É`
+      promptContext = `RelatÃ³rio de Assessoria JurÃ­dica Atual (Dados Estruturados):\n${state.assessoriaAnalysis ? JSON.stringify(state.assessoriaAnalysis, null, 2) : "Nenhuma anÃ¡lise de assessoria executada ainda."}`;
+    } else if (tab === 'cnj') {
+      input = processosChatInput;
+      chatMsgs = processosChatMessages;
+      setInput = setProcessosChatInput;
+      setMsgs = setProcessosChatMessages;
+      setSending = setSendingProcessosChat;
+      promptContext = `Processo CNJ Ativo:\n${state.cnjResult ? JSON.stringify(state.cnjResult, null, 2) : "Nenhuma consulta CNJ executada ainda."}`;
+    } else if (tab === 'investors') {
+      input = documentsChatInput;
+      chatMsgs = documentsChatMessages;
+      setInput = setDocumentsChatInput;
+      setMsgs = setDocumentsChatMessages;
+      setSending = setSendingDocumentsChat;
+      promptContext = `RelatÃ³rio de Investidores:\n${state.report || "Nenhum relatÃ³rio gerado ainda."}`;
+    } else if (tab === 'instagram') {
+      input = documentsChatInput;
+      chatMsgs = documentsChatMessages;
+      setInput = setDocumentsChatInput;
+      setMsgs = setDocumentsChatMessages;
+      setSending = setSendingDocumentsChat;
+      promptContext = `Material de CaptaÃ§Ã£o e ImÃ³vel:\n${state.report || "Nenhum relatÃ³rio gerado ainda."}`;
+    } else if (tab === 'simulations') {
+      input = documentsChatInput;
+      chatMsgs = documentsChatMessages;
+      setInput = setDocumentsChatInput;
+      setMsgs = setDocumentsChatMessages;
+      setSending = setSendingDocumentsChat;
+      promptContext = `Dados de SimulaÃ§Ã£o Financeira:\n${state.simulationData ? JSON.stringify(state.simulationData, null, 2) : "Sem dados de simulaÃ§Ã£o."}`;
+    }
 
-3¸óOÓÉ#ùG°À˜<~‚§LlL’ò”@V·¼…ˆ«€Òª,‡½{¥xõ¡´,@Oj(³ƒZq˜Æ|œËx†‹@ÊÔçq§·×o~¡t'Ğ¦ãõ)0æòD&¸ä‘›ï1Á§ü§4áuà§Ä«‘²DÖcĞòÓ¨æ`øş„‚È(I»zœPVy_ípÛ~|¯‘÷ºß½„§ƒwÑ}ü¾Š^Ş¶§î“Å÷ œ¶S.n‘‡ğœ»C`ËÏœøã>Mû^5øG[rÅ¶s±¡eá],E…5˜‰'½Ø²ü±·R?fÀ>ïhâ”&-’!éiBÓÉî¹NºÏñıÒ‹~k'‡“pë‡]XòwNB]´¨È
-ô<TŞ`Ğ)Ú`ªŠ“*^¹ŞhÜãG÷÷µ0Znë¨º
-[¼Ò<º~ÃÛˆn›Ln^»ÆYo!p¨ú–º²ÎÂ×Aš{ağÎKØ ¹O¢Ó|èÑÎ„|ß®fİ¶ååm¹yB™¸/ÊBˆïBw­Ï©¯•/P‰å|}™«–D+‚8N¼t²®“ÄŞÅ(Ìº:{´¥ñø¸Ü²°^u©tÄØ	æ"¥sÔ¦®€ ¬cz[ùuƒ„cåë–8QÃ{°äÕql:;YÙâe1Y.İ–I	—ÚåÒ¹óê¯ş€'§Ğü­dD<2/F	šı×4ò½¦ÚÈFÈÙ½Lœî¤?ûá[¶ì<;ß²pğ<ŸĞä	3IzİYÖÿâŒ»+—˜Òå	â(\ÂEù'\ıâğ)ú´Ü”‘µ©R†;Ã:ºõ`WñúùNrô²›§«™¬ y/„#…úOL<Yœy!¯’:Iè–$ô4ñº°ºş]SbäÿÔtÑ$ÛiàvA}$'±¾Ø'½cÜK‘«›ÄAÑ%¢¹‚ÁÀÓ|ú$Á³×8zŒ,â»¶ŒéÆ_ĞXûíG:Y”N÷IoådAò3¡†¶NÚ±QK‘âÛ#D|Aûé4„¯“À÷i4‡R^î}Ìl™õÁÖÓëØñdCfšXÌsèÍ¥9]§èZëZvì0zeğo}·¸rıH\j_Ú®º>qêÑœúşoSj‘ÛÜÍ~²ú¶3@Âá¶SáFqîÍ¾‡#ÕÏÃ°Øï$Bğ¶Ó8àe…cœYcg$f[†<åê¹>×vÓ2ÂÏI¼)fƒ®±"ßÀ@r{F‰„“RXÏ›ÎhÀªû`¿ó¬ü	mqDÄ çA6!Ãı9,ğ"Å<Šˆ`çƒA"lÍ[äºX2Wüë9veÂúSËWU€ÂšÀ§bÃº=ğÆôè»ÜKdÀújCQsßd«F®r
-Aş“à»œh¢l5Êˆù•%®øÕºÀux@JŠ@ş;é¿Ú\eB¾`ô—}/Ïâ&Ì'[±Š)ùÓtÜ6£€‡%`ÿ|~ğò€`Sˆ—W¶~ûºÑ™İÅ11°yJş:ù\ÈÍ~Ba–R–xØqû—“*ëÖÊË;çlœjĞoã6I' å|Û_máÒ×çº†1ÎQÖ*¸øyµ^ïWÄ7ÆDµHWqô°V^‘ö^ÂZ¦so‘t°àâÍ*yİ†|Ìjß;[3¦HkMìèIål¦¾Îïy[¥ÍQ—_5B`‡h.•M¦Eü ~”—ÜşêN2^ey4-S(?€Õùë¼iK’YÅ¾¦Ä#,®Åë,y‚¶³9Õy^QcÖMjâ®º¾J° U0j•ÅTàï±ìC?96êÄÖßQñf™7šPŸœ²ˆĞ—2‡ş+áR© pñà”!÷zş6ñ¢K¦}ø?½ÉŠŒ—aD/b¦_w—æH¹n‘¶>¡gm¬×T,|4ƒ:”Vßì¤A·¾íˆ™z¿—·7MYAÎÔÓà ]–zGÇÆó%8n™üDj¦İEc°Å“¨´£ä”N¦¿ó}î¢(·¥ä§ÀG`ŞÁ2&³`Ä¤™'IæfÎÊïW[p)S’G#„äâk˜PAzÄ7^Oµ‚G`okŸ 0_l‚à¥—ÑˆôZ'Ã²²B˜×`ÖîØH0">‹nhõxÊN8¬"ì³^oÆ@¹iğ›yï>¹»o…¥V™ßìm<¨¨òš^»±Ì›Ã'[g³ûŒG8®m>’â{›1µzÇuÛ¡Ã:}2–çXövÛ¹ñÎ½ #§4MzoW¼Y°RäÎ­|"yÖÛåÖíH³I3Ô}¼÷tïx¯ÛvÚ	™PÔFRLuìsh%	Ş±°î6yûõ`oŸ\e1ÌÇõÛ üÓ` î#ÀF‚¨mG‹° ¾h’ÄI¯³ÿCÌ(¶V…Âe»³LÚG´9htÀ:fõnj@26h”'iœôg1½W"ƒFqƒÕ8ë¯J¿+Ãíª¡š†ıµ6¼«@0Ÿb#|¢0Ú½%w”·ôoóàôÌjÖ¬ºfìÖî-æhÎ()L‘ù|ÚóÍ¹ö°’øi	-‰‹k¾M·H—® áíÊGÛáÉ¦şDAvG¢-: k„{¸„šÈ"îË0˜Õh2Î¡)â…ãX@fÆ„×Ü]æNjàèæûp”‡qb ~ÚÀ$6ÂûäÄ-G˜ô×Úâ'ª0?CÌ=Š†­ØR_ªfú‰5jZ¡²¸‡jùÿå/ä^A„ƒFÛ¼Öª|2 ‡•N‚ñ$#'‹ÁšYY'}ÆFCÔ/Ù…sÄà?®„ÂyÜş·)rË¨zœó¶Çw…P=…İÄİ¼e^„1Ù4éaiYƒ­zbg+ÇLYn§MÎ‘îÁY·{pL0M‹Ö*mè ÌS“¹á,àÎdÚb2F™qjßôÄ4³ û[ó’ÆúHòSƒ.s•„Ò\nƒ†³»&ß†ÈChÌšÁDFÕR÷L³şša;¡¢âV6îG§±ÔßÖëiró1‡`äõÄ£øÊØÒûİÏ"¦‡àÌ‰…ÌãáW<èòØ	ºGö‡ƒ&ÛßU«ÌU=Èò“}Ş«¡ àO/˜Wn£ğsT#&øÖ½{5°gÑô!º0]+X(ëNvÔDöˆúÕ5/Èk­Ö
-Ãhí”aÂB©¼P©hÏÎ¡äÏ>-ë<Ïò0õ)4.ÿ†ğ¹“[ £šääU0Ú]%ÎÊIE±<[Äjòm‰y‚R­dˆ>™°ŞA#‡Y;ÊO<¢ïwïÄ.DÊpByB’ş’äæûY€Á4tJFï!ì-&¹‹J…ç„7í{Ë¯-÷ª—¬m!,I³H@Ë¢¥ôŞO=`¯şek¸5Ü\Â…'*¥:33Z°À_ıËæps¸Q5.Š¿Š¡FhCˆ5Û+®‰†Ü §Î­³Há<®kë…óø5×$Ë¼[#–´ƒ ›”v‹0@İÅ¢e©n4ÄÒh‡;Êñ°à>QÀë&•½OAÀP¹A§`ˆÁo`ÄwJ…€ÍØíöû\?TãÅ‘àS¬õFNØ¼ˆğæ”b^dJj«ø*ã }/ó$¼oª>a+¿„C*,ÓQ›‡ÁÚÓd¸_áLìaÛC{9Êèˆ.ãOêWéPîX…¹9˜x©ÄXÃroê¸*4l~WŸ­=gŞ]–]¤äì‚åfÛ–š5WPûùÕr«ìÍ»,èÆrWrÓß>G9·V{¹E1·6ÃÿEWtkæŞV)N±¶ÒqîaÑ «Ò¥Ê¹Ë.ÌË¾‡­Ÿ´ñğ²…Û0ò¦VÌÜ¼ù©´c§À;(¯¹y9§¹¸şùrqeŞqIÎ’İœÜk¸ÏÈÅÛïë¬¼i~ål<`	ÙqrWú÷¾l‰‡ÙV`¢#iß¯E¡™ÀeqˆUi»ìø¶RD=8¬éÀÚPr¶èD+êã[œ–Eí¬tl¢càãÄ›Ş‹ö0â`–qòRQ¢š%²Ü"ÄğT—ÿe¹Q–É¨W¼¶< ©‹
-×–Û² ÙÁdZËÏIÀş‹3u°x¦ÖÔV^Ö7¬\¡;Ø°Ï`¥‡¸]w½™€Ï ½bÙ–š6®¸¯ÅÆÍ’ÜâL¬oÚ+KèÓ¯zo¢oî¨Ş´ó–‡”ü³CĞÍ_æ¸E¸½rÛÍ†S¤õpëÙ…ĞÕ/Áâ
-Ûxµ‰°hÎqhY±TÉ’ó
-Éà¯7C6¹nªè:‘¶;!ƒÁıju°É xPÍêŞb_<,Œä}•ûbv:‹ÙQQdCÃibÃÏsÄ´Ç¯oQ	¯ßüA½ë<u†ç…>/iÚCŸ;—F…° âI3@ëçñYqÚºğQÈ| 0¸5D…P±á40¸0áâÅ>	(¬÷Øéƒ¹ƒ í–ån‹s«-àhqG@Míáó·wó%cÔ,¾ÊÃ1¬wbjyâ1¦0wÛ ğ€…Qo‘¡ÜÓz‹×P%z¤NmÀÔ"ù†ÎÚúÊê&Ğèú†3 Å<¢ÀÛ³ø,@ÇŒ§5­tæ9{ƒ1ÓÌ}ÓXÕ¹%9J9ş€!#¬7ø[œÊ »p°±£9c*´ Jœ!Oh³)O¨,‹ƒ¸ÖôÌƒ®áI"‘‚ËÁ%œèsrfEåê•SN^ÌUÚ&İƒĞ‹°²#ß›¿8¶aÆY}o0óO»Üˆyâ¸‚Ê/\ùãÍ÷dø‡ÅxÜùÅ+w±ê¬Ï@FÀŠIëo*.ë¯ZÛšó]ÃœEk‘!ì—Àô"å‡Ê«Èôæïs¼‰áÖ2Ãè)ÂÚ{øÏú+ŠÁ8Şğš§bDã2	æ†¸O½F"µÕF©ÀÚà³Jİ{.¨ÿ1´;«ËÎmf.dkÉ|­ ‚,ª¼—©l¸}³®£ı¨èVÕ í<a;şïœf˜‚J2e‹ø\öX›Lî6¶‚¸OÓÖ«º¦0fAßyt…a ò,’d_Œ¹ù'©E¦ÔĞÅ‘ß
-ëÎŒµ¿Î³m×”,9nä%­óK»]·ƒT	lŠìŒß¶¸èJKÒi…Ğê&a8i˜:UÌl?ÀZã¤•İb„˜\„§`íS$Úæ İ
-ô¢ôÖ\?µNv„/V³Z
-$&%8ÖNê©v<ì‡GÔKF1é÷]üÎÆ–v÷EÚytÈ"G)I§Áîó¯@K '^’x“~‡Ï` °º·}~wàçİUºîöèÂ[Â†Ê-Îa¬ƒû•;z•š¦íŠ‡Ì{*ãÜ®ét["áßNÓYor®Ïç>ÄàÅüDñE2Óæi¶¹Û—ÒÄÊ=ÛA4ÌW†ğöå+Åï¤ü`j9¼qyÚô²‚›·++è–…fîgcª&–ºò)ï˜õ!˜r1’Ø¦S;-l}@2KèÈ¸?ò_·¼êX¦—°!‹·…lÈj©;h$¬’OØF–IÙ ´\­=éF\•!ğ³<DÏ£S…’ë)Ls ·§ÅÊö„ƒ—ìŠœ?¶cu4¸qê§°Õª ­[<û­Šaçê¿(ÌL‰G^>%ñ)F ³\ 0Î0y`„‚¸"G6 /ÈîÍßz’ ~+fÈÉÍ÷$ÁQ‚2„8W”„85,®AÂXSo· 'CTg¯et9bhñ¤w#ç%Æ,/GMhÆ^ˆ¤CíàY‹É/˜£J)N°8	ˆêQ•YM`	Í‰¨\ä‰³p	0É²Yº½²r~~>(×oO'É
-.ñJ€p‹@®œE9¾LB–·ÎK‡ ²“Ó ¢˜Xæ¸Ôö*_“7¾QñR•ÎtİZ:kE‰2¼u›è@å¿*ûIŠ;D«’[ÏäÏi	]âlsÔÓÍâ'ıÀ¾H.Ïÿg|í!ĞşÈ,_Õ×’ß9u¸Qmªá¼3°-^·M0úcY!–ı‘ĞÉ¾MN=`ùÕ_b'Ù&‚_4!û´ÁAâÓ‡oÇ€…$†Š`Hµùh‹ŒT "¼<n‡TÂ µp¸tE`ÿØQŞá•Œ˜qå›4Zá/5Ã-56ÒàAÇâ«n“¯^<¤¬Ú ­@¼€-V'¿Í¨zİ.vHó@š0¼š¥ÀˆéİšÄß.‘l‚ÒË·0ÚíuŸK,x0cRÄ^¹Å£c&§MûÊ*Õ÷Ç‘œª]P`æÚ ZÕê5v¥	óÀ&´­Îù€‰C0&ĞbÊÑ­L)0é^[ ¼V=kûşëe²±ººÚp_‰1–$C®©Ÿ®^
-f¦bœñe	CV¡ªÛL°k•€d
-âH•¨v¡¥ü/ª‚à¯ÙÃ–S~9Åò&ıWkƒÕ5Õ¡8W‹j[ëör†%,s#-Šúiã©7¦|Í³‰mÜ\¤Ñ/İ'XBoöw³c‹Ã!xÛ4¸+H·(1R¾”{"š_êô§·Š2ÿh¹\Sğä†â5¢{HãT–Û\]UhŞÏ»L®ë	Ğşˆ6Ÿ£éÅÍ¹û§îb)íJµ$‰½À¹s­3ÏÌ2.z‹y•Šmæ´y‡!ˆßã$ Ã*¬øÒì½_ğ¼Ç2}wpÖó_JÍñ.°êÇé«@Çü²ı_°5yÁ´ ^rÁP	½ £œg:ø
-L§YáS|fbæÏâcR²vñÕêkƒÏƒ]»¹;—§«OL>Ô¾v*.¯y|&J7·É+Şàëeİ©ÿÚj-*äZ>=õ0¹æıZªÅeÏ­ÂÏ\ªÜíø˜dfÁYÜŸw•z°B³{ÁEEá‰4Ho„ÑÙğ‹€¦/p†àïor¨Ï‚Hi®á}—£uCÎâÑÍß¡sèD(ËNbV‚ï!0ä8?êì¡üÉTŒ¦ıaæŠÿl“'wab:õ|U†³vŸyYróÃ(=üV$ğ|•ûLFãÅ9ô4íòPV¬§0aY#YÊ(ëg0c rË Y«lÎ
-ƒÉãè›ïã8E(Â0<a şÔ^™ãnÃdX•¡=.ƒ…ÕšƒÉLôbœU	q„!,:25ûá²¿®ÕîT#ÁÖWÛc^Ø­„ç4šh¸_gA„îÇæÍæÚQ†«HVyò~#œ…-tÆ-îŠ³£^•<ßÑ@Ö„Ög»×?nŠLQsÆÌp} V·––<eê›sÉÖV;Ò8\Ù,„Ú‡V^µ_³m[í5İ!5(GÊìP»¨ºÖ%(
-êÊ¥ı¡EÁuI[{Q5"±N»ƒ¸D%ÿ¦4eİŠÅû[„):ù”Š­UìbÃ4üÊ#Kh’yQÌYPw•[Î¿ èíìÄ¸èR:]AV—RéÆ:ğ’›ÿ†@ñO‚È‹FhcöYšOAÿL])Ñ­Ü1›«Œ»|éc`ø¸2äÇ/PnA¹šÀÈÜ#†×Ë’æHJï$x_!?½Ğ^4Ú*:íæáQA-»{ [äkfñ$|W6á¥ã,ÛnS¶‘õ8ú*ŸÎã²‹Û†kx'#¯—lÖuøämá£¨ÿbkCbé•Ï–WlÏ°s}ÛG6Æ¿Ùîå%M${•ÏèWmÏ‚œLÔ¹ª×~°µ0ã¦HõùÊeÛÓ>âjÓ¤útå²íiS"¾£Ÿ"’d[ùÛx³ÑcÙWûÈæ§-ïu&º™}[µÁ™QYøHzŞ?NX’(ã8à•åûï\ÆTÙ4Ø_®<¯z	L|C¨Ÿ¿øúÅ6Fu3Ôv\H<Ûà²…6ŠÊ(ô ±†ÁEs-ÒÚZ¹]*ì¯V«ë¯[@‚•N·õòî…Ø+0kRŞíGŸú¥şnNh€±Ycº†)Õ¡Ô sJ2‡£¾^\wİäë\kª€cÓ€BdiSF›]ØÛ³Ë
-Xn64Ô˜`.ŒkÀ=¬„6RíÆ#vcW›Z)M[LiZØ³ŸÅQÅ¬²Jæ÷Cÿ_&ÍN„`“¢‘ámÓØ§a,JÄpc0QTÂ’Â^K5 rQ³„¦YÎB°©ª|ÙF5Ì².6¬¡¨oı0ÔL“ŒšJÌŞªÀ:9§`Êù2u¿½à•\O^eÀpDm‰+*rn”’ˆç#Er©ñ@d¾Q<‘ÏhğL?P"yd±ï¥XYÃ;áG•ÅQ&YòİÔ°e§TYåE‡Õ÷€	?&%ÀévhO3»ñìò½Sò‚ß’ƒñˆ iƒ—ÙPˆEæ«ÎA'Â­¡(´_¨«Q<¨¯Ìú§šrdPĞıU†ŠÂ<T0§Úb›gÕø¾.<ŒzÀ=æ˜b_r,)ritCÙ©ÁÈ´Ì,«^Å€ªdr,°Ô0ÜL{éw9Müx›<¼qtó¬“Œ?lRYõu%Ô‚Á©3Èl^‹oB`àh¶`rÆ#šGBDy 4O@7Íã1ƒíP®…¢!dmšßQ#÷£ 'cåqÛ]t<B»,-8+”ë5JÒxJåçÅ	º
-ÊŸ>dñÓøœ&»°–hàÜ î.a±mçnáÎİ&õN7ÄU•ÌôÒm•ÖÀŒªŞeŞo÷I®óœöÊä&pFª¶Üˆ­<w•«¾å,éA¿¯!¬È_ÖWWUJÃcYe'×îĞÓÅº/eKİ§÷o˜§H½t†ûı
-vîqüí‹tòv®r"Şb÷ş¬¶7‹¦?í^öö[¾æÚû¸ë?îú÷¹ë5H˜[íùzÜK‹İ<“}#ú	7µA*‡84?…LÌ?^í÷óO¸Ÿ[ÿ`Ûÿhı<£=…g€ê¶:d%2Íh6Ó`³î^AîÚk2« ;ïæØf¦¼7ËKx¾oş^r2L 3Œ¸VÚÒ›?Ô(mCÉÕ¶ÊjáéUŒ|âÊ~3ğk:Ê­OÃZ›…Ë e9Q¯Uzg39_qÉÄäĞ=Áşr>ÂÖ Ø¨E²òÃX{¨±‰.OnÙkì¸ø	Z+5àô¨D—Nü„z¸–ææ*äĞĞÆ\nªBÄ›c¾ÕÀnGø CñŒ¬Äå1 
-úƒß÷Oa¨“Î£/ÙWÈ¼BzÏ°”ğ^šİ|ÏÃ¾†uGúä@ÚG˜·±ôp…·;ï‹a¾*/Æ/>ğüäæ¯·k«Öôfñz@²£›¢ õPË}tJÏ¼èæ?ÚŒö7#,g¤F+µ° ‚ÙœN{Tö}-¾¯<ğr˜PêšÕI:Ià-ıâ\ÇÈ˜àË,`@*aud	étC/SY6±r°r4M~XÃj¡Èãše<ñéèÚ‘5k¹µ•Š`›/ufÃŞ¥¸gÎÎÇABƒÄşP”âöå±-†î]0T	õãú8a")Ë¯l²ÿ0r†ÌŒGjï<q fkài-„YÍÌÒz*ˆ3úí?¤§Ş;ªÄeÚ}ÄìÅNô9c|/6Šwåò[B]´¥Uƒ*KÃ ù™Va:Lã¿¢¢œ+<¢¼¹zRV>É;<›Fä:qn6œyc—‡1ÎšÉêó,}p™Lá·©e7›òd/ù.ğvä%	ÅRsÆ?J ^1Ù=o>E#²±°ypÒL‹@)x“Ãfï±šâäbéı$àüˆôÈX…%Q©±à-:1·Vi±¸ÿNIØpÊbc²Oúõ˜€eL*„¤LÄ)kšÏIÇ	È°õ6´ˆÌÔL5ôhúÍ&²ÚçlUó‰µ‘pÌ—<¤§õøşù”cscÂ€Šeœæb6Y^0Hr„AµŒ÷ª°/Ôìàç)Î19
-=ÎX>°1*Ã“á:Üt^ª\Ğ¾ê’^äü€¢1”²s+-ôºf<8­'1¬â´ÿ€$ˆÈÿ–'|^+f¼7+vŒ5æ£±Ôòbc¼Z}³üfÿIÆ'^ou™ı7ØXzmI¶ß|Ñg›J›Š†3h?W;6\üºiº h@ámÓÓ6êÉõæ`$§/ïşª¨YeXß*f¾‹Xs.®-}ö›ëßüæ4XŞ1‘ŒÃ!¯3]–Œ™€á-óÜ;r½MäÛ@1lÔ¨¸u[@ÙÅÏÛwØ¿ÏcÔY;‚‹Ğ``Ø²$kÎy	z­d@Hü!âßE%¥[«_¡…±ôûíı²rX…ñË}À„­QKøí”AÂ|ÂĞlÜWÆä*=õv1‘Ø`lX¶úoƒ¶RêèÄ iã
-×IÎé[I-%“çSRÌc:½ë%>PsËÀ1K‘Y¥’h&K™\.²+—ËDENKìYIZåE%‰Æ5:äoB¤òî|Ù;ƒùzøÇãgOúáÏsx¤kÑ¯¢=Iœ{1
-¾Ëé¾OvDÃy
-ß8r¿#ÀßŞŠ¨òş'WlhúYÙ#4BoåßÓß­ÀĞºıîÒ5Ü+[/oØf?Ã¯o?«m™+ä_¥/Œ5°T(ZƒpOµ$`1ÑŒ~uÿ»Ğ¿Çò/õ÷-•zk1ªÎZ3œd—®¡g8½¬ü2Wµ—éIÿ¾²UÕ±jnVRê™|@
-zBı@§Øk%G¾*›æñZ»A2
-éº& eu?ê"ß>S^2°é‰Œq«H(NŠZÉEƒ4J§ML…i‡öp"A‘¤lUU™—ªÃ´,d‚ Ğ¼<‹é^Çá#X™¤£^ü«ÀWå“À÷i¤İ_z^%cPŸ-Sb	ÓŠ œÔÊ““l>‰{g4ÂÄÉL–,Ë *4ÕÕĞ
-ìéÎ-ób+xu•hC=}EÒeEC­í€ÚAÃVaƒUn\_íT[SwŒ!‹Ø+\ã-µ<jåMŠªêFå
-Ï“Ì+7dOÙ¸fã)Â<Õ.j±²ù;Gù	¬X–	c$ğ5HJÅ±S>V9­P˜U“Ûÿ½dÄ2{x™;œ—‹ÍÀÅ®¦…‰{Ê¯ò^;ü"¯ÂRŒAºaá5_x<wxkh°·‚hæ@¼=áí,±Òì®´<¹È|Àéÿd“^g¸ÿÎk¼çÏ%£\,&ë¶GK…êWÓ±€niÈ˜ ×—ªUahœÍ 'ç ç”­aåµÄ{2BF²ã•{ OÙâå[ù!.p å‹!#uG11p})2TQ]`X˜xIÂtv_îC…òÅ§†&]şV²gŠ”%¿öô#0¥1UêÊJ[°ÃöÙ¡·Œ&X	
-}òÃ?#Ğî¹Êé·}üE¾i¥ÔëCWlj·CC" #—’Ş:†˜›}›ìbR"ŞàÓ3:Eg<½ù^º–t±ÿ]@wøç®"jÌº—)MR¬…‚*:æ
-ÿ¬`|+¿Êñ‘eL2c¿†Í—ØQåC¼òêõ£Ş«×ŠÎûJğUöÌSş·ú”pV†
-¸¶wzJG:v/âfoãºôõ2ao(^QŞ íÖìu„7ëxw†Wâj·À»&×%ô ›Ğ¨Ç0ÂUä/'ÊsG‚ğ
-—qƒÌ¹g©£Àw	.V[J¿JY6áÆFñmÅm•øX‡z"×‚]X*îaÃ0Œ÷àDÉ2 ¬SğïŸJeUlĞ9ú|àkœ<’i¯sŒ$I“Ï[ÀLA+~ƒxy°ùº'şygiI˜Œı£‚´»ÁØÙJ®|rU…]/àÕï=İ;ŞS Ïç\ñbºåÄãXå—ï«Ò%ÿxˆÛÙë¼ƒåSpóƒs:(×şšP^.›åƒ‡%b>:9øzdê«`¥ğ>Ì,-/VÁîys( AGG:Ş°™šñ©ÂÉá˜ÅS%í>¼çÇ#”Vİ%dÖ†PõµşˆÈïİ¥*ØumÏŠãTE— s5!7#hw´^ª”˜
-#ƒ–g{©'†«<Tboëı(¿bÇ¶P›-çŸ§ö±+×J{•¥+w¼$~I÷Û@câ%|b»ÖW\¿-Iä7z¿a÷j[EßØò)Aˆ¶Ş$x]ğ—ÁT5ì6ñVUÏêÃÉzMVn:êi•B&í—ÀtDÙa¹?c]{k]@[m[aMƒdöQ#~&;4q”ˆ³éÔÃ¼şÓ M1 ¨‚…QuÁÖ‹V6”øz £)İŞ6äOa8•y[Òb#T“î“WL&LØÑ‘\e^ôã"ıìÂ	*Œı:¡ËÂ¼Wf7cø–è'<’ó(Co†Ñojç3}–«îá©„·´1$ê©èÙ¤\ÉİÓ:ƒú÷p%›ÌñH!‘VÈŞÔÂ9ß;óh6×CB3æõEJ½¸¢ÁTà•Åz˜¡°Q_T» IÄîÒ+¦f0ÃÜ„^ˆ¤À0	s¬ÿ¢ù™ô­Âkk›jb›²ş3ß2/
-#äûÜ+„'B²rræÏñ"sœO"	+=¨–nÎÑı¸j7·,R˜0k—"õš½“±Vc’dXäÚ¼
-áx¾8ÕÔvZƒÆ lsÆ¬9¢éıÏ„-_.¾ËàªÑ{œõ˜^ÓZİ¡‘/«Ä+\Õ*¿Ë«k«Nñ©¼º]ukv¢s…­•À•G1ÇSú- wóÊ¾Ã‚Jó²‡|séÚ:$á™§T·ô§8Æ¢¼4ÆDY'¬ªHª"¦Âï(T]é'søn%BğØüF‚wá_^°‹¶ø˜}a˜Nğå%‹#'¿a^y»´å?SÛ&Ã}şù+ªöY½mÒUn.¾p»î'RQÿ˜ëg¨\Ğ¼F]/èÂK»c!é>êáÕƒ4õ@¯NX+ÏØŸšÿHuøf,oü"÷áoŞWé=Zªù<Ä4íôÒÇ}Ğİ	ÌÉÈºÈ_æ/sÃø‹‹®õz U.ˆÙ›Ğ/-ÏÁ`€”ŞŠWĞ‹×zÕ7¸‡µË~B[ñJ:äW9È0tó‹Ã§]¢ãË½bC€¶Î”°ÁÂ½!E1i¢oÂ(´¸‡äŒ´âjã‘eqâ1ï!Û¾Øëşùåğñá‹7‡{G/Ÿ½x³ÿüë½£ãıg{Ï_¼y6<:Ş;„Ù¬Ôã‹½$ŒSôBôÎƒ6°ÈtX0DÂéq7–v°ã¦^çÏ¹ç'1‡QŒI¿zÉV‚¦³L:)¯²SØÈº“F˜Ö–fGEeY½Ùš½-¼—¸FèézÅ~¾"Œ»ğ(Ø^\Ôíè‘1İ]ö3nc¢Ş€'®è ó¾G2ïÂ‘å	˜MÍ0fÁˆ‡¨‘­ßveÉ>ùæ ;	”—í±™ '|åûStÑ 8Fæù9Gúb8ÔE×(ù‚F)áwƒ´öÆ¦OémiuxòáXp^Z¾uo‡&,E§ªÀ—¡l¤çÂ	Q¯½š‰G9ˆ_/ÀøS_ûøæ‡3º¿pü¬$`ê€@ªóÄ-ĞÏÇñ#¼qÊ31@˜ÅyŒf­	=“©§™]×>]ä(_è|rbÊoS™}ÀŸs‹(j—Ä„5‹\{=tI2	Ô‹‹äø+Â÷jùz…ä(Î™aâ”lHÔ?Á£ä1òğêáWØêÛöøÓ«¼qÑ¯ür\°aã†ºf}üF¤¼xõ—a‘–'”¦êÚÒtF1fv„Y(õÅKŸáÒ”Ï§/ofÁˆï‚;§¸p€ëŞeùu{ÇÙ·ßì=CÌİÿQ}o\âæ‰'ø;p»	pA–ñ6â'b.x°OØU3+Ó2µ2À:SpuÇˆKp€6î¯sºèŠ?0„ŒÓK|óyÀ^)ÀµĞyãúªş€-ˆ]SR¥šò]±îOE"Pû†Q29UÃK÷pÂú+Z{Eqãª™nƒ9‚ZAójËSè,Ø©‚§Ö!¤Qg¬©åŸ»#HŠ8‘Zè	1æÜ[%=È^›İP·Á_EÖ´fÔ-EÖDjÎÂÂÈ¾üVGEÛFxº u®#¸¾æ şY”k;õ|
-}VvéY‡Kx(m,´öô)afÜ8¯Ô’öÜÎ•ü«rƒnÒ±iå»v³áVCh–qâ>Œÿ•I.Ü Ü ÷ˆjês# «í]Æ…pWÜhd»m½¡ºã²íŞ²üİÿü/ÿ÷ÿ÷ÿşŸäÓO+ŒCX\R÷ÓO·‰Àl÷¾Ëƒxc)ÆLCºù>åaÌ™’#Ëì¶Rò‘?óšD9hQ|¦”»’WÂCİgÌYöÌ<VE“†Ü@KOùSUØÈ®—Æ<€rğÓ›ïû¡Ô[AºğwT·F7?€¼—Ey¤Yì³·¥ñI‚Q¤ôìæïìA?À<=şNœ–êùé§Gr„?ıTE°goÃ?Q$LË
+    if (!input.trim()) return;
 
-Èú^‡ix§¬Æ˜£áÇ¥Û%î’ISIA¤—_×Û"+áÖ#;¦8µ¤–&:¸}ıêtĞèJ0—Ót]Ã4áHÙ¹{Ãµ]Ïåa¨³ş©•4íNqÍ¾ŞÒ­jZšfŒ£æº£¬]cjsË"rÆóœÓŒ%lªSìêVƒnªºîgKÄºÎñ×²tlûÈïuÕ³ÃÑ§ÌEWÑÛrá¤cDì Åà§TÿtT@®`?hy°!'vN«ş9õ%Û©í4«tj†–j©HÕ?“ë&B?qSOCõ?q×OKc{‡» ½üòéLôgJk¿½5©9ñÏ¾…ôábR‘
-\‹îVÀ¥äÕfY¥-\]zQâbàÊÄ°º‡Ÿ0dèß:Ëí6KºæjÄróG9âG¸é4£¦z4£Y‡q±¿Ü¤Yw22~Æ´Ì€Ÿ„±—UƒÜQU[mØÆº|j:¨š! „ÿ¯ş
- X¿VÉ·‚ç$—ßÙ%­ÎóêòêªëvÄaÃşs€¤Õ#³k8©Š(WènĞ­0–b6r-j20Î 0'ƒ¹JQÈì¶¥Êã¾FDıÛ.Ú‚·,GùöT/K„ãz‹ØÈŠ€4Œ×ïpÄDš 4¼ğ¬Ló™¡ÑŞ\
-_¿„Ş—
-"Œæ‘9Hè)˜ÙòP+&GÜ/ĞÚc2Jç7¨4/w·³W6-@F<Thci$*ŸâÉ/? |Îê±0vÄaEK¬ÌÇym“Lú¿¯×LÕ ‹tØ
-]Zˆ°òï$Ã<£·cdñş=k{Â-n‡£½RQŞæ)èc»üK¦ƒC†ƒ¡ÎâDÆÕ.N	(ŸÖVß!`¼óO@¾d½©š¶˜¨ÿ  ÿÿ Â–¤)
+    const userMsg: ChatMessage = { role: 'user', content: input };
+    const newMessages = [...chatMsgs, userMsg];
+    setMsgs(newMessages);
+    setInput('');
+    setSending(true);
+
+    try {
+      let userApiKey = "";
+      const aiConfig = state.aiConfig;
+      if (aiConfig) {
+        userApiKey = resolveApiKey(state.selectedKeySource, aiConfig, selectedModel) || "";
+      } else {
+        const configRes = await fetch('/api/ai-config', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (configRes.ok) {
+          const fetchedConfig = await parseJsonResponse(configRes);
+          setState((prev: any) => ({ ...prev, aiConfig: fetchedConfig }));
+          userApiKey = resolveApiKey(state.selectedKeySource, fetchedConfig, selectedModel) || "";
+        }
+      }
+
+      // Query any chat attachments uploaded in the active session for this specific tab
+      const attachmentType = `Anexo Chat ${tab}`;
+      const chatAttachments = analysisDocs.filter((d: any) => d.doc_type === attachmentType);
+      
+      let attachmentsCtx = "";
+      if (chatAttachments.length > 0) {
+        attachmentsCtx = `\n\nO usuÃ¡rio anexou os seguintes documentos adicionais a este chat da aba ${tab} para consulta/referÃªncia:\n`;
+        chatAttachments.forEach((doc: any, i: number) => {
+          attachmentsCtx += `--- INÃCIO DO ARQUIVO ANEXADO ${i + 1}: ${doc.filename || 'Sem Nome'} ---\n`;
+          attachmentsCtx += `ConteÃºdo extraÃ­do:\n${doc.extracted_text || '(Nenhum conteÃºdo de texto pÃ´de ser extraÃ­do ou o arquivo estÃ¡ vazio)'}\n`;
+          attachmentsCtx += `--- FIM DO ARQUIVO ANEXADO ${i + 1} ---\n\n`;
+        });
+      }
+
+      const response = await sendChatMessage(
+        newMessages, 
+        `Contexto Relacionado Ã  Aba ${tab.toUpperCase()}:\n${promptContext}\n${attachmentsCtx}\n\n${SYSTEM_PROMPT}\n\nPor favor, responda o assunto sobre ${tab} considerando com extrema atenÃ§Ã£o e integridade os dados jurÃ­dicos e os documentos acima. Responda sempre em portuguÃªs do Brasil e de forma direta.`, 
+        selectedModel, 
+        userApiKey || undefined
+      );
+
+      setMsgs([...newMessages, { role: 'assistant', content: response || "Sem resposta." }]);
+    } catch (err: any) {
+      console.error(err);
+      let errorMessage = "Erro ao processar sua pergunta. Tente novamente.";
+      if (err.message?.includes('503') || err.message?.includes('UNAVAILABLE')) {
+        errorMessage = "O servidor de IA estÃ¡ temporariamente sobrecarregado. Por favor, tente novamente em alguns segundos.";
+      }
+      setMsgs([...newMessages, { role: 'assistant', content: `âŒ ${errorMessage}` }]);
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const renderTabChat = (tab: 'edital' | 'matricula' | 'processos' | 'dossier' | 'documents' | 'smart_analysis' | 'assessoria' | 'cnj' | 'investors' | 'instagram' | 'simulations') => {
+    let title = "";
+    let placeholder = "";
+    let inputVal = "";
+    let setInputVal: any = null;
+    let msgs: ChatMessage[] = [];
+    let sending = false;
+
+    if (tab === 'edital') {
+      title = "DÃºvidas sobre o Edital";
+      placeholder = "Pergunte algo sobre prazos, regras de lance, comissÃ£o do leiloeiro...";
+      inputVal = editalChatInput;
+      setInputVal = setEditalChatInput;
+      msgs = editalChatMessages;
+      sending = sendingEditalChat;
+    } else if (tab === 'matricula') {
+      title = "DÃºvidas sobre a MatrÃ­cula";
+      placeholder = "Pergunte algo sobre gravames, adquirentes federais ou indisponibilidades...";
+      inputVal = matriculaChatInput;
+      setInputVal = setMatriculaChatInput;
+      msgs = matriculaChatMessages;
+      sending = sendingMatriculaChat;
+    } else if (tab === 'processos') {
+      title = "DiscussÃ£o do Processo Judicial";
+      placeholder = "Pergunte sobre prazos judiciais, andamento ou incidentes relatados...";
+      inputVal = processosChatInput;
+      setInputVal = setProcessosChatInput;
+      msgs = processosChatMessages;
+      sending = sendingProcessosChat;
+    } else if (tab === 'dossier') {
+      title = "Debate sobre o DossiÃª Integrado";
+      placeholder = "Discuta viabilidade jurÃ­dica, aspectos financeiros consolidados ou lances sugeridos...";
+      inputVal = dossierChatInput;
+      setInputVal = setDossierChatInput;
+      msgs = dossierChatMessages;
+      sending = sendingDossierChat;
+    } else if (tab === 'documents') {
+      title = "AnÃ¡lise de Documentos e EvidÃªncias";
+      placeholder = "Pergunte sobre contradiÃ§Ãµes de datas, falta de certidÃµes ou termos ocultos...";
+      inputVal = documentsChatInput;
+      setInputVal = setDocumentsChatInput;
+      msgs = documentsChatMessages;
+      sending = sendingDocumentsChat;
+    } else if (tab === 'smart_analysis') {
+      title = "Debate sobre a AnÃ¡lise Smart";
+      placeholder = "Discuta os fatores de risco preenchidos, ocupaÃ§Ã£o, desocupaÃ§Ã£o e ex-mutuÃ¡rios...";
+      inputVal = smartAnalysisChatInput;
+      setInputVal = setSmartAnalysisChatInput;
+      msgs = smartAnalysisChatMessages;
+      sending = sendingSmartAnalysisChat;
+    } else if (tab === 'assessoria') {
+      title = "Parecer da Assessoria JurÃ­dica";
+      placeholder = "Debata o parecer estratÃ©gico de assessoria, ressalvas de evicÃ§Ã£o ou recomendaÃ§Ãµes...";
+      inputVal = assessoriaChatInput;
+      setInputVal = setAssessoriaChatInput;
+      msgs = assessoriaChatMessages;
+      sending = sendingAssessoriaChat;
+    } else if (tab === 'cnj') {
+      title = "DÃºvidas sobre o Processo CNJ";
+      placeholder = "Pergunte sobre custas, rÃ©us, citaÃ§Ãµes do processo consultado...";
+      inputVal = processosChatInput;
+      setInputVal = setProcessosChatInput;
+      msgs = processosChatMessages;
+      sending = sendingProcessosChat;
+    } else if (tab === 'investors') {
+      title = "Debate sobre Investidores";
+      placeholder = "Discuta sobre as projeÃ§Ãµes de taxas, lucros e apresentaÃ§Ãµes...";
+      inputVal = documentsChatInput;
+      setInputVal = setDocumentsChatInput;
+      msgs = documentsChatMessages;
+      sending = sendingDocumentsChat;
+    } else if (tab === 'instagram') {
+      title = "DÃºvidas sobre CaptaÃ§Ã£o (Instagram)";
+      placeholder = "Discuta o conteÃºdo de copy, hashtags, stories e artes geradas...";
+      inputVal = documentsChatInput;
+      setInputVal = setDocumentsChatInput;
+      msgs = documentsChatMessages;
+      sending = sendingDocumentsChat;
+    } else if (tab === 'simulations') {
+      title = "Debate sobre o Simulador Financeiro";
+      placeholder = "Pergunte sobre viabilidade, TIR, ROI ou composiÃ§Ã£o de despesas...";
+      inputVal = documentsChatInput;
+      setInputVal = setDocumentsChatInput;
+      msgs = documentsChatMessages;
+      sending = sendingDocumentsChat;
+    }
+
+    const attachmentType = `Anexo Chat ${tab}`;
+    const chatAttachments = analysisDocs.filter((d: any) => d.doc_type === attachmentType);
+
+    return (
+      <div className="space-y-6 pt-10 border-t border-black/5 no-print" id={`chat-section-${tab}`}>
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-brand-primary rounded-xl flex items-center justify-center text-black">
+            <MessageSquare size={20} />
+          </div>
+          <h5 className="text-lg font-bold text-brand-primary">{title}</h5>
+        </div>
+
+        <div className="bg-brand-bg rounded-[2rem] p-6 space-y-6 max-h-[350px] overflow-y-auto border border-brand-primary/10">
+          {msgs.map((msg, idx) => (
+            <div key={idx} className={cn(
+              "flex gap-4 max-w-[85%]",
+              msg.role === 'user' ? "ml-auto flex-row-reverse" : ""
+            )}>
+              <div className={cn(
+                "w-8 h-8 rounded-lg flex items-center justify-center shrink-0",
+                msg.role === 'assistant' ? "bg-brand-primary text-black" : "bg-brand-ink/10 text-brand-ink/40"
+              )}>
+                {msg.role === 'assistant' ? <Cpu size={14} /> : <Users size={14} />}
+              </div>
+              <div className={cn(
+                "p-4 rounded-2xl text-sm font-medium leading-relaxed",
+                msg.role === 'assistant' ? "bg-brand-paper shadow-sm markdown-body !text-sm text-brand-ink" : "bg-brand-primary text-black whitespace-pre-wrap"
+              )}>
+                {msg.role === 'assistant' ? (
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
+                ) : (
+                  msg.content
+                )}
+              </div>
+            </div>
+          ))}
+          {sending && (
+            <div className="flex gap-4 max-w-[85%]">
+              <div className="w-8 h-8 bg-brand-primary rounded-lg flex items-center justify-center text-black shrink-0">
+                <Loader2 size={14} className="animate-spin" />
+              </div>
+              <div className="p-4 rounded-2xl bg-brand-paper shadow-sm text-sm font-medium text-brand-ink/20 italic">
+                IA estÃ¡ pensando...
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Attached files list */}
+        {chatAttachments.length > 0 && (
+          <div className="flex flex-wrap gap-2 mb-3 max-h-32 overflow-y-auto p-1 border-b border-brand-primary/5 pb-3">
+            {chatAttachments.map((doc: any) => (
+              <div 
+                key={doc.id} 
+                className="flex items-center gap-2 bg-brand-primary/10 border border-brand-primary/25 text-brand-primary rounded-xl px-3.5 py-2 text-xs font-semibold select-none shadow-sm animate-fade-in"
+              >
+                <FileText size={14} className="shrink-0 text-brand-primary/70" />
+                <span className="truncate max-w-[180px] text-brand-ink">{doc.filename}</span>
+                <button
+                  type="button"
+                  onClick={() => handleTranscribeDoc(doc.id)}
+                  className="flex items-center gap-1 px-2 py-0.5 bg-brand-primary/20 hover:bg-brand-primary/30 text-brand-primary rounded-md text-[10px] font-bold transition-all cursor-pointer ml-1"
+                  title="Transcrever texto completo com OCR IA (visÃ£o)"
+                >
+                  <Sparkles size={11} />
+                  <span>OCR IA</span>
+                </button>
+                <button 
+                  type="button"
+                  onClick={async () => {
+                    // Local optimistic delete
+                    setPropertyDocs((prev: any) => prev.filter((d: any) => d.id !== doc.id));
+                    setState((prev: any) => ({
+                      ...prev,
+                      adHocDocs: prev.adHocDocs.filter((d: any) => d.id !== doc.id)
+                    }));
+                    // Backend delete
+                    try {
+                      await fetch(`/api/documents/${doc.id}`, {
+                        method: 'DELETE',
+                        headers: { 'Authorization': `Bearer ${token}` }
+                      });
+                    } catch (e) {
+                      console.error("Erro ao deletar anexo:", e);
+                    }
+                  }}
+                  className="text-brand-ink/40 hover:text-red-500 cursor-pointer transition-colors p-0.5 rounded-full hover:bg-red-500/10 ml-1"
+                  title="Remover anexo do chat"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="relative flex gap-3">
+          <div className="relative flex-1">
+            <input 
+              type="text" 
+              value={inputVal}
+              onChange={e => setInputVal(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleSendTabChat(tab)}
+              placeholder={placeholder}
+              className="w-full bg-brand-bg border border-brand-primary/10 rounded-2xl py-5 px-6 pr-16 focus:ring-2 focus:ring-brand-primary outline-none font-medium text-brand-ink"
+            />
+            <button 
+              onClick={() => handleSendTabChat(tab)}
+              disabled={sending || !inputVal.trim()}
+              className="absolute right-3 top-1/2 -translate-y-1/2 w-12 h-12 bg-brand-primary text-black rounded-xl flex items-center justify-center hover:bg-brand-primary/90 transition-all disabled:opacity-50"
+            >
+              <Send size={20} />
+            </button>
+          </div>
+          <label className="w-14 h-14 bg-brand-bg border border-brand-primary/20 text-brand-primary rounded-2xl flex items-center justify-center cursor-pointer hover:bg-brand-primary/5 transition-all shrink-0">
+            {uploading ? (
+              <Loader2 size={24} className="animate-spin text-brand-primary" />
+            ) : (
+              <Plus size={24} />
+            )}
+            <input 
+              type="file" 
+              className="hidden" 
+              multiple 
+              disabled={uploading}
+              onChange={(e) => handleAnalysisFileUpload(e, attachmentType)} 
+            />
+          </label>
+        </div>
+        <p className="text-[10px] text-brand-ink/40 font-semibold mt-1 flex items-center gap-1">
+          <Info size={12} className="text-brand-primary" />
+          <span>Envie novos documentos (+) para incluir no contexto desta conversa com a IA.</span>
+        </p>
+      </div>
+    );
+  };
+
+
+
+  return (
+    <div className="space-y-12">
+      <div className="flex items-center justify-between no-print">
+        <div>
+          <h2 className="text-4xl font-serif font-medium tracking-tight text-brand-primary">Central de InteligÃªncia</h2>
+          <p className="text-brand-ink/40 font-medium text-lg">Fluxo completo: Consulta CNJ, Documentos e AnÃ¡lise de IA.</p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-10">
+        {/* Sidebar: Configuration */}
+        {!isPublicView && (
+          <div className="lg:col-span-1 space-y-8 no-print">
+            <Card title="Contexto da AnÃ¡lise">
+            <div className="space-y-6">
+              <select 
+                className="w-full bg-brand-bg border-none rounded-2xl py-4 px-6 focus:ring-2 focus:ring-brand-primary font-bold text-sm text-brand-primary"
+                value={selectedPropertyId || ''}
+                onChange={e => {
+                  updateState({ 
+                    selectedPropertyId: e.target.value,
+                    report: null,
+                    chatMessages: [],
+                    adHocDocs: e.target.value ? adHocDocs : []
+                  });
+                }}
+              >
+                <option value="">AnÃ¡lise Avulsa (Sem ImÃ³vel)</option>
+                {properties.map(p => <option key={p.id} value={p.id}>{p.title}</option>)}
+              </select>
+              
+              
+              <div className="pt-2">
+                <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-brand-ink/30 mb-2 block font-sans">1. Provedor / API Key</label>
+                <select 
+                  className="w-full bg-brand-bg border-none rounded-2xl py-4 px-6 focus:ring-2 focus:ring-brand-primary font-bold text-xs text-brand-primary"
+                  value={state.selectedKeySource}
+                  onChange={e => {
+                    const nextSource = e.target.value as any;
+                    let nextModel = state.selectedModel;
+                    if (nextSource === 'system_default' || nextSource === 'gemini_custom') {
+                      nextModel = 'gemini-3.7-flash';
+                    } else if (nextSource === 'openai_custom') {
+                      nextModel = 'gpt-4o';
+                    }
+                    updateState({ selectedKeySource: nextSource, selectedModel: nextModel });
+                  }}
+                >
+                  <option value="system_default">PadrÃ£o do Sistema (Google AI Studio - Gemini)</option>
+                  <option value="openai_custom">OpenAI / ChatGPT (Minha Chave)</option>
+                  <option value="gemini_custom">Google Gemini (Minha Chave)</option>
+                </select>
+                
+                  {/* Status Indicator Badge */}
+                  <div className="mt-2 ml-1 text-[10px] font-medium transition-all">
+                    {state.selectedKeySource === 'system_default' && (
+                      <span className="text-emerald-500 font-bold flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> 
+                        Chave Integrada Ativa (Plano Atual Ativo)
+                      </span>
+                    )}
+                  {state.selectedKeySource === 'openai_custom' && (
+                    state.aiConfig?.openai_key?.trim() ? (
+                      <span className="text-emerald-500 font-bold flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-500"></span> Chave OpenAI Cadastrada</span>
+                    ) : (
+                      <span className="text-amber-500 font-bold flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span> Chave nÃ£o cadastrada (ConfiguraÃ§Ã£o de IA)</span>
+                    )
+                  )}
+                  {state.selectedKeySource === 'gemini_custom' && (
+                    state.aiConfig?.gemini_key?.trim() ? (
+                      <span className="text-emerald-500 font-bold flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-500"></span> Chave Gemini Cadastrada</span>
+                    ) : (
+                      <span className="text-amber-500 font-bold flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span> Chave nÃ£o cadastrada (ConfiguraÃ§Ã£o de IA)</span>
+                    )
+                  )}
+                </div>
+              </div>
+
+              <div className="pt-2">
+                <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-brand-ink/30 mb-2 block font-sans">2. CÃ©rebro de IA (Modelo)</label>
+                <select 
+                  className="w-full bg-brand-bg border-none rounded-2xl py-4 px-6 focus:ring-2 focus:ring-brand-primary font-bold text-xs text-brand-primary"
+                  value={selectedModel}
+                  onChange={e => updateState({ selectedModel: e.target.value as AIModel })}
+                >
+                  {(state.selectedKeySource === 'system_default' || state.selectedKeySource === 'gemini_custom') && (
+                    <optgroup label="Google Gemini">
+                      <option value="gemini-3.7-flash">Gemini 3.7 Flash (Recomendado - Mais EstÃ¡vel e Veloz)</option>
+                      <option value="gemini-2.5-flash">Gemini 2.5 Flash (PadrÃ£o)</option>
+                      <option value="gemini-2.5-pro">Gemini 2.5 Pro (RaciocÃ­nio AvanÃ§ado)</option>
+                      <option value="gemini-3.5-flash">Gemini 3.5 Flash</option>
+                      <option value="gemini-3.1-pro-preview">Gemini 3.1 Pro (Preview)</option>
+                    </optgroup>
+                  )}
+                  {state.selectedKeySource === 'openai_custom' && (
+                    <optgroup label="OpenAI GPT">
+                      <option value="gpt-5">GPT-5 (Nova GeraÃ§Ã£o)</option>
+                      <option value="gpt-4o">GPT-4o (Omni)</option>
+                      <option value="o1-preview">OpenAI o1 (RaciocÃ­nio)</option>
+                    </optgroup>
+                  )}
+                </select>
+              </div>
+
+              <div className="pt-2">
+                <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-brand-ink/30 mb-4 block">Tipo de LeilÃ£o (PrecisÃ£o)</label>
+                <div className="flex bg-brand-bg rounded-xl p-1 border border-brand-border/50">
+                  <button 
+                    onClick={() => updateState({ manualAuctionType: 'auto' })}
+                    className={cn(
+                      "flex-1 py-2 text-[9px] font-bold uppercase tracking-widest rounded-lg transition-all",
+                      state.manualAuctionType === 'auto' ? "bg-brand-primary text-black shadow-sm" : "text-brand-ink/40 hover:text-brand-primary"
+                    )}
+                  >
+                    Auto
+                  </button>
+                  <button 
+                    onClick={() => updateState({ manualAuctionType: 'judicial' })}
+                    className={cn(
+                      "flex-1 py-2 text-[9px] font-bold uppercase tracking-widest rounded-lg transition-all",
+                      state.manualAuctionType === 'judicial' ? "bg-brand-primary text-black shadow-sm" : "text-brand-ink/40 hover:text-brand-primary"
+                    )}
+                  >
+                    Judicial
+                  </button>
+                  <button 
+                    onClick={() => updateState({ manualAuctionType: 'extrajudicial' })}
+                    className={cn(
+                      "flex-1 py-2 text-[9px] font-bold uppercase tracking-widest rounded-lg transition-all",
+                      state.manualAuctionType === 'extrajudicial' ? "bg-brand-primary text-black shadow-sm" : "text-brand-ink/40 hover:text-brand-primary"
+                    )}
+                  >
+                    Extra
+                  </button>
+                </div>
+                <p className="text-[9px] text-brand-ink/30 italic mt-2 px-1">
+                  {state.manualAuctionType === 'auto' ? 'A IA detectarÃ¡ o tipo automaticamente.' : 
+                   state.manualAuctionType === 'judicial' ? 'ForÃ§a anÃ¡lise para leilÃ£o judicial.' : 
+                   'ForÃ§a anÃ¡lise para leilÃ£o extrajudicial (Caixa/Bancos).'}
+                </p>
+              </div>
+
+              <div className="pt-2">
+                <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-brand-ink/30 mb-2 block font-sans">Foco da AnÃ¡lise (Opcional)</label>
+                <input 
+                  type="text" 
+                  placeholder="Ex: Ãguas de LindÃ³ia, Lote 72" 
+                  className="w-full bg-brand-bg border-none rounded-2xl py-4 px-6 focus:ring-2 focus:ring-brand-primary text-xs text-brand-primary font-bold placeholder-brand-ink/30"
+                  value={state.analysisFocusKeyword || ''}
+                  onChange={e => updateState({ analysisFocusKeyword: e.target.value })}
+                />
+                <p className="text-[9px] text-brand-ink/30 italic mt-2 px-1">
+                  Recomendado para editais com mÃºltiplos imÃ³veis para guiar a IA ao lote desejado.
+                </p>
+              </div>
+
+              {!selectedPropertyId && (
+                <div className="p-5 bg-brand-primary/5 rounded-2xl border border-brand-primary/10">
+                  <p className="text-[10px] font-bold text-brand-primary uppercase tracking-widest leading-relaxed">
+                    VocÃª estÃ¡ em modo de anÃ¡lise avulsa. Suba os documentos abaixo para analisar sem cadastrar um imÃ³vel.
+                  </p>
+                </div>
+              )}
+            </div>
+          </Card>
+
+
+          <button 
+            onClick={handleAnalyze}
+            disabled={analyzing}
+            className="w-full bg-brand-primary text-black py-5 rounded-2xl font-bold hover:bg-brand-primary/90 transition-all shadow-lg shadow-brand-primary/20 flex items-center justify-center gap-3 disabled:opacity-50"
+          >
+            {analyzing ? <Loader2 className="animate-spin" size={20} /> : <Cpu size={20} />}
+            Executar AnÃ¡lise IA
+          </button>
+        </div>
+        )}
+
+        {/* Main Area: Results & Tabs */}
+        <div className={cn("space-y-6", isPublicView ? "lg:col-span-4" : "lg:col-span-3")}>
+          <div className="bg-brand-paper rounded-[2.5rem] border border-brand-primary/10 shadow-sm overflow-hidden flex flex-col min-h-[600px]">
+            {/* Tabs Header */}
+            <div className="flex border-b border-brand-primary/10 bg-brand-bg/30 overflow-x-auto no-print">
+              <AnalysisTab active={activeSubTab === 'report'} onClick={() => updateState({ activeSubTab: 'report' })} icon={<Brain size={16} />} label="RelatÃ³rio" />
+              <AnalysisTab active={activeSubTab === 'smart_analysis'} onClick={() => updateState({ activeSubTab: 'smart_analysis' })} icon={<Cpu size={16} />} label="AnÃ¡lise Smart" />
+              <AnalysisTab active={activeSubTab === 'assessoria'} onClick={() => updateState({ activeSubTab: 'assessoria' })} icon={<Scale size={16} />} label="AnÃ¡lise de Assessoria" />
+              <AnalysisTab active={activeSubTab === 'dossier'} onClick={() => updateState({ activeSubTab: 'dossier' })} icon={<Clipboard size={16} />} label="DossiÃª de ArremataÃ§Ã£o" />
+              <AnalysisTab active={activeSubTab === 'edital'} onClick={() => updateState({ activeSubTab: 'edital' })} icon={<FileText size={16} />} label="Edital" />
+              <AnalysisTab active={activeSubTab === 'matricula'} onClick={() => updateState({ activeSubTab: 'matricula' })} icon={<BookOpen size={16} />} label="MatrÃ­cula" />
+              <AnalysisTab active={activeSubTab === 'processos'} onClick={() => updateState({ activeSubTab: 'processos' })} icon={<Search size={16} />} label="Processos" />
+              {!isPublicView && <AnalysisTab active={activeSubTab === 'documents'} onClick={() => updateState({ activeSubTab: 'documents' })} icon={<Files size={16} />} label="Documentos" />}
+              <AnalysisTab active={activeSubTab === 'simulations'} onClick={() => updateState({ activeSubTab: 'simulations' })} icon={<TrendingUp size={16} />} label="SimulaÃ§Ã£o" />
+              <AnalysisTab active={activeSubTab === 'investors'} onClick={() => updateState({ activeSubTab: 'investors' })} icon={<Users size={16} />} label="Investidores" />
+              <AnalysisTab active={activeSubTab === 'instagram'} onClick={() => updateState({ activeSubTab: 'instagram' })} icon={<Instagram size={16} />} label="CaptaÃ§Ã£o" />
+            </div>
+
+            {/* Tab Content */}
+            <div className="flex-1 p-4 sm:p-6 md:p-10">
+              {activeSubTab === 'report' && (
+                <div className="space-y-8">
+                  <MasterReportView 
+                    state={state} 
+                    setState={setState} 
+                    property={selectedProperty} 
+                    metrics={metrics} 
+                    tir={tir} 
+                    roi={roi}
+                    token={token}
+                  />
+                  <SmartResetPanel
+                    tabName="Painel Principal"
+                    tabKey="report"
+                    hasAnalysis={!!state.report}
+                    onResetTab={() => handleResetSubTab('report')}
+                    onResetAll={handleResetAllPropertyData}
+                    onApplySettings={(settings) => updateState({ aiDepth: settings.depth, aiFocus: settings.focus })}
+                  />
+                </div>
+              )}
+              {activeSubTab === 'dossier' && (
+                <div className="space-y-6">
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div>
+                      <h3 className="text-2xl font-bold text-brand-primary">DossiÃª de ArremataÃ§Ã£o Inteligente</h3>
+                      <p className="text-sm text-brand-ink/50 mt-1">
+                        Sintetiza de forma automatizada e cruzada os dados da MatrÃ­cula, Edital e Processos para preenchimento de sistemas de arremataÃ§Ã£o.
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <button 
+                        onClick={handleAnalyzeDossier} 
+                        disabled={analyzing} 
+                        className="bg-brand-primary text-black px-6 py-3 rounded-xl font-bold hover:bg-brand-primary/90 transition-all disabled:opacity-50 flex items-center gap-2 shadow-md shadow-brand-primary/10"
+                      >
+                        {analyzing ? <Loader2 className="animate-spin" size={16} /> : <Sparkles size={16} />}
+                        {state.dossierAnalysis ? 'Atualizar DossiÃª com IA' : 'Gerar DossiÃª com IA'}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Upload de Documentos Integrado */}
+                  {!isPublicView && (
+                    <div className="bg-brand-paper p-6 sm:p-8 rounded-[2.5rem] border border-brand-border shadow-sm space-y-6" id="dossier-documents-upload">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-brand-primary/10 pb-4">
+                        <div>
+                          <h5 className="text-sm font-bold text-brand-primary flex items-center gap-2 uppercase tracking-wider">
+                            <FileText size={18} className="text-brand-primary" />
+                            Documentos do LeilÃ£o para o DossiÃª
+                          </h5>
+                          <p className="text-xs text-brand-ink/50 mt-1">
+                            Envie os arquivos do leilÃ£o diretamente nesta aba para preencher o dossiÃª integrado via InteligÃªncia Artificial.
+                          </p>
+                        </div>
+                        {dossierDocs.length > 0 && (
+                          <span className="text-[10px] font-bold px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200/50 rounded-full shrink-0 self-start sm:self-center">
+                            Documentos DisponÃ­veis para IA
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        {['Edital', 'MatrÃ­cula', 'Processo Judicial', 'Outros'].map(category => (
+                          <div key={category} className="bg-brand-bg/10 p-5 rounded-2xl border border-brand-border/30">
+                            <DocumentManager 
+                              label={category} 
+                              docs={dossierDocs} 
+                              onUpload={(e, type) => handleAnalysisFileUpload(e, type)}
+                              onDelete={handleDeleteDocument}
+                              onTranscribe={handleTranscribeDoc}
+                              uploading={uploading} 
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {!state.dossierAnalysis && !analyzing && (
+                    <div className="bg-brand-bg/10 rounded-3xl border border-brand-primary/10 p-8 sm:p-12 text-center max-w-2xl mx-auto space-y-6 mt-6">
+                      <div className="w-16 h-16 bg-brand-primary/10 rounded-2xl flex items-center justify-center text-brand-primary mx-auto border border-brand-primary/10">
+                        <Clipboard size={32} />
+                      </div>
+                      <div className="space-y-2">
+                        <h4 className="text-xl font-bold text-brand-primary">Gerar DossiÃª de ArremataÃ§Ã£o</h4>
+                        <p className="text-sm text-brand-ink/60">
+                          Este recurso inovador reÃºne e analisa os documentos de MatrÃ­cula, Edital e Processos Judiciais juntos para gerar um dossiÃª integrado completo de viabilidade, jurÃ­dico e financeiro.
+                        </p>
+                      </div>
+                      <button 
+                        onClick={handleAnalyzeDossier}
+                        className="bg-brand-primary text-black px-8 py-3.5 rounded-xl font-bold hover:bg-brand-primary/90 transition-all font-sans"
+                      >
+                        Iniciar CompilaÃ§Ã£o Inteligente
+                      </button>
+                    </div>
+                  )}
+
+                  {analyzing && !state.dossierAnalysis && (
+                    <div className="py-20 flex flex-col items-center justify-center space-y-4">
+                      <Loader2 className="animate-spin text-brand-primary" size={48} />
+                      <div className="text-center">
+                        <p className="font-bold text-lg text-brand-primary">Gerando DossiÃª Integrado...</p>
+                        <p className="text-xs text-brand-ink/40 mt-1">Nossos agentes de IA estÃ£o analisando matrÃ­cula, edital e o processo para extrair o dossiÃª consolidado.</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {state.dossierAnalysis && (
+                    <div className="space-y-6">
+                      {/* Integrabilidade com a Calculadora TJInvest */}
+                      <div className="bg-brand-primary/5 rounded-3xl border border-brand-primary/10 p-6 space-y-4">
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 bg-brand-primary/10 rounded-xl text-brand-primary">
+                            <Calculator size={20} />
+                          </div>
+                          <div>
+                            <h4 className="font-bold text-brand-primary"> IntegraÃ§Ã£o d'Arremate (Calculadora TJInvest)</h4>
+                            <p className="text-xs text-brand-ink/50">Transmita facilmente estes dados para sua calculadora externa em <code className="text-brand-primary font-mono text-[11px]">calculadora.tjinvest.com.br</code></p>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+                          <div className="bg-brand-bg/40 p-4 rounded-2xl border border-brand-primary/5 space-y-2">
+                            <span className="text-[10px] font-bold text-brand-primary uppercase tracking-wider">CÃ³pia RÃ¡pida para Cadastro</span>
+                            <p className="text-xs text-brand-ink/60">Use a cÃ³pia rÃ¡pida abaixo para copiar os dados limpos em formato estruturado pronto para colar em tabelas e calculadoras de lances.</p>
+                            <button 
+                              onClick={() => {
+                                navigator.clipboard.writeText(state.dossierAnalysis || '');
+                                alert("DossiÃª copiado com sucesso em Markdown!");
+                              }}
+                              className="text-xs bg-brand-primary/10 hover:bg-brand-primary/20 text-brand-primary px-3 py-1.5 rounded-lg font-bold transition-all flex items-center gap-2"
+                            >
+                              <Copy size={12} /> Copiar DossiÃª Completo
+                            </button>
+                          </div>
+                          <div className="bg-brand-bg/40 p-4 rounded-2xl border border-brand-primary/5 space-y-2">
+                            <span className="text-[10px] font-bold text-brand-primary uppercase tracking-wider">CÃ³pia RÃ¡pida dos Valores Chave</span>
+                            <p className="text-xs text-brand-ink/60">Copia de uma vez as variÃ¡veis numÃ©ricas tratadas (Valor Mercado, Lance MÃ­nimo, Lance MÃ¡ximo Sugerido) para alimentar a calculadora.</p>
+                            <button 
+                              onClick={() => {
+                                const numericPayload = {
+                                  valuation: metrics?.valuation || 0,
+                                  min_bid: metrics?.bid || 0,
+                                  suggested_max_bid: (metrics?.bid || 0) * 1.3,
+                                  condominium_debts: metrics?.debtsCondo || 0,
+                                  iptu_debts: metrics?.debtsIPTU || 0,
+                                  address: selectedProperty?.address || "",
+                                  city: selectedProperty?.city || "",
+                                  state: selectedProperty?.state || ""
+                                };
+                                navigator.clipboard.writeText(JSON.stringify(numericPayload, null, 2));
+                                alert("Valores numÃ©ricos copiados no formato JSON!");
+                              }}
+                              className="text-xs bg-brand-primary/10 hover:bg-brand-primary/20 text-brand-primary px-3 py-1.5 rounded-lg font-bold transition-all flex items-center gap-2"
+                            >
+                              <Copy size={12} /> Copiar JSON de IntegraÃ§Ã£o
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      <Card title="Resultado do DossiÃª Integrado">
+                        <div className="flex justify-between items-center mb-6 border-b border-brand-primary/10 pb-4 no-print gap-4 flex-wrap">
+                          <span className="text-xs font-mono text-brand-ink/40">AnÃ¡lise gerada via {selectedModel}</span>
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={handleAnalyzeDossier}
+                              disabled={analyzing}
+                              className="flex items-center gap-2 bg-brand-primary text-black px-4 py-2 rounded-xl text-xs font-bold hover:bg-brand-primary/90 transition-all disabled:opacity-50 shadow-sm"
+                            >
+                              {analyzing ? <Loader2 className="animate-spin" size={14} /> : <Cpu size={14} />}
+                              Recalcular DossiÃª
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                navigator.clipboard.writeText(state.dossierAnalysis || '');
+                                alert("Copiado!");
+                              }}
+                              className="flex items-center gap-2 bg-brand-bg hover:bg-brand-primary/10 border border-brand-primary/10 text-brand-primary px-4 py-2 rounded-xl text-xs font-bold transition-all"
+                            >
+                              <Copy size={14} /> Copiar Texto
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => window.print()}
+                              className="flex items-center gap-2 bg-brand-bg hover:bg-brand-primary/10 border border-brand-primary/10 text-brand-primary px-4 py-2 rounded-xl text-xs font-bold transition-all"
+                            >
+                              <Printer size={14} /> Imprimir DossiÃª
+                            </button>
+                          </div>
+                        </div>
+                        <div className="markdown-body font-sans text-brand-ink/90 leading-relaxed text-sm antialiased space-y-4">
+                          <ReactMarkdown remarkPlugins={[remarkGfm]}>{state.dossierAnalysis}</ReactMarkdown>
+                        </div>
+                      </Card>
+                    </div>
+                  )}
+                  {renderTabChat('dossier')}
+                  <SmartResetPanel
+                    tabName="DossiÃª de ArremataÃ§Ã£o"
+                    tabKey="dossier"
+                    hasAnalysis={!!state.dossierAnalysis}
+                    onResetTab={() => handleResetSubTab('dossier')}
+                    onResetAll={handleResetAllPropertyData}
+                    onApplySettings={(settings) => updateState({ aiDepth: settings.depth, aiFocus: settings.focus })}
+                  />
+                </div>
+              )}
+              {activeSubTab === 'edital' && (
+                <div className="space-y-6">
+                  <h3 className="text-2xl font-bold text-brand-primary font-serif">AnÃ¡lise de Edital</h3>
+                  <div className="grid grid-cols-1 gap-6">
+                    <Card title="Upload e GestÃ£o do Edital">
+                      <p className="text-sm text-brand-ink/60 mb-4 font-sans">Envie o documento do Edital de LeilÃ£o para que o CÃ©rebro EstratÃ©gico possa extrair as datas importantes, regras de comissÃ£o, Ã´nus e parcelamentos.</p>
+                      <DocumentManager 
+                        label="Edital" 
+                        docs={editalDocsFiltered} 
+                        onUpload={(e, type) => handleAnalysisFileUpload(e, type)}
+                        onDelete={handleDeleteDocument}
+                        onTranscribe={handleTranscribeDoc}
+                        uploading={uploading}
+                      />
+                      <div className="mt-6 pt-6 border-t border-brand-primary/10">
+                        <button 
+                          onClick={handleAnalyzeEdital} 
+                          disabled={analyzing} 
+                          className="w-full bg-brand-primary text-black py-4 rounded-xl font-bold hover:bg-brand-primary/90 transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-md shadow-brand-primary/10"
+                        >
+                          {analyzing ? <Loader2 className="animate-spin" size={16} /> : <Cpu size={16} />}
+                          {analyzing ? 'Analisando Edital...' : 'Executar AnÃ¡lise de Edital'}
+                        </button>
+                      </div>
+                    </Card>
+                    
+                    {state.editalAnalysis && (
+                      <Card title="Resultado da AnÃ¡lise de Edital">
+                        {!isPublicView && (
+                          <div className="flex justify-end gap-3 mb-4 no-print">
+                            <button
+                              type="button"
+                              onClick={handleShare}
+                              className="flex items-center gap-2 bg-brand-primary text-black px-4 py-2 rounded-xl text-xs font-bold hover:bg-brand-primary/90 transition-all shadow-sm"
+                            >
+                              <Globe size={14} /> Compartilhar / Gerar Link PÃºblico
+                            </button>
+                          </div>
+                        )}
+                        <div className="p-1 sm:p-2 bg-brand-paper rounded-3xl border border-brand-border shadow-lg">
+                          <EditalReport 
+                            rawAnalysis={state.editalAnalysis} 
+                            propertyAddress={selectedProperty?.address}
+                            propertyCity={selectedProperty?.city}
+                            propertyState={selectedProperty?.state}
+                            valuation={metrics?.valuation}
+                          />
+                        </div>
+                      </Card>
+                    )}
+                  </div>
+                  <div className="mt-8 no-print border-t border-brand-primary/10 pt-8">
+                    <LegalGlossaryForLaypeople />
+                  </div>
+                  {renderTabChat('edital')}
+                  <SmartResetPanel
+                    tabName="AnÃ¡lise de Edital"
+                    tabKey="edital"
+                    hasAnalysis={!!state.editalAnalysis}
+                    onResetTab={() => handleResetSubTab('edital')}
+                    onResetAll={handleResetAllPropertyData}
+                    onApplySettings={(settings) => updateState({ aiDepth: settings.depth, aiFocus: settings.focus })}
+                  />
+                </div>
+              )}
+              {activeSubTab === 'matricula' && (
+                <div className="space-y-6">
+                  <h3 className="text-2xl font-bold text-brand-primary font-serif">AnÃ¡lise de MatrÃ­cula</h3>
+                  <div className="grid grid-cols-1 gap-6">
+                    <Card title="Upload e GestÃ£o da CertidÃ£o de MatrÃ­cula">
+                      <p className="text-sm text-brand-ink/60 mb-4 font-sans">Envie o documento da CertidÃ£o de MatrÃ­cula do ImÃ³vel para auditar a cadeia de proprietÃ¡rios, averbaÃ§Ãµes de penhoras, hipotecas ou alienaÃ§Ãµes fiduciÃ¡rias ativas.</p>
+                      <DocumentManager 
+                        label="MatrÃ­cula" 
+                        docs={matriculaDocsFiltered} 
+                        onUpload={(e, type) => handleAnalysisFileUpload(e, type)}
+                        onDelete={handleDeleteDocument}
+                        onTranscribe={handleTranscribeDoc}
+                        uploading={uploading}
+                      />
+                      <div className="mt-6 pt-6 border-t border-brand-primary/10">
+                        <button 
+                          onClick={handleAnalyzeMatricula} 
+                          disabled={analyzing} 
+                          className="w-full bg-brand-primary text-black py-4 rounded-xl font-bold hover:bg-brand-primary/90 transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-md shadow-brand-primary/10"
+                        >
+                          {analyzing ? <Loader2 className="animate-spin" size={16} /> : <Cpu size={16} />}
+                          {analyzing ? 'Analisando MatrÃ­cula...' : 'Executar AnÃ¡lise de MatrÃ­cula'}
+                        </button>
+                      </div>
+                    </Card>
+                    
+                    {state.matriculaAnalysis && (
+                      <Card title="Resultado da AnÃ¡lise de MatrÃ­cula">
+                        {!isPublicView && (
+                          <div className="flex justify-end gap-3 mb-4 no-print">
+                            <button
+                              type="button"
+                              onClick={handleShare}
+                              className="flex items-center gap-2 bg-brand-primary text-black px-4 py-2 rounded-xl text-xs font-bold hover:bg-brand-primary/90 transition-all shadow-sm"
+                            >
+                              <Globe size={14} /> Compartilhar / Gerar Link PÃºblico
+                            </button>
+                          </div>
+                        )}
+                        <div className="p-1 sm:p-2 bg-brand-paper rounded-3xl border border-brand-border shadow-lg">
+                          <MatriculaReport 
+                            rawAnalysis={state.matriculaAnalysis} 
+                            propertyAddress={selectedProperty?.address}
+                            propertyCity={selectedProperty?.city}
+                            propertyState={selectedProperty?.state}
+                            valuation={metrics?.valuation}
+                            bidValue={metrics?.bid}
+                          />
+                        </div>
+                      </Card>
+                    )}
+                  </div>
+                  <div className="mt-8 no-print border-t border-brand-primary/10 pt-8">
+                    <LegalGlossaryForLaypeople />
+                  </div>
+                  {renderTabChat('matricula')}
+                  <SmartResetPanel
+                    tabName="AnÃ¡lise de MatrÃ­cula"
+                    tabKey="matricula"
+                    hasAnalysis={!!state.matriculaAnalysis}
+                    onResetTab={() => handleResetSubTab('matricula')}
+                    onResetAll={handleResetAllPropertyData}
+                    onApplySettings={(settings) => updateState({ aiDepth: settings.depth, aiFocus: settings.focus })}
+                  />
+                </div>
+              )}
+              {activeSubTab === 'processos' && (
+                <div className="space-y-6">
+                  <h3 className="text-2xl font-bold text-brand-primary font-serif">AnÃ¡lise de Processos</h3>
+                  <div className="grid grid-cols-1 gap-6">
+                    <Card title="Upload e GestÃ£o de Processos Judiciais">
+                      <p className="text-sm text-brand-ink/60 mb-4 font-sans">Gerencie as petiÃ§Ãµes, execuÃ§Ãµes de tÃ­tulo extrajudicial ou processos originÃ¡rios vinculados a este imÃ³vel para auditar o risco de nulidade.</p>
+                      <DocumentManager 
+                        label="Processo Judicial" 
+                        docs={processDocsFiltered} 
+                        onUpload={(e, type) => handleAnalysisFileUpload(e, type)}
+                        onDelete={handleDeleteDocument}
+                        onTranscribe={handleTranscribeDoc}
+                        uploading={uploading}
+                      />
+                      <div className="mt-6 pt-6 border-t border-brand-primary/10">
+                        <button 
+                          onClick={handleAnalyzeProcesses}
+                          disabled={analyzing}
+                          className="w-full bg-brand-primary text-black py-4 rounded-xl font-bold hover:bg-brand-primary/90 transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-md shadow-brand-primary/10"
+                        >
+                          {analyzing ? <Loader2 className="animate-spin" size={16} /> : <Cpu size={16} />}
+                          {analyzing ? 'Analisando Processos...' : 'Executar AnÃ¡lise de Processos'}
+                        </button>
+                      </div>
+                    </Card>
+                    
+                    {state.processAnalysis && (
+                      <Card title="Resultado da AnÃ¡lise de Processos">
+                        {!isPublicView && (
+                          <div className="flex justify-end gap-3 mb-4 no-print">
+                            <button
+                              type="button"
+                              onClick={handleShare}
+                              className="flex items-center gap-2 bg-brand-primary text-black px-4 py-2 rounded-xl text-xs font-bold hover:bg-brand-primary/90 transition-all shadow-sm"
+                            >
+                              <Globe size={14} /> Compartilhar / Gerar Link PÃºblico
+                            </button>
+                          </div>
+                        )}
+                        <div className="p-1 sm:p-2 bg-brand-paper rounded-3xl border border-brand-border shadow-lg">
+                          <ProcessoReport 
+                            rawAnalysis={state.processAnalysis} 
+                            propertyAddress={selectedProperty?.address}
+                            propertyCity={selectedProperty?.city}
+                            propertyState={selectedProperty?.state}
+                            valuation={metrics?.valuation}
+                          />
+                        </div>
+                      </Card>
+                    )}
+                  </div>
+                  <div className="mt-8 no-print border-t border-brand-primary/10 pt-8">
+                    <LegalGlossaryForLaypeople />
+                  </div>
+                  {renderTabChat('processos')}
+                  <SmartResetPanel
+                    tabName="AnÃ¡lise de Processos"
+                    tabKey="processos"
+                    hasAnalysis={!!state.processAnalysis}
+                    onResetTab={() => handleResetSubTab('processos')}
+                    onResetAll={handleResetAllPropertyData}
+                    onApplySettings={(settings) => updateState({ aiDepth: settings.depth, aiFocus: settings.focus })}
+                  />
+                </div>
+              )}
+              {isPasteModalOpen && (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-6">
+                  <motion.div 
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="bg-brand-paper w-full max-w-2xl rounded-[2.5rem] p-12 shadow-2xl border border-brand-primary/10"
+                  >
+                    <div className="flex items-center justify-between mb-8">
+                      <h3 className="text-2xl font-bold text-brand-primary">Colar Texto para AnÃ¡lise</h3>
+                      <button onClick={() => setIsPasteModalOpen(false)} className="p-2 hover:bg-brand-primary/10 rounded-full text-brand-primary"><X size={24} /></button>
+                    </div>
+                    <div className="space-y-6">
+                      <div>
+                        <label className="block text-xs font-bold uppercase tracking-widest text-brand-ink/40 mb-2">TÃ­tulo da Nota</label>
+                        <input 
+                          type="text" 
+                          placeholder="Ex: Notas sobre a vistoria"
+                          className="w-full bg-brand-bg border-none rounded-2xl py-4 px-6 focus:ring-2 focus:ring-brand-primary text-brand-ink" 
+                          value={pasteTitle}
+                          onChange={e => setPasteTitle(e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold uppercase tracking-widest text-brand-ink/40 mb-2">ConteÃºdo</label>
+                        <textarea 
+                          rows={8}
+                          className="w-full bg-brand-bg border-none rounded-2xl py-4 px-6 focus:ring-2 focus:ring-brand-primary resize-none text-brand-ink"
+                          placeholder="Cole aqui o texto, links ou observaÃ§Ãµes..."
+                          value={pasteText}
+                          onChange={e => setPasteText(e.target.value)}
+                        />
+                      </div>
+                      <button 
+                        onClick={handlePasteText}
+                        className="w-full bg-brand-primary text-black py-4 rounded-2xl font-bold hover:bg-brand-primary/90 transition-all"
+                      >
+                        Adicionar ao DossiÃª
+                      </button>
+                    </div>
+                  </motion.div>
+                </div>
+              )}
+
+              {activeSubTab === 'report' && (
+                <div className="space-y-10">
+                  {report ? (
+                    <div className="space-y-10">
+                      <div className="flex flex-col md:flex-row md:items-center justify-between border-b border-brand-border pb-8 gap-6">
+                        <div className="space-y-2">
+                          <h4 className="text-3xl font-serif font-bold text-brand-primary">
+                            {anonymizeProperty ? "AnÃ¡lise EstratÃ©gica de Oportunidade" : (selectedPropertyId ? properties.find(p => p.id === selectedPropertyId)?.title : "RelatÃ³rio EstratÃ©gico")}
+                          </h4>
+                          {!anonymizeProperty && selectedPropertyId && (
+                            <div className="flex items-center gap-2 text-brand-ink/40 text-sm font-medium">
+                              <Search size={14} />
+                              <span>{properties.find(p => p.id === selectedPropertyId)?.address}, {properties.find(p => p.id === selectedPropertyId)?.city} - {properties.find(p => p.id === selectedPropertyId)?.state}</span>
+                            </div>
+                          )}
+                          
+                          {propertyAnalyses.length > 0 && (
+                            <div className="flex items-center gap-3 mt-4 no-print">
+                              <span className="text-[10px] font-bold uppercase tracking-widest text-brand-ink/30">VersÃ£o:</span>
+                              <select 
+                                className="bg-brand-bg border border-brand-primary/10 rounded-lg px-3 py-1 text-xs font-bold text-brand-primary outline-none"
+                                value={state.analysisId || ''}
+                                onChange={(e) => {
+                                  const selected = propertyAnalyses.find(a => a.id === e.target.value);
+                                  if (selected) {
+                                    updateState({ 
+                                      report: selected.exec_summary, 
+                                      selectedModel: selected.ia_used,
+                                      analysisId: selected.id
+                                    });
+                                  }
+                                }}
+                              >
+                                {propertyAnalyses.map((a, idx) => (
+                                  <option key={a.id} value={a.id}>
+                                    {idx === 0 ? 'Ãšltima AnÃ¡lise' : `AnÃ¡lise #${propertyAnalyses.length - idx}`} ({a.ia_used}) - {new Date(a.created_at).toLocaleDateString()}
+                                  </option>
+                                ))}
+                              </select>
+                              <div className="px-3 py-1 bg-brand-primary/10 border border-brand-primary/20 rounded-lg text-[10px] font-bold text-brand-primary uppercase tracking-wider">
+                                IA: {selectedModel}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex flex-wrap gap-3 no-print">
+                          <div className="flex bg-brand-bg rounded-xl p-1">
+                            <button 
+                              className={cn("px-4 py-2 rounded-lg text-xs font-bold transition-all", simulationData.paymentType === 'vista' ? "bg-brand-primary text-black" : "text-brand-ink/40")}
+                              onClick={() => updateState({ simulationData: { ...simulationData, paymentType: 'vista' } })}
+                            >
+                              Ã€ Vista
+                            </button>
+                            <button 
+                              className={cn("px-4 py-2 rounded-lg text-xs font-bold transition-all", simulationData.paymentType === 'parcelado' ? "bg-brand-primary text-black" : "text-brand-ink/40")}
+                              onClick={() => updateState({ simulationData: { ...simulationData, paymentType: 'parcelado' } })}
+                            >
+                              Parcelado
+                            </button>
+                          </div>
+                          <button 
+                            onClick={() => updateState({ activeSubTab: 'documents' })}
+                            className="flex items-center gap-2 px-6 py-3 rounded-xl text-xs font-bold bg-brand-bg text-brand-ink hover:bg-brand-bg/80 transition-all"
+                          >
+                            <Files size={16} />
+                            Adicionar Documentos
+                          </button>
+                          <button 
+                            onClick={() => updateState({ activeSubTab: 'simulations' })}
+                            className="flex items-center gap-2 px-6 py-3 rounded-xl text-xs font-bold bg-brand-primary text-black hover:bg-brand-primary/90 transition-all shadow-lg shadow-brand-primary/20"
+                          >
+                            <TrendingUp size={16} />
+                            Editar SimulaÃ§Ã£o
+                          </button>
+                          {!isPublicView && (
+                            <>
+                              {!selectedPropertyId && (
+                                <button 
+                                  onClick={handleSaveAsProperty}
+                                  className="flex items-center gap-2 bg-brand-primary text-black px-6 py-3 rounded-xl text-xs font-bold hover:bg-brand-primary/90 transition-all shadow-lg shadow-brand-primary/20"
+                                >
+                                  <Save size={16} /> Salvar
+                                </button>
+                              )}
+                              <button 
+                                onClick={handleShare}
+                                className="flex items-center gap-2 bg-brand-primary text-black px-6 py-3 rounded-xl text-xs font-bold hover:bg-brand-primary/90 transition-all shadow-lg shadow-brand-primary/20"
+                              >
+                                <Globe size={16} /> Compartilhar / Gerar Link PÃºblico
+                              </button>
+                            </>
+                          )}
+                          <button 
+                            type="button"
+                            onClick={handlePrint}
+                            className="flex items-center gap-2 bg-brand-paper border border-brand-border text-brand-ink/60 px-6 py-3 rounded-xl text-xs font-bold hover:text-brand-primary hover:border-brand-primary/30 transition-all font-sans"
+                            title="Salvar como PDF ou Imprimir o relatÃ³rio completo"
+                          >
+                            <Printer size={16} /> Salvar PDF / Imprimir
+                          </button>
+                          <button 
+                            type="button"
+                            onClick={() => handleCopyText(report || '', setCopiedReport)}
+                            className="flex items-center gap-2 bg-brand-paper border border-brand-border text-brand-ink/60 px-6 py-3 rounded-xl text-xs font-bold hover:text-brand-primary hover:border-brand-primary/30 transition-all font-sans"
+                            title="Copiar relatÃ³rio formatado em texto para a Ã¡rea de transferÃªncia"
+                          >
+                            {copiedReport ? (
+                              <>
+                                <Check size={16} className="text-emerald-500" /> Copiado!
+                              </>
+                            ) : (
+                              <>
+                                <Copy size={16} /> Copiar RelatÃ³rio
+                              </>
+                            )}
+                          </button>
+                          {!isPublicView && (
+                            <button 
+                              type="button"
+                              onClick={handleNewAnalysis}
+                              className="flex items-center gap-2 bg-brand-bg border border-brand-primary/20 text-brand-primary hover:bg-brand-primary/10 px-6 py-3 rounded-xl text-xs font-bold transition-all font-sans"
+                              title="Iniciar uma nova anÃ¡lise jurÃ­dica/financeira do zero"
+                            >
+                              <RefreshCw size={16} /> Nova AnÃ¡lise
+                            </button>
+                          )}
+                          {state.analysisId && !isPublicView && (
+                            <div className="flex gap-2">
+                              <button 
+                                type="button"
+                                onClick={() => updateState({ isEditingReport: !state.isEditingReport })}
+                                className={cn(
+                                  "flex items-center gap-2 px-6 py-3 rounded-xl text-xs font-bold transition-all",
+                                  state.isEditingReport ? "bg-brand-primary text-black" : "bg-brand-paper border border-brand-border text-brand-ink/60 hover:text-brand-primary"
+                                )}
+                              >
+                                <Edit size={16} /> {state.isEditingReport ? "Visualizar" : "Editar"}
+                              </button>
+                              <button 
+                                type="button"
+                                onClick={handleDeleteAnalysis}
+                                className="flex items-center gap-2 bg-red-500/10 text-red-500 border border-red-500/20 px-6 py-3 rounded-xl text-xs font-bold hover:bg-red-500 hover:text-white transition-all"
+                              >
+                                <Trash2 size={16} /> Excluir
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Property Summary Cards */}
+                      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
+                        <div className="bg-brand-paper/50 p-4 sm:p-5 rounded-2xl sm:rounded-3xl border border-brand-border">
+                          <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-brand-ink/30 mb-2">Valor de Venda</p>
+                          <p className="text-sm sm:text-lg font-bold text-brand-ink break-all">
+                            {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(metrics.saleValue || 0)}
+                          </p>
+                        </div>
+                        <div className="bg-brand-paper/50 p-4 sm:p-5 rounded-2xl sm:rounded-3xl border border-brand-border">
+                          <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-brand-ink/30 mb-2">Custos da ArremataÃ§Ã£o</p>
+                          <p className="text-sm sm:text-lg font-bold text-brand-primary break-all">
+                            {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(metrics.totalInvestment || 0)}
+                          </p>
+                        </div>
+                        <div className="bg-brand-paper/50 p-4 sm:p-5 rounded-2xl sm:rounded-3xl border border-brand-border">
+                          <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-brand-ink/30 mb-2">Lucro Estimado</p>
+                          <p className="text-sm sm:text-lg font-bold text-emerald-500 break-all">
+                            {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(metrics.netProfit)}
+                          </p>
+                        </div>
+                        <div className="bg-brand-paper/50 p-4 sm:p-5 rounded-2xl sm:rounded-3xl border border-brand-border">
+                          <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-brand-ink/30 mb-2">ROI (Total)</p>
+                          <p className="text-sm sm:text-lg font-bold text-brand-primary break-all">
+                            {metrics.roi.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%
+                          </p>
+                        </div>
+                        <div className="bg-brand-paper/50 p-4 sm:p-5 rounded-2xl sm:rounded-3xl border border-brand-border">
+                          <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-brand-ink/30 mb-2">TIR (Anual)</p>
+                          <p className="text-sm sm:text-lg font-bold text-brand-primary break-all">
+                            {tir.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="bg-brand-paper rounded-2xl sm:rounded-[2.5rem] border border-brand-border shadow-inner overflow-hidden">
+                        <div className="p-4 sm:p-6 md:p-10 markdown-body max-w-none text-brand-ink break-words">
+                          {report ? (
+                            <ReactMarkdown remarkPlugins={[remarkGfm]} components={reportComponents}>{report}</ReactMarkdown>
+                          ) : (
+                            <div className="p-8 bg-brand-primary/5 rounded-2xl border border-brand-primary/10 text-center">
+                              <p className="text-brand-primary font-bold">AnÃ¡lise concluÃ­da, mas o relatÃ³rio textual nÃ£o foi gerado.</p>
+                              <p className="text-brand-ink/60 mt-2">Os dados da simulaÃ§Ã£o foram extraÃ­dos com sucesso e estÃ£o disponÃ­veis no dashboard.</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Chat with AI */}
+                      <div className="space-y-6 pt-10 border-t border-black/5">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-brand-primary rounded-xl flex items-center justify-center text-black">
+                            <MessageSquare size={20} />
+                          </div>
+                          <h5 className="text-lg font-bold text-brand-primary">Enriquecer AnÃ¡lise</h5>
+                        </div>
+
+                        <div className="bg-brand-bg rounded-[2rem] p-8 space-y-6 max-h-[400px] overflow-y-auto border border-brand-primary/10">
+                          {chatMessages.map((msg, idx) => (
+                            <div key={idx} className={cn(
+                              "flex gap-4 max-w-[85%]",
+                              msg.role === 'user' ? "ml-auto flex-row-reverse" : ""
+                            )}>
+                              <div className={cn(
+                                "w-8 h-8 rounded-lg flex items-center justify-center shrink-0",
+                                msg.role === 'assistant' ? "bg-brand-primary text-black" : "bg-brand-ink/10 text-brand-ink/40"
+                              )}>
+                                {msg.role === 'assistant' ? <Cpu size={14} /> : <Users size={14} />}
+                              </div>
+                              <div className={cn(
+                                "p-4 rounded-2xl text-sm font-medium leading-relaxed",
+                                msg.role === 'assistant' ? "bg-brand-paper shadow-sm markdown-body !text-sm" : "bg-brand-primary text-black"
+                              )}>
+                                {msg.role === 'assistant' ? (
+                                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
+                                ) : (
+                                  msg.content
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                          {sendingChat && (
+                            <div className="flex gap-4 max-w-[85%]">
+                              <div className="w-8 h-8 bg-brand-primary rounded-lg flex items-center justify-center text-black shrink-0">
+                                <Loader2 size={14} className="animate-spin" />
+                              </div>
+                              <div className="p-4 rounded-2xl bg-brand-paper shadow-sm text-sm font-medium text-brand-ink/20 italic">
+                                IA estÃ¡ pensando...
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Attached files list */}
+                        {analysisDocs.filter((d: any) => d.doc_type === 'Anexo Chat').length > 0 && (
+                          <div className="flex flex-wrap gap-2 mb-3 max-h-32 overflow-y-auto p-1 border-b border-brand-primary/5 pb-3">
+                            {analysisDocs.filter((d: any) => d.doc_type === 'Anexo Chat').map((doc: any) => (
+                              <div 
+                                key={doc.id} 
+                                className="flex items-center gap-2 bg-brand-primary/10 border border-brand-primary/25 text-brand-primary rounded-xl px-3.5 py-2 text-xs font-semibold select-none shadow-sm animate-fade-in"
+                              >
+                                <FileText size={14} className="shrink-0 text-brand-primary/70" />
+                                <span className="truncate max-w-[180px] text-brand-ink">{doc.filename}</span>
+                                <button 
+                                  type="button"
+                                  onClick={async () => {
+                                    // Local optimistic delete
+                                    setPropertyDocs((prev: any) => prev.filter((d: any) => d.id !== doc.id));
+                                    setState((prev: any) => ({
+                                      ...prev,
+                                      adHocDocs: prev.adHocDocs.filter((d: any) => d.id !== doc.id)
+                                    }));
+                                    // Backend delete
+                                    try {
+                                      await fetch(`/api/documents/${doc.id}`, {
+                                        method: 'DELETE',
+                                        headers: { 'Authorization': `Bearer ${token}` }
+                                      });
+                                    } catch (e) {
+                                      console.error("Erro ao deletar anexo:", e);
+                                    }
+                                  }}
+                                  className="text-brand-ink/40 hover:text-red-500 cursor-pointer transition-colors p-0.5 rounded-full hover:bg-red-500/10 ml-1"
+                                  title="Remover anexo do chat"
+                                >
+                                  <X size={14} />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        <div className="relative flex gap-3">
+                          <div className="relative flex-1">
+                            <input 
+                              type="text" 
+                              value={chatInput}
+                              onChange={e => setChatInput(e.target.value)}
+                              onKeyDown={e => e.key === 'Enter' && handleSendChat()}
+                              placeholder="Pergunte algo sobre o edital, riscos ou cÃ¡lculos..."
+                              className="w-full bg-brand-bg border border-brand-primary/10 rounded-2xl py-5 px-6 pr-16 focus:ring-2 focus:ring-brand-primary outline-none font-medium text-brand-ink"
+                            />
+                            <button 
+                              onClick={handleSendChat}
+                              disabled={sendingChat || !chatInput.trim()}
+                              className="absolute right-3 top-1/2 -translate-y-1/2 w-12 h-12 bg-brand-primary text-black rounded-xl flex items-center justify-center hover:bg-brand-primary/90 transition-all disabled:opacity-50"
+                            >
+                              <Send size={20} />
+                            </button>
+                          </div>
+                          <label className="w-14 h-14 bg-brand-bg border border-brand-primary/20 text-brand-primary rounded-2xl flex items-center justify-center cursor-pointer hover:bg-brand-primary/5 transition-all shrink-0">
+                            {uploading ? (
+                              <Loader2 size={24} className="animate-spin text-brand-primary" />
+                            ) : (
+                              <Plus size={24} />
+                            )}
+                            <input 
+                              type="file" 
+                              className="hidden" 
+                              multiple 
+                              disabled={uploading}
+                              onChange={(e) => handleAnalysisFileUpload(e, 'Anexo Chat')} 
+                            />
+                          </label>
+                        </div>
+                        <p className="text-[10px] text-brand-ink/40 font-semibold mt-1 flex items-center gap-1">
+                          <Info size={12} className="text-brand-primary" />
+                          <span>Envie novos documentos (+) para incluir no contexto desta conversa com a IA.</span>
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-10">
+                      <div className="text-center max-w-2xl mx-auto">
+                        <div className="w-16 h-16 bg-brand-primary/10 rounded-2xl flex items-center justify-center text-brand-primary mx-auto mb-6">
+                          <Files size={32} />
+                        </div>
+                        <h3 className="text-2xl font-bold mb-2 text-brand-primary">
+                          {selectedPropertyId ? "DossiÃª Digital do ImÃ³vel" : "DossiÃª de AnÃ¡lise Avulsa"}
+                        </h3>
+                        <p className="text-brand-ink/40 font-medium">
+                          {selectedPropertyId 
+                            ? "Complete as informaÃ§Ãµes essenciais para uma anÃ¡lise de IA precisa." 
+                            : "Suba os documentos abaixo para realizar uma anÃ¡lise rÃ¡pida sem cadastrar o imÃ³vel."}
+                        </p>
+                      </div>
+
+                      
+                      <div className="flex flex-col items-center pt-8 border-t border-black/5">
+                        <button 
+                          onClick={handleAnalyze}
+                          disabled={analyzing}
+                          className="bg-[#5A5A40] text-white px-12 py-5 rounded-2xl font-bold hover:bg-[#4A4A30] transition-all shadow-xl shadow-[#5A5A40]/20 flex items-center gap-3 disabled:opacity-50 disabled:shadow-none"
+                        >
+                          {analyzing ? <Loader2 className="animate-spin" size={20} /> : <Cpu size={20} />}
+                          Iniciar AnÃ¡lise EstratÃ©gica
+                        </button>
+                        <p className="mt-4 text-[10px] font-bold uppercase tracking-widest text-black/30">
+                          {analysisDocs.length > 0 ? "Pronto para analisar os documentos enviados." : "Suba ao menos um documento para iniciar."}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {activeSubTab === 'smart_analysis' && (
+                <div className="space-y-12">
+                  <SmartAnalysisTab 
+                    data={state.smartAnalysis}
+                    onSave={handleSaveSmartAnalysis}
+                    onTriggerAI={handleAnalyzeSmart}
+                    onExtractSection={handleExtractSectionSmart}
+                    isAnalyzing={analyzingSmart}
+                    hasDocuments={smartAnalysisDocs.length > 0}
+                    docs={smartAnalysisDocs}
+                    onUpload={(e, type) => handleAnalysisFileUpload(e, type)}
+                    onDelete={handleDeleteDocument}
+                    onTranscribe={handleTranscribeDoc}
+                    uploading={uploading}
+                  />
+                  <div className="mt-8 no-print border-t border-brand-primary/10 pt-8">
+                    <LegalGlossaryForLaypeople />
+                  </div>
+                  {renderTabChat('smart_analysis')}
+                  <SmartResetPanel
+                    tabName="AnÃ¡lise Smart"
+                    tabKey="smart_analysis"
+                    hasAnalysis={!!state.smartAnalysis}
+                    onResetTab={() => handleResetSubTab('smart_analysis')}
+                    onResetAll={handleResetAllPropertyData}
+                    onApplySettings={(settings) => updateState({ aiDepth: settings.depth, aiFocus: settings.focus })}
+                  />
+                </div>
+              )}
+
+              {activeSubTab === 'assessoria' && (
+                <div className="space-y-12">
+                  <AssessoriaReport 
+                    data={state.assessoriaAnalysis}
+                    onSave={handleSaveAssessoriaAnalysis}
+                    onTriggerAI={handleAnalyzeAssessoria}
+                    onExtractSection={handleExtractSectionAssessoria}
+                    isAnalyzing={analyzingAssessoria}
+                    isPublicView={state.isPublicView}
+                    docs={assessoriaDocs}
+                    onUpload={(e, type) => handleAnalysisFileUpload(e, type)}
+                    onDelete={handleDeleteDocument}
+                    onTranscribe={handleTranscribeDoc}
+                    uploading={uploading}
+                  />
+                  <div className="mt-8 no-print border-t border-brand-primary/10 pt-8">
+                    <LegalGlossaryForLaypeople />
+                  </div>
+                  {renderTabChat('assessoria')}
+                  <SmartResetPanel
+                    tabName="AnÃ¡lise de Assessoria"
+                    tabKey="assessoria"
+                    hasAnalysis={!!state.assessoriaAnalysis}
+                    onResetTab={() => handleResetSubTab('assessoria')}
+                    onResetAll={handleResetAllPropertyData}
+                    onApplySettings={(settings) => updateState({ aiDepth: settings.depth, aiFocus: settings.focus })}
+                  />
+                </div>
+              )}
+
+              {activeSubTab === 'investors' && (
+                <div className="space-y-12">
+                  <InvestorsTabContent simulationData={simulationData} report={report} />
+                  {renderTabChat('investors')}
+                  <SmartResetPanel
+                    tabName="RelatÃ³rio de Investidores"
+                    tabKey="investors"
+                    hasAnalysis={!!report}
+                    onResetTab={() => handleResetSubTab('report')}
+                    onResetAll={handleResetAllPropertyData}
+                    onApplySettings={(settings) => updateState({ aiDepth: settings.depth, aiFocus: settings.focus })}
+                  />
+                </div>
+              )}
+
+              {activeSubTab === 'instagram' && (
+                <div className="space-y-12">
+                  <InstagramMarketingView 
+                    state={state} 
+                    setState={setState} 
+                    property={selectedProperty} 
+                    metrics={metrics} 
+                    tir={tir} 
+                    roi={roi}
+                    token={token}
+                  />
+                  {renderTabChat('instagram')}
+                  <SmartResetPanel
+                    tabName="Material de CaptaÃ§Ã£o (Instagram)"
+                    tabKey="instagram"
+                    hasAnalysis={true}
+                    onResetTab={() => {}}
+                    onResetAll={handleResetAllPropertyData}
+                    onApplySettings={(settings) => updateState({ aiDepth: settings.depth, aiFocus: settings.focus })}
+                  />
+                </div>
+              )}
+
+              {activeSubTab === 'cnj' && (
+                <div className="space-y-10">
+                  {cnjResult ? (
+                    <div className="space-y-12">
+                      <div className="flex items-center justify-between border-b border-brand-primary/5 pb-8">
+                        <div className="flex items-center gap-6">
+                          <div className="w-16 h-16 bg-brand-primary/10 rounded-2xl flex items-center justify-center text-brand-primary border border-brand-primary/10">
+                            <Gavel size={32} />
+                          </div>
+                          <div>
+                            <h4 className="text-3xl font-serif font-medium text-brand-primary">Processo {cnjResult.cnj_number}</h4>
+                            <p className="text-[10px] font-bold text-brand-ink/30 uppercase tracking-[0.2em] mt-1">Consulta DataJud em tempo real</p>
+                          </div>
+                        </div>
+                        <button 
+                          onClick={handleSaveAsProperty}
+                          className="flex items-center gap-3 bg-brand-primary text-black px-8 py-4 rounded-2xl text-xs font-bold uppercase tracking-widest hover:bg-brand-primary/90 transition-all shadow-xl shadow-brand-primary/20"
+                        >
+                          <Save size={18} /> Salvar como Novo ImÃ³vel
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
+                        <DataJudField label="Tribunal" value={cnjResult.court} />
+                        <DataJudField label="Classe" value={cnjResult.class} />
+                        <DataJudField label="Ã“rgÃ£o Julgador" value={cnjResult.chamber} />
+                        <DataJudField label="Partes" value={cnjResult.parties} />
+                        <DataJudField label="Data de DistribuiÃ§Ã£o" value="12/04/2023" />
+                        <DataJudField label="Ãšltima MovimentaÃ§Ã£o" value={cnjResult.last_movement} />
+                      </div>
+
+                      <div className="space-y-8 pt-12 border-t border-brand-primary/5">
+                        <h5 className="text-xl font-serif font-medium flex items-center gap-3 text-brand-primary">
+                          <Files size={24} className="text-brand-primary/40" />
+                          Documentos Relevantes do Processo
+                        </h5>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          {[
+                            { name: 'Planilha de DÃ©bitos Atualizada.pdf', type: 'DÃ©bitos', date: 'HÃ¡ 2 dias' },
+                            { name: 'CertidÃ£o de CitaÃ§Ã£o.pdf', type: 'CitaÃ§Ã£o', date: 'HÃ¡ 15 dias' },
+                            { name: 'Auto de AvaliaÃ§Ã£o.pdf', type: 'AvaliaÃ§Ã£o', date: 'HÃ¡ 1 mÃªs' },
+                            { name: 'Edital de LeilÃ£o.pdf', type: 'Edital', date: 'HÃ¡ 5 dias' }
+                          ].map((file, i) => (
+                            <div key={i} className="flex items-center justify-between p-6 bg-brand-bg/30 rounded-3xl border border-brand-primary/5 hover:border-brand-primary/30 transition-all group cursor-pointer">
+                              <div className="flex items-center gap-5">
+                                <div className="w-12 h-12 bg-brand-bg rounded-2xl flex items-center justify-center text-brand-primary shadow-sm group-hover:bg-brand-primary group-hover:text-black transition-all duration-500 border border-brand-primary/10">
+                                  <FileText size={24} />
+                                </div>
+                                <div>
+                                  <p className="font-bold text-base tracking-tight">{file.name}</p>
+                                  <div className="flex gap-3 mt-2">
+                                    <span className="text-[10px] font-bold uppercase tracking-widest text-brand-primary bg-brand-primary/10 px-2.5 py-1 rounded-lg">{file.type}</span>
+                                    <span className="text-[10px] text-brand-ink/30 font-medium uppercase tracking-widest">{file.date}</span>
+                                  </div>
+                                </div>
+                              </div>
+                              <button className="p-3 hover:bg-brand-primary/10 rounded-xl text-brand-ink/20 hover:text-brand-primary transition-all">
+                                <Download size={20} />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center h-[400px] text-black/10 space-y-4">
+                      <Search size={64} />
+                      <p className="font-bold uppercase tracking-widest text-xs">Realize uma consulta CNJ na barra lateral</p>
+                    </div>
+                  )}
+                  {renderTabChat('cnj')}
+                  <SmartResetPanel
+                    tabName="Consulta CNJ"
+                    tabKey="cnj"
+                    hasAnalysis={!!cnjResult}
+                    onResetTab={() => handleResetSubTab('cnj')}
+                    onResetAll={handleResetAllPropertyData}
+                    onApplySettings={(settings) => updateState({ aiDepth: settings.depth, aiFocus: settings.focus })}
+                  />
+                </div>
+              )}
+
+              {activeSubTab === 'documents' && !isPublicView && (
+                <div className="space-y-12">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <h4 className="text-2xl font-serif font-medium text-brand-primary">RepositÃ³rio Organizado</h4>
+                    {!isPublicView && (
+                      <button
+                        type="button"
+                        onClick={handleShare}
+                        className="flex items-center gap-2 bg-brand-primary text-black px-4 py-2 rounded-xl text-xs font-bold hover:bg-brand-primary/90 transition-all shadow-sm"
+                      >
+                        <Globe size={14} /> Compartilhar / Gerar Link PÃºblico
+                      </button>
+                    )}
+                  </div>
+                  
+                  {/* Link do leiloeiro */}
+                  {selectedProperty ? (
+                    <div className="premium-card p-6 bg-brand-primary/5 rounded-[2rem] border border-brand-primary/10 space-y-4">
+                      <div>
+                        <h5 className="text-sm font-bold text-brand-primary flex items-center gap-2 uppercase tracking-wider">
+                          <Globe size={16} className="text-brand-primary animate-pulse" />
+                          Link do LeilÃ£o / Leiloeiro (ImÃ³vel Cadastrado)
+                        </h5>
+                        <p className="text-xs text-brand-ink/65 mt-1 leading-relaxed">
+                          Adicione a URL oficial do lote no portal do leiloeiro. O CÃ©rebro da IA irÃ¡ rastrear este link para extrair regras de parcelamento, valores atualizados e dados do leilÃ£o direto da fonte.
+                        </p>
+                      </div>
+                      
+                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                        <input 
+                          type="url"
+                          placeholder="https://www.leiloeiro.com.br/lote/..."
+                          value={state.auctionUrlInputValue !== undefined ? state.auctionUrlInputValue : (selectedProperty.auction_url || '')}
+                          onChange={(e) => updateState({ auctionUrlInputValue: e.target.value })}
+                          className="flex-1 px-4 py-3.5 text-xs bg-brand-bg rounded-xl border border-brand-primary/10 text-brand-ink focus:border-brand-primary focus:outline-none"
+                        />
+                        <button 
+                          onClick={async () => {
+                            const urlValue = state.auctionUrlInputValue !== undefined ? state.auctionUrlInputValue : (selectedProperty.auction_url || '');
+                            updateState({ isSavingAuctionUrl: true, auctionUrlSaveSuccess: false, auctionUrlSaveError: null });
+                            try {
+                              const res = await fetch(`/api/properties/${selectedProperty.id}`, {
+                                method: 'PUT',
+                                headers: {
+                                  'Content-Type': 'application/json',
+                                  'Authorization': `Bearer ${token}`
+                                },
+                                body: JSON.stringify({
+                                  ...selectedProperty,
+                                  auction_url: urlValue
+                                })
+                              });
+                              if (!res.ok) throw new Error('NÃ£o foi possÃ­vel salvar o link.');
+                              
+                              if (onPropertyCreated) {
+                                onPropertyCreated();
+                              }
+                              updateState({ auctionUrlSaveSuccess: true, isSavingAuctionUrl: false });
+                              setTimeout(() => {
+                                updateState({ auctionUrlSaveSuccess: false });
+                              }, 3000);
+                            } catch (err: any) {
+                              updateState({ auctionUrlSaveError: err.message || 'Erro ao salvar o link.', isSavingAuctionUrl: false });
+                            }
+                          }}
+                          disabled={state.isSavingAuctionUrl}
+                          className="px-6 py-3.5 bg-brand-primary hover:bg-brand-primary hover:scale-[1.01] text-black text-xs font-bold uppercase tracking-widest rounded-xl transition-all cursor-pointer whitespace-nowrap flex items-center justify-center gap-2 select-none"
+                        >
+                          {state.isSavingAuctionUrl ? (
+                            <>
+                              <Loader2 size={14} className="animate-spin text-black" />
+                              <span>Salvando...</span>
+                            </>
+                          ) : (
+                            <span>Salvar Link</span>
+                          )}
+                        </button>
+                      </div>
+                      
+                      {state.auctionUrlSaveSuccess && (
+                        <div className="text-xs text-emerald-400 font-bold flex items-center gap-1.5 animate-bounce mt-2">
+                          <Check size={14} /> Link do leiloeiro atualizado com sucesso!
+                        </div>
+                      )}
+                      
+                      {state.auctionUrlSaveError && (
+                        <div className="text-xs text-red-500 font-bold flex items-center gap-1.5 mt-2">
+                          <AlertTriangle size={14} /> {state.auctionUrlSaveError}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="premium-card p-6 bg-brand-primary/5 rounded-[2rem] border border-brand-primary/10 space-y-4 font-sans">
+                      <div>
+                        <h5 className="text-sm font-bold text-brand-primary flex items-center gap-2 uppercase tracking-wider">
+                          <Globe size={16} className="text-brand-primary animate-pulse" />
+                          Link do LeilÃ£o / Leiloeiro (AnÃ¡lise Avulsa)
+                        </h5>
+                        <p className="text-xs text-brand-ink/65 mt-1 leading-relaxed">
+                          Adicione a URL oficial do lote no portal do leiloeiro. O CÃ©rebro da IA irÃ¡ ler e rastrear este link em tempo real durante a execuÃ§Ã£o da anÃ¡lise para extrair regras de parcelamento e dados atualizados.
+                        </p>
+                      </div>
+                      
+                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                        <input 
+                          type="url"
+                          placeholder="https://www.leiloeiro.com.br/lote/..."
+                          value={state.auctionUrls && state.auctionUrls[0] ? state.auctionUrls[0] : ''}
+                          onChange={(e) => {
+                            const newUrl = e.target.value;
+                            updateState({ auctionUrls: [newUrl] });
+                          }}
+                          className="flex-1 px-4 py-3.5 text-xs bg-brand-bg rounded-xl border border-brand-primary/10 text-brand-ink focus:border-brand-primary focus:outline-none"
+                        />
+                        <button 
+                          className="px-6 py-3.5 bg-brand-primary/20 text-brand-primary text-xs font-bold uppercase tracking-widest rounded-xl transition-all cursor-default whitespace-nowrap flex items-center justify-center gap-2 select-none"
+                          disabled={true}
+                        >
+                          <Check size={14} className="text-brand-primary" />
+                          <span>Link Ativo</span>
+                        </button>
+                      </div>
+                      <p className="text-[10px] text-brand-ink/40">
+                        O link inserido acima serÃ¡ enviado e analisado junto com os seus documentos quando vocÃª clicar no botÃ£o <strong>"Executar AnÃ¡lise IA"</strong>.
+                      </p>
+                    </div>
+                  )}
+                  
+                  {['Edital', 'MatrÃ­cula', 'Processo Judicial', 'Outros'].map(category => (
+                    <DocumentManager 
+                      key={category} 
+                      label={category} 
+                      docs={documentsDocsFiltered} 
+                      onUpload={(e, type) => handleAnalysisFileUpload(e, type)}
+                      onDelete={handleDeleteDocument}
+                      onTranscribe={handleTranscribeDoc}
+                      uploading={uploading}
+                    />
+                  ))}
+                  
+                  {documentsDocsFiltered.length === 0 && (
+                    <div className="py-20 text-center text-black/20 font-bold uppercase tracking-widest text-xs">
+                      Nenhum documento vinculado.
+                    </div>
+                  )}
+
+                  <div className="mt-6 pt-6 border-t border-brand-primary/10">
+                    <button 
+                      onClick={() => handleAnalyze()} 
+                      disabled={analyzing} 
+                      className="w-full bg-brand-primary text-black py-4 rounded-xl font-bold hover:bg-brand-primary/90 transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-md shadow-brand-primary/10 font-sans"
+                    >
+                      {analyzing ? <Loader2 className="animate-spin" size={16} /> : <Cpu size={16} />}
+                      {analyzing ? 'Analisando Documentos...' : 'Executar AnÃ¡lise de RelatÃ³rio com IA'}
+                    </button>
+                  </div>
+
+                  {renderTabChat('documents')}
+                  <SmartResetPanel
+                    tabName="Documentos do LeilÃ£o"
+                    tabKey="documents"
+                    hasAnalysis={documentsDocsFiltered.length > 0}
+                    onResetTab={() => handleResetSubTab('documents')}
+                    onResetAll={handleResetAllPropertyData}
+                    onApplySettings={(settings) => updateState({ aiDepth: settings.depth, aiFocus: settings.focus })}
+                  />
+                </div>
+              )}
+
+              {activeSubTab === 'simulations' && (
+                <div className="space-y-6">
+                  <div className="flex items-center justify-between border-b border-brand-border/40 pb-4">
+                    <div>
+                      <h4 className="text-2xl font-bold text-brand-primary font-sans">ParÃ¢metros Financeiros Resumidos</h4>
+                      <p className="text-xs text-brand-ink/40 mt-1 font-sans">Defina os valores do imÃ³vel e custos para complementar sua viabilidade documental.</p>
+                    </div>
+                  </div>
+
+                  <SimulationContext.Provider 
+                    value={{ 
+                      simulationData, 
+                      updateState, 
+                      onJumpToSimulation: onJumpToSimulation || (() => {}),
+                      selectedPropertyId: state.selectedPropertyId,
+                      analysisId: state.analysisId,
+                      token,
+                      report: state.report,
+                      editalAnalysis: state.editalAnalysis,
+                      matriculaAnalysis: state.matriculaAnalysis,
+                      processAnalysis: state.processAnalysis,
+                      dossierAnalysis: state.dossierAnalysis,
+                      handleSaveAsProperty,
+                      properties: properties
+                    }}
+                  >
+                    <InteractiveSimulationTable />
+                  </SimulationContext.Provider>
+                  {renderTabChat('simulations')}
+                  <SmartResetPanel
+                    tabName="Simulador de Custos"
+                    tabKey="simulations"
+                    hasAnalysis={true}
+                    onResetTab={() => handleResetSubTab('simulations')}
+                    onResetAll={handleResetAllPropertyData}
+                    onApplySettings={(settings) => updateState({ aiDepth: settings.depth, aiFocus: settings.focus })}
+                  />
+                </div>
+               )}
+            </div>
+
+            {/* NOVO: Gerenciador Global de AnÃ¡lise e Reset Inteligente */}
+            <div className="bg-brand-primary/[0.02] border-t border-brand-primary/10 p-6 sm:p-8 space-y-6 font-sans no-print">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-brand-primary/10 pb-5">
+                <div className="flex items-start gap-3">
+                  <div className="p-2.5 bg-brand-primary/10 text-brand-primary rounded-2xl">
+                    <Sliders size={20} />
+                  </div>
+                  <div>
+                    <h4 className="text-md font-bold text-brand-ink">Painel de Controle e ReinicializaÃ§Ã£o</h4>
+                    <p className="text-xs text-brand-ink/50 mt-0.5">
+                      Monitore o status do seu leilÃ£o atual, alterne o modelo de IA ou limpe os relatÃ³rios para iniciar novos estudos de viabilidade.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    onClick={handleExportAllAnalyses}
+                    className="flex items-center gap-2 text-xs font-bold text-brand-primary hover:text-white bg-brand-primary/5 hover:bg-brand-primary px-4 py-2.5 rounded-xl border border-brand-primary/20 hover:border-brand-primary transition-all shadow-sm"
+                    title="Exporta o compilado de todas as abas de anÃ¡lise em Markdown"
+                  >
+                    <Download size={14} />
+                    Exportar RelatÃ³rio Geral
+                  </button>
+                  <button
+                    onClick={handleCopyAllAnalyses}
+                    className="flex items-center gap-2 text-xs font-bold text-brand-ink/70 hover:text-brand-ink bg-black/5 hover:bg-black/10 px-4 py-2.5 rounded-xl border border-brand-border/30 transition-all"
+                  >
+                    {copiedAllAnalyses ? <Check size={14} className="text-emerald-600" /> : <Copy size={14} />}
+                    {copiedAllAnalyses ? 'Copiado!' : 'Copiar Todas as Abas'}
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Lado Esquerdo: DiagnÃ³stico e Checklist do LeilÃ£o Atual */}
+                <div className="space-y-3">
+                  <span className="text-[10px] font-bold text-brand-primary uppercase tracking-wider block">Status da Cobertura de Dados</span>
+                  
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-xs p-3 bg-white/50 rounded-xl border border-brand-border/30">
+                      <div className="flex items-center gap-2">
+                        <FileText size={14} className={analysisDocs.some((d: any) => d.doc_type === 'Edital' || d.doc_type?.toLowerCase() === 'edital') ? "text-emerald-500" : "text-brand-ink/40"} />
+                        <span className="font-semibold text-brand-ink/80">AnÃ¡lise de Edital</span>
+                      </div>
+                      {state.editalAnalysis ? (
+                        <span className="text-[10px] font-bold px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200/50 rounded-full">Pronto</span>
+                      ) : (
+                        <span className="text-[10px] font-bold px-2 py-0.5 bg-black/5 text-brand-ink/40 rounded-full">Ausente</span>
+                      )}
+                    </div>
+
+                    <div className="flex items-center justify-between text-xs p-3 bg-white/50 rounded-xl border border-brand-border/30">
+                      <div className="flex items-center gap-2">
+                        <BookOpen size={14} className={analysisDocs.some((d: any) => d.doc_type === 'MatrÃ­cula' || d.doc_type?.toLowerCase() === 'matricula' || d.doc_type?.toLowerCase() === 'matrÃ­cula') ? "text-emerald-500" : "text-brand-ink/40"} />
+                        <span className="font-semibold text-brand-ink/80">AnÃ¡lise de MatrÃ­cula</span>
+                      </div>
+                      {state.matriculaAnalysis ? (
+                        <span className="text-[10px] font-bold px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200/50 rounded-full">Pronto</span>
+                      ) : (
+                        <span className="text-[10px] font-bold px-2 py-0.5 bg-black/5 text-brand-ink/40 rounded-full">Ausente</span>
+                      )}
+                    </div>
+
+                    <div className="flex items-center justify-between text-xs p-3 bg-white/50 rounded-xl border border-brand-border/30">
+                      <div className="flex items-center gap-2">
+                        <Search size={14} className={analysisDocs.some((d: any) => d.doc_type === 'Processo Judicial' || d.doc_type?.toLowerCase() === 'processo judicial') ? "text-emerald-500" : "text-brand-ink/40"} />
+                        <span className="font-semibold text-brand-ink/80">Processos Judiciais</span>
+                      </div>
+                      {state.processAnalysis ? (
+                        <span className="text-[10px] font-bold px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200/50 rounded-full">Pronto</span>
+                      ) : (
+                        <span className="text-[10px] font-bold px-2 py-0.5 bg-black/5 text-brand-ink/40 rounded-full">Ausente</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Meio: Controle de Modelo de IA RÃ¡pido */}
+                <div className="space-y-4 bg-brand-primary/[0.01] p-4 rounded-2xl border border-brand-primary/5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold text-brand-primary uppercase tracking-wider block">InteligÃªncia Artificial</span>
+                    <span className="text-[9px] font-bold px-1.5 py-0.5 bg-emerald-500/10 text-emerald-600 rounded-full uppercase">Conectado</span>
+                  </div>
+
+                  <div className="space-y-3 pt-1">
+                    <div>
+                      <label className="block text-[10px] font-bold uppercase tracking-wider text-brand-ink/50 mb-1">Modelo Selecionado</label>
+                      <select 
+                        value={state.selectedModel}
+                        onChange={(e) => updateState({ selectedModel: e.target.value as any })}
+                        className="w-full text-xs font-semibold px-3 py-2.5 rounded-xl border border-brand-border bg-white text-brand-ink focus:outline-none focus:border-brand-primary"
+                      >
+                        <option value="gemini-3.7-flash">Gemini 3.7 Flash (Mais EstÃ¡vel e Veloz - Recomendado)</option>
+                        <option value="gemini-2.5-flash">Gemini 2.5 Flash (PadrÃ£o)</option>
+                        <option value="gemini-2.5-pro">Gemini 2.5 Pro (RaciocÃ­nio JurÃ­dico AvanÃ§ado)</option>
+                      </select>
+                    </div>
+
+                    <div className="bg-white p-2.5 rounded-xl border border-brand-border/30 text-[10px] text-brand-ink/60 flex items-start gap-2">
+                      <Cpu size={14} className="text-brand-primary shrink-0 mt-0.5" />
+                      <span>Utilize "Gemini 3.7 Flash" para respostas rÃ¡pidas e sem erros de instabilidade, ou "Gemini 2.5 Pro" para anÃ¡lises complexas.</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Lado Direito: AÃ§Ãµes de Reset com ExplicaÃ§Ã£o */}
+                <div className="space-y-3">
+                  <span className="text-[10px] font-bold text-rose-500 uppercase tracking-wider block">Zona de Limpeza e ReinÃ­cio</span>
+                  
+                  <div className="grid grid-cols-1 gap-2.5">
+                    {/* BotÃ£o Refazer AnÃ¡lise Atual */}
+                    <button
+                      onClick={() => handleResetAnalysis(false)}
+                      className="w-full flex items-center justify-center gap-2.5 text-xs font-bold text-amber-600 hover:text-white bg-amber-500/5 hover:bg-amber-500 border border-amber-500/20 hover:border-amber-500 py-3 rounded-xl transition-all shadow-sm"
+                      title="Apaga as interpretaÃ§Ãµes da IA, mas mantÃ©m seus arquivos carregados"
+                    >
+                      <RefreshCw size={14} />
+                      Refazer AnÃ¡lise Atual
+                    </button>
+
+                    {/* BotÃ£o Resetar Tudo (Novo LeilÃ£o) */}
+                    <button
+                      onClick={() => handleResetAnalysis(true)}
+                      className="w-full flex items-center justify-center gap-2.5 text-xs font-bold text-rose-600 hover:text-white bg-rose-500/5 hover:bg-rose-500 border border-rose-500/20 hover:border-rose-500 py-3 rounded-xl transition-all shadow-sm"
+                      title="Apaga permanentemente todos os relatÃ³rios, conversas e arquivos enviados"
+                    >
+                      <Trash2 size={14} />
+                      Limpar Tudo (Novo LeilÃ£o)
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-brand-ink/40 leading-relaxed text-center lg:text-left">
+                    * Ao limpar tudo, os arquivos temporÃ¡rios e relatÃ³rios nÃ£o salvos serÃ£o removidos definitivamente.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {uploadProgressText && (
+        <div className="fixed bottom-8 right-8 z-[9999] bg-brand-paper border border-brand-primary/20 p-6 rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.3)] flex items-center gap-4 max-w-sm">
+          <Loader2 className="animate-spin text-brand-primary shrink-0" size={24} />
+          <div>
+            <h5 className="text-sm font-bold text-brand-primary">Processando Documento</h5>
+            <p className="text-xs font-semibold text-brand-ink/60 mt-1">{uploadProgressText}</p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AnalysisTab({ active, onClick, icon, label }: { active: boolean, onClick: () => void, icon: React.ReactNode, label: string }) {
+  return (
+    <button 
+      onClick={onClick}
+      className={cn(
+        "flex items-center gap-3 px-10 py-6 text-[10px] font-bold uppercase tracking-[0.2em] transition-all border-b-2 shrink-0 whitespace-nowrap",
+        active ? "bg-brand-paper border-brand-primary text-brand-primary" : "border-transparent text-brand-ink/30 hover:text-brand-primary/60"
+      )}
+    >
+      {icon}
+      {label}
+    </button>
+  );
+}
+
+
+function DossierCard({ title, description, icon, hasFile, onUpload, uploading }: { title: string, description: string, icon: React.ReactNode, hasFile: boolean, onUpload: (e: React.ChangeEvent<HTMLInputElement>) => void, uploading: boolean }) {
+  const uniqueId = React.useId();
+  const id = `dossier-${title.toLowerCase().replace(/\s+/g, '-')}-${uniqueId.replace(/:/g, '')}`;
+  return (
+    <div className={cn(
+      "bg-brand-paper p-8 rounded-[2rem] border transition-all flex flex-col h-full",
+      hasFile ? "border-emerald-500/20 shadow-lg shadow-emerald-500/5" : "border-brand-primary/10 hover:border-brand-primary/30"
+    )}>
+      <div className={cn(
+        "w-12 h-12 rounded-2xl flex items-center justify-center mb-6",
+        hasFile ? "bg-emerald-500 text-white" : "bg-brand-bg text-brand-ink/40"
+      )}>
+        {hasFile ? <CheckCircle2 size={24} /> : icon}
+      </div>
+      <h4 className="text-lg font-bold mb-2 text-brand-primary">{title}</h4>
+      <p className="text-sm text-brand-ink/40 font-medium mb-8 flex-1">{description}</p>
+      
+      <div className="relative mt-auto">
+        <input 
+          type="file" 
+          id={id}
+          className="hidden" 
+          onChange={onUpload}
+          disabled={uploading}
+        />
+        <label 
+          htmlFor={id}
+          className={cn(
+            "w-full py-4 px-6 rounded-2xl font-bold text-xs uppercase tracking-widest flex items-center justify-center gap-2 cursor-pointer transition-all",
+            hasFile 
+              ? "bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20" 
+              : "bg-brand-primary text-black hover:bg-brand-primary/90 shadow-lg shadow-brand-primary/10"
+          )}
+        >
+          {uploading ? <Loader2 className="animate-spin" size={14} /> : (hasFile ? <RefreshCw size={14} /> : <Plus size={14} />)}
+          {hasFile ? "Substituir" : "Subir Documento"}
+        </label>
+      </div>
+    </div>
+  );
+}
+
+function AIKeyInput({ label, value, onChange }: { label: string, value: string, onChange: (val: string) => void }) {
+  const isInvalidGemini = value && label.includes("Gemini") && !value.trim().startsWith("AIza") && !value.trim().startsWith("AQ");
+  return (
+    <div>
+      <label className="block text-[10px] font-bold uppercase tracking-[0.2em] text-brand-ink/30 mb-3 ml-1">{label}</label>
+      <input 
+        type="password" 
+        className={cn(
+          "w-full bg-brand-bg border-none rounded-2xl py-5 px-8 focus:ring-2 focus:ring-brand-primary font-mono text-sm text-brand-primary",
+          isInvalidGemini && "ring-2 ring-red-200"
+        )}
+        value={value || ''}
+        onChange={e => onChange(e.target.value)}
+        placeholder={label.includes("Gemini") ? "Insira a chave AIza ou AQ..." : "Insira a chave sk-..."}
+      />
+      {isInvalidGemini && (
+        <p className="text-[10px] text-red-500 mt-2 ml-1 font-bold">AtenÃ§Ã£o: Chaves Gemini devem comeÃ§ar com 'AIza' ou 'AQ'</p>
+      )}
+    </div>
+  );
+}
+
+function UsersView({ token }: { token: string }) {
+  const [users, setUsers] = useState<User[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    fetchUsers();
+  }, []);
+
+  const fetchUsers = () => {
+    fetch('/api/users', { headers: { 'Authorization': `Bearer ${token}` } })
+      .then(res => {
+        if (!res.ok) throw new Error("Erro ao carregar usuÃ¡rios");
+        return parseJsonResponse(res);
+      })
+      .then(data => setUsers(data))
+      .catch(err => console.error(err));
+  };
+
+  const handleDeleteUser = async (id: string) => {
+    if (!confirm("Tem certeza que deseja excluir este usuÃ¡rio?")) return;
+    
+    try {
+      const res = await fetch(`/api/users/${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        fetchUsers();
+        alert("UsuÃ¡rio excluÃ­do com sucesso.");
+      } else {
+        const errText = await res.text();
+        let errData;
+        try {
+          const trimmed = errText.trim().toLowerCase();
+          if (trimmed.includes('<!doctype') || trimmed.includes('<html') || trimmed.includes('<body')) {
+            throw new Error("Resposta do servidor Ã© HTML");
+          }
+          errData = JSON.parse(errText);
+        } catch (e) {
+          errData = { error: errText || res.statusText };
+        }
+        alert(`Erro ao excluir usuÃ¡rio: ${errData.error || errText || res.statusText}`);
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Erro ao excluir usuÃ¡rio.");
+    }
+  };
+
+  return (
+    <div className="space-y-12">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-4xl font-serif font-medium tracking-tight text-brand-primary">GestÃ£o de UsuÃ¡rios</h2>
+          <p className="text-brand-ink/40 font-medium text-lg">Administre os acessos ao sistema profissional.</p>
+        </div>
+        <button className="bg-brand-primary text-black px-8 py-4 rounded-2xl font-bold text-xs uppercase tracking-widest flex items-center gap-3 shadow-xl shadow-brand-primary/20 hover:bg-brand-primary/90 transition-all">
+          <Plus size={20} /> Novo UsuÃ¡rio
+        </button>
+      </div>
+
+      <div className="premium-card overflow-hidden">
+        <table className="w-full text-left border-collapse">
+          <thead>
+            <tr className="bg-brand-bg text-brand-ink/30 text-[10px] font-bold uppercase tracking-[0.2em]">
+              <th className="px-10 py-8">Nome</th>
+              <th className="px-10 py-8">UsuÃ¡rio / Email</th>
+              <th className="px-10 py-8">Cargo</th>
+              <th className="px-10 py-8">Status</th>
+              <th className="px-10 py-8 text-right">AÃ§Ãµes</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-brand-primary/5">
+            {users.map(u => (
+              <tr key={u.id} className="hover:bg-brand-bg/30 transition-all group">
+                <td className="px-10 py-8 font-serif text-xl font-bold text-brand-primary">{u.name}</td>
+                <td className="px-10 py-8">
+                  <p className="text-base font-bold tracking-tight">{u.username}</p>
+                  <p className="text-xs text-brand-ink/40 font-medium">{u.email}</p>
+                </td>
+                <td className="px-10 py-8">
+                  <span className="px-3 py-1 bg-brand-primary/10 text-brand-primary rounded-lg text-[10px] font-bold uppercase tracking-widest">
+                    {u.role}
+                  </span>
+                </td>
+                <td className="px-10 py-8">
+                  <span className="px-3 py-1 bg-emerald-50 text-emerald-600 rounded-lg text-[10px] font-bold uppercase tracking-widest">
+                    {u.status}
+                  </span>
+                </td>
+                <td className="px-10 py-8 text-right">
+                  <div className="flex items-center justify-end gap-3 opacity-0 group-hover:opacity-100 transition-all">
+                    <button className="p-3 hover:bg-brand-paper rounded-xl text-brand-ink/20 hover:text-brand-primary transition-all shadow-sm"><Edit size={18} /></button>
+                    <button onClick={() => handleDeleteUser(u.id)} className="p-3 hover:bg-red-500/10 rounded-xl text-brand-ink/20 hover:text-red-500 transition-all shadow-sm"><Trash2 size={18} /></button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function SettingsView({ 
+  token, 
+  aiConfig, 
+  onConfigUpdate 
+}: { 
+  token: string; 
+  aiConfig: AIConfig | null; 
+  onConfigUpdate: (config: AIConfig) => void; 
+}) {
+  const [activeSubTab, setActiveSubTab] = useState<'ai' | 'general'>('ai');
+  const [master, setMaster] = useState(() => {
+    return getMasterBudgetConfigs();
+  });
+
+  const handleUpdate = (key: string, field: 'value' | 'type', val: any) => {
+    setMaster((prev: any) => {
+      const updated = {
+        ...prev,
+        [key]: {
+          ...(prev[key] || { value: 0, type: 'BRL' }),
+          [field]: val
+        }
+      };
+      return updated;
+    });
+  };
+
+  const handleSaveMaster = () => {
+    localStorage.setItem('QUADRO_RESUMO_INVESTIMENTO_MASTER', JSON.stringify(master));
+    if ((window as any).customToast) {
+      (window as any).customToast("Quadro Resumo (MASTER) atualizado com sucesso!", "success");
+    } else {
+      alert("Quadro Resumo (MASTER) cadastrado com sucesso!");
+    }
+  };
+
+  const fields = [
+    { key: 'comissaoLeiloeiro', label: 'ComissÃ£o do Leiloeiro', desc: 'Default da taxa para arremate, tipicamente 5%' },
+    { key: 'itbi', label: 'ITBI Estimado', desc: 'Imposto Estadual de TransmissÃ£o de Bens ImÃ³veis' },
+    { key: 'transfRegistro', label: 'Registro e Custas', desc: 'Emolumentos de cartÃ³rio e taxas de averbaÃ§Ã£o' },
+    { key: 'desocupacaoAcordo', label: 'DÃ­vidas IPTU / Condo', desc: 'PendÃªncias de impostos e condomÃ­nio associados ao imÃ³vel' },
+    { key: 'reforma', label: 'Reforma / DesocupaÃ§Ã£o', desc: 'ProvisÃ£o de recursos para reforma ou remoÃ§Ã£o do ocupante' },
+    { key: 'assessoria', label: 'Assessoria TJ INVEST', desc: 'ComissÃ£o devida pelo assessoramento integral' },
+    { key: 'entrada', label: 'Entrada TJ INVEST', desc: 'Pagamento inicial fixo de consultoria jurÃ­dica' },
+    { key: 'extraFees', label: 'Despesas Extra / Outros', desc: 'Margem para despesas nÃ£o listadas ou imprevistos' }
+  ];
+
+  return (
+    <div className="space-y-8">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-brand-primary/10 pb-6">
+        <div>
+          <h2 className="text-4xl font-serif font-medium tracking-tight text-brand-primary">ConfiguraÃ§Ãµes</h2>
+          <p className="text-brand-ink/40 font-medium text-lg">Gerencie as chaves de API das InteligÃªncias Artificiais e parÃ¢metros globais do sistema.</p>
+        </div>
+        
+        {/* Tab system inside settings */}
+        <div className="flex bg-brand-bg/50 p-1.5 rounded-2xl border border-brand-primary/10 self-start md:self-auto uppercase tracking-wider text-[10px] font-bold">
+          <button
+            onClick={() => setActiveSubTab('ai')}
+            className={cn(
+              "px-5 py-2.5 rounded-xl transition-all cursor-pointer",
+              activeSubTab === 'ai' 
+                ? "bg-brand-primary text-black shadow-lg" 
+                : "text-brand-ink/40 hover:text-brand-primary"
+            )}
+          >
+            ConfiguraÃ§Ã£o de IA
+          </button>
+          <button
+            onClick={() => setActiveSubTab('general')}
+            className={cn(
+              "px-5 py-2.5 rounded-xl transition-all cursor-pointer",
+              activeSubTab === 'general' 
+                ? "bg-brand-primary text-black shadow-lg" 
+                : "text-brand-ink/40 hover:text-brand-primary"
+            )}
+          >
+            ParÃ¢metros Gerais
+          </button>
+        </div>
+      </div>
+
+      <div className="pt-4 animate-fade-in">
+        {activeSubTab === 'ai' ? (
+          <AIConfigView 
+            token={token} 
+            aiConfig={aiConfig} 
+            onConfigUpdate={onConfigUpdate} 
+          />
+        ) : (
+          <div className="space-y-8">
+            <Card title="QUADRO RESUMO DE INVESTIMENTO (MASTER)">
+              <div className="space-y-8">
+                <div className="p-6 bg-brand-primary/5 rounded-3xl border border-brand-primary/10">
+                  <p className="text-xs text-brand-primary font-sans leading-relaxed">
+                    âš™ï¸ **ConfiguraÃ§Ã£o Master Global**: Defina aqui o padrÃ£o de cÃ¡lculo para todas as simulaÃ§Ãµes do sistema. Quando uma nova anÃ¡lise for executada, ela serÃ¡ calculada inicialmente com estes parÃ¢metros. Caso deseje alterÃ¡-los para um caso especÃ­fico, vocÃª poderÃ¡ sobrescrevÃª-los diretamente na aba de **SimulaÃ§Ã£o** do imÃ³vel para garantir flexibilidade ("nÃ£o ficar engessado").
+                  </p>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {fields.map(f => {
+                    const fd = master[f.key] || { value: 0, type: 'BRL' };
+                    return (
+                      <div key={f.key} className="flex flex-col gap-2 p-5 bg-brand-bg/30 rounded-3xl border border-brand-border hover:border-brand-primary/20 transition-all">
+                        <div className="flex items-center justify-between font-sans">
+                          <span className="text-xs font-bold uppercase tracking-widest text-brand-primary">{f.label}</span>
+                          
+                          <div className="flex bg-brand-bg rounded-lg p-0.5 border border-brand-border">
+                            <button 
+                              type="button"
+                              onClick={() => handleUpdate(f.key, 'type', 'BRL')}
+                              className={cn(
+                                "px-2 py-0.5 text-[8px] font-bold uppercase tracking-widest rounded transition-all cursor-pointer",
+                                fd.type === 'BRL' ? "bg-brand-primary text-black shadow-sm" : "text-brand-ink/40 hover:text-brand-primary"
+                              )}
+                            >
+                              R$
+                            </button>
+                            <button 
+                              type="button"
+                              onClick={() => handleUpdate(f.key, 'type', 'PERCENT')}
+                              className={cn(
+                                "px-2 py-0.5 text-[8px] font-bold uppercase tracking-widest rounded transition-all cursor-pointer",
+                                fd.type === 'PERCENT' ? "bg-brand-primary text-black shadow-sm" : "text-brand-ink/40 hover:text-brand-primary"
+                              )}
+                            >
+                              %
+                            </button>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center gap-2 bg-brand-bg/40 rounded-2xl px-4 py-2.5 border border-brand-border">
+                          <span className="text-brand-ink/40 text-xs font-bold font-mono">
+                            {fd.type === 'BRL' ? 'R$' : '%'}
+                          </span>
+                          <input 
+                            type="number"
+                            step="any"
+                            value={fd.value}
+                            onChange={(e) => handleUpdate(f.key, 'value', parseFloat(e.target.value) || 0)}
+                            className="w-full bg-transparent border-none focus:ring-0 text-sm font-bold p-0 text-brand-ink outline-none font-mono"
+                            placeholder="0,00"
+                          />
+                        </div>
+                        <span className="text-[9px] text-brand-ink/30 italic font-sans">{f.desc}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+                
+                <div className="flex justify-end pt-4 border-t border-brand-border/40">
+                  <button
+                    onClick={handleSaveMaster}
+                    className="bg-brand-primary text-black px-8 py-4 rounded-2xl font-bold hover:bg-brand-primary/95 transition-all shadow-lg shadow-brand-primary/10 flex items-center gap-2 text-xs uppercase tracking-widest cursor-pointer"
+                  >
+                    <Save size={14} />
+                    Salvar Quadro Resumo (MASTER)
+                  </button>
+                </div>
+              </div>
+            </Card>
+
+            <Card title="PreferÃªncias do Sistema">
+              <div className="space-y-6">
+                <div className="flex items-center justify-between p-6 bg-brand-bg/50 rounded-3xl border border-brand-border/45">
+                  <span className="font-bold text-brand-primary text-xs uppercase tracking-wider font-sans">Alertas de Novos LeilÃµes</span>
+                  <div className="w-14 h-7 bg-brand-primary rounded-full relative cursor-pointer">
+                    <div className="absolute right-1 top-1 w-5 h-5 bg-white rounded-full shadow-sm" />
+                  </div>
+                </div>
+                <div className="flex items-center justify-between p-6 bg-brand-bg/50 rounded-3xl border border-brand-border/45">
+                  <span className="font-bold text-brand-primary text-xs uppercase tracking-wider font-sans">RelatÃ³rios de IA por Email</span>
+                  <div className="w-14 h-7 bg-brand-ink/10 rounded-full relative cursor-pointer">
+                    <div className="absolute left-1 top-1 w-5 h-5 bg-white rounded-full shadow-sm" />
+                  </div>
+                </div>
+              </div>
+            </Card>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
