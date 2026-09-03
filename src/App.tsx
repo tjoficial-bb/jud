@@ -78,6 +78,8 @@ import SmartAnalysisTab, { SmartAnalysisData, getEmptySmartAnalysis, normalizeSm
 import AssessoriaReport, { AssessoriaAnalysisData, getEmptyAssessoriaAnalysis } from './components/AssessoriaReport';
 import { exportElementToPDF } from './utils/pdfExporter';
 import { PdfExportModal } from './components/PdfExportModal';
+import { AnalysisPremisesCard } from './components/AnalysisPremisesCard';
+import { DynamicFinancialMetricsBar } from './components/DynamicFinancialMetricsBar';
 
 const SimulationContext = React.createContext<{ 
   simulationData: any, 
@@ -131,6 +133,23 @@ function getCustomInstructionsPrompt(state: any): string {
     }
     prompt += "===============================================================\n";
   }
+  if (state && (state.customSaleValue || state.customBidValue || (state.customAnalysisNotes && state.customAnalysisNotes.trim()))) {
+    prompt += "\n\n=== PREMISSAS E INFORMAÇÕES ADICIONAIS DO INVESTIDOR (PRIORIDADE MÁXIMA) ===\n";
+    if (state.customSaleValue && Number(state.customSaleValue) > 0) {
+      prompt += `- VALOR ESTIMADO DE VENDA PRETENDIDO PELO USUÁRIO: R$ ${Number(state.customSaleValue).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}\n`;
+      prompt += `  (DIRETRIZ MANDATÓRIA: Adote OBRIGATORIAMENTE este valor como a premissa de mercado para o preço de revenda final, cálculo de margem bruta, lucro líquido, ROI e no campo "saleValue" da simulação financeira).\n`;
+    }
+    if (state.customBidValue && Number(state.customBidValue) > 0) {
+      prompt += `- LANCE PRETENDIDO / TETO MÁXIMO DE ARREMATAÇÃO: R$ ${Number(state.customBidValue).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}\n`;
+      prompt += `  (DIRETRIZ MANDATÓRIA: Utilize este valor de lance para compor o custo de aquisição e a viabilidade da arrematação).\n`;
+    }
+    if (state.customAnalysisNotes && state.customAnalysisNotes.trim()) {
+      prompt += `- INFORMAÇÕES COMPLEMENTARES E PARTICULARIDADES FORNECIDAS PELO USUÁRIO:\n${state.customAnalysisNotes.trim()}\n`;
+      prompt += `  (DIRETRIZ MANDATÓRIA: Considere integralmente estas particularidades e observações ao avaliar os riscos, prazos, custos operacionais e emitir o parecer executivo).\n`;
+    }
+    prompt += "=============================================================================\n";
+  }
+
   return prompt;
 }
 
@@ -628,11 +647,17 @@ export default function App() {
     aiDepth?: string;
     aiFocus?: string;
     analysisFocusKeyword: string;
+    customSaleValue?: number | '';
+    customBidValue?: number | '';
+    customAnalysisNotes?: string;
   }>(() => {
     const masterDefaults = getMasterBudgetConfigs();
     return {
       activeSubTab: 'report',
       selectedPropertyId: '',
+      customSaleValue: '',
+      customBidValue: '',
+      customAnalysisNotes: '',
       report: null,
       editalAnalysis: null,
       matriculaAnalysis: null,
@@ -6208,6 +6233,9 @@ Responda APENAS um objeto JSON válido, sem aspas adicionais, sem bloco de códi
   }
 
   if (!processStory) {
+    if (state.report) {
+      return null;
+    }
     return (
       <div className="flex flex-col items-center justify-center py-20 text-center space-y-6">
         <div className="w-20 h-20 bg-brand-primary/10 rounded-3xl flex items-center justify-center text-brand-primary">
@@ -7445,6 +7473,31 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
   const [copiedEdital, setCopiedEdital] = useState(false);
   const [copiedMatricula, setCopiedMatricula] = useState(false);
   const [copiedProcessos, setCopiedProcessos] = useState(false);
+
+  const handleUpdateSimulationValue = useCallback((key: string, value: any, subkey?: string) => {
+    setState((prev: any) => {
+      const currentSim = prev.simulationData || {};
+      let updatedSim = { ...currentSim };
+      if (subkey) {
+        updatedSim = {
+          ...updatedSim,
+          [key]: {
+            ...(updatedSim[key] || {}),
+            [subkey]: value
+          }
+        };
+      } else {
+        updatedSim = {
+          ...updatedSim,
+          [key]: value
+        };
+      }
+      return {
+        ...prev,
+        simulationData: updatedSim
+      };
+    });
+  }, [setState]);
 
   const handleCopyText = async (text: string, setCopiedState: (v: boolean) => void) => {
     if (!text) return;
@@ -10278,6 +10331,14 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
         setState(prev => ({ ...prev, isGeneratingStory: false }));
       }
 
+      // Se o investidor definiu premissas manuais de Valor de Venda ou Lance Pretendido, aplicar com prioridade máxima
+      if (state.customSaleValue && Number(state.customSaleValue) > 0) {
+        extractedData.saleValue = { value: Number(state.customSaleValue), type: 'BRL' };
+      }
+      if (state.customBidValue && Number(state.customBidValue) > 0) {
+        extractedData.bid = { value: Number(state.customBidValue), type: 'BRL' };
+      }
+
       // Aguardar e parsear a Análise Smart iniciada em paralelo para preencher todos os campos
       let smartAnalysisData: SmartAnalysisData | null = null;
       try {
@@ -10951,11 +11012,15 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
                 className="w-full bg-brand-bg border-none rounded-2xl py-4 px-6 focus:ring-2 focus:ring-brand-primary font-bold text-sm text-brand-primary"
                 value={selectedPropertyId || ''}
                 onChange={e => {
+                  const propId = e.target.value;
+                  const prop = properties.find(p => p.id === propId);
                   updateState({ 
-                    selectedPropertyId: e.target.value,
+                    selectedPropertyId: propId,
                     report: null,
                     chatMessages: [],
-                    adHocDocs: e.target.value ? adHocDocs : []
+                    adHocDocs: propId ? adHocDocs : [],
+                    customSaleValue: prop?.expected_sale_value || '',
+                    customBidValue: prop?.min_bid || ''
                   });
                 }}
               >
@@ -11171,6 +11236,16 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
                       </button>
                     </div>
                   </div>
+
+                  {/* Premissas e Dados Complementares para o Dossiê */}
+                  <AnalysisPremisesCard
+                    customSaleValue={state.customSaleValue}
+                    customBidValue={state.customBidValue}
+                    customAnalysisNotes={state.customAnalysisNotes}
+                    onUpdate={(fields) => updateState(fields)}
+                    selectedProperty={selectedProperty}
+                    compact={true}
+                  />
 
                   {/* Upload de Documentos Integrado */}
                   {!isPublicView && (
@@ -11730,39 +11805,25 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
                         </div>
                       </div>
 
-                      {/* Property Summary Cards */}
-                      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
-                        <div className="bg-brand-paper/50 p-4 sm:p-5 rounded-2xl sm:rounded-3xl border border-brand-border">
-                          <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-brand-ink/30 mb-2">Valor de Venda</p>
-                          <p className="text-sm sm:text-lg font-bold text-brand-ink break-all">
-                            {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(metrics.saleValue || 0)}
-                          </p>
-                        </div>
-                        <div className="bg-brand-paper/50 p-4 sm:p-5 rounded-2xl sm:rounded-3xl border border-brand-border">
-                          <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-brand-ink/30 mb-2">Custos da Arrematação</p>
-                          <p className="text-sm sm:text-lg font-bold text-brand-primary break-all">
-                            {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(metrics.totalInvestment || 0)}
-                          </p>
-                        </div>
-                        <div className="bg-brand-paper/50 p-4 sm:p-5 rounded-2xl sm:rounded-3xl border border-brand-border">
-                          <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-brand-ink/30 mb-2">Lucro Estimado</p>
-                          <p className="text-sm sm:text-lg font-bold text-emerald-500 break-all">
-                            {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(metrics.netProfit)}
-                          </p>
-                        </div>
-                        <div className="bg-brand-paper/50 p-4 sm:p-5 rounded-2xl sm:rounded-3xl border border-brand-border">
-                          <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-brand-ink/30 mb-2">ROI (Total)</p>
-                          <p className="text-sm sm:text-lg font-bold text-brand-primary break-all">
-                            {metrics.roi.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%
-                          </p>
-                        </div>
-                        <div className="bg-brand-paper/50 p-4 sm:p-5 rounded-2xl sm:rounded-3xl border border-brand-border">
-                          <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-brand-ink/30 mb-2">TIR (Anual)</p>
-                          <p className="text-sm sm:text-lg font-bold text-brand-primary break-all">
-                            {tir.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%
-                          </p>
-                        </div>
-                      </div>
+                      {/* Dynamic Financial Metrics Bar com Recálculo em Tempo Real e Readequação de Parecer */}
+                      <DynamicFinancialMetricsBar
+                        metrics={metrics}
+                        tir={tir}
+                        roi={roi}
+                        simulationData={simulationData}
+                        onUpdateSimulationValue={handleUpdateSimulationValue}
+                        selectedPropertyId={selectedPropertyId}
+                        selectedProperty={selectedProperty}
+                        token={token}
+                        onPropertySaved={() => {
+                          if (onPropertyCreated) onPropertyCreated();
+                          fetchPropertyData(selectedPropertyId);
+                        }}
+                        currentReportText={report}
+                        onReportUpdated={(newReportText) => updateState({ report: newReportText })}
+                        selectedModel={selectedModel}
+                        userApiKey={resolveApiKey(state.selectedKeySource, state.aiConfig, state.selectedModel || 'gemini-3.7-flash') || ""}
+                      />
 
                       <div className="bg-brand-paper rounded-2xl sm:rounded-[2.5rem] border border-brand-border shadow-inner overflow-hidden">
                         <div className="p-4 sm:p-6 md:p-10 markdown-body max-w-none text-brand-ink break-words">
@@ -12242,6 +12303,15 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
                       </p>
                     </div>
                   )}
+
+                  {/* Premissas e Dados Complementares do Usuário para a Análise */}
+                  <AnalysisPremisesCard
+                    customSaleValue={state.customSaleValue}
+                    customBidValue={state.customBidValue}
+                    customAnalysisNotes={state.customAnalysisNotes}
+                    onUpdate={(fields) => updateState(fields)}
+                    selectedProperty={selectedProperty}
+                  />
                   
                   {['Edital', 'Matrícula', 'Processo Judicial', 'Outros'].map(category => (
                     <DocumentManager 
