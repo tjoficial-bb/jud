@@ -259,11 +259,15 @@ const generateContentWithFallback = async (
 export const transcribeDocumentToMarkdown = async (
   buffer: Buffer,
   mimeType: string,
-  filename: string = "documento.pdf"
+  filename: string = "documento.pdf",
+  overrideApiKey?: string
 ): Promise<string> => {
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey = (overrideApiKey && overrideApiKey.trim().length > 5)
+    ? overrideApiKey.trim()
+    : (process.env.GEMINI_API_KEY || process.env.API_KEY || "");
+
   if (!apiKey) {
-    console.warn("[OCR Transcribe] GEMINI_API_KEY não configurada no servidor.");
+    console.warn(`[OCR Transcribe] Nenhuma chave Gemini configurada no servidor para transcrever "${filename}".`);
     return "";
   }
 
@@ -284,20 +288,20 @@ export const transcribeDocumentToMarkdown = async (
       effectiveMime = 'image/webp';
     }
 
-    const prompt = `Você é um especialista sênior em OCR avançado, visão computacional e transcrição documental de processos judiciais, cartórios de imóveis e tribunais de justiça no Brasil.
+    const prompt = `Você é um especialista sênior em OCR avançado, visão computacional e transcrição documental de editais de leilão, processos judiciais e cartórios de imóveis no Brasil.
 Sua missão é realizar a TRANSCRIÇÃO OCR EXATA, NA ÍNTEGRA, COMPLETA E SEM OMISSÕES deste documento ("${filename}") para o formato MARKDOWN limpo, organizado e estruturado.
 
-DIRETRIZES DE TRANSCRIÇÃO OBRIGATÓRIAS PARA PROCESSO JUDICIAL E DOCUMENTOS:
-1. LEIA E TRANSCREVA ABSOLUTAMENTE TUDO visível em TODAS as páginas (incluindo páginas antigas escaneadas, manuscritos, carimbos e selos):
-   - Em Peças do Processo Judicial: transcreva todos os números de folhas (fls.), petições iniciais e intermediárias, certidões de citação e intimação, autos de penhora e avaliação, decisões interlocutórias, despachos, sentenças, recursos (agravos, apelações, embargos à execução/adjudicação), editais de leilão, nomes das partes, CPFs e valores.
-   - Na Matrícula de Imóvel: transcreva o cabeçalho do Cartório, número da matrícula, ficha, CNM, descrição completa do imóvel, proprietários anteriores e atuais, registros (R-1, R-2, R-3...), averbações (AV-1, AV-2, AV-3...), gravames (hipotecas, penhoras, alienações fiduciárias, consolidação da propriedade, leilões negativos), cancelamentos, certidão final do escrevente/oficial e selo de fiscalização.
-2. NUNCA resuma, abrevie ou omita partes alegando que "o documento continua" ou "conteúdo omitido". Transcreva cada parágrafo, despacho, carimbo, selo ou manuscrito legível.
+DIRETRIZES DE TRANSCRIÇÃO OBRIGATÓRIAS:
+1. LEIA E TRANSCREVA ABSOLUTAMENTE TUDO visível em TODAS as páginas (incluindo páginas antigas escaneadas, tabelas financeiras, datas de 1ª e 2ª praça, condições de pagamento, débitos de IPTU e condomínio, carimbos e selos):
+   - Em Editais de Leilão: transcreva o cabeçalho completo, leiloeiro oficial, comitente/credor/vara judicial, número do processo, datas e horários dos leilões (1ª e 2ª praças), lances mínimos, comissão do leiloeiro, descrição do bem, débitos propter rem (IPTU, condomínio, taxas), condições de parcelamento, ônus que recaem sobre o imóvel e regras de arrematação.
+   - Em Peças do Processo Judicial: transcreva números de folhas (fls.), petições, decisões interlocutórias, laudos de avaliação, autos de penhora, certidões de intimação e sentenças.
+   - Na Matrícula de Imóvel: transcreva número da matrícula, cartório, proprietários, averbações (AV) e registros (R), alienações fiduciárias, penhoras e gravames.
+2. NUNCA resuma, abrevie ou omita valores, cláusulas ou datas. Transcreva cada cláusula e observação legível.
 3. Estruture com títulos Markdown nítidos:
    # Documento: ${filename}
-   ## Página / Folha [Número/Fls.]
-   ### [Petição / Decisão / Certidão / Registro Exato]
-4. Mantenha as datas, números dos atos, CPFs/CNPJs e valores monetários (R$) exatamente como impressos no documento.
-5. Retorne APENAS o texto transcrevido em Markdown, sem saudações ou explicações fora do documento.`;
+   ## Conteúdo Transcrito na Íntegra
+4. Mantenha os valores monetários (R$), números de cadastro/inscrição municipal e datas exatamente como constam no documento.
+5. Retorne APENAS o texto transcrevido em Markdown.`;
 
     const requestPayload = {
       contents: [
@@ -385,10 +389,8 @@ const optimizePayload = (files: any[], budget: number, model?: string) => {
     
     const isBase64TooLarge = hasData && f.data.length > limit;
     
-    // For multimodal models (Gemini), if base64 binary is available and within size limits,
-    // PREFER sending the binary (inlineData PDF) so Gemini can visually read all pages, stamps, and tables.
-    // Only fall back to text-only mode if no binary data exists or if the binary exceeds size limits.
-    let useText = !hasData || isBase64TooLarge || !isMultiModalProvider;
+    // If rich extracted text is available (> 500 chars), prioritize sending text so Gemini reads all pages cleanly and reliably
+    let useText = !hasData || isBase64TooLarge || !isMultiModalProvider || (hasText && f.extractedText.length > 500);
     
     if ((f.mimeType?.startsWith('text/') || f.mimeType?.includes('txt')) && hasText) {
       useText = true;
@@ -397,8 +399,8 @@ const optimizePayload = (files: any[], budget: number, model?: string) => {
     let optimizedText = "";
     
     if (hasText) {
-      optimizedText = f.extractedText.length > 100000 
-        ? f.extractedText.substring(0, 100000) + "\n... [Texto truncado por tamanho] ..." 
+      optimizedText = f.extractedText.length > 500000 
+        ? f.extractedText.substring(0, 500000) + "\n... [Texto truncado por limite técnico] ..." 
         : f.extractedText;
     } else if (isBase64TooLarge) {
       if (f.mimeType === 'application/pdf') {
@@ -435,7 +437,13 @@ const optimizePayload = (files: any[], budget: number, model?: string) => {
   for (const item of binaryFiles) {
     const f = currentFiles[item.index];
     f.useText = true;
-    f.optimizedText = `[AVISO DO SISTEMA: O arquivo original '${item.filename || 'Documento'}' (${(item.size / (1024 * 1024)).toFixed(1)}MB) era muito grande e foi convertido para texto de aviso para evitar timeout na rede. Forneça o melhor parecer técnico possível focando nas demais informações.]`;
+    if (f.extractedText && f.extractedText.trim().length > 50) {
+      f.optimizedText = f.extractedText.length > 500000
+        ? f.extractedText.substring(0, 500000) + "\n... [Texto truncado por limite técnico] ..."
+        : f.extractedText;
+    } else {
+      f.optimizedText = `[AVISO DO SISTEMA: O arquivo original '${item.filename || 'Documento'}' (${(item.size / (1024 * 1024)).toFixed(1)}MB) foi compactado para envio.]`;
+    }
     
     currentSize = calculateSize(currentFiles);
     if (currentSize <= budget) break;
@@ -508,19 +516,19 @@ const analyzeWithGemini = async (files: any[], systemInstruction: string, model:
   const parts = optimizedFiles.flatMap(file => {
     const fileParts: any[] = [];
     
-    // 1. If OCR transcribed text is available, always include it as a rich text part so Gemini reads 100% of transcribed pages & text
+    // 1. If extracted / transcribed text is available, always include it as full rich text part
     if (file.extractedText && file.extractedText.trim().length > 0) {
       fileParts.push({
-        text: `[DOCUMENTO TRANSCRITO VIA OCR IA - CONTEÚDO ÍNTEGRO DE "${file.filename || 'Processo Judicial'}"]\n${file.optimizedText || file.extractedText}`
+        text: `[DOCUMENTO COMPLETO ANEXADO: "${file.filename || 'Edital / Documento de Leilão'}"]\n${file.optimizedText || file.extractedText}`
       });
     } else if (file.useText && file.optimizedText) {
       fileParts.push({
-        text: `[Documento: ${file.filename || file.mimeType} - Conteúdo Extraído]\n${file.optimizedText}`
+        text: `[DOCUMENTO: "${file.filename || file.mimeType}"]\n${file.optimizedText}`
       });
     }
 
-    // 2. If base64 binary is available and not flagged as too large, ALSO include the visual file binary
-    if (file.data && !file.useText) {
+    // 2. If base64 binary is available and text was NOT already provided or is very short (< 500 chars), include visual file binary for multimodal vision
+    if (file.data && !file.useText && (!file.extractedText || file.extractedText.trim().length <= 500)) {
       fileParts.push({
         inlineData: {
           data: file.data.includes(',') ? file.data.split(',')[1] : file.data,

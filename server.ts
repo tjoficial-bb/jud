@@ -19,11 +19,45 @@ import { runBackendAnalysis, runBackendProcessStory, runBackendChatMessage, extr
 
 const upload = multer({ storage: multer.memoryStorage() });
 
-async function extractTextFromBuffer(buffer: Buffer, mimeType: string, filename: string = "documento.pdf", docType: string = ""): Promise<string> {
+function getResolvedGeminiKey(overrideKey?: string): string {
+  if (overrideKey && typeof overrideKey === 'string' && overrideKey.trim().length > 5) {
+    let k = overrideKey.trim();
+    if (k.includes(' • ')) k = k.split(' • ')[1].trim();
+    return k;
+  }
+  if (process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.trim().length > 5) {
+    return process.env.GEMINI_API_KEY.trim();
+  }
+  if (process.env.API_KEY && process.env.API_KEY.trim().length > 5) {
+    return process.env.API_KEY.trim();
+  }
+  try {
+    if (db) {
+      const config: any = db.prepare("SELECT gemini_key FROM ai_config LIMIT 1").get();
+      if (config && config.gemini_key && typeof config.gemini_key === 'string' && config.gemini_key.trim().length > 5) {
+        let k = config.gemini_key.trim();
+        if (k.includes(' • ')) k = k.split(' • ')[1].trim();
+        return k;
+      }
+    }
+  } catch (e) {
+    // db not ready or query error
+  }
+  return "";
+}
+
+async function extractTextFromBuffer(
+  buffer: Buffer, 
+  mimeType: string, 
+  filename: string = "documento.pdf", 
+  docType: string = "", 
+  apiKeyOverride?: string
+): Promise<string> {
   let extractedText = "";
   const lowerFn = filename.toLowerCase();
   const lowerDocType = docType.toLowerCase();
   const isPdf = mimeType === 'application/pdf' || lowerFn.endsWith('.pdf');
+  const isEdital = lowerFn.includes('edital') || lowerDocType.includes('edital');
   const isMatricula = lowerFn.includes('matricula') || lowerFn.includes('matrícula') || lowerDocType.includes('matricula') || lowerDocType.includes('matrícula');
   const isProcesso = lowerFn.includes('processo') || lowerFn.includes('autos') || lowerFn.includes('execucao') || lowerFn.includes('execução') || lowerFn.includes('peticao') || lowerFn.includes('petição') || lowerFn.includes('certidao') || lowerFn.includes('certidão') || lowerFn.includes('agrav') || lowerFn.includes('recurso') || lowerDocType.includes('processo');
   
@@ -39,22 +73,24 @@ async function extractTextFromBuffer(buffer: Buffer, mimeType: string, filename:
         if (typeof pdfParser === 'function') {
           const data = await pdfParser(buffer);
           extractedText = data.text || "";
-          console.log(`[PDF] Extração de stream de texto concluída: ${extractedText.length} caracteres.`);
+          console.log(`[PDF] Extração de stream de texto concluída em "${filename}": ${extractedText.length} caracteres.`);
         }
       } catch (err: any) {
         console.warn(`[PDF] Falha na leitura básica de stream via pdf-parse em "${filename}":`, err.message);
       }
     }
     
-    // Evaluate if the extracted text is low density, short, or if file is a Processo / Matrícula (which require full OCR)
+    // Evaluate if the extracted text is low density, short, or if file is an Edital, Processo, or Matrícula needing full OCR
     const cleanText = extractedText.replace(/\s+/g, ' ').trim();
     const headersCount = (cleanText.match(/Continua na página|Valide este documento|CNM:|Selo de Consulta/gi) || []).length;
-    const isLowDensityScannedPdf = cleanText.length < 8000 || headersCount >= 1 || isMatricula || isProcesso;
+    const isLowDensityScannedPdf = cleanText.length < 8000 || headersCount >= 1 || isMatricula || isProcesso || (isEdital && cleanText.length < 1500);
 
-    if (isLowDensityScannedPdf && process.env.GEMINI_API_KEY) {
-      console.log(`[PDF OCR AUTOMÁTICO] PDF "${filename}" (Tipo: ${docType || 'Geral'}) necessita leitura OCR completa por IA (${cleanText.length} chars, Processo: ${isProcesso}, Matrícula: ${isMatricula}). Executando transcrição OCR Gemini Vision...`);
+    const activeGeminiKey = getResolvedGeminiKey(apiKeyOverride);
+
+    if (isLowDensityScannedPdf && activeGeminiKey) {
+      console.log(`[PDF OCR AUTOMÁTICO] PDF "${filename}" (Tipo: ${docType || 'Geral'}) necessita leitura OCR completa por IA (${cleanText.length} chars, Edital: ${isEdital}, Processo: ${isProcesso}, Matrícula: ${isMatricula}). Executando transcrição OCR Gemini Vision...`);
       try {
-        const ocrText = await transcribeDocumentToMarkdown(buffer, mimeType, filename);
+        const ocrText = await transcribeDocumentToMarkdown(buffer, mimeType, filename, activeGeminiKey);
         if (ocrText && ocrText.length > 50) {
           console.log(`[PDF OCR AUTOMÁTICO] Transcrição concluída em "${filename}". Retornando ${ocrText.length} caracteres em Markdown.`);
           return ocrText;
@@ -65,9 +101,10 @@ async function extractTextFromBuffer(buffer: Buffer, mimeType: string, filename:
     }
     return extractedText;
   } else if (mimeType && mimeType.startsWith('image/')) {
-    if (process.env.GEMINI_API_KEY) {
+    const activeGeminiKey = getResolvedGeminiKey(apiKeyOverride);
+    if (activeGeminiKey) {
       console.log(`[IMAGE OCR AUTOMÁTICO] Processando imagem "${filename}" via Gemini Vision OCR...`);
-      return await transcribeDocumentToMarkdown(buffer, mimeType, filename);
+      return await transcribeDocumentToMarkdown(buffer, mimeType, filename, activeGeminiKey);
     }
     return "";
   } else if (mimeType && (mimeType.startsWith('text/') || mimeType.includes('txt') || mimeType.includes('plain') || mimeType === 'application/octet-stream')) {
@@ -1521,7 +1558,8 @@ async function startServer() {
   app.get("/api/documents/:propertyId", authenticateToken, async (req, res) => {
     try {
       const docs = db.prepare("SELECT id, filename, doc_type, data, extracted_text, ia_summary, created_at FROM documents WHERE property_id = ? OR temp_property_id = ?").all(req.params.propertyId, req.params.propertyId) as any[];
-      
+      const activeGeminiKey = getResolvedGeminiKey();
+
       // On-the-fly extraction for existing docs
       for (const doc of docs) {
         if (!doc.extracted_text) {
@@ -1530,7 +1568,7 @@ async function startServer() {
             try {
               const buffer = Buffer.from(row.data, 'base64');
               const mimeType = doc.filename.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'unknown';
-              const text = await extractTextFromBuffer(buffer, mimeType, doc.filename);
+              const text = await extractTextFromBuffer(buffer, mimeType, doc.filename, doc.doc_type || '', activeGeminiKey);
               if (text) {
                 db.prepare("UPDATE documents SET extracted_text = ? WHERE id = ?").run(text, doc.id);
                 doc.extracted_text = text;
@@ -1557,6 +1595,7 @@ async function startServer() {
         return res.status(400).json({ error: "Nenhum arquivo enviado" });
       }
 
+      const activeGeminiKey = getResolvedGeminiKey();
       const results = [];
       for (const file of files) {
         const id = Math.random().toString(36).substring(7);
@@ -1567,9 +1606,10 @@ async function startServer() {
         const lowerDt = (doc_type || '').toLowerCase();
         const isProcessoDoc = lowerDt.includes('processo') || lowerFn.includes('processo') || lowerFn.includes('autos') || lowerFn.includes('execucao') || lowerFn.includes('execução');
         const isMatriculaDoc = lowerDt.includes('matricula') || lowerDt.includes('matrícula') || lowerFn.includes('matricula') || lowerFn.includes('matrícula');
+        const isEditalDoc = lowerDt.includes('edital') || lowerFn.includes('edital');
 
-        if (!extracted_text || typeof extracted_text !== 'string' || extracted_text.trim().length < 5000 || isProcessoDoc || isMatriculaDoc) {
-          const serverText = await extractTextFromBuffer(file.buffer, file.mimetype, filename, doc_type || '');
+        if (!extracted_text || typeof extracted_text !== 'string' || extracted_text.trim().length < 5000 || isProcessoDoc || isMatriculaDoc || isEditalDoc) {
+          const serverText = await extractTextFromBuffer(file.buffer, file.mimetype, filename, doc_type || '', activeGeminiKey);
           if (serverText && serverText.trim().length > (extracted_text?.trim().length || 0)) {
             extracted_text = serverText;
           } else if (!extracted_text || extracted_text.trim() === '') {
@@ -1655,8 +1695,9 @@ async function startServer() {
         return res.status(400).json({ error: "Este documento não possui o arquivo original em base64 salvo no servidor para transcrição OCR." });
       }
 
+      const activeGeminiKey = getResolvedGeminiKey();
       console.log(`[API Transcribe] Transcrevendo documento ID ${doc.id} ("${doc.filename}", Mime: ${mimeType}, Buffer: ${(buffer.length / 1024).toFixed(1)} KB)...`);
-      const markdownText = await transcribeDocumentToMarkdown(buffer, mimeType, doc.filename);
+      const markdownText = await transcribeDocumentToMarkdown(buffer, mimeType, doc.filename, activeGeminiKey);
 
       if (!markdownText) {
         return res.status(500).json({ error: "Não foi possível transcrever o documento através da IA. Verifique se a chave de API do Gemini está configurada e se o documento é legível." });
@@ -1826,27 +1867,63 @@ async function startServer() {
 
       console.log(`[PROXY DIAGNOSTICS] analyze requested. Model: ${safeModel}, Provider: ${provider}, incoming apiKey length: ${apiKey ? apiKey.length : 0}`);
 
-      // Server-side file hydration to keep payloads small and protect transmission issues
+      let resolvedKey = apiKey || "";
+      if (!resolvedKey || resolvedKey.trim() === "") {
+        const config: any = db.prepare("SELECT * FROM ai_config LIMIT 1").get() || {};
+        if (provider === 'gemini') resolvedKey = config.gemini_key || "";
+        else if (provider === 'openai') resolvedKey = config.openai_key || "";
+        else if (provider === 'claude') resolvedKey = config.claude_key || "";
+        else if (provider === 'deepseek') resolvedKey = config.deepseek_key || "";
+        console.log(`[PROXY DIAGNOSTICS] Key resolved from DB config. Key length: ${resolvedKey ? resolvedKey.length : 0}`);
+      }
+
+      if (!resolvedKey || resolvedKey.trim() === "") {
+        if (provider === 'gemini') {
+          resolvedKey = process.env.GEMINI_API_KEY || process.env.API_KEY || "";
+          console.log(`[PROXY DIAGNOSTICS] Resolved from process.env (GEMINI_API_KEY / API_KEY). Length: ${resolvedKey ? resolvedKey.length : 0}`);
+        } else if (provider === 'openai') {
+          resolvedKey = process.env.OPENAI_API_KEY || "";
+        } else if (provider === 'claude') {
+          resolvedKey = process.env.CLAUDE_API_KEY || "";
+        } else if (provider === 'deepseek') {
+          resolvedKey = process.env.DEEPSEEK_API_KEY || "";
+        }
+      }
+
+      if (resolvedKey.includes(' • ')) {
+        resolvedKey = resolvedKey.split(' • ')[1].trim();
+      }
+
+      if (!resolvedKey || resolvedKey.trim().length < 5) {
+        console.error(`[PROXY ERROR] Key too short or empty for provider ${provider}: "${resolvedKey}" (length: ${resolvedKey ? resolvedKey.length : 0})`);
+        return res.status(400).json({ error: `Configuração de IA incompleta: Nenhuma chave de API válida encontrada para o provedor ${provider.toUpperCase()}` });
+      }
+
+      const activeGeminiKey = provider === 'gemini' ? resolvedKey : getResolvedGeminiKey();
+
+      // Server-side file hydration to keep payloads small, complete, and protect transmission issues
       const hydratedFiles = [];
       if (Array.isArray(files)) {
         for (const f of files) {
           if (f.id) {
-            const dbDoc = db.prepare("SELECT data, extracted_text, filename FROM documents WHERE id = ?").get(f.id) as any;
+            const dbDoc = db.prepare("SELECT data, extracted_text, filename, doc_type FROM documents WHERE id = ?").get(f.id) as any;
             if (dbDoc) {
-              const mimeType = (dbDoc.filename || f.filename || "").toLowerCase().endsWith('.pdf') ? 'application/pdf' : f.mimeType;
+              const mimeType = (dbDoc.filename || f.filename || "").toLowerCase().endsWith('.pdf') ? 'application/pdf' : (f.mimeType || 'application/pdf');
               let extText = dbDoc.extracted_text || f.extractedText || "";
               const lowerFn = (dbDoc.filename || f.filename || "").toLowerCase();
-              const isProcessoDoc = lowerFn.includes('processo') || lowerFn.includes('autos') || lowerFn.includes('execucao') || lowerFn.includes('execução');
-              const isMatriculaDoc = lowerFn.includes('matricula') || lowerFn.includes('matrícula');
+              const lowerDt = (dbDoc.doc_type || f.doc_type || "").toLowerCase();
+              const isProcessoDoc = lowerFn.includes('processo') || lowerFn.includes('autos') || lowerFn.includes('execucao') || lowerFn.includes('execução') || lowerDt.includes('processo');
+              const isMatriculaDoc = lowerFn.includes('matricula') || lowerFn.includes('matrícula') || lowerDt.includes('matricula') || lowerDt.includes('matrícula');
+              const isEditalDoc = lowerFn.includes('edital') || lowerDt.includes('edital');
 
-              // If it's a process/matricula doc or short text (< 3500 chars), run server-side Gemini Vision OCR if not already transcribed
-              if ((isProcessoDoc || isMatriculaDoc || extText.length < 3500) && dbDoc.data && process.env.GEMINI_API_KEY) {
-                if (!extText.includes('# Documento:') && !extText.includes('## Página')) {
+              // If it's an edital, processo, or matrícula doc, or short text (< 3500 chars), execute server-side Gemini Vision OCR
+              if ((isProcessoDoc || isMatriculaDoc || isEditalDoc || extText.length < 3500) && dbDoc.data && activeGeminiKey) {
+                if (!extText.includes('# Documento:') && !extText.includes('## Página') && !extText.includes('## Conteúdo')) {
                   try {
                     console.log(`[ANALYSIS HYDRATION OCR] Executando OCR automático para "${dbDoc.filename || f.filename}" antes de enviar para análise de IA...`);
                     const cleanBase64 = dbDoc.data.replace(/^data:[^;]+;base64,/, '').replace(/\s+/g, '');
                     const buffer = Buffer.from(cleanBase64, 'base64');
-                    const ocrText = await transcribeDocumentToMarkdown(buffer, mimeType, dbDoc.filename || f.filename || "documento.pdf");
+                    const ocrText = await transcribeDocumentToMarkdown(buffer, mimeType, dbDoc.filename || f.filename || "documento.pdf", activeGeminiKey);
                     if (ocrText && ocrText.length > extText.length) {
                       extText = ocrText;
                       db.prepare("UPDATE documents SET extracted_text = ? WHERE id = ?").run(ocrText, f.id);
@@ -1872,43 +1949,6 @@ async function startServer() {
         }
       }
 
-      let resolvedKey = apiKey || "";
-      let foundInDb = false;
-      if (!resolvedKey || resolvedKey.trim() === "") {
-        const config: any = db.prepare("SELECT * FROM ai_config LIMIT 1").get() || {};
-        foundInDb = true;
-        if (provider === 'gemini') resolvedKey = config.gemini_key || "";
-        else if (provider === 'openai') resolvedKey = config.openai_key || "";
-        else if (provider === 'claude') resolvedKey = config.claude_key || "";
-        else if (provider === 'deepseek') resolvedKey = config.deepseek_key || "";
-        console.log(`[PROXY DIAGNOSTICS] Key resolved from DB config. Key length: ${resolvedKey ? resolvedKey.length : 0}`);
-      }
-
-      if (!resolvedKey || resolvedKey.trim() === "") {
-        if (provider === 'gemini') {
-          resolvedKey = process.env.GEMINI_API_KEY || process.env.API_KEY || "";
-          console.log(`[PROXY DIAGNOSTICS] Resolved from process.env (GEMINI_API_KEY / API_KEY). Length: ${resolvedKey ? resolvedKey.length : 0}`);
-        } else if (provider === 'openai') {
-          resolvedKey = process.env.OPENAI_API_KEY || "";
-          console.log(`[PROXY DIAGNOSTICS] Resolved from process.env (OPENAI_API_KEY). Length: ${resolvedKey ? resolvedKey.length : 0}`);
-        } else if (provider === 'claude') {
-          resolvedKey = process.env.CLAUDE_API_KEY || "";
-          console.log(`[PROXY DIAGNOSTICS] Resolved from process.env (CLAUDE_API_KEY). Length: ${resolvedKey ? resolvedKey.length : 0}`);
-        } else if (provider === 'deepseek') {
-          resolvedKey = process.env.DEEPSEEK_API_KEY || "";
-          console.log(`[PROXY DIAGNOSTICS] Resolved from process.env (DEEPSEEK_API_KEY). Length: ${resolvedKey ? resolvedKey.length : 0}`);
-        }
-      }
-
-      if (resolvedKey.includes(' • ')) {
-        resolvedKey = resolvedKey.split(' • ')[1].trim();
-      }
-
-      if (!resolvedKey || resolvedKey.trim().length < 5) {
-        console.error(`[PROXY ERROR] Key too short or empty for provider ${provider}: "${resolvedKey}" (length: ${resolvedKey ? resolvedKey.length : 0})`);
-        return res.status(400).json({ error: `Configuração de IA incompleta: Nenhuma chave de API válida encontrada para o provedor ${provider.toUpperCase()}` });
-      }
-
       console.log(`[Proxy] Iniciando análise de IA com provedor ${provider} de ${hydratedFiles.length} arquivos.`);
       const result = await runBackendAnalysis(hydratedFiles, systemInstruction, safeModel, resolvedKey, auctionUrls, analysisType);
       res.json({ result });
@@ -1926,29 +1966,6 @@ async function startServer() {
                        safeModel.startsWith('claude') ? 'claude' : 
                        (safeModel.startsWith('gpt') || safeModel.startsWith('o1')) ? 'openai' : 'deepseek';
 
-      // Server-side file hydration to keep payloads small and protect transmission issues
-      const hydratedFiles = [];
-      if (Array.isArray(files)) {
-        for (const f of files) {
-          if (f.id) {
-            const dbDoc = db.prepare("SELECT data, extracted_text, filename FROM documents WHERE id = ?").get(f.id) as any;
-            if (dbDoc) {
-              const mimeType = (dbDoc.filename || f.filename || "").toLowerCase().endsWith('.pdf') ? 'application/pdf' : f.mimeType;
-              hydratedFiles.push({
-                ...f,
-                id: f.id,
-                filename: dbDoc.filename || f.filename,
-                data: dbDoc.data || f.data || "",
-                mimeType: mimeType,
-                extractedText: dbDoc.extracted_text || f.extractedText || ""
-              });
-              continue;
-            }
-          }
-          hydratedFiles.push(f);
-        }
-      }
-
       let resolvedKey = apiKey || "";
       if (!resolvedKey || resolvedKey.trim() === "") {
         const config: any = db.prepare("SELECT * FROM ai_config LIMIT 1").get() || {};
@@ -1976,6 +1993,47 @@ async function startServer() {
 
       if (!resolvedKey || resolvedKey.trim().length < 5) {
         return res.status(400).json({ error: `Configuração de IA incompleta: Nenhuma chave de API válida encontrada para o provedor ${provider.toUpperCase()}` });
+      }
+
+      const activeGeminiKey = provider === 'gemini' ? resolvedKey : getResolvedGeminiKey();
+
+      // Server-side file hydration to keep payloads small and protect transmission issues
+      const hydratedFiles = [];
+      if (Array.isArray(files)) {
+        for (const f of files) {
+          if (f.id) {
+            const dbDoc = db.prepare("SELECT data, extracted_text, filename, doc_type FROM documents WHERE id = ?").get(f.id) as any;
+            if (dbDoc) {
+              const mimeType = (dbDoc.filename || f.filename || "").toLowerCase().endsWith('.pdf') ? 'application/pdf' : (f.mimeType || 'application/pdf');
+              let extText = dbDoc.extracted_text || f.extractedText || "";
+
+              if (extText.length < 3500 && dbDoc.data && activeGeminiKey) {
+                if (!extText.includes('# Documento:') && !extText.includes('## Página')) {
+                  try {
+                    const cleanBase64 = dbDoc.data.replace(/^data:[^;]+;base64,/, '').replace(/\s+/g, '');
+                    const buffer = Buffer.from(cleanBase64, 'base64');
+                    const ocrText = await transcribeDocumentToMarkdown(buffer, mimeType, dbDoc.filename || f.filename || "documento.pdf", activeGeminiKey);
+                    if (ocrText && ocrText.length > extText.length) {
+                      extText = ocrText;
+                      db.prepare("UPDATE documents SET extracted_text = ? WHERE id = ?").run(ocrText, f.id);
+                    }
+                  } catch (e: any) {}
+                }
+              }
+
+              hydratedFiles.push({
+                ...f,
+                id: f.id,
+                filename: dbDoc.filename || f.filename,
+                data: dbDoc.data || f.data || "",
+                mimeType: mimeType,
+                extractedText: extText
+              });
+              continue;
+            }
+          }
+          hydratedFiles.push(f);
+        }
       }
 
       console.log(`[Proxy] Iniciando geração da história do processo com provedor ${provider}.`);
