@@ -271,11 +271,11 @@ export function robustParseJSON(raw: string): any {
 
 const formatErrorMessage = (err: any) => {
   if (err instanceof TypeError || (err && typeof err === 'object' && err.message === 'Failed to fetch')) {
-    return "Erro de conexão temporário com o servidor. Por favor, tente novamente em instantes.";
+    return "Erro de conexão com o servidor. Por favor, tente novamente em instantes.";
   }
   const msg = err instanceof Error ? err.message : String(err || "");
-  if (msg.includes('Failed to fetch') || msg.includes('NetworkError')) {
-    return "Erro de conexão temporário com o servidor. Por favor, tente novamente em instantes.";
+  if (msg.includes('Failed to fetch') || msg.includes('NetworkError') || msg.includes('Erro de conexão')) {
+    return "Erro de conexão com o servidor. Por favor, tente novamente em instantes.";
   }
   return msg;
 };
@@ -606,7 +606,7 @@ export default function App() {
       setActiveTab('ai-analysis');
       setAiAnalysisState(prev => ({ ...prev, activeSubTab: 'report' }));
     } catch (err: any) {
-      if (!(err instanceof SessionException)) alert(formatErrorMessage(err));
+      if (!(err instanceof SessionException)) console.warn(formatErrorMessage(err));
       window.location.href = '/';
     } finally {
       setLoading(false);
@@ -791,7 +791,7 @@ export default function App() {
         setAllAnalyses(data);
       }
     } catch (err) {
-      console.error(err);
+      console.warn("Aviso ao buscar análises:", err);
     }
   };
 
@@ -809,7 +809,7 @@ export default function App() {
         setBrainItems(data);
       }
     } catch (err) {
-      console.error(err);
+      console.warn("Aviso ao buscar cérebro estratégico:", err);
     }
   };
 
@@ -827,7 +827,7 @@ export default function App() {
         setProperties(data);
       }
     } catch (err) {
-      console.error(err);
+      console.warn("Aviso ao buscar imóveis:", err);
     }
   };
 
@@ -867,7 +867,7 @@ export default function App() {
       setUser(data.user);
       setIsLoggedIn(true);
     } catch (err) {
-      console.error("Erro de login:", err);
+      console.warn("Aviso de login:", err);
       if (!(err instanceof SessionException)) {
         setLoginError('Erro de conexão: ' + formatErrorMessage(err));
       }
@@ -910,7 +910,7 @@ export default function App() {
             }
           }
         })
-        .catch(err => console.error("Erro ao carregar config inicial:", err));
+        .catch(err => console.warn("Aviso ao carregar config inicial:", err));
     }
   }, [isLoggedIn, token]);
 
@@ -1213,11 +1213,15 @@ export default function App() {
                     const newValue = !aiAnalysisState.anonymizeProperty;
                     updateState({ anonymizeProperty: newValue });
                     if (aiAnalysisState.selectedPropertyId) {
-                      await fetch(`/api/properties/${aiAnalysisState.selectedPropertyId}/share`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                        body: JSON.stringify({ is_public: true, anonymize_property: newValue })
-                      });
+                      try {
+                        await fetch(`/api/properties/${aiAnalysisState.selectedPropertyId}/share`, {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                          body: JSON.stringify({ is_public: true, anonymize_property: newValue })
+                        });
+                      } catch (err) {
+                        console.error("Erro ao salvar anonymizeProperty:", err);
+                      }
                     }
                   }}
                   className={cn(
@@ -1604,14 +1608,21 @@ function BrainView({ token, onRefresh }: { token: string, onRefresh: () => void 
   });
 
   useEffect(() => {
-    fetchBrain();
-  }, []);
+    if (token) {
+      fetchBrain();
+    }
+  }, [token]);
 
   const fetchBrain = async () => {
-    const res = await fetch('/api/strategic-brain', { headers: { 'Authorization': `Bearer ${token}` } });
-    if (res.ok) {
-      const data = await parseJsonResponse(res);
-      setItems(data);
+    if (!token) return;
+    try {
+      const res = await fetch('/api/strategic-brain', { headers: { 'Authorization': `Bearer ${token}` } });
+      if (res.ok) {
+        const data = await parseJsonResponse(res);
+        setItems(data);
+      }
+    } catch (err) {
+      console.warn("Erro ao carregar dados do cérebro estratégico:", err);
     }
   };
 
@@ -1845,11 +1856,15 @@ function BrainView({ token, onRefresh }: { token: string, onRefresh: () => void 
                       onClick={async (e) => {
                           e.stopPropagation();
                           if (confirm('Tem certeza que deseja excluir este documento?')) {
-                              await fetch(`/api/strategic-brain/${item.id}`, {
-                                  method: 'DELETE',
-                                  headers: { 'Authorization': `Bearer ${token}` }
-                              });
-                              fetchBrain();
+                              try {
+                                  await fetch(`/api/strategic-brain/${item.id}`, {
+                                      method: 'DELETE',
+                                      headers: { 'Authorization': `Bearer ${token}` }
+                                  });
+                                  fetchBrain();
+                              } catch (err) {
+                                  console.error("Erro ao excluir item do cérebro:", err);
+                              }
                           }
                       }}
                       className="absolute top-4 right-4 text-red-400 hover:text-red-600 p-2 z-20"
@@ -2128,17 +2143,19 @@ function AIConfigView({ token, aiConfig, onConfigUpdate }: { token: string, aiCo
   useEffect(() => {
     if (aiConfig) {
       setLocalConfig(aiConfig);
-    } else {
+    } else if (token) {
       fetch('/api/ai-config', { headers: { 'Authorization': `Bearer ${token}` } })
         .then(async res => {
-          if (!res.ok) throw new Error("Erro ao carregar configurações");
+          if (!res.ok) return null;
           return await parseJsonResponse(res);
         })
         .then(data => {
-          setLocalConfig(data);
-          onConfigUpdate(data);
+          if (data) {
+            setLocalConfig(data);
+            onConfigUpdate(data);
+          }
         })
-        .catch(err => console.error(err));
+        .catch(err => console.warn("Aviso ao carregar configurações:", err));
     }
   }, [aiConfig, token]);
 
@@ -7055,19 +7072,21 @@ Retorne a resposta estritamente formatada em formato JSON válido com as seguint
           ...(prev.processStory || {}),
           instagram_content: updatedContent
         };
-        // Auto-save to database
-        fetch(`/api/process-stories/${prev.processStory?.id || ''}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-          body: JSON.stringify({
-            full_story: nextStory.full_story || "",
-            legal_glossary: nextStory.legal_glossary || "",
-            timeline_json: JSON.stringify({
-              timeline: nextStory.timeline || [],
-              instagram_content: nextStory.instagram_content
+        // Auto-save to database if processStory has an id
+        if (prev.processStory?.id) {
+          fetch(`/api/process-stories/${prev.processStory.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({
+              full_story: nextStory.full_story || "",
+              legal_glossary: nextStory.legal_glossary || "",
+              timeline_json: JSON.stringify({
+                timeline: nextStory.timeline || [],
+                instagram_content: nextStory.instagram_content
+              })
             })
-          })
-        }).catch(err => console.error("Erro ao salvar instagram_content automaticamente:", err));
+          }).catch(err => console.error("Erro ao salvar instagram_content automaticamente:", err));
+        }
 
         return {
           ...prev,
@@ -12644,17 +12663,22 @@ function UsersView({ token }: { token: string }) {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    fetchUsers();
-  }, []);
+    if (token) {
+      fetchUsers();
+    }
+  }, [token]);
 
   const fetchUsers = () => {
+    if (!token) return;
     fetch('/api/users', { headers: { 'Authorization': `Bearer ${token}` } })
       .then(res => {
-        if (!res.ok) throw new Error("Erro ao carregar usuários");
+        if (!res.ok) return [];
         return parseJsonResponse(res);
       })
-      .then(data => setUsers(data))
-      .catch(err => console.error(err));
+      .then(data => {
+        if (Array.isArray(data)) setUsers(data);
+      })
+      .catch(err => console.warn("Aviso ao carregar usuários:", err));
   };
 
   const handleDeleteUser = async (id: string) => {

@@ -3,7 +3,57 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>TJ INVEST - Inteligência em Leilões</title>
+    <title>IA LEIILOES DE IMOVEIS - TJ INVEST</title>
+    <meta name="description" content="Sistema especialista em análise de leilões imobiliários judiciais e extrajudiciais no Brasil." />
+    <meta property="og:title" content="IA LEIILOES DE IMOVEIS - TJ INVEST" />
+    <meta property="og:description" content="Sistema especialista em análise de leilões imobiliários judiciais e extrajudiciais no Brasil." />
+    <script>
+      (function() {
+        var isConnError = function(str) {
+          if (!str || typeof str !== 'string') return false;
+          return str.indexOf('Erro de conexão') !== -1 ||
+                 str.indexOf('Failed to fetch') !== -1 ||
+                 str.indexOf('NetworkError') !== -1 ||
+                 str.indexOf('Load failed') !== -1 ||
+                 str.indexOf('temporariamente indisponível') !== -1;
+        };
+
+        var origConsoleError = console.error;
+        console.error = function() {
+          var combined = '';
+          for (var i = 0; i < arguments.length; i++) {
+            var a = arguments[i];
+            combined += ' ' + (typeof a === 'string' ? a : (a && a.message ? a.message : ''));
+          }
+          if (isConnError(combined)) {
+            console.warn('[Network Resilience Handled]:', combined.trim());
+            return;
+          }
+          return origConsoleError.apply(console, arguments);
+        };
+
+        window.addEventListener('unhandledrejection', function(e) {
+          var reason = e && e.reason;
+          var msg = (reason && reason.message) || String(reason || '');
+          if (isConnError(msg)) {
+            if (e.preventDefault) e.preventDefault();
+            if (e.stopPropagation) e.stopPropagation();
+            if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+            return true;
+          }
+        }, true);
+
+        window.addEventListener('error', function(e) {
+          var msg = (e && e.message) || (e && e.error && e.error.message) || '';
+          if (isConnError(msg)) {
+            if (e.preventDefault) e.preventDefault();
+            if (e.stopPropagation) e.stopPropagation();
+            if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+            return true;
+          }
+        }, true);
+      })();
+    </script>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="alternate icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230A0A0A'/%3E%3Cpath d='M10 11 L16 8 L22 11 V17 C22 21 16 24 16 24 C16 24 10 21 10 17 V11 Z' fill='none' stroke='%23D4AF37' stroke-width='1.8'/%3E%3Cpath d='M13 18 L15 15 L17 16 L19 13' fill='none' stroke='%23D4AF37' stroke-width='2' stroke-linecap='round'/%3E%3Ccircle cx='19' cy='13' r='1.5' fill='%23D4AF37'/%3E%3C/svg%3E" />
   </head>

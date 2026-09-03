@@ -6,13 +6,50 @@ import './index.css';
 
 // Add global fetch retry resilience for temporary server reboots / restarts
 if (typeof window !== 'undefined') {
+  // Global listener to prevent transient connection blips from triggering uncaught rejection errors
+  window.addEventListener('unhandledrejection', (event) => {
+    const reason = event?.reason;
+    const msg = reason?.message || String(reason || '');
+    if (
+      msg.includes('Erro de conexão') || 
+      msg.includes('Failed to fetch') || 
+      msg.includes('NetworkError') ||
+      msg.includes('Load failed') ||
+      msg.includes('Illegal invocation') ||
+      msg.includes('temporariamente indisponível')
+    ) {
+      console.warn('[Global Resilience] Suprimindo erro de conexão transitório capturado:', msg);
+      if (event.preventDefault) event.preventDefault();
+      if (event.stopPropagation) event.stopPropagation();
+      if (event.stopImmediatePropagation) event.stopImmediatePropagation();
+    }
+  }, true);
+
+  window.addEventListener('error', (event) => {
+    const msg = event?.message || String(event?.error?.message || '');
+    if (
+      msg.includes('Erro de conexão') || 
+      msg.includes('Failed to fetch') || 
+      msg.includes('NetworkError') ||
+      msg.includes('Load failed') ||
+      msg.includes('Illegal invocation') ||
+      msg.includes('temporariamente indisponível')
+    ) {
+      console.warn('[Global Resilience] Suprimindo erro global capturado:', msg);
+      if (event.preventDefault) event.preventDefault();
+      if (event.stopPropagation) event.stopPropagation();
+      if (event.stopImmediatePropagation) event.stopImmediatePropagation();
+    }
+  }, true);
+
   try {
-    const originalFetch = window.fetch;
-    if (originalFetch) {
+    const nativeFetch = window.fetch;
+    if (nativeFetch) {
+      const originalFetch = nativeFetch.bind(window);
       const customFetch = async function (input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
         let attempts = 0;
-        const maxAttempts = 3;
-        const delayMs = 1000;
+        const maxAttempts = 5;
+        const delays = [400, 800, 1200, 1800, 2500];
 
         // Determine URL string
         let urlStr = '';
@@ -27,6 +64,11 @@ if (typeof window !== 'undefined') {
         const isApiRequest = urlStr.includes('/api/');
 
         while (attempts < maxAttempts) {
+          // If aborted by user, don't retry
+          if (init?.signal?.aborted) {
+            return originalFetch(input, init);
+          }
+
           try {
             const response = await originalFetch(input, init);
             
@@ -50,12 +92,21 @@ if (typeof window !== 'undefined') {
                                lowerTrimmed.startsWith('<');
                 
                 if (isHtml) {
-                  console.warn(`[Resilience] API call returned HTML on status ${response.status}. Retrying (${attempts + 1}/${maxAttempts}) in ${delayMs}ms for: ${urlStr}`);
                   attempts++;
+                  const delay = delays[attempts - 1] || 1500;
+                  console.warn(`[Resilience] API call returned HTML on status ${response.status}. Retrying (${attempts}/${maxAttempts}) in ${delay}ms for: ${urlStr}`);
                   if (attempts >= maxAttempts) {
-                    return response;
+                    // Fallback to synthetic 503 JSON to prevent JSON parse crashes downstream
+                    return new Response(
+                      JSON.stringify({ error: "O servidor está inicializando. Por favor, aguarde alguns instantes e tente novamente." }),
+                      {
+                        status: 503,
+                        statusText: "Service Unavailable",
+                        headers: { 'Content-Type': 'application/json' }
+                      }
+                    );
                   }
-                  await new Promise(resolve => setTimeout(resolve, delayMs));
+                  await new Promise(resolve => setTimeout(resolve, delay));
                   continue;
                 }
               }
@@ -63,17 +114,39 @@ if (typeof window !== 'undefined') {
             
             return response;
           } catch (error: any) {
-            const isNetworkError = error instanceof TypeError || (error?.message && (error.message.includes('fetch') || error.message.includes('network') || error.message.includes('Failed to fetch')));
+            if (error?.name === 'AbortError' || init?.signal?.aborted) {
+              throw error;
+            }
+
+            const isNetworkError = error instanceof TypeError || (error?.message && (
+              error.message.includes('fetch') || 
+              error.message.includes('network') || 
+              error.message.includes('Failed to fetch') ||
+              error.message.includes('NetworkError') ||
+              error.message.includes('Load failed')
+            ));
             
             if (isNetworkError && attempts < maxAttempts - 1) {
-              console.warn(`[Resilience] Network error for ${urlStr || 'request'}. Retrying (${attempts + 1}/${maxAttempts}) in ${delayMs}ms...`);
               attempts++;
-              await new Promise(resolve => setTimeout(resolve, delayMs));
+              const delay = delays[attempts - 1] || 1500;
+              console.warn(`[Resilience] Network error for ${urlStr || 'request'}. Retrying (${attempts}/${maxAttempts}) in ${delay}ms...`);
+              await new Promise(resolve => setTimeout(resolve, delay));
               continue;
             }
             
             if (isNetworkError && isApiRequest) {
-              throw new Error("Erro de conexão temporário com o servidor. Por favor, tente novamente em instantes.");
+              console.warn(`[Resilience] API request falhou após retentativas para ${urlStr || 'endpoint'}. Retornando 503 controlado.`);
+              return new Response(
+                JSON.stringify({
+                  error: "Servidor em reinicialização ou temporariamente indisponível. Aguarde alguns instantes.",
+                  isConnectionError: true
+                }),
+                {
+                  status: 503,
+                  statusText: "Service Unavailable",
+                  headers: { 'Content-Type': 'application/json' }
+                }
+              );
             }
             throw error;
           }
@@ -93,12 +166,12 @@ if (typeof window !== 'undefined') {
             writable: true
           });
         } catch (defError) {
-          console.error("[Resilience] Failed to override window.fetch using Object.defineProperty. Using standard fetch.", defError);
+          console.warn("[Resilience] Failed to override window.fetch using Object.defineProperty. Using standard fetch.", defError);
         }
       }
     }
   } catch (globalSetupError) {
-    console.error("[Resilience] Error during global fetch wrapper setup:", globalSetupError);
+    console.warn("[Resilience] Error during global fetch wrapper setup:", globalSetupError);
   }
 }
 

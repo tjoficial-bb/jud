@@ -2166,9 +2166,12 @@ async function startServer() {
     });
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
+  const server = app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on http://localhost:${PORT}`);
   });
+  server.keepAliveTimeout = 120000;
+  server.headersTimeout = 125000;
+  server.timeout = 300000;
 }
 
 startServer().catch(err => {

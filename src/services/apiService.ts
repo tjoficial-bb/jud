@@ -33,12 +33,27 @@ export const parseJsonResponse = async (res: Response) => {
 /**
  * Robust fetch wrapper with automatic retry for network glitches / container restarts
  */
-export const robustFetch = async (input: RequestInfo | URL, init?: RequestInit, retries = 1, delayMs = 800): Promise<Response> => {
+export const robustFetch = async (input: RequestInfo | URL, init?: RequestInit, retries = 2, delayMs = 1000): Promise<Response> => {
   try {
     const res = await fetch(input, init);
     return res;
   } catch (err: any) {
-    const isNetworkError = err instanceof TypeError || (err.message && (err.message.includes('fetch') || err.message.includes('network') || err.message.includes('Failed to fetch')));
+    if (err?.name === 'AbortError' || init?.signal?.aborted) {
+      throw err;
+    }
+    const isNetworkError = err instanceof TypeError || 
+      err?.isConnectionError || 
+      err?.isNetworkError || 
+      (err?.message && (
+        err.message.includes('fetch') || 
+        err.message.includes('network') || 
+        err.message.includes('Failed to fetch') ||
+        err.message.includes('Erro de conexão') ||
+        err.message.includes('temporário') ||
+        err.message.includes('NetworkError') ||
+        err.message.includes('Load failed')
+      ));
+
     if (retries > 0 && isNetworkError) {
       console.warn(`[robustFetch] Fetch failed (${err.message}). Retrying in ${delayMs}ms...`);
       await new Promise(resolve => setTimeout(resolve, delayMs));
