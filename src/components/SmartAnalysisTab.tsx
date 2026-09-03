@@ -8,6 +8,7 @@ import {
   GitCompare, FileCheck2, MessageSquare, Check, Sparkle
 } from 'lucide-react';
 import { DocumentManager } from './DocumentManager';
+import { AnalysisPremisesCard } from './AnalysisPremisesCard';
 import { exportElementToPDF } from '../utils/pdfExporter';
 
 export interface SmartAnalysisData {
@@ -365,6 +366,15 @@ interface SmartAnalysisTabProps {
   onDelete: (id: string) => void;
   onTranscribe?: (id: string) => void;
   uploading: boolean;
+  customSaleValue?: number | '';
+  customBidValue?: number | '';
+  customAnalysisNotes?: string;
+  onUpdatePremises?: (fields: {
+    customSaleValue?: number | '';
+    customBidValue?: number | '';
+    customAnalysisNotes?: string;
+  }) => void;
+  selectedProperty?: any;
 }
 
 // Collapsible Section Wrapper Card
@@ -457,7 +467,12 @@ export default function SmartAnalysisTab({
   onUpload,
   onDelete,
   onTranscribe,
-  uploading
+  uploading,
+  customSaleValue,
+  customBidValue,
+  customAnalysisNotes,
+  onUpdatePremises,
+  selectedProperty
 }: SmartAnalysisTabProps) {
   const [localData, setLocalData] = React.useState<SmartAnalysisData>(normalizeSmartAnalysis(data));
   const [isSaving, setIsSaving] = React.useState(false);
@@ -777,6 +792,18 @@ export default function SmartAnalysisTab({
           <AlertCircle size={18} className="shrink-0" />
           <span>Faça upload dos documentos (Edital, Matrícula, Processo) para liberar o preenchimento automático por Inteligência Artificial.</span>
         </div>
+      )}
+
+      {/* Premissas e Dados Complementares do Usuário para a Análise Smart */}
+      {onUpdatePremises && (
+        <AnalysisPremisesCard
+          customSaleValue={customSaleValue}
+          customBidValue={customBidValue}
+          customAnalysisNotes={customAnalysisNotes}
+          onUpdate={onUpdatePremises}
+          selectedProperty={selectedProperty}
+          compact={false}
+        />
       )}
 
       {/* Upload de Documentos Integrado */}

@@ -5,6 +5,7 @@ import {
   TrendingUp, Scale, Gavel, User, Home, DollarSign, Calendar, Plus, Trash2, Download
 } from 'lucide-react';
 import { DocumentManager } from './DocumentManager';
+import { AnalysisPremisesCard } from './AnalysisPremisesCard';
 import { exportElementToPDF } from '../utils/pdfExporter';
 import { renderTextWithLeafBadges } from './SmartAnalysisTab';
 
@@ -93,6 +94,15 @@ interface AssessoriaReportProps {
   onDelete?: (id: string) => void;
   onTranscribe?: (id: string) => void;
   uploading?: boolean;
+  customSaleValue?: number | '';
+  customBidValue?: number | '';
+  customAnalysisNotes?: string;
+  onUpdatePremises?: (fields: {
+    customSaleValue?: number | '';
+    customBidValue?: number | '';
+    customAnalysisNotes?: string;
+  }) => void;
+  selectedProperty?: any;
 }
 
 export default function AssessoriaReport({
@@ -106,7 +116,12 @@ export default function AssessoriaReport({
   onUpload,
   onDelete,
   onTranscribe,
-  uploading = false
+  uploading = false,
+  customSaleValue,
+  customBidValue,
+  customAnalysisNotes,
+  onUpdatePremises,
+  selectedProperty
 }: AssessoriaReportProps) {
   const [localData, setLocalData] = React.useState<AssessoriaAnalysisData>(data || getEmptyAssessoriaAnalysis());
   const [isEditing, setIsEditing] = React.useState(false);
@@ -276,6 +291,18 @@ export default function AssessoriaReport({
           </div>
         )}
       </div>
+
+      {/* Premissas e Dados Complementares para a Análise de Assessoria */}
+      {!isPublicView && onUpdatePremises && (
+        <AnalysisPremisesCard
+          customSaleValue={customSaleValue}
+          customBidValue={customBidValue}
+          customAnalysisNotes={customAnalysisNotes}
+          onUpdate={onUpdatePremises}
+          selectedProperty={selectedProperty}
+          compact={false}
+        />
+      )}
 
       {/* Upload de Documentos Integrado */}
       {!isPublicView && onUpload && onDelete && (

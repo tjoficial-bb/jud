@@ -8121,7 +8121,7 @@ Importante: se uma informação não for encontrada nos documentos, use o valor 
       
       const rawResult = await analyzeAuctionDocuments(
         fileParts, 
-        prompt, 
+        prompt + getCustomInstructionsPrompt(state), 
         state.selectedModel || 'gemini-3.7-flash', 
         finalApiKey, 
         state.auctionUrls, 
@@ -8246,7 +8246,7 @@ NÃO inclua campos de outras seções. Responda APENAS com um objeto JSON válid
 
       const rawResult = await analyzeAuctionDocuments(
         fileParts, 
-        prompt, 
+        prompt + getCustomInstructionsPrompt(state), 
         state.selectedModel || 'gemini-3.7-flash', 
         finalApiKey, 
         state.auctionUrls, 
@@ -8357,7 +8357,7 @@ NÃO inclua campos de outras seções. Responda APENAS com um objeto JSON válid
 
       const rawResult = await analyzeAuctionDocuments(
         fileParts, 
-        prompt, 
+        prompt + getCustomInstructionsPrompt(state), 
         state.selectedModel || 'gemini-3.7-flash', 
         finalApiKey, 
         state.auctionUrls, 
@@ -8466,7 +8466,7 @@ Sua resposta deve ser APENAS um objeto JSON válido, sem qualquer bloco de códi
       
       const rawResult = await analyzeAuctionDocuments(
         fileParts, 
-        prompt, 
+        prompt + getCustomInstructionsPrompt(state), 
         state.selectedModel || 'gemini-3.7-flash', 
         finalApiKey, 
         state.auctionUrls, 
@@ -12010,6 +12010,11 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
                     onDelete={handleDeleteDocument}
                     onTranscribe={handleTranscribeDoc}
                     uploading={uploading}
+                    customSaleValue={state.customSaleValue}
+                    customBidValue={state.customBidValue}
+                    customAnalysisNotes={state.customAnalysisNotes}
+                    onUpdatePremises={(fields) => updateState(fields)}
+                    selectedProperty={selectedProperty}
                   />
                   <div className="mt-8 no-print border-t border-brand-primary/10 pt-8">
                     <LegalGlossaryForLaypeople />
@@ -12040,6 +12045,11 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
                     onDelete={handleDeleteDocument}
                     onTranscribe={handleTranscribeDoc}
                     uploading={uploading}
+                    customSaleValue={state.customSaleValue}
+                    customBidValue={state.customBidValue}
+                    customAnalysisNotes={state.customAnalysisNotes}
+                    onUpdatePremises={(fields) => updateState(fields)}
+                    selectedProperty={selectedProperty}
                   />
                   <div className="mt-8 no-print border-t border-brand-primary/10 pt-8">
                     <LegalGlossaryForLaypeople />
