@@ -29,7 +29,7 @@ export function DocumentUploadSlot({ label, onUpload, uploading, hasFile, helper
           onChange={onUpload}
           disabled={uploading}
           multiple={multiple}
-          accept={accept || "application/pdf,image/*"}
+          accept={accept || ".pdf,application/pdf,image/*,.doc,.docx,.txt"}
         />
         <label 
           htmlFor={id}

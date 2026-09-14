@@ -34,15 +34,17 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({
       cat = parts.slice(1).join(':');
     }
     const normCat = normalize(cat);
+    const normFn = normalize(d.filename || '');
     if (normCat === normalizedLabel) return true;
-    if (normalizedLabel.includes('matricula') && normCat.includes('matricula')) return true;
-    if (normalizedLabel.includes('edital') && normCat.includes('edital')) return true;
-    if (normalizedLabel.includes('processo') && normCat.includes('processo')) return true;
+    if (normalizedLabel.includes('matricula') && (normCat.includes('matricula') || normFn.includes('matricula'))) return true;
+    if (normalizedLabel.includes('edital') && (normCat.includes('edital') || normFn.includes('edital'))) return true;
+    if (normalizedLabel.includes('processo') && (normCat.includes('processo') || normCat.includes('judicial') || normFn.includes('processo') || normFn.includes('autos') || normFn.includes('execuc'))) return true;
     if (normalizedLabel.includes('outro') && (normCat.includes('outro') || !normCat)) return true;
     return false;
   });
   const uniqueId = React.useId();
-  const idInput = `upload-${label.toLowerCase().replace(/\s+/g, '-')}-${uniqueId.replace(/:/g, '')}`;
+  const safeLabelId = normalize(label).replace(/[^a-z0-9]/g, '-');
+  const idInput = `upload-${safeLabelId}-${uniqueId.replace(/[^a-zA-Z0-9]/g, '')}`;
 
   return (
     <div className="space-y-4">
@@ -132,6 +134,15 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({
           </div>
         ))}
         
+        <input 
+          type="file" 
+          id={idInput} 
+          className="hidden" 
+          multiple 
+          accept=".pdf,application/pdf,image/*,.doc,.docx,.txt"
+          onChange={(e) => onUpload(e, label)} 
+          disabled={uploading} 
+        />
         <label 
           htmlFor={idInput}
           className={cn(
@@ -139,7 +150,6 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({
             uploading && "opacity-50 cursor-not-allowed"
           )}
         >
-          <input type="file" id={idInput} className="hidden" multiple onChange={(e) => onUpload(e, label)} disabled={uploading} />
           {uploading ? <Loader2 size={16} className="animate-spin text-brand-primary" /> : <Upload size={16} className="text-brand-primary" />}
           <span className="text-xs font-bold text-brand-primary uppercase tracking-widest">Subir {label}</span>
         </label>

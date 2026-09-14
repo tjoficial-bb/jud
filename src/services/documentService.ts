@@ -28,8 +28,8 @@ export async function uploadDocuments(
         console.log(`[documentService] Texto extraído com sucesso de ${file.name}: ${clientExtractedText.length} caracteres.`);
       } catch (err: any) {
         console.warn(`[documentService] Falha na extração de texto via navegador para ${file.name}:`, err.message);
-        if (file.size > MAX_FILE_SIZE) {
-          throw new Error(`O arquivo "${file.name}" é muito grande (${(file.size / (1024 * 1024)).toFixed(1)}MB) e a extração local falhou: ${err.message}`);
+        if (err?.message && (err.message.includes('protegido por senha') || err.message.includes('senha') || err.message.toLowerCase().includes('password'))) {
+          throw new Error(`O anexo "${file.name}" está protegido por senha. Remova a senha antes de anexar.`);
         }
       }
     }
@@ -94,8 +94,20 @@ export async function uploadDocuments(
     });
 
     if (!res.ok) {
-      const errorData = await parseJsonResponse(res).catch(() => ({}));
-      throw new Error(errorData.error || `Erro ao enviar o arquivo "${file.name}" (${res.status})`);
+      let errorMsg = `Erro ao enviar o anexo "${file.name}" (${res.status})`;
+      try {
+        const errorData = await parseJsonResponse(res);
+        if (errorData?.error) {
+          errorMsg = errorData.error;
+        }
+      } catch (e: any) {
+        if (res.status === 413) {
+          errorMsg = `O anexo "${file.name}" excede o tamanho máximo suportado (30MB).`;
+        } else if (res.status === 504 || res.status === 502) {
+          errorMsg = `O servidor demorou para processar o anexo "${file.name}". Experimente reenviar ou dividir o arquivo.`;
+        }
+      }
+      throw new Error(errorMsg);
     }
     
     const data = await parseJsonResponse(res);

@@ -169,15 +169,30 @@ export function DocumentsView({ token, properties, onSelectProperty }: Documents
     }
   };
 
+  const normalize = (str: string) => (str || '').normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+
   // Filter logic
   const filteredDocuments = documents.filter(doc => {
     const matchesSearch = doc.filename.toLowerCase().includes(search.toLowerCase()) || 
       (doc.property_title && doc.property_title.toLowerCase().includes(search.toLowerCase()));
     
-    const matchesCategory = selectedCategory === 'all' || 
-      doc.doc_type?.toLowerCase() === selectedCategory.toLowerCase() ||
-      (selectedCategory === 'matricula' && doc.doc_type?.toLowerCase() === 'matrícula');
-    
+    if (selectedCategory === 'all') return matchesSearch;
+
+    let cat = doc.doc_type || '';
+    if (cat.includes(':')) {
+      cat = cat.split(':').slice(1).join(':');
+    }
+    const normCat = normalize(cat);
+    const normSelected = normalize(selectedCategory);
+    const normFilename = normalize(doc.filename);
+
+    const matchesCategory = 
+      normCat === normSelected ||
+      (normSelected.includes('matricula') && (normCat.includes('matricula') || normFilename.includes('matricula'))) ||
+      (normSelected.includes('edital') && (normCat.includes('edital') || normFilename.includes('edital'))) ||
+      (normSelected.includes('processo') && (normCat.includes('processo') || normCat.includes('judicial') || normFilename.includes('processo') || normFilename.includes('autos') || normFilename.includes('execuc'))) ||
+      (normSelected.includes('outro') && (normCat.includes('outro') || !normCat));
+
     return matchesSearch && matchesCategory;
   });
 
@@ -511,6 +526,7 @@ export function DocumentsView({ token, properties, onSelectProperty }: Documents
                       type="file"
                       className="hidden"
                       multiple
+                      accept=".pdf,application/pdf,image/*,.doc,.docx,.txt"
                       onChange={(e) => e.target.files && setUploadFiles(Array.from(e.target.files))}
                       required
                     />

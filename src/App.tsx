@@ -7838,29 +7838,58 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
     return analysisDocs;
   }, [analysisDocs]);
 
+  const isChatAttachmentDoc = (d: any) => {
+    const dt = (d.doc_type || '').toLowerCase();
+    return dt.includes('anexo chat') || dt.includes('chat');
+  };
+
+  const getCleanDocType = (d: any) => {
+    let cat = (d.doc_type || '').toLowerCase();
+    if (cat.includes(':')) {
+      cat = cat.split(':').slice(1).join(':').toLowerCase();
+    }
+    return cat.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+  };
+
+  const getCleanDocFilename = (d: any) => {
+    return (d.filename || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+  };
+
+  const isMatriculaDoc = (d: any) => {
+    if (isChatAttachmentDoc(d)) return false;
+    const cat = getCleanDocType(d);
+    const fn = getCleanDocFilename(d);
+    return cat.includes('matricula') || fn.includes('matricula');
+  };
+
+  const isEditalDoc = (d: any) => {
+    if (isChatAttachmentDoc(d)) return false;
+    const cat = getCleanDocType(d);
+    const fn = getCleanDocFilename(d);
+    return cat.includes('edital') || fn.includes('edital');
+  };
+
+  const isProcessoDoc = (d: any) => {
+    if (isChatAttachmentDoc(d)) return false;
+    const cat = getCleanDocType(d);
+    const fn = getCleanDocFilename(d);
+    return cat.includes('processo') || cat.includes('judicial') || fn.includes('processo') || fn.includes('autos') || fn.includes('execuc');
+  };
+
   const editalDocsFiltered = useMemo(() => {
-    return analysisDocs.filter(d => d.doc_type && (d.doc_type.startsWith('edital:') || d.doc_type === 'Edital'));
+    return analysisDocs.filter(isEditalDoc);
   }, [analysisDocs]);
 
   const matriculaDocsFiltered = useMemo(() => {
-    return analysisDocs.filter(d => d.doc_type && (d.doc_type.startsWith('matricula:') || d.doc_type === 'Matrícula' || d.doc_type === 'Matricula'));
+    return analysisDocs.filter(isMatriculaDoc);
   }, [analysisDocs]);
 
   const processDocsFiltered = useMemo(() => {
-    return analysisDocs.filter(d => d.doc_type && (d.doc_type.startsWith('processos:') || d.doc_type === 'Processo Judicial'));
+    return analysisDocs.filter(isProcessoDoc);
   }, [analysisDocs]);
 
   const documentsDocsFiltered = useMemo(() => {
-    return analysisDocs.filter(d => d.doc_type && (
-      d.doc_type.startsWith('documents:') || 
-      (!d.doc_type.includes(':') && (
-        d.doc_type === 'Edital' || 
-        d.doc_type === 'Matrícula' || 
-        d.doc_type === 'Matricula' || 
-        d.doc_type === 'Processo Judicial' || 
-        d.doc_type === 'Outros'
-      ))
-    ));
+    return analysisDocs.filter(d => !isChatAttachmentDoc(d));
   }, [analysisDocs]);
 
   const handleNewAnalysis = () => {
@@ -9429,40 +9458,50 @@ Sua resposta deve ser APENAS um objeto JSON válido, sem qualquer bloco de códi
           throw new Error("Sessão expirada. Por favor, faça o login novamente.");
         }
         
-        // Isolate uploaded files by prefixing doc_type with activeSubTab
+        const isChatAttachment = (docType || '').toLowerCase().includes('anexo') || (docType || '').toLowerCase().includes('chat');
+        const effectiveDocType = docType || 'Outros';
         const tabPrefix = state.activeSubTab;
-        const prefixedDocType = (tabPrefix && tabPrefix !== 'report') 
-          ? `${tabPrefix}:${docType}` 
-          : docType;
         
-        const newDocs = await uploadDocuments(files, prefixedDocType, propertyId, token, (status) => {
+        const newDocs = await uploadDocuments(files, effectiveDocType, propertyId, token, (status) => {
           setUploadProgressText(status);
         });
+
         const newAdHocDocs = newDocs.map((doc: any, index: number) => {
           const file = files[index];
           return {
-            id: doc.id,
-            filename: file.name,
-            doc_type: prefixedDocType,
+            id: doc?.id || Math.random().toString(36).substring(7),
+            filename: file?.name || doc?.filename || 'Documento',
+            doc_type: doc?.doc_type || effectiveDocType,
             data: "", // Stored in DB, server hydrates on demand
-            extracted_text: doc.extracted_text || "",
+            extracted_text: doc?.extracted_text || "",
             created_at: new Date().toISOString()
           };
         });
       
       let updatedDocs: any[] = [];
       if (!selectedPropertyId) {
-        updatedDocs = [...state.adHocDocs, ...newAdHocDocs];
+        // Prevent duplicate IDs
+        const existingIds = new Set(newAdHocDocs.map(d => d.id));
+        updatedDocs = [...state.adHocDocs.filter((d: any) => !existingIds.has(d.id)), ...newAdHocDocs];
         setState((prev: any) => ({
           ...prev,
           adHocDocs: updatedDocs
         }));
       } else {
-        updatedDocs = [...propertyDocs, ...newAdHocDocs];
+        const existingIds = new Set(newAdHocDocs.map(d => d.id));
+        updatedDocs = [...propertyDocs.filter((d: any) => !existingIds.has(d.id)), ...newAdHocDocs];
         // Direct state update for propertyDocs instead of just re-fetching
         setPropertyDocs(updatedDocs);
         // Also fetchPropertyData to ensure consistency (background)
         fetchPropertyData(selectedPropertyId);
+      }
+
+      // If this was an attachment for a chat, notify user and DO NOT trigger heavy property re-analysis
+      if (isChatAttachment) {
+        if ((window as any).customToast) {
+          (window as any).customToast("Anexo adicionado ao chat com sucesso! A IA já tem acesso ao documento.", "success");
+        }
+        return;
       }
 
       // Specifically handle Judicial Process document matching
@@ -9497,7 +9536,7 @@ Sua resposta deve ser APENAS um objeto JSON válido, sem qualquer bloco de códi
     } catch (err) {
       console.error(err);
       if ((window as any).customToast) {
-        (window as any).customToast(`Erro ao enviar arquivos: ${formatErrorMessage(err)}`, "error");
+        (window as any).customToast(`Erro ao importar documento: ${formatErrorMessage(err)}`, "error");
       }
     } finally {
       setUploading(false);
@@ -10855,7 +10894,14 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
 
       // Query any chat attachments uploaded in the active session for this specific tab
       const attachmentType = `Anexo Chat ${tab}`;
-      const chatAttachments = analysisDocs.filter((d: any) => d.doc_type === attachmentType);
+      const chatAttachments = analysisDocs.filter((d: any) => {
+        if (!d || !d.doc_type) return false;
+        const dt = d.doc_type.toLowerCase();
+        return dt === attachmentType.toLowerCase() || 
+          dt === 'anexo chat' || 
+          dt.endsWith(attachmentType.toLowerCase()) || 
+          (dt.includes('anexo') && dt.includes(tab.toLowerCase()));
+      });
       
       let attachmentsCtx = "";
       if (chatAttachments.length > 0) {
@@ -10975,7 +11021,14 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
     }
 
     const attachmentType = `Anexo Chat ${tab}`;
-    const chatAttachments = analysisDocs.filter((d: any) => d.doc_type === attachmentType);
+    const chatAttachments = analysisDocs.filter((d: any) => {
+      if (!d || !d.doc_type) return false;
+      const dt = d.doc_type.toLowerCase();
+      return dt === attachmentType.toLowerCase() || 
+        dt === 'anexo chat' || 
+        dt.endsWith(attachmentType.toLowerCase()) || 
+        (dt.includes('anexo') && dt.includes(tab.toLowerCase()));
+    });
 
     return (
       <div className="space-y-6 pt-10 border-t border-black/5 no-print" id={`chat-section-${tab}`}>
@@ -11098,6 +11151,7 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
               type="file" 
               className="hidden" 
               multiple 
+              accept=".pdf,application/pdf,image/*,.doc,.docx,.txt"
               disabled={uploading}
               onChange={(e) => handleAnalysisFileUpload(e, attachmentType)} 
             />
@@ -12004,9 +12058,9 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
                         </div>
 
                         {/* Attached files list */}
-                        {analysisDocs.filter((d: any) => d.doc_type === 'Anexo Chat').length > 0 && (
+                        {analysisDocs.filter((d: any) => d && d.doc_type && d.doc_type.toLowerCase().includes('anexo chat')).length > 0 && (
                           <div className="flex flex-wrap gap-2 mb-3 max-h-32 overflow-y-auto p-1 border-b border-brand-primary/5 pb-3">
-                            {analysisDocs.filter((d: any) => d.doc_type === 'Anexo Chat').map((doc: any) => (
+                            {analysisDocs.filter((d: any) => d && d.doc_type && d.doc_type.toLowerCase().includes('anexo chat')).map((doc: any) => (
                               <div 
                                 key={doc.id} 
                                 className="flex items-center gap-2 bg-brand-primary/10 border border-brand-primary/25 text-brand-primary rounded-xl px-3.5 py-2 text-xs font-semibold select-none shadow-sm animate-fade-in"
@@ -12070,6 +12124,7 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
                               type="file" 
                               className="hidden" 
                               multiple 
+                              accept=".pdf,application/pdf,image/*,.doc,.docx,.txt"
                               disabled={uploading}
                               onChange={(e) => handleAnalysisFileUpload(e, 'Anexo Chat')} 
                             />

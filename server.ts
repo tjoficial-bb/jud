@@ -17,7 +17,34 @@ dotenv.config();
 import { runBackendAnalysis, runBackendProcessStory, runBackendChatMessage, extractProcessDetailsFromText, transcribeDocumentToMarkdown, validateProviderApiKey } from "./server/aiRunner";
 
 
-const upload = multer({ storage: multer.memoryStorage() });
+const upload = multer({ 
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 35 * 1024 * 1024,  // 35MB
+    fieldSize: 50 * 1024 * 1024, // 50MB so large extracted_text never triggers LIMIT_FIELD_VALUE
+    fields: 100,
+    files: 30
+  }
+});
+
+const handleMulterUpload = (uploadMiddleware: any) => (req: any, res: any, next: any) => {
+  uploadMiddleware(req, res, (err: any) => {
+    if (err) {
+      console.error("[Upload Multer Error]:", err);
+      if (err instanceof multer.MulterError) {
+        if (err.code === 'LIMIT_FILE_SIZE') {
+          return res.status(413).json({ error: "O anexo excede o limite máximo permitido de 35MB." });
+        }
+        if (err.code === 'LIMIT_FIELD_VALUE') {
+          return res.status(413).json({ error: "O conteúdo do anexo é muito grande para o formulário." });
+        }
+        return res.status(400).json({ error: `Erro no upload do anexo: ${err.message}` });
+      }
+      return res.status(500).json({ error: `Falha ao processar arquivo: ${err.message || err}` });
+    }
+    next();
+  });
+};
 
 function getResolvedGeminiKey(overrideKey?: string): string {
   if (overrideKey && typeof overrideKey === 'string' && overrideKey.trim().length > 5) {
@@ -51,20 +78,18 @@ async function extractTextFromBuffer(
   mimeType: string, 
   filename: string = "documento.pdf", 
   docType: string = "", 
-  apiKeyOverride?: string
+  apiKeyOverride?: string,
+  enableSyncOcr: boolean = false
 ): Promise<string> {
   let extractedText = "";
-  const lowerFn = filename.toLowerCase();
-  const lowerDocType = docType.toLowerCase();
+  const lowerFn = (filename || '').toLowerCase();
+  const lowerDocType = (docType || '').toLowerCase();
   const isPdf = mimeType === 'application/pdf' || lowerFn.endsWith('.pdf');
-  const isEdital = lowerFn.includes('edital') || lowerDocType.includes('edital');
-  const isMatricula = lowerFn.includes('matricula') || lowerFn.includes('matrícula') || lowerDocType.includes('matricula') || lowerDocType.includes('matrícula');
-  const isProcesso = lowerFn.includes('processo') || lowerFn.includes('autos') || lowerFn.includes('execucao') || lowerFn.includes('execução') || lowerFn.includes('peticao') || lowerFn.includes('petição') || lowerFn.includes('certidao') || lowerFn.includes('certidão') || lowerFn.includes('agrav') || lowerFn.includes('recurso') || lowerDocType.includes('processo');
   
   if (isPdf) {
-    if (buffer.length <= 30 * 1024 * 1024) {
+    if (buffer.length <= 35 * 1024 * 1024) {
       try {
-        console.log(`[PDF] Iniciando extração de texto em "${filename}". Buffer: ${(buffer.length / 1024).toFixed(1)} KB`);
+        console.log(`[PDF] Iniciando extração rápida de texto em "${filename}". Buffer: ${(buffer.length / 1024).toFixed(1)} KB`);
         let pdfParser = pdf;
         if (typeof pdf !== 'function' && pdf && typeof (pdf as any).default === 'function') {
           pdfParser = (pdf as any).default;
@@ -73,44 +98,42 @@ async function extractTextFromBuffer(
         if (typeof pdfParser === 'function') {
           const data = await pdfParser(buffer);
           extractedText = data.text || "";
-          console.log(`[PDF] Extração de stream de texto concluída em "${filename}": ${extractedText.length} caracteres.`);
+          console.log(`[PDF] Extração rápida via pdf-parse em "${filename}": ${extractedText.length} caracteres.`);
         }
       } catch (err: any) {
-        console.warn(`[PDF] Falha na leitura básica de stream via pdf-parse em "${filename}":`, err.message);
+        console.warn(`[PDF] Leitura via pdf-parse em "${filename}":`, err.message);
       }
     }
     
-    // Evaluate if the extracted text is low density, short, or if file is an Edital, Processo, or Matrícula needing full OCR
-    const cleanText = extractedText.replace(/\s+/g, ' ').trim();
-    const headersCount = (cleanText.match(/Continua na página|Valide este documento|CNM:|Selo de Consulta/gi) || []).length;
-    const isLowDensityScannedPdf = cleanText.length < 8000 || headersCount >= 1 || isMatricula || isProcesso || (isEdital && cleanText.length < 1500);
-
-    const activeGeminiKey = getResolvedGeminiKey(apiKeyOverride);
-
-    if (isLowDensityScannedPdf && activeGeminiKey) {
-      console.log(`[PDF OCR AUTOMÁTICO] PDF "${filename}" (Tipo: ${docType || 'Geral'}) necessita leitura OCR completa por IA (${cleanText.length} chars, Edital: ${isEdital}, Processo: ${isProcesso}, Matrícula: ${isMatricula}). Executando transcrição OCR Gemini Vision...`);
-      try {
-        const ocrText = await transcribeDocumentToMarkdown(buffer, mimeType, filename, activeGeminiKey);
-        if (ocrText && ocrText.length > 50) {
-          console.log(`[PDF OCR AUTOMÁTICO] Transcrição concluída em "${filename}". Retornando ${ocrText.length} caracteres em Markdown.`);
-          return ocrText;
+    // Only run synchronous Gemini Vision OCR if explicitly enabled (e.g. via dedicated transcribe action)
+    if (enableSyncOcr) {
+      const activeGeminiKey = getResolvedGeminiKey(apiKeyOverride);
+      if (activeGeminiKey) {
+        console.log(`[PDF OCR] Executando transcrição OCR Gemini Vision em "${filename}"...`);
+        try {
+          const ocrText = await transcribeDocumentToMarkdown(buffer, mimeType, filename, activeGeminiKey);
+          if (ocrText && ocrText.length > 50) {
+            console.log(`[PDF OCR] Transcrição concluída em "${filename}". Retornando ${ocrText.length} caracteres.`);
+            return ocrText;
+          }
+        } catch (e: any) {
+          console.warn(`[PDF OCR] Falha ao executar transcrição OCR via Gemini:`, e.message);
         }
-      } catch (e: any) {
-        console.warn(`[PDF OCR AUTOMÁTICO] Falha ao executar transcrição OCR via Gemini:`, e.message);
       }
     }
     return extractedText;
   } else if (mimeType && mimeType.startsWith('image/')) {
-    const activeGeminiKey = getResolvedGeminiKey(apiKeyOverride);
-    if (activeGeminiKey) {
-      console.log(`[IMAGE OCR AUTOMÁTICO] Processando imagem "${filename}" via Gemini Vision OCR...`);
-      return await transcribeDocumentToMarkdown(buffer, mimeType, filename, activeGeminiKey);
+    if (enableSyncOcr) {
+      const activeGeminiKey = getResolvedGeminiKey(apiKeyOverride);
+      if (activeGeminiKey) {
+        console.log(`[IMAGE OCR] Processando imagem "${filename}" via Gemini Vision OCR...`);
+        return await transcribeDocumentToMarkdown(buffer, mimeType, filename, activeGeminiKey);
+      }
     }
     return "";
-  } else if (mimeType && (mimeType.startsWith('text/') || mimeType.includes('txt') || mimeType.includes('plain') || mimeType === 'application/octet-stream')) {
+  } else if (mimeType && (mimeType.startsWith('text/') || mimeType.includes('txt') || mimeType.includes('plain') || mimeType === 'application/octet-stream' || lowerFn.endsWith('.txt'))) {
     try {
-      const text = buffer.toString('utf8');
-      return text;
+      return buffer.toString('utf8');
     } catch (err: any) {
       try {
         return buffer.toString('binary');
@@ -1187,7 +1210,7 @@ async function startServer() {
     }
   });
 
-  app.post("/api/strategic-brain/upload", authenticateToken, upload.array('files'), async (req, res) => {
+  app.post("/api/strategic-brain/upload", authenticateToken, handleMulterUpload(upload.array('files')), async (req, res) => {
     try {
       const { category } = req.body;
       const files = req.files as Express.Multer.File[];
@@ -1557,18 +1580,19 @@ async function startServer() {
 
   app.get("/api/documents/:propertyId", authenticateToken, async (req, res) => {
     try {
-      const docs = db.prepare("SELECT id, filename, doc_type, data, extracted_text, ia_summary, created_at FROM documents WHERE property_id = ? OR temp_property_id = ?").all(req.params.propertyId, req.params.propertyId) as any[];
+      const docs = db.prepare("SELECT id, filename, doc_type, extracted_text, ia_summary, created_at, length(data) as file_size FROM documents WHERE property_id = ? OR temp_property_id = ?").all(req.params.propertyId, req.params.propertyId) as any[];
       const activeGeminiKey = getResolvedGeminiKey();
 
       // On-the-fly extraction for existing docs
       for (const doc of docs) {
+        doc.data = "";
         if (!doc.extracted_text) {
           const row = db.prepare("SELECT data FROM documents WHERE id = ?").get(doc.id) as any;
           if (row && row.data) {
             try {
               const buffer = Buffer.from(row.data, 'base64');
               const mimeType = doc.filename.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'unknown';
-              const text = await extractTextFromBuffer(buffer, mimeType, doc.filename, doc.doc_type || '', activeGeminiKey);
+              const text = await extractTextFromBuffer(buffer, mimeType, doc.filename, doc.doc_type || '', activeGeminiKey, false);
               if (text) {
                 db.prepare("UPDATE documents SET extracted_text = ? WHERE id = ?").run(text, doc.id);
                 doc.extracted_text = text;
@@ -1586,44 +1610,42 @@ async function startServer() {
     }
   });
 
-  app.post("/api/documents", authenticateToken, upload.array('files'), async (req, res) => {
+  app.post("/api/documents", authenticateToken, handleMulterUpload(upload.array('files')), async (req, res) => {
     try {
       const { doc_type, property_id } = req.body;
       const files = req.files as Express.Multer.File[];
       
       if (!files || files.length === 0) {
-        return res.status(400).json({ error: "Nenhum arquivo enviado" });
+        return res.status(400).json({ error: "Nenhum arquivo enviado para anexo." });
       }
 
       const activeGeminiKey = getResolvedGeminiKey();
       const results = [];
       for (const file of files) {
         const id = Math.random().toString(36).substring(7);
-        const filename = file.originalname;
+        const filename = file.originalname || "anexo.pdf";
         
         let extracted_text = req.body.extracted_text;
-        const lowerFn = (filename || '').toLowerCase();
-        const lowerDt = (doc_type || '').toLowerCase();
-        const isProcessoDoc = lowerDt.includes('processo') || lowerFn.includes('processo') || lowerFn.includes('autos') || lowerFn.includes('execucao') || lowerFn.includes('execução');
-        const isMatriculaDoc = lowerDt.includes('matricula') || lowerDt.includes('matrícula') || lowerFn.includes('matricula') || lowerFn.includes('matrícula');
-        const isEditalDoc = lowerDt.includes('edital') || lowerFn.includes('edital');
 
-        if (!extracted_text || typeof extracted_text !== 'string' || extracted_text.trim().length < 5000 || isProcessoDoc || isMatriculaDoc || isEditalDoc) {
-          const serverText = await extractTextFromBuffer(file.buffer, file.mimetype, filename, doc_type || '', activeGeminiKey);
-          if (serverText && serverText.trim().length > (extracted_text?.trim().length || 0)) {
-            extracted_text = serverText;
-          } else if (!extracted_text || extracted_text.trim() === '') {
-            extracted_text = serverText;
+        // Perform fast local text extraction if client didn't supply it
+        if (!extracted_text || typeof extracted_text !== 'string' || extracted_text.trim().length === 0) {
+          try {
+            const serverText = await extractTextFromBuffer(file.buffer, file.mimetype, filename, doc_type || '', activeGeminiKey, false);
+            if (serverText && serverText.trim().length > 0) {
+              extracted_text = serverText;
+            }
+          } catch (e: any) {
+            console.warn(`[Document Upload] Aviso na extração de texto para ${filename}:`, e.message);
           }
         }
 
-        // Store base64 data for all PDFs and images up to 20MB so multimodal AI models (Gemini) can analyze visual PDF pages, stamps, and tables.
+        // Store base64 data for multimodal AI models (Gemini) up to 30MB
         let data = "";
-        if (file.buffer.length < 20 * 1024 * 1024) {
+        if (file.buffer && file.buffer.length <= 30 * 1024 * 1024) {
           data = file.buffer.toString('base64');
-          console.log(`[Document Server] Salvando base64 para "${filename}" (${(file.buffer.length / (1024 * 1024)).toFixed(1)}MB) para análise multimodal da IA.`);
-        } else {
-          console.warn(`[Document Server] Arquivo "${filename}" (${(file.buffer.length / (1024 * 1024)).toFixed(1)}MB) excede limite de 20MB para base64.`);
+          console.log(`[Document Server] Salvando anexo "${filename}" (${(file.buffer.length / (1024 * 1024)).toFixed(1)}MB) para a IA.`);
+        } else if (file.buffer) {
+          console.warn(`[Document Server] Arquivo "${filename}" (${(file.buffer.length / (1024 * 1024)).toFixed(1)}MB) excede limite de 30MB para base64.`);
         }
         
         let final_property_id = property_id || null;
@@ -1633,10 +1655,25 @@ async function startServer() {
           final_property_id = null;
         }
 
+        const safeDocType = doc_type || "Outro";
+        const safeExtractedText = typeof extracted_text === 'string' ? extracted_text : "";
+
+        // Safe sqlite parameter binding (guarantees no 'undefined' passed to better-sqlite3)
         db.prepare("INSERT INTO documents (id, filename, doc_type, property_id, temp_property_id, data, extracted_text) VALUES (?, ?, ?, ?, ?, ?, ?)").run(
-          id, filename, doc_type, final_property_id, temp_property_id, data, extracted_text
+          id, 
+          filename, 
+          safeDocType, 
+          final_property_id, 
+          temp_property_id, 
+          data, 
+          safeExtractedText
         );
-        results.push({ id, extracted_text });
+        results.push({ 
+          id, 
+          filename, 
+          doc_type: safeDocType, 
+          extracted_text: safeExtractedText 
+        });
       }
       
       res.json(results);
@@ -1738,7 +1775,7 @@ async function startServer() {
         id, filename, doc_type, final_property_id, temp_property_id, extracted_text || ""
       );
       
-      res.json([{ id, extracted_text: extracted_text || "" }]);
+      res.json([{ id, filename, doc_type, extracted_text: extracted_text || "" }]);
     } catch (error: any) {
       console.error("Erro ao inserir documento de texto:", error.message);
       res.status(500).json({ error: "Erro ao inserir documento de texto: " + error.message });
