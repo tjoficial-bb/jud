@@ -148,7 +148,7 @@ const generateContentWithFallback = async (
 ): Promise<any> => {
   const initialModel = mapModelId(primaryModel);
   // Prioritized list of valid Gemini models for graceful degradation
-  const fallbackModelPool = ['gemini-3.7-flash', 'gemini-flash-latest', 'gemini-3.1-flash-lite', 'gemini-3.1-pro-preview'];
+  const fallbackModelPool = ['gemini-3.8-flash', 'gemini-flash-latest', 'gemini-3.1-flash-lite', 'gemini-3.1-pro-preview', 'gemini-3.7-flash'];
   
   // Build a distinct sequence starting with the requested model
   const modelQueue: string[] = [initialModel];
@@ -321,7 +321,7 @@ DIRETRIZES DE TRANSCRIÇÃO OBRIGATÓRIAS:
       ]
     };
 
-    const response = await generateContentWithFallback(ai, 'gemini-3.7-flash', requestPayload);
+    const response = await generateContentWithFallback(ai, 'gemini-3.8-flash', requestPayload);
     const transcribedText = response?.text?.trim() || response?.candidates?.[0]?.content?.parts?.map((p: any) => p.text).join('\n')?.trim() || "";
     console.log(`[OCR Transcribe] Transcrição para Markdown concluída com sucesso para "${filename}". Tamanho: ${transcribedText.length} caracteres.`);
     return transcribedText;
@@ -341,17 +341,18 @@ const getProviderFromModel = (model: string): string => {
 
 const mapModelId = (model: string): string => {
   const mapping: Record<string, string> = {
-    'gemini-3.7-flash': 'gemini-3.7-flash',
-    'gemini-3.5-flash': 'gemini-3.7-flash',
+    'gemini-3.8-flash': 'gemini-3.8-flash',
+    'gemini-3.7-flash': 'gemini-3.8-flash', // Gracefully upgrades from 3.7 to 3.8 to eliminate 503 high demand issues
+    'gemini-3.5-flash': 'gemini-3.8-flash',
+    'gemini-flash-latest': 'gemini-flash-latest',
     'gemini-3.1-flash-lite': 'gemini-3.1-flash-lite',
     'gemini-3.1-pro-preview': 'gemini-3.1-pro-preview',
-    'gemini-3.1-flash-preview': 'gemini-3.7-flash',
-    'gemini-3-flash-preview': 'gemini-3.7-flash',
-    'gemini-flash-latest': 'gemini-flash-latest',
+    'gemini-3.1-flash-preview': 'gemini-3.8-flash',
+    'gemini-3-flash-preview': 'gemini-3.8-flash',
     'gemini-2.5-pro': 'gemini-3.1-pro-preview',
-    'gemini-2.5-flash': 'gemini-3.7-flash',
-    'gemini-2.0-flash': 'gemini-3.7-flash',
-    'gemini-1.5-flash': 'gemini-3.7-flash',
+    'gemini-2.5-flash': 'gemini-3.8-flash',
+    'gemini-2.0-flash': 'gemini-3.8-flash',
+    'gemini-1.5-flash': 'gemini-3.8-flash',
     'gemini-1.5-pro': 'gemini-3.1-pro-preview',
     
     'claude-4-6-opus': 'claude-3-5-sonnet-20241022', 
@@ -1239,7 +1240,7 @@ Retorne APENAS o objeto JSON puro, sem formatação de bloco de código markdown
 Texto do processo:
 ${text.substring(0, 15000)}`;
 
-    const response = await generateContentWithFallback(ai, 'gemini-3.7-flash', {
+    const response = await generateContentWithFallback(ai, 'gemini-3.8-flash', {
       contents: prompt,
       config: {
         responseMimeType: 'application/json'
@@ -1361,20 +1362,86 @@ export const validateProviderApiKey = async (provider: string, apiKey: string): 
     if (!key.startsWith('AIza') && !key.startsWith('AQ')) {
       return { success: false, message: "A chave Gemini parece inválida. Deve começar com 'AIza' ou 'AQ'." };
     }
-    try {
-      const ai = new GoogleGenAI({ apiKey: key, httpOptions: { headers: { 'User-Agent': 'aistudio-build' } } });
-      const response = await ai.models.generateContent({
-        model: 'gemini-3.7-flash',
-        contents: [{ role: 'user', parts: [{ text: 'teste de conexao' }] }]
-      });
-      if (response) {
-        return { success: true, message: "Conexão com Google Gemini realizada com sucesso!" };
+
+    const testCandidateModels = [
+      'gemini-3.8-flash',
+      'gemini-flash-latest',
+      'gemini-3.1-flash-lite',
+      'gemini-3.1-pro-preview',
+      'gemini-3.7-flash'
+    ];
+
+    let lastError: any = null;
+    let authError: any = null;
+
+    for (const testModel of testCandidateModels) {
+      try {
+        const ai = new GoogleGenAI({ apiKey: key, httpOptions: { headers: { 'User-Agent': 'aistudio-build' } } });
+        const response = await ai.models.generateContent({
+          model: testModel,
+          contents: [{ role: 'user', parts: [{ text: 'teste de conexao ping' }] }]
+        });
+        if (response && (response.text || response.candidates?.length)) {
+          return { success: true, message: `Conexão com Google Gemini realizada com sucesso! (Modelo validado: ${testModel})` };
+        }
+      } catch (err: any) {
+        lastError = err;
+        const errStr = (err?.message || String(err)).toLowerCase();
+        const errObjStr = JSON.stringify(err || {}).toLowerCase();
+
+        const isAuthErr = 
+          errStr.includes("api key not valid") || 
+          errStr.includes("invalid api key") || 
+          errStr.includes("unregistered callers") || 
+          errStr.includes("key_invalid") || 
+          errStr.includes("api_key_invalid") || 
+          errStr.includes("not authorized") ||
+          errObjStr.includes("api_key_invalid") ||
+          errObjStr.includes("api key not valid") ||
+          errObjStr.includes("invalid_key");
+
+        if (isAuthErr) {
+          authError = err;
+          break;
+        }
+
+        console.warn(`[Validate Gemini Key] Modelo ${testModel} indisponível ou em alta demanda. Testando próximo modelo no pool...`);
+        // Short pause before trying the next model
+        await new Promise(resolve => setTimeout(resolve, 300));
       }
-      return { success: false, message: "Resposta vazia do servidor Gemini." };
-    } catch (err: any) {
-      console.error("[Validate Gemini Key]", err);
-      return { success: false, message: `Erro Gemini: ${err?.message || err}` };
     }
+
+    if (authError) {
+      return { 
+        success: false, 
+        message: "Chave de API inválida ou não autorizada. Verifique se copiou a chave correta no Google AI Studio." 
+      };
+    }
+
+    const lastErrStr = (lastError?.message || String(lastError || "")).toLowerCase();
+    const lastErrObjStr = JSON.stringify(lastError || {}).toLowerCase();
+    if (
+      lastErrStr.includes("503") || 
+      lastErrStr.includes("high demand") || 
+      lastErrStr.includes("unavailable") ||
+      lastErrObjStr.includes("503") ||
+      lastErrObjStr.includes("high demand")
+    ) {
+      return { 
+        success: false, 
+        message: "Os servidores do Google Gemini estão com pico temporário de alta demanda (Erro 503). Sua chave foi reconhecida pelo Google, mas os servidores estão momentaneamente sobrecarregados. Por favor, aguarde alguns instantes e clique em Testar novamente." 
+      };
+    }
+
+    if (lastErrStr.includes("429") || lastErrStr.includes("quota")) {
+      return {
+        success: false,
+        message: "A cota de requisições da sua chave Gemini foi atingida temporariamente (Erro 429). Aguarde alguns instantes ou verifique seu plano no console do Google."
+      };
+    }
+
+    console.error("[Validate Gemini Key]", lastError);
+    return { success: false, message: `Erro Gemini: ${lastError?.message || lastError}` };
   } else if (provider === 'openai') {
     try {
       const openai = new OpenAI({ apiKey: key });

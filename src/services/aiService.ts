@@ -12,18 +12,18 @@ let hasDowngradedToFlash = false;
 export const analyzeAuctionDocuments = async (
   files: { data: string; mimeType: string; extractedText?: string }[], 
   systemInstruction: string, 
-  model: string = "gemini-3.7-flash", 
+  model: string = "gemini-3.8-flash", 
   apiKey?: string,
   auctionUrls?: string[],
   analysisType?: 'geral' | 'edital' | 'matricula' | 'processo' | 'dossier' | 'smart_analysis' | 'assessoria_analysis'
 ) => {
   const token = localStorage.getItem("token") || "";
   
-  // Use Gemini 3.7 Flash directly if we already downgraded to prevent multiple slow timeouts
+  // Use Gemini 3.8 Flash directly if we already downgraded to prevent multiple slow timeouts
   let activeModel = model;
-  if (hasDowngradedToFlash && model.startsWith('gemini') && model !== 'gemini-3.7-flash') {
-    activeModel = 'gemini-3.7-flash';
-    console.log(`[AI SERVICE] Automatically using gemini-3.7-flash due to prior session downgrade.`);
+  if (hasDowngradedToFlash && model.startsWith('gemini') && model !== 'gemini-3.8-flash') {
+    activeModel = 'gemini-3.8-flash';
+    console.log(`[AI SERVICE] Automatically using gemini-3.8-flash due to prior session downgrade.`);
   }
 
   try {
@@ -68,7 +68,7 @@ export const analyzeAuctionDocuments = async (
                         errMessage.includes('500');
 
     if (isOverloaded) {
-      const fallbackTarget = activeModel === 'gemini-3.7-flash' ? 'gemini-flash-latest' : 'gemini-3.7-flash';
+      const fallbackTarget = activeModel === 'gemini-3.8-flash' ? 'gemini-flash-latest' : 'gemini-3.8-flash';
       console.warn(`[AI SERVICE FALLBACK] Model ${activeModel} failed with overloading/quota. Retrying automatically with ${fallbackTarget}...`);
       hasDowngradedToFlash = true; // Downgrade session-wide
       
@@ -101,7 +101,7 @@ export const analyzeAuctionDocuments = async (
 
 export const generateProcessStory = async (
   files: { data: string; mimeType: string; extractedText?: string }[], 
-  model: string = "gemini-3.7-flash", 
+  model: string = "gemini-3.8-flash", 
   apiKey?: string
 ) => {
   const token = localStorage.getItem("token") || "";
@@ -125,15 +125,15 @@ export const generateProcessStory = async (
 export const sendChatMessage = async (
   messages: { role: 'user' | 'assistant'; content: string }[], 
   systemInstruction: string, 
-  model: string = "gemini-3.7-flash", 
+  model: string = "gemini-3.8-flash", 
   apiKey?: string
 ) => {
   const token = localStorage.getItem("token") || "";
   
-  // Use Gemini 3.7 Flash directly if we already downgraded to prevent slow requests
+  // Use Gemini 3.8 Flash directly if we already downgraded to prevent slow requests
   let activeModel = model;
-  if (hasDowngradedToFlash && model.startsWith('gemini') && model !== 'gemini-3.7-flash') {
-    activeModel = 'gemini-3.7-flash';
+  if (hasDowngradedToFlash && model.startsWith('gemini') && model !== 'gemini-3.8-flash') {
+    activeModel = 'gemini-3.8-flash';
   }
 
   try {
@@ -178,7 +178,7 @@ export const sendChatMessage = async (
                         errMessage.includes('500');
 
     if (isOverloaded) {
-      const fallbackTarget = activeModel === 'gemini-3.7-flash' ? 'gemini-flash-latest' : 'gemini-3.7-flash';
+      const fallbackTarget = activeModel === 'gemini-3.8-flash' ? 'gemini-flash-latest' : 'gemini-3.8-flash';
       console.warn(`[AI SERVICE FALLBACK] Chat model ${activeModel} failed with overloading/quota. Retrying automatically with ${fallbackTarget}...`);
       hasDowngradedToFlash = true; // Downgrade session-wide
       

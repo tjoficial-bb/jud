@@ -155,6 +155,7 @@ function getCustomInstructionsPrompt(state: any): string {
 }
 
 type AIModel = 
+  | 'gemini-3.8-flash'
   | 'gemini-3.7-flash'
   | 'gemini-3.1-flash-lite'
   | 'gemini-3.1-pro-preview' 
@@ -345,10 +346,32 @@ const formatErrorMessage = (err: any) => {
   if (err instanceof TypeError || (err && typeof err === 'object' && err.message === 'Failed to fetch')) {
     return "Erro de conexão com o servidor. Por favor, tente novamente em instantes.";
   }
-  const msg = err instanceof Error ? err.message : String(err || "");
+  let msg = err instanceof Error ? err.message : String(err || "");
   if (msg.includes('Failed to fetch') || msg.includes('NetworkError') || msg.includes('Erro de conexão')) {
     return "Erro de conexão com o servidor. Por favor, tente novamente em instantes.";
   }
+
+  // Detect and format 503 / high demand spikes in Gemini API
+  if (msg.includes('503') || msg.includes('UNAVAILABLE') || msg.includes('high demand') || msg.includes('experiencing high demand')) {
+    return "Os servidores do Google Gemini estão com alta demanda temporária (Erro 503). O sistema continuará automaticamente com modelos alternativos de contingência. Se persistir, tente novamente em alguns segundos.";
+  }
+
+  // Extract message from raw JSON error if present
+  try {
+    if (msg.includes('{"error":')) {
+      const match = msg.match(/\{"error":.*\}/);
+      if (match) {
+        const parsed = JSON.parse(match[0]);
+        if (parsed?.error?.message) {
+          if (parsed.error.code === 503 || parsed.error.status === 'UNAVAILABLE' || parsed.error.message.includes('high demand')) {
+            return "Os servidores do Google Gemini estão com alta demanda temporária (Erro 503). Sua chave é válida, mas a infraestrutura da Google está momentaneamente sobrecarregada. Tente novamente em alguns segundos.";
+          }
+          return parsed.error.message;
+        }
+      }
+    }
+  } catch (_) {}
+
   return msg;
 };
 
@@ -743,8 +766,8 @@ export default function App() {
       cnjResult: null,
       selectedModel: (() => {
         const saved = localStorage.getItem('saved_selected_model');
-        if (!saved || saved === 'gemini-2.5-flash' || saved === 'gemini-2.0-flash' || saved === 'gemini-1.5-flash' || saved === 'gemini-3.5-flash') {
-          return 'gemini-3.7-flash' as AIModel;
+        if (!saved || saved === 'gemini-2.5-flash' || saved === 'gemini-2.0-flash' || saved === 'gemini-1.5-flash' || saved === 'gemini-3.5-flash' || saved === 'gemini-3.7-flash') {
+          return 'gemini-3.8-flash' as AIModel;
         }
         return saved as AIModel;
       })(),
@@ -11212,7 +11235,7 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
                     const nextSource = e.target.value as any;
                     let nextModel = state.selectedModel;
                     if (nextSource === 'system_default' || nextSource === 'gemini_custom') {
-                      nextModel = 'gemini-3.7-flash';
+                      nextModel = 'gemini-3.8-flash';
                     } else if (nextSource === 'openai_custom') {
                       nextModel = 'gpt-4o';
                     }
@@ -11258,10 +11281,10 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
                 >
                   {(state.selectedKeySource === 'system_default' || state.selectedKeySource === 'gemini_custom') && (
                     <optgroup label="Google Gemini">
-                      <option value="gemini-3.7-flash">Gemini 3.7 Flash (Recomendado - Mais Estável e Veloz)</option>
-                      <option value="gemini-2.5-flash">Gemini 2.5 Flash (Padrão)</option>
-                      <option value="gemini-2.5-pro">Gemini 2.5 Pro (Raciocínio Avançado)</option>
-                      <option value="gemini-3.5-flash">Gemini 3.5 Flash</option>
+                      <option value="gemini-3.8-flash">Gemini 3.8 Flash (Recomendado - Mais Estável e Veloz)</option>
+                      <option value="gemini-flash-latest">Gemini Flash Latest</option>
+                      <option value="gemini-3.7-flash">Gemini 3.7 Flash</option>
+                      <option value="gemini-3.1-flash-lite">Gemini 3.1 Flash Lite (Rápido e Leve)</option>
                       <option value="gemini-3.1-pro-preview">Gemini 3.1 Pro (Preview)</option>
                     </optgroup>
                   )}
@@ -12673,15 +12696,17 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
                         onChange={(e) => updateState({ selectedModel: e.target.value as any })}
                         className="w-full text-xs font-semibold px-3 py-2.5 rounded-xl border border-brand-border bg-white text-brand-ink focus:outline-none focus:border-brand-primary"
                       >
-                        <option value="gemini-3.7-flash">Gemini 3.7 Flash (Mais Estável e Veloz - Recomendado)</option>
-                        <option value="gemini-2.5-flash">Gemini 2.5 Flash (Padrão)</option>
-                        <option value="gemini-2.5-pro">Gemini 2.5 Pro (Raciocínio Jurídico Avançado)</option>
+                        <option value="gemini-3.8-flash">Gemini 3.8 Flash (Mais Estável e Veloz - Recomendado)</option>
+                        <option value="gemini-flash-latest">Gemini Flash Latest</option>
+                        <option value="gemini-3.7-flash">Gemini 3.7 Flash</option>
+                        <option value="gemini-3.1-flash-lite">Gemini 3.1 Flash Lite</option>
+                        <option value="gemini-3.1-pro-preview">Gemini 3.1 Pro (Preview)</option>
                       </select>
                     </div>
 
                     <div className="bg-white p-2.5 rounded-xl border border-brand-border/30 text-[10px] text-brand-ink/60 flex items-start gap-2">
                       <Cpu size={14} className="text-brand-primary shrink-0 mt-0.5" />
-                      <span>Utilize "Gemini 3.7 Flash" para respostas rápidas e sem erros de instabilidade, ou "Gemini 2.5 Pro" para análises complexas.</span>
+                      <span>Utilize "Gemini 3.8 Flash" para respostas rápidas e estáveis com alta cota, ou "Gemini 3.1 Pro" para raciocínio jurídico aprofundado.</span>
                     </div>
                   </div>
                 </div>
