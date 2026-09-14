@@ -74,6 +74,7 @@ import { SmartResetPanel } from './components/SmartResetPanel';
 import { User, Property, Process, AIConfig, StrategicBrainItem } from './types';
 import { SYSTEM_PROMPT } from './constants';
 import { analyzeAuctionDocuments, generateProcessStory, sendChatMessage } from './services/aiService';
+import { jsonrepair } from 'jsonrepair';
 import SmartAnalysisTab, { SmartAnalysisData, getEmptySmartAnalysis, normalizeSmartAnalysis } from './components/SmartAnalysisTab';
 import AssessoriaReport, { AssessoriaAnalysisData, getEmptyAssessoriaAnalysis } from './components/AssessoriaReport';
 import { exportElementToPDF } from './utils/pdfExporter';
@@ -205,17 +206,63 @@ const parseJsonResponse = async (res: Response) => {
     
     return JSON.parse(trimmed);
   } catch (e: any) {
-    if (e instanceof SessionException || e.name === 'SessionException' || (e.message && e.message.includes("Sessão expirada")) || (e.message && e.message.includes("O servidor está temporariamente indisponível")) || (e.message && e.message.includes("Erro no servidor"))) {
+    if (e instanceof SessionException || e.name === 'SessionException' || (e.message && e.message.includes("Sessão expirada")) || (e.message && e.message.includes("O servidor está temporariamente indisponível")) || (e.message && e.message.includes("Erro no servidor")) || (e.message && e.message.includes("reinicialização"))) {
       throw e;
+    }
+    if (res.status === 502 || res.status === 503 || res.status === 504) {
+      console.warn(`[App parseJsonResponse] Status transitório ${res.status} para ${res.url}`);
+      throw new Error("Servidor em reinicialização ou temporariamente indisponível. Aguarde alguns instantes.");
     }
     console.error(`Erro ao parsear JSON para ${res.url}. Status: ${res.status}. Content: ${text.substring(0, 200)}...`);
     throw new Error(`Resposta do servidor não é JSON para ${res.url} (Status: ${res.status})`);
   }
 };
 
+export function sanitizeControlCharactersInStrings(str: string): string {
+  let result = '';
+  let inString = false;
+  let escaped = false;
+
+  for (let i = 0; i < str.length; i++) {
+    const char = str[i];
+
+    if (inString) {
+      if (escaped) {
+        result += char;
+        escaped = false;
+      } else if (char === '\\') {
+        result += char;
+        escaped = true;
+      } else if (char === '"') {
+        inString = false;
+        result += char;
+      } else if (char === '\n') {
+        result += '\\n';
+      } else if (char === '\r') {
+        result += '\\r';
+      } else if (char === '\t') {
+        result += '\\t';
+      } else if (char.charCodeAt(0) < 32) {
+        result += '\\u' + char.charCodeAt(0).toString(16).padStart(4, '0');
+      } else {
+        result += char;
+      }
+    } else {
+      if (char === '"') {
+        inString = true;
+        result += char;
+      } else {
+        result += char;
+      }
+    }
+  }
+  return result;
+}
+
 export function robustParseJSON(raw: string): any {
   if (!raw) return null;
-  let clean = raw.trim();
+  if (typeof raw === 'object') return raw;
+  let clean = String(raw).trim();
 
   // Strip markdown code block wrappers if they exist
   if (clean.includes("```json")) {
@@ -225,48 +272,73 @@ export function robustParseJSON(raw: string): any {
   }
   clean = clean.trim();
 
-  // Remove control characters except space, tab, newline, carriage return
-  clean = clean.replace(/[\x00-\x1F\x7F-\x9F]/g, (match) => {
-    if (match === '\n') return '\n';
-    if (match === '\r') return '\r';
-    if (match === '\t') return '\t';
-    return '';
-  });
-
+  // 1. Direct standard parse
   try {
     return JSON.parse(clean);
-  } catch (err) {
+  } catch (_) {}
+
+  // 2. Direct jsonrepair
+  try {
+    return JSON.parse(jsonrepair(clean));
+  } catch (_) {}
+
+  // 3. Sanitize unescaped control characters inside string literals (e.g. multiline strings)
+  const sanitized = sanitizeControlCharactersInStrings(clean);
+  try {
+    return JSON.parse(sanitized);
+  } catch (_) {}
+
+  try {
+    return JSON.parse(jsonrepair(sanitized));
+  } catch (_) {}
+
+  // 4. Extract between the outermost JSON braces { ... } or brackets [ ... ]
+  const firstBrace = clean.indexOf('{');
+  const lastBrace = clean.lastIndexOf('}');
+  if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+    const candidate = clean.slice(firstBrace, lastBrace + 1);
     try {
-      // Remove trailing commas before closing braces/brackets
-      const fixed = clean.replace(/,\s*([}\]])/g, '$1');
-      return JSON.parse(fixed);
-    } catch (err2) {
-      const firstBrace = clean.indexOf('{');
-      const lastBrace = clean.lastIndexOf('}');
-      if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
-        try {
-          const candidate = clean.slice(firstBrace, lastBrace + 1);
-          return JSON.parse(candidate.replace(/,\s*([}\]])/g, '$1'));
-        } catch (err3) {
-          console.warn("[robustParseJSON] All standard parses failed. Falling back to key/value recovery.");
-          const result: any = {};
-          const keys = ["cnj_number", "court", "class", "subject", "chamber", "parties", "last_movement"];
-          for (const key of keys) {
-            const regex = new RegExp(`"${key}"\\s*:\\s*"([^"]*)"`, 'i');
-            const match = clean.match(regex);
-            if (match) {
-              result[key] = match[1];
-            }
-          }
-          if (Object.keys(result).length > 0) {
-            return result;
-          }
-          throw err2;
-        }
-      }
-      throw err;
-    }
+      return JSON.parse(candidate);
+    } catch (_) {}
+    try {
+      return JSON.parse(jsonrepair(candidate));
+    } catch (_) {}
+    const candidateSanitized = sanitizeControlCharactersInStrings(candidate);
+    try {
+      return JSON.parse(candidateSanitized);
+    } catch (_) {}
+    try {
+      return JSON.parse(jsonrepair(candidateSanitized));
+    } catch (_) {}
   }
+
+  // 5. Generic key-value recovery fallback
+  try {
+    console.warn("[robustParseJSON] Standard parses failed. Running generic key/value recovery...");
+    const recovered: Record<string, any> = {};
+    const regex = /"([^"\\]+)"\s*:\s*(?:"((?:[^"\\]|\\.)*)"|(-?\d+(?:\.\d+)?)|(true|false|null)|(\[[\s\S]*?\])|(\{[\s\S]*?\}))/g;
+    let match: RegExpExecArray | null;
+    while ((match = regex.exec(clean)) !== null) {
+      const key = match[1];
+      if (match[2] !== undefined) {
+        recovered[key] = match[2].replace(/\\n/g, '\n').replace(/\\"/g, '"');
+      } else if (match[3] !== undefined) {
+        recovered[key] = Number(match[3]);
+      } else if (match[4] !== undefined) {
+        recovered[key] = match[4] === 'true' ? true : match[4] === 'false' ? false : null;
+      } else if (match[5] !== undefined || match[6] !== undefined) {
+        try {
+          recovered[key] = JSON.parse(jsonrepair(match[5] || match[6]));
+        } catch (_) {}
+      }
+    }
+    if (Object.keys(recovered).length > 0) {
+      return recovered;
+    }
+  } catch (_) {}
+
+  // Last attempt: try jsonrepair with relaxed regex
+  return JSON.parse(jsonrepair(clean));
 }
 
 const formatErrorMessage = (err: any) => {
@@ -10058,7 +10130,12 @@ Importante: se uma informação não for encontrada nos documentos, use o valor 
         aggregatedUrls,
         'smart_analysis'
       ).catch(err => {
-        console.error("Erro na Análise Smart paralela:", err);
+        const msg = err?.message || String(err || '');
+        if (msg.includes('reinicialização') || msg.includes('temporariamente') || msg.includes('503')) {
+          console.warn("Aviso transitório na Análise Smart paralela:", msg);
+        } else {
+          console.error("Erro na Análise Smart paralela:", err);
+        }
         return null;
       });
 
@@ -10106,7 +10183,12 @@ Sua resposta deve ser APENAS um objeto JSON válido, sem qualquer bloco de códi
         aggregatedUrls,
         'assessoria_analysis'
       ).catch(err => {
-        console.error("Erro na Análise de Assessoria paralela:", err);
+        const msg = err?.message || String(err || '');
+        if (msg.includes('reinicialização') || msg.includes('temporariamente') || msg.includes('503')) {
+          console.warn("Aviso transitório na Análise de Assessoria paralela:", msg);
+        } else {
+          console.error("Erro na Análise de Assessoria paralela:", err);
+        }
         return null;
       });
 
@@ -10126,7 +10208,12 @@ Sua resposta deve ser APENAS um objeto JSON válido, sem qualquer bloco de códi
       if (!isEditalValid) {
         editalAnalysis = editalFileParts.length > 0 
           ? await analyzeAuctionDocuments(editalFileParts, "Analise o Edital detalhadamente linha por linha, extraindo todas as informações financeiras, datas, leiloeiro, e débitos de IPTU e condomínio.", selectedModel, finalApiKey || undefined, [], 'edital').catch(err => { 
-              console.error("Erro ao analisar edital automaticamente:", err); 
+              const msg = err?.message || String(err || '');
+              if (msg.includes('reinicialização') || msg.includes('temporariamente') || msg.includes('503')) {
+                console.warn("Aviso transitório ao analisar edital:", msg);
+              } else {
+                console.error("Erro ao analisar edital automaticamente:", err);
+              }
               return "Falha ao gerar análise automática de Edital."; 
             })
           : "Nenhum documento de Edital foi anexado. Prosseguindo análise com base nos demais dados fornecidos.";
@@ -10146,7 +10233,12 @@ Sua resposta deve ser APENAS um objeto JSON válido, sem qualquer bloco de códi
       if (!isMatriculaValid) {
         matriculaAnalysis = matriculaFileParts.length > 0
           ? await analyzeAuctionDocuments(matriculaFileParts, "Analise a Matrícula detalhadamente, identificando proprietários, alienações, consolidação, gravames e ônus.", selectedModel, finalApiKey || undefined, [], 'matricula').catch(err => { 
-              console.error("Erro ao analisar certidão de matrícula automaticamente:", err); 
+              const msg = err?.message || String(err || '');
+              if (msg.includes('reinicialização') || msg.includes('temporariamente') || msg.includes('503')) {
+                console.warn("Aviso transitório ao analisar matrícula:", msg);
+              } else {
+                console.error("Erro ao analisar certidão de matrícula automaticamente:", err);
+              }
               return "Falha ao gerar análise automática de Certidão de Matrícula."; 
             })
           : "Nenhuma certidão de matrícula foi anexada. Prosseguindo análise com base nos demais dados fornecidos.";
@@ -10166,7 +10258,12 @@ Sua resposta deve ser APENAS um objeto JSON válido, sem qualquer bloco de códi
       if (!isProcessValid) {
         processAnalysis = processFileParts.length > 0
           ? await analyzeAuctionDocuments(processFileParts, processesPrompt, selectedModel, finalApiKey || undefined, [], 'processo').catch(err => { 
-              console.error("Erro ao analisar processos judiciais automaticamente:", err); 
+              const msg = err?.message || String(err || '');
+              if (msg.includes('reinicialização') || msg.includes('temporariamente') || msg.includes('503')) {
+                console.warn("Aviso transitório ao analisar processos judiciais:", msg);
+              } else {
+                console.error("Erro ao analisar processos judiciais automaticamente:", err);
+              }
               return "Falha ao gerar análise de riscos processuais."; 
             })
           : "Nenhum processo judicial foi anexado. Prosseguindo análise com base nos demais dados fornecidos.";
@@ -10205,7 +10302,12 @@ Gere o Relatório de Viabilidade Geral completo seguindo rigorosamente as instru
 OBRIGATORIAMENTE insira o bloco JSON de extração de dados no final do texto.`;
 
       const analysis = await analyzeAuctionDocuments([], generalReportPrompt, selectedModel, finalApiKey || undefined, aggregatedUrls, 'geral').catch(err => {
-        console.error("Erro ao gerar relatório de viabilidade geral:", err);
+        const msg = err?.message || String(err || '');
+        if (msg.includes('reinicialização') || msg.includes('temporariamente') || msg.includes('503')) {
+          console.warn("Aviso transitório ao gerar relatório de viabilidade geral:", msg);
+        } else {
+          console.error("Erro ao gerar relatório de viabilidade geral:", err);
+        }
         return `### ⚠️ Erro na Geração do Relatório de Viabilidade Geral\n\n` +
           `Ocorreu um problema ao obter o parecer do Cérebro Estratégico para esta etapa.\n\n` +
           `**Detalhe Técnico:** \`${err.message || err}\`\n\n` +
@@ -10244,7 +10346,12 @@ ${processAnalysis}
 Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'dossier' (Viabilidade, Seção Financeira e Seção Jurídica) com extrema riqueza de detalhes em Markdown.`;
 
       const dossierAnalysisResult = await analyzeAuctionDocuments([], dossierPrompt, selectedModel, finalApiKey || undefined, [], 'dossier').catch(err => { 
-        console.error("Erro ao gerar dossiê inteligente automaticamente:", err); 
+        const msg = err?.message || String(err || '');
+        if (msg.includes('reinicialização') || msg.includes('temporariamente') || msg.includes('503')) {
+          console.warn("Aviso transitório ao gerar dossiê inteligente:", msg);
+        } else {
+          console.error("Erro ao gerar dossiê inteligente automaticamente:", err);
+        }
         return `### ⚠️ Erro na Geração do Dossiê de Arrematação\n\n` +
           `Não foi possível consolidar as informações para compilar o Dossiê Final nesta rodada.\n\n` +
           `**Detalhe Técnico:** \`${err.message || err}\`\n\n` +
@@ -10307,7 +10414,7 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
             throw new Error("Resposta da IA inválida (HTML retornado)");
           }
           try {
-            const parsed = JSON.parse(jsonStr);
+            const parsed = robustParseJSON(jsonStr);
             // Extract process story if present in the unified JSON
             const processStoryData = parsed.process_story || parsed.processStory;
             if (processStoryData) {
@@ -10363,13 +10470,7 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
       try {
         const smartResult = await smartAnalysisPromise;
         if (smartResult) {
-          let cleanJson = smartResult;
-          if (cleanJson.includes("```json")) {
-            cleanJson = cleanJson.split("```json")[1].split("```")[0].trim();
-          } else if (cleanJson.includes("```")) {
-            cleanJson = cleanJson.split("```")[1].split("```")[0].trim();
-          }
-          const parsed = JSON.parse(cleanJson);
+          const parsed = robustParseJSON(smartResult);
           smartAnalysisData = { 
             ...getEmptySmartAnalysis(), 
             justificativa_pessoal: state.smartAnalysis?.justificativa_pessoal || '',
@@ -10384,13 +10485,7 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
       try {
         const assessoriaResult = await assessoriaAnalysisPromise;
         if (assessoriaResult) {
-          let cleanJson = assessoriaResult;
-          if (cleanJson.includes("```json")) {
-            cleanJson = cleanJson.split("```json")[1].split("```")[0].trim();
-          } else if (cleanJson.includes("```")) {
-            cleanJson = cleanJson.split("```")[1].split("```")[0].trim();
-          }
-          const parsed = JSON.parse(cleanJson);
+          const parsed = robustParseJSON(assessoriaResult);
           assessoriaAnalysisData = { ...getEmptyAssessoriaAnalysis(), ...parsed };
         }
       } catch (err) {
@@ -10504,11 +10599,17 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
       });
       
     } catch (err: any) {
-      console.error("Erro detalhado da análise:", err);
+      const errMsg = err?.message || String(err || '');
+      const isTransient = errMsg.includes('reinicialização') || errMsg.includes('temporariamente') || errMsg.includes('503') || errMsg.includes('Failed to fetch');
+      if (isTransient) {
+        console.warn("Aviso de conexão/reinicialização durante análise:", errMsg);
+      } else {
+        console.error("Erro detalhado da análise:", err);
+      }
       let errorMessage = err.message || "Ocorreu um erro inesperado.";
       
-      if (err.message?.includes('503') || err.message?.includes('UNAVAILABLE')) {
-        errorMessage = "O servidor de IA está temporariamente sobrecarregado. Por favor, aguarde 30 segundos e tente novamente.";
+      if (err.message?.includes('503') || err.message?.includes('UNAVAILABLE') || err.message?.includes('indisponível') || err.message?.includes('reinicialização')) {
+        errorMessage = "O servidor está inicializando ou temporariamente sobrecarregado. Por favor, aguarde alguns instantes e tente novamente.";
       } else if (err.message?.includes('504') || err.message?.toLowerCase().includes('timeout') || err.message?.toLowerCase().includes('gateway')) {
         errorMessage = "Tempo limite excedido (Erro 504: Gateway Timeout). Os documentos enviados contêm muitas páginas ou imagens pesadas não otimizadas que levam mais de 60 segundos para processar nativamente.\n\n" +
           "✅ Correção automática aplicada! O sistema agora removeu automaticamente formatos pesados e otimizou os arquivos grandes. Se o erro persistir, tente mudar o modelo de IA para 'Flash' nas configurações laterais ou divida o PDF em arquivos menores de até 15 páginas.";

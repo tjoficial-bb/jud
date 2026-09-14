@@ -22,8 +22,12 @@ export const parseJsonResponse = async (res: Response) => {
     }
     return JSON.parse(trimmed);
   } catch (err: any) {
-    if (err.message && (err.message.includes("Sessão expirada") || err.message.includes("O servidor está temporariamente indisponível") || err.message.includes("Erro no servidor"))) {
+    if (err.message && (err.message.includes("Sessão expirada") || err.message.includes("O servidor está temporariamente indisponível") || err.message.includes("Erro no servidor") || err.message.includes("reinicialização"))) {
       throw err;
+    }
+    if (res.status === 502 || res.status === 503 || res.status === 504) {
+      console.warn(`[apiService] Status ${res.status} transitório retornado por ${res.url}`);
+      throw new Error(`Servidor em reinicialização ou temporariamente indisponível. Aguarde alguns instantes.`);
     }
     console.error("Erro ao parsear JSON:", err, "Texto:", text.substring(0, 500));
     throw new Error("Erro ao processar resposta do servidor");
@@ -33,9 +37,15 @@ export const parseJsonResponse = async (res: Response) => {
 /**
  * Robust fetch wrapper with automatic retry for network glitches / container restarts
  */
-export const robustFetch = async (input: RequestInfo | URL, init?: RequestInit, retries = 2, delayMs = 1000): Promise<Response> => {
+export const robustFetch = async (input: RequestInfo | URL, init?: RequestInit, retries = 3, delayMs = 1000): Promise<Response> => {
   try {
     const res = await fetch(input, init);
+    // Retry on gateway 502/503/504 when server is booting
+    if ((res.status === 502 || res.status === 503 || res.status === 504) && retries > 0) {
+      console.warn(`[robustFetch] Status ${res.status} transitório. Aguardando ${delayMs}ms para retentar...`);
+      await new Promise(resolve => setTimeout(resolve, delayMs));
+      return robustFetch(input, init, retries - 1, delayMs * 1.5);
+    }
     return res;
   } catch (err: any) {
     if (err?.name === 'AbortError' || init?.signal?.aborted) {
@@ -50,6 +60,8 @@ export const robustFetch = async (input: RequestInfo | URL, init?: RequestInit, 
         err.message.includes('Failed to fetch') ||
         err.message.includes('Erro de conexão') ||
         err.message.includes('temporário') ||
+        err.message.includes('indisponível') ||
+        err.message.includes('reinicialização') ||
         err.message.includes('NetworkError') ||
         err.message.includes('Load failed')
       ));

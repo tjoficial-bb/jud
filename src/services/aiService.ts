@@ -44,24 +44,28 @@ export const analyzeAuctionDocuments = async (
     const data = await parseJsonResponse(res);
     return data.result;
   } catch (err: any) {
-    const errMessage = err.message || "";
+    const errMessage = (err.message || "").toLowerCase();
     const isOverloaded = errMessage.includes('503') || 
-                        errMessage.includes('UNAVAILABLE') || 
+                        errMessage.includes('unavailable') || 
+                        errMessage.includes('indisponível') || 
+                        errMessage.includes('indisponivel') || 
+                        errMessage.includes('reinicialização') || 
+                        errMessage.includes('reinicializacao') || 
+                        errMessage.includes('temporariamente') || 
                         errMessage.includes('429') || 
-                        errMessage.toLowerCase().includes('overloaded') || 
-                        errMessage.toLowerCase().includes('unavailable') || 
-                        errMessage.toLowerCase().includes('tempo limite') || 
-                        errMessage.toLowerCase().includes('timeout') ||
-                        errMessage.toLowerCase().includes('quota') ||
-                        errMessage.toLowerCase().includes('excedeu') ||
-                        errMessage.toLowerCase().includes('limite') ||
-                        errMessage.toLowerCase().includes('exhausted') ||
-                        errMessage.toLowerCase().includes('unregistered callers') ||
-                        errMessage.toLowerCase().includes('permission_denied') ||
-                        errMessage.toLowerCase().includes('rejeitado') ||
-                        errMessage.toLowerCase().includes('negado') ||
-                        errMessage.toLowerCase().includes('error 500') ||
-                        errMessage.toLowerCase().includes('500');
+                        errMessage.includes('overloaded') || 
+                        errMessage.includes('tempo limite') || 
+                        errMessage.includes('timeout') ||
+                        errMessage.includes('quota') ||
+                        errMessage.includes('excedeu') ||
+                        errMessage.includes('limite') ||
+                        errMessage.includes('exhausted') ||
+                        errMessage.includes('unregistered callers') ||
+                        errMessage.includes('permission_denied') ||
+                        errMessage.includes('rejeitado') ||
+                        errMessage.includes('negado') ||
+                        errMessage.includes('error 500') ||
+                        errMessage.includes('500');
 
     if (isOverloaded) {
       const fallbackTarget = activeModel === 'gemini-3.7-flash' ? 'gemini-flash-latest' : 'gemini-3.7-flash';
@@ -69,8 +73,10 @@ export const analyzeAuctionDocuments = async (
       hasDowngradedToFlash = true; // Downgrade session-wide
       
       if (typeof window !== 'undefined' && (window as any).customToast) {
-        (window as any).customToast(`Servidores do modelo sob alta demanda. Redirecionando automaticamente para ${fallbackTarget}...`, "info");
+        (window as any).customToast(`Servidores sob alta demanda temporária. Redirecionando automaticamente para ${fallbackTarget}...`, "info");
       }
+
+      await new Promise(resolve => setTimeout(resolve, 1500));
       
       const retryRes = await robustFetch("/api/ai/analyze", {
         method: "POST",
@@ -148,24 +154,28 @@ export const sendChatMessage = async (
     const data = await parseJsonResponse(res);
     return data.result;
   } catch (err: any) {
-    const errMessage = err.message || "";
+    const errMessage = (err.message || "").toLowerCase();
     const isOverloaded = errMessage.includes('503') || 
-                        errMessage.includes('UNAVAILABLE') || 
+                        errMessage.includes('unavailable') || 
+                        errMessage.includes('indisponível') || 
+                        errMessage.includes('indisponivel') || 
+                        errMessage.includes('reinicialização') || 
+                        errMessage.includes('reinicializacao') || 
+                        errMessage.includes('temporariamente') || 
                         errMessage.includes('429') || 
-                        errMessage.toLowerCase().includes('overloaded') || 
-                        errMessage.toLowerCase().includes('unavailable') || 
-                        errMessage.toLowerCase().includes('tempo limite') || 
-                        errMessage.toLowerCase().includes('timeout') ||
-                        errMessage.toLowerCase().includes('quota') ||
-                        errMessage.toLowerCase().includes('excedeu') ||
-                        errMessage.toLowerCase().includes('limite') ||
-                        errMessage.toLowerCase().includes('exhausted') ||
-                        errMessage.toLowerCase().includes('unregistered callers') ||
-                        errMessage.toLowerCase().includes('permission_denied') ||
-                        errMessage.toLowerCase().includes('rejeitado') ||
-                        errMessage.toLowerCase().includes('negado') ||
-                        errMessage.toLowerCase().includes('error 500') ||
-                        errMessage.toLowerCase().includes('500');
+                        errMessage.includes('overloaded') || 
+                        errMessage.includes('tempo limite') || 
+                        errMessage.includes('timeout') ||
+                        errMessage.includes('quota') ||
+                        errMessage.includes('excedeu') ||
+                        errMessage.includes('limite') ||
+                        errMessage.includes('exhausted') ||
+                        errMessage.includes('unregistered callers') ||
+                        errMessage.includes('permission_denied') ||
+                        errMessage.includes('rejeitado') ||
+                        errMessage.includes('negado') ||
+                        errMessage.includes('error 500') ||
+                        errMessage.includes('500');
 
     if (isOverloaded) {
       const fallbackTarget = activeModel === 'gemini-3.7-flash' ? 'gemini-flash-latest' : 'gemini-3.7-flash';
@@ -175,6 +185,8 @@ export const sendChatMessage = async (
       if (typeof window !== 'undefined' && (window as any).customToast) {
         (window as any).customToast(`Servidores sob alta demanda temporária. Redirecionando chat para ${fallbackTarget}...`, "info");
       }
+
+      await new Promise(resolve => setTimeout(resolve, 1500));
       
       const retryRes = await robustFetch("/api/ai/chat", {
         method: "POST",

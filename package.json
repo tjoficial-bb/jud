@@ -25,6 +25,7 @@
     "dotenv": "^17.2.3",
     "esbuild": "^0.28.0",
     "express": "^4.21.2",
+    "jsonrepair": "^3.15.0",
     "jsonwebtoken": "^9.0.3",
     "lucide-react": "^0.575.0",
     "motion": "^12.23.24",

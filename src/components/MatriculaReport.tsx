@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { jsonrepair } from 'jsonrepair';
 
 // Robust types for the structured matrícula data
 export interface MatriculaReportData {
@@ -213,12 +214,16 @@ export const MatriculaReport: React.FC<MatriculaReportProps> = ({
     let cleanMarkdown = rawAnalysis;
     let data: MatriculaReportData | null = null;
 
-    // Search for XML-style tag: <analysis_data>...</analysis_data>
+    // Search for XML-style tag: <analysis_data>...<analysis_data>
     const match = rawAnalysis.match(/<analysis_data>([\s\S]*?)<\/analysis_data>/);
     if (match) {
       try {
         const cleanedJson = cleanJsonText(match[1]);
-        data = JSON.parse(cleanedJson);
+        try {
+          data = JSON.parse(cleanedJson);
+        } catch (_) {
+          data = JSON.parse(jsonrepair(cleanedJson));
+        }
         cleanMarkdown = rawAnalysis.replace(/<analysis_data>[\s\S]*?<\/analysis_data>/g, '').trim();
       } catch (err) {
         console.error("Failed to parse structured JSON block in matrix analysis:", err);
@@ -232,7 +237,11 @@ export const MatriculaReport: React.FC<MatriculaReportProps> = ({
       if (jsonMatch) {
         try {
           const cleanedJson = cleanJsonText(jsonMatch[1]);
-          data = JSON.parse(cleanedJson);
+          try {
+            data = JSON.parse(cleanedJson);
+          } catch (_) {
+            data = JSON.parse(jsonrepair(cleanedJson));
+          }
           cleanMarkdown = rawAnalysis.replace(jsonMatch[1], '').trim();
         } catch (err) {
           console.error("Failed to parse fallback JSON block in matrix analysis:", err);

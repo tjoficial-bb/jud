@@ -2,6 +2,7 @@ import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
 import Anthropic from "@anthropic-ai/sdk";
 import OpenAI from "openai";
 import axios from "axios";
+import { jsonrepair } from "jsonrepair";
 
 const fetchUrlContent = async (url: string): Promise<string> => {
   if (!url || typeof url !== 'string' || !url.startsWith('http')) {
@@ -1067,7 +1068,22 @@ Para resolver esta lentidão de forma imediata:
     throw new Error("Provedor não suportado.");
   };
 
-  return withTimeout(runTask(), 300000, timeoutMessage);
+  const rawOutput = await withTimeout(runTask(), 300000, timeoutMessage);
+  if (analysisType === 'smart_analysis' || analysisType === 'assessoria_analysis') {
+    try {
+      let candidate = rawOutput ? rawOutput.trim() : "";
+      if (candidate.includes("```json")) {
+        candidate = candidate.split("```json")[1].split("```")[0].trim();
+      } else if (candidate.includes("```")) {
+        candidate = candidate.split("```")[1].split("```")[0].trim();
+      }
+      return jsonrepair(candidate);
+    } catch (repairErr: any) {
+      console.warn("[runBackendAnalysis] jsonrepair notice on backend:", repairErr.message);
+      return rawOutput;
+    }
+  }
+  return rawOutput;
 };
 
 export const runBackendProcessStory = async (

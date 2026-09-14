@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { jsonrepair } from 'jsonrepair';
 
 // Robust types for the structured lawsuit/process data
 export interface ProcessoReportData {
@@ -147,7 +148,11 @@ export const ProcessoReport: React.FC<ProcessoReportProps> = ({
     if (match) {
       try {
         const cleanedJson = cleanJsonText(match[1]);
-        data = JSON.parse(cleanedJson);
+        try {
+          data = JSON.parse(cleanedJson);
+        } catch (_) {
+          data = JSON.parse(jsonrepair(cleanedJson));
+        }
         cleanMarkdown = rawAnalysis.replace(/<analysis_data>[\s\S]*?<\/analysis_data>/g, '').trim();
       } catch (err) {
         console.error("Failed to parse structured JSON block in processo analysis:", err);
