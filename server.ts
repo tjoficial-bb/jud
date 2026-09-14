@@ -1581,29 +1581,9 @@ async function startServer() {
   app.get("/api/documents/:propertyId", authenticateToken, async (req, res) => {
     try {
       const docs = db.prepare("SELECT id, filename, doc_type, extracted_text, ia_summary, created_at, length(data) as file_size FROM documents WHERE property_id = ? OR temp_property_id = ?").all(req.params.propertyId, req.params.propertyId) as any[];
-      const activeGeminiKey = getResolvedGeminiKey();
-
-      // On-the-fly extraction for existing docs
       for (const doc of docs) {
         doc.data = "";
-        if (!doc.extracted_text) {
-          const row = db.prepare("SELECT data FROM documents WHERE id = ?").get(doc.id) as any;
-          if (row && row.data) {
-            try {
-              const buffer = Buffer.from(row.data, 'base64');
-              const mimeType = doc.filename.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'unknown';
-              const text = await extractTextFromBuffer(buffer, mimeType, doc.filename, doc.doc_type || '', activeGeminiKey, false);
-              if (text) {
-                db.prepare("UPDATE documents SET extracted_text = ? WHERE id = ?").run(text, doc.id);
-                doc.extracted_text = text;
-              }
-            } catch (err) {
-              console.error(`Erro na extração on-the-fly para doc ${doc.id}:`, err);
-            }
-          }
-        }
       }
-      
       res.json(docs);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -1947,27 +1927,25 @@ async function startServer() {
             if (dbDoc) {
               const mimeType = (dbDoc.filename || f.filename || "").toLowerCase().endsWith('.pdf') ? 'application/pdf' : (f.mimeType || 'application/pdf');
               let extText = dbDoc.extracted_text || f.extractedText || "";
-              const lowerFn = (dbDoc.filename || f.filename || "").toLowerCase();
-              const lowerDt = (dbDoc.doc_type || f.doc_type || "").toLowerCase();
-              const isProcessoDoc = lowerFn.includes('processo') || lowerFn.includes('autos') || lowerFn.includes('execucao') || lowerFn.includes('execução') || lowerDt.includes('processo');
-              const isMatriculaDoc = lowerFn.includes('matricula') || lowerFn.includes('matrícula') || lowerDt.includes('matricula') || lowerDt.includes('matrícula');
-              const isEditalDoc = lowerFn.includes('edital') || lowerDt.includes('edital');
 
-              // If it's an edital, processo, or matrícula doc, or short text (< 3500 chars), execute server-side Gemini Vision OCR
-              if ((isProcessoDoc || isMatriculaDoc || isEditalDoc || extText.length < 3500) && dbDoc.data && activeGeminiKey) {
-                if (!extText.includes('# Documento:') && !extText.includes('## Página') && !extText.includes('## Conteúdo')) {
-                  try {
-                    console.log(`[ANALYSIS HYDRATION OCR] Executando OCR automático para "${dbDoc.filename || f.filename}" antes de enviar para análise de IA...`);
-                    const cleanBase64 = dbDoc.data.replace(/^data:[^;]+;base64,/, '').replace(/\s+/g, '');
-                    const buffer = Buffer.from(cleanBase64, 'base64');
-                    const ocrText = await transcribeDocumentToMarkdown(buffer, mimeType, dbDoc.filename || f.filename || "documento.pdf", activeGeminiKey);
-                    if (ocrText && ocrText.length > extText.length) {
-                      extText = ocrText;
-                      db.prepare("UPDATE documents SET extracted_text = ? WHERE id = ?").run(ocrText, f.id);
-                    }
-                  } catch (e: any) {
-                    console.warn(`[ANALYSIS HYDRATION OCR] Falha ao transcrever "${dbDoc.filename}":`, e.message);
+              // If text is not present, attempt fast local extraction via pdf-parse
+              if ((!extText || extText.trim().length === 0) && dbDoc.data && mimeType === 'application/pdf') {
+                try {
+                  const cleanBase64 = dbDoc.data.replace(/^data:[^;]+;base64,/, '').replace(/\s+/g, '');
+                  const buffer = Buffer.from(cleanBase64, 'base64');
+                  let pdfParser = pdf;
+                  if (typeof pdf !== 'function' && pdf && typeof (pdf as any).default === 'function') {
+                    pdfParser = (pdf as any).default;
                   }
+                  if (typeof pdfParser === 'function') {
+                    const parsed = await pdfParser(buffer);
+                    if (parsed && parsed.text) {
+                      extText = parsed.text;
+                      db.prepare("UPDATE documents SET extracted_text = ? WHERE id = ?").run(extText, f.id);
+                    }
+                  }
+                } catch (e: any) {
+                  // Fall back gracefully to inline binary data
                 }
               }
 
@@ -2044,18 +2022,22 @@ async function startServer() {
               const mimeType = (dbDoc.filename || f.filename || "").toLowerCase().endsWith('.pdf') ? 'application/pdf' : (f.mimeType || 'application/pdf');
               let extText = dbDoc.extracted_text || f.extractedText || "";
 
-              if (extText.length < 3500 && dbDoc.data && activeGeminiKey) {
-                if (!extText.includes('# Documento:') && !extText.includes('## Página')) {
-                  try {
-                    const cleanBase64 = dbDoc.data.replace(/^data:[^;]+;base64,/, '').replace(/\s+/g, '');
-                    const buffer = Buffer.from(cleanBase64, 'base64');
-                    const ocrText = await transcribeDocumentToMarkdown(buffer, mimeType, dbDoc.filename || f.filename || "documento.pdf", activeGeminiKey);
-                    if (ocrText && ocrText.length > extText.length) {
-                      extText = ocrText;
-                      db.prepare("UPDATE documents SET extracted_text = ? WHERE id = ?").run(ocrText, f.id);
+              if ((!extText || extText.trim().length === 0) && dbDoc.data && mimeType === 'application/pdf') {
+                try {
+                  const cleanBase64 = dbDoc.data.replace(/^data:[^;]+;base64,/, '').replace(/\s+/g, '');
+                  const buffer = Buffer.from(cleanBase64, 'base64');
+                  let pdfParser = pdf;
+                  if (typeof pdf !== 'function' && pdf && typeof (pdf as any).default === 'function') {
+                    pdfParser = (pdf as any).default;
+                  }
+                  if (typeof pdfParser === 'function') {
+                    const parsed = await pdfParser(buffer);
+                    if (parsed && parsed.text) {
+                      extText = parsed.text;
+                      db.prepare("UPDATE documents SET extracted_text = ? WHERE id = ?").run(extText, f.id);
                     }
-                  } catch (e: any) {}
-                }
+                  }
+                } catch (e: any) {}
               }
 
               hydratedFiles.push({

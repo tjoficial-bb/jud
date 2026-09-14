@@ -10281,7 +10281,7 @@ Sua resposta deve ser APENAS um objeto JSON válido, sem qualquer bloco de códi
           : "Nenhum documento de Edital foi anexado. Prosseguindo análise com base nos demais dados fornecidos.";
       }
 
-      await sleep(1200);
+      await sleep(200);
 
       updateState({ 
         editalAnalysis: editalAnalysis,
@@ -10306,7 +10306,7 @@ Sua resposta deve ser APENAS um objeto JSON válido, sem qualquer bloco de códi
           : "Nenhuma certidão de matrícula foi anexada. Prosseguindo análise com base nos demais dados fornecidos.";
       }
 
-      await sleep(1200);
+      await sleep(200);
 
       updateState({ 
         matriculaAnalysis: matriculaAnalysis,
@@ -10331,7 +10331,7 @@ Sua resposta deve ser APENAS um objeto JSON válido, sem qualquer bloco de códi
           : "Nenhum processo judicial foi anexado. Prosseguindo análise com base nos demais dados fornecidos.";
       }
 
-      await sleep(1200);
+      await sleep(200);
 
       updateState({ 
         processAnalysis: processAnalysis,
@@ -10380,7 +10380,7 @@ OBRIGATORIAMENTE insira o bloco JSON de extração de dados no final do texto.`;
           `3. **Alternar Modelo:** Experimente mudar o modelo para **Gemini 3.5 Flash** (se estiver usando Pro) para evitar limites rígidos de cota.`;
       });
 
-      await sleep(1200);
+      await sleep(200);
 
       updateState({ 
         report: analysis,
