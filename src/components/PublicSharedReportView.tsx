@@ -22,7 +22,8 @@ import {
   convertTextToFormattedHtml, 
   copyModularSectionsToClipboard, 
   downloadModularSections, 
-  printModularSections 
+  printModularSections,
+  parseMarkdownToSections
 } from '../utils/modularReportExporter';
 
 interface SharedData {
@@ -48,15 +49,47 @@ export function PublicSharedReportView({ slug }: { slug: string }) {
       setLoading(true);
       setError(null);
       try {
+        // Strategy 1: Fetch from custom_public_shares
         const res = await fetch(`/api/custom-share/${slug}`);
-        if (!res.ok) {
-          throw new Error("Relatório não encontrado ou link expirado.");
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && json.share) {
+            setData(json.share);
+            setLoading(false);
+            return;
+          }
         }
-        const json = await res.json();
-        if (!json.success || !json.share) {
-          throw new Error("Dados do relatório indisponíveis.");
+
+        // Strategy 2: Fallback to public property share token
+        const propRes = await fetch(`/api/public/property/${slug}`);
+        if (propRes.ok) {
+          const propData = await propRes.json();
+          if (propData && propData.property) {
+            const rawExec = propData.analysis?.exec_summary || "Análise do imóvel disponível para consulta.";
+            const parsed = parseMarkdownToSections(rawExec);
+            
+            setData({
+              slug,
+              title: `Dossiê Estratégico de Leilão - ${propData.property.title || 'Oportunidade Imobiliária'}`,
+              property_title: propData.property.title,
+              property_address: propData.property.address,
+              property_city: propData.property.city ? `${propData.property.city}${propData.property.state ? ' - ' + propData.property.state : ''}` : '',
+              sections: parsed.length > 0 ? parsed : [
+                {
+                  id: 'resumo-geral',
+                  title: 'Resumo Estratégico & Análise de Viabilidade',
+                  text: rawExec,
+                  selected: true
+                }
+              ],
+              created_at: propData.property.created_at || new Date().toISOString()
+            });
+            setLoading(false);
+            return;
+          }
         }
-        setData(json.share);
+
+        throw new Error("Relatório não encontrado ou link expirado.");
       } catch (err: any) {
         console.error("Erro ao carregar compartilhamento:", err);
         setError(err.message || "Erro ao carregar relatório.");

@@ -83,6 +83,7 @@ import { AnalysisPremisesCard } from './components/AnalysisPremisesCard';
 import { DynamicFinancialMetricsBar } from './components/DynamicFinancialMetricsBar';
 import { ReportCustomExporterBar } from './components/ReportCustomExporterBar';
 import { parseMarkdownToSections } from './utils/modularReportExporter';
+import { PublicSharedReportView } from './components/PublicSharedReportView';
 
 const SimulationContext = React.createContext<{ 
   simulationData: any, 
@@ -504,6 +505,15 @@ const getMasterBudgetConfigs = () => {
 };
 
 export default function App() {
+  // Public Share Route Handler - Zero Authentication Required
+  const currentPath = typeof window !== 'undefined' ? window.location.pathname : '';
+  const isPublicShareRoute = currentPath.startsWith('/share/') || currentPath.startsWith('/shared/');
+  const shareSlug = isPublicShareRoute ? currentPath.replace(/^\/(?:share|shared)\/?/, '').split('/')[0].split('?')[0] : '';
+
+  if (isPublicShareRoute && shareSlug) {
+    return <PublicSharedReportView slug={shareSlug} />;
+  }
+
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>('dashboard');
