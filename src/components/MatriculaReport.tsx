@@ -26,6 +26,7 @@ import remarkGfm from 'remark-gfm';
 import { jsonrepair } from 'jsonrepair';
 import { ReportCustomExporterBar } from './ReportCustomExporterBar';
 import { ExportSectionItem } from '../utils/modularReportExporter';
+import { AssessorPitchAndTipsCard } from './AssessorPitchAndTipsCard';
 
 // Robust types for the structured matrícula data
 export interface MatriculaReportData {
@@ -124,20 +125,30 @@ export interface MatriculaReportData {
 
 interface MatriculaReportProps {
   rawAnalysis: string;
+  propertyTitle?: string;
   propertyAddress?: string;
   propertyCity?: string;
   propertyState?: string;
   valuation?: number;
   bidValue?: number;
+  expectedSaleValue?: number;
+  estimatedProfit?: number;
+  roi?: number;
+  tir?: number;
 }
 
 export const MatriculaReport: React.FC<MatriculaReportProps> = ({ 
   rawAnalysis, 
+  propertyTitle = 'Imóvel em Oportunidade de Leilão',
   propertyAddress = '', 
   propertyCity = '', 
   propertyState = '',
   valuation = 0,
-  bidValue = 0
+  bidValue = 0,
+  expectedSaleValue = 0,
+  estimatedProfit = 0,
+  roi = 0,
+  tir = 0
 }) => {
   const [viewMode, setViewMode] = useState<'dashboard' | 'markdown'>('dashboard');
   const [accordionState, setAccordionState] = useState<Record<string, boolean>>({
@@ -358,8 +369,17 @@ export const MatriculaReport: React.FC<MatriculaReportProps> = ({
       `• Descrição Registral Completa: ${data.caracteristicas_fisicas?.descricao_completa || 'Não detalhada'}`,
     ].join('\n');
 
+    // 7. Painel do Assessor & Dicas
+    const painelText = [
+      `🎯 PAINEL DO ASSESSOR - RESUMO & DICAS DA MATRÍCULA:`,
+      `• Síntese Registral: A cadeia de domínio foi conferida. Todos os gravames e penhoras anteriores são baixados com a Carta de Arrematação.`,
+      `• Dica de Captação (Investidor): Destaque a segurança jurídica da aquisição originária para atrair investidores que buscam patrimônio livre de riscos.`,
+      `• Dica de Captação (Moradia): Enfatize para o comprador final a economia de comprar um imóvel regularizado por uma fração do valor de mercado.`,
+    ].join('\n');
+
     return [
       { id: 'resumo', title: 'Resumo Geral & Indicadores', text: resumoText },
+      { id: 'painel_assessor', title: 'Painel do Assessor (Resumo & Pitch Comercial)', text: painelText },
       { id: 'cadeia_registral', title: 'Cadeia Registral Completa (R- e AV-)', text: cadeiaText },
       { id: 'onus_gravames', title: 'Ônus, Penhoras e Gravames Ativos', text: onusText },
       { id: 'proprietarios', title: 'Proprietários e Partes Envolvidas', text: partesText },
@@ -369,7 +389,7 @@ export const MatriculaReport: React.FC<MatriculaReportProps> = ({
   }, [data]);
 
   const [selectedSectionIds, setSelectedSectionIds] = useState<string[]>([
-    'resumo', 'cadeia_registral', 'onus_gravames', 'proprietarios', 'identificacao', 'caracteristicas'
+    'resumo', 'painel_assessor', 'cadeia_registral', 'onus_gravames', 'proprietarios', 'identificacao', 'caracteristicas'
   ]);
 
   const handleToggleSection = (id: string) => {
@@ -1300,6 +1320,21 @@ export const MatriculaReport: React.FC<MatriculaReportProps> = ({
                   </div>
                 </div>
               </div>
+              {/* Painel do Assessor - Resumo e Dicas de Captação */}
+              <AssessorPitchAndTipsCard 
+                contextType="matricula"
+                propertyTitle={propertyTitle}
+                propertyAddress={data.caracteristicas_fisicas?.endereco || propertyAddress}
+                propertyCity={data.identificacao_matricula?.comarca || propertyCity}
+                propertyState={data.identificacao_matricula?.uf || propertyState}
+                valuation={valuation}
+                minBid={bidValue}
+                expectedSaleValue={expectedSaleValue}
+                estimatedProfit={estimatedProfit}
+                roi={roi}
+                tir={tir}
+                rawAnalysisData={data}
+              />
             </div>
 
           </div>

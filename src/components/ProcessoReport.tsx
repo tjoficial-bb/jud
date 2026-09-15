@@ -26,6 +26,7 @@ import remarkGfm from 'remark-gfm';
 import { jsonrepair } from 'jsonrepair';
 import { ReportCustomExporterBar } from './ReportCustomExporterBar';
 import { ExportSectionItem } from '../utils/modularReportExporter';
+import { AssessorPitchAndTipsCard } from './AssessorPitchAndTipsCard';
 
 // Robust types for the structured lawsuit/process data
 export interface ProcessoReportData {
@@ -73,18 +74,30 @@ export interface ProcessoReportData {
 
 interface ProcessoReportProps {
   rawAnalysis: string;
+  propertyTitle?: string;
   propertyAddress?: string;
   propertyCity?: string;
   propertyState?: string;
   valuation?: number;
+  bidValue?: number;
+  expectedSaleValue?: number;
+  estimatedProfit?: number;
+  roi?: number;
+  tir?: number;
 }
 
 export const ProcessoReport: React.FC<ProcessoReportProps> = ({ 
   rawAnalysis, 
+  propertyTitle = 'Imóvel em Oportunidade de Leilão',
   propertyAddress = '', 
   propertyCity = '', 
   propertyState = '',
-  valuation = 0
+  valuation = 0,
+  bidValue = 0,
+  expectedSaleValue = 0,
+  estimatedProfit = 0,
+  roi = 0,
+  tir = 0
 }) => {
   const [viewMode, setViewMode] = useState<'dashboard' | 'markdown'>('dashboard');
   const [accordionState, setAccordionState] = useState<Record<string, boolean>>({
@@ -236,8 +249,17 @@ export const ProcessoReport: React.FC<ProcessoReportProps> = ({
       data.averbacao_area_construida?.detalhes_regularizacao ? `• Detalhes da Regularização: ${data.averbacao_area_construida.detalhes_regularizacao}` : null,
     ].filter(Boolean).join('\n');
 
+    // 6. Painel do Assessor & Dicas
+    const painelText = [
+      `🎯 PAINEL DO ASSESSOR - RESUMO & DICAS PROCESSUAIS:`,
+      `• Síntese Processual: Validação dos atos citatórios, ausência de recursos com efeito suspensivo e segurança para emissão da Carta de Arrematação.`,
+      `• Dica de Captação (Investidor): Destaque o baixo risco jurídico e a velocidade esperada para a expedição do mandado de imissão na posse.`,
+      `• Dica de Captação (Moradia): Tranquilize o comprador final explicando que a dívida do antigo proprietário não recai sobre o novo dono.`,
+    ].join('\n');
+
     return [
       { id: 'processo_principal', title: 'Processo Principal da Execução', text: procText },
+      { id: 'painel_assessor', title: 'Painel do Assessor (Resumo & Pitch Comercial)', text: painelText },
       { id: 'pecas_principais', title: 'Principais Peças Processuais Auditadas', text: pecasText },
       { id: 'acoes_ex_mutuario', title: 'Pesquisa de Ações do Ex-Mutuário (CPF)', text: acoesText },
       { id: 'gravames_processo', title: 'Gravames e Penhoras no Processo', text: gravamesText },
@@ -246,7 +268,7 @@ export const ProcessoReport: React.FC<ProcessoReportProps> = ({
   }, [data]);
 
   const [selectedSectionIds, setSelectedSectionIds] = useState<string[]>([
-    'processo_principal', 'pecas_principais', 'acoes_ex_mutuario', 'gravames_processo', 'averbacao_obra'
+    'processo_principal', 'painel_assessor', 'pecas_principais', 'acoes_ex_mutuario', 'gravames_processo', 'averbacao_obra'
   ]);
 
   const handleToggleSection = (id: string) => {
@@ -686,6 +708,22 @@ export const ProcessoReport: React.FC<ProcessoReportProps> = ({
               </div>
             </div>
           </div>
+
+          {/* Painel do Assessor - Resumo e Dicas de Captação */}
+          <AssessorPitchAndTipsCard 
+            contextType="processos"
+            propertyTitle={propertyTitle}
+            propertyAddress={propertyAddress}
+            propertyCity={propertyCity}
+            propertyState={propertyState}
+            valuation={valuation}
+            minBid={bidValue}
+            expectedSaleValue={expectedSaleValue}
+            estimatedProfit={estimatedProfit}
+            roi={roi}
+            tir={tir}
+            rawAnalysisData={data}
+          />
 
         </div>
       )}

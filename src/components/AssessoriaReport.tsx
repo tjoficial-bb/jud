@@ -10,6 +10,7 @@ import { exportElementToPDF } from '../utils/pdfExporter';
 import { renderTextWithLeafBadges } from './SmartAnalysisTab';
 import { ReportCustomExporterBar } from './ReportCustomExporterBar';
 import { ExportSectionItem } from '../utils/modularReportExporter';
+import { AssessorPitchAndTipsCard } from './AssessorPitchAndTipsCard';
 
 export interface AssessoriaAnalysisData {
   // Montante de débitos
@@ -295,6 +296,14 @@ export default function AssessoriaReport({
       data.comentarios_recomendacoes_finais || 'Análise técnica concluída sem ressalvas impeditivas.'
     ].join('\n\n');
 
+    // 7. Painel do Assessor & Dicas
+    const painelText = [
+      `🎯 PAINEL DO ASSESSOR - RESUMO & DICAS DE ASSESSORIA:`,
+      `• Parecer de Assessoria: Análise integral de viabilidade registral, débitos de condomínio/IPTU e risco de imissão na posse.`,
+      `• Dica de Captação (Investidor): Apresente este dossiê completo de assessoria com a projeção de margem de lucro líquida e teto de lance seguro para fechar a assessoria.`,
+      `• Dica de Captação (Moradia): Destaque o acompanhamento de ponta a ponta desde a arrematação até a entrega das chaves e registro no RGI.`,
+    ].join('\n');
+
     return [
       { id: 'montante_debitos', title: 'Montante de Débitos e Responsabilidade', text: debitosText },
       { id: 'analise_matricula', title: 'Análise Registral da Matrícula', text: matriculaText },
@@ -302,11 +311,12 @@ export default function AssessoriaReport({
       { id: 'viabilidade_juridica', title: 'Viabilidade Jurídica, Ocupação e Intimações', text: viabilidadeText },
       { id: 'acoes_judiciais', title: 'Ações Judiciais Relevantes e Risco Jurídico', text: acoesText },
       { id: 'conclusao', title: 'Conclusão e Parecer Final', text: conclusaoText },
+      { id: 'painel_assessor', title: 'Painel do Assessor (Resumo & Pitch Comercial)', text: painelText },
     ];
   }, [data]);
 
   const [selectedSectionIds, setSelectedSectionIds] = useState<string[]>([
-    'montante_debitos', 'analise_matricula', 'analise_edital', 'viabilidade_juridica', 'acoes_judiciais', 'conclusao'
+    'montante_debitos', 'analise_matricula', 'analise_edital', 'viabilidade_juridica', 'acoes_judiciais', 'conclusao', 'painel_assessor'
   ]);
 
   const handleToggleSection = (id: string) => {
@@ -1411,6 +1421,22 @@ export default function AssessoriaReport({
 
           </div>
         </div>
+
+        {/* Painel do Assessor - Resumo e Dicas de Captação */}
+        <AssessorPitchAndTipsCard 
+          contextType="assessoria"
+          propertyTitle={selectedProperty?.title || 'Imóvel em Oportunidade de Leilão'}
+          propertyAddress={selectedProperty?.address || ''}
+          propertyCity={selectedProperty?.city || ''}
+          propertyState={selectedProperty?.state || ''}
+          valuation={Number(selectedProperty?.valuation) || 0}
+          minBid={Number(customBidValue) || Number(selectedProperty?.minimumBid) || 0}
+          expectedSaleValue={Number(customSaleValue) || 0}
+          estimatedProfit={selectedProperty?.estimatedProfit || 0}
+          roi={selectedProperty?.roi || 0}
+          tir={selectedProperty?.tir || 0}
+          rawAnalysisData={localData}
+        />
 
       </div>
     </div>

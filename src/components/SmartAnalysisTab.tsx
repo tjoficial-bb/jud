@@ -12,6 +12,7 @@ import { AnalysisPremisesCard } from './AnalysisPremisesCard';
 import { exportElementToPDF } from '../utils/pdfExporter';
 import { ReportCustomExporterBar } from './ReportCustomExporterBar';
 import { ExportSectionItem } from '../utils/modularReportExporter';
+import { AssessorPitchAndTipsCard } from './AssessorPitchAndTipsCard';
 
 export interface SmartAnalysisData {
   risco_geral: 'Não avaliado' | 'Baixo' | 'Médio' | 'Alto';
@@ -765,6 +766,11 @@ export default function SmartAnalysisTab({
         id: 'comentarios',
         title: 'Comentários & Recomendações Estratégicas',
         text: typeof localData.comentarios_importantes === 'string' ? localData.comentarios_importantes : (localData.comentarios_importantes ? String(localData.comentarios_importantes) : 'Nenhum comentário cadastrado.')
+      },
+      {
+        id: 'painel_assessor',
+        title: 'Painel do Assessor (Resumo & Pitch Comercial)',
+        text: `🎯 PAINEL DO ASSESSOR - RESUMO & DICAS DA ANÁLISE SMART:\n• Diagnóstico Global: Risco Geral: ${localData.risco_geral || 'Não avaliado'} | Parecer: ${localData.recomendacao || 'Em análise'}.\n• Pitch Investidor: Margem de segurança reforçada e cálculo de retorno líquido com custos provisionados.\n• Pitch Moradia: Transparência total sobre regularização registral e imissão amigável na posse.`
       }
     ];
   }, [localData]);
@@ -2467,6 +2473,22 @@ export default function SmartAnalysisTab({
         </CollapsibleCard>
 
       </div>
+
+      {/* Painel do Assessor - Resumo e Dicas de Captação */}
+      <AssessorPitchAndTipsCard 
+        contextType="smart_analysis"
+        propertyTitle={selectedProperty?.title || 'Imóvel em Oportunidade de Leilão'}
+        propertyAddress={selectedProperty?.address || ''}
+        propertyCity={selectedProperty?.city || ''}
+        propertyState={selectedProperty?.state || ''}
+        valuation={Number(selectedProperty?.valuation) || 0}
+        minBid={Number(customBidValue) || Number(selectedProperty?.minimumBid) || 0}
+        expectedSaleValue={Number(customSaleValue) || 0}
+        estimatedProfit={selectedProperty?.estimatedProfit || 0}
+        roi={selectedProperty?.roi || 0}
+        tir={selectedProperty?.tir || 0}
+        rawAnalysisData={localData}
+      />
 
       {/* Bottom Save Action Panel */}
       <div className="flex justify-end pt-4" id="smart-analysis-footer">

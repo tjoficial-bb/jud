@@ -9648,36 +9648,9 @@ Sua resposta deve ser APENAS um objeto JSON válido, sem qualquer bloco de códi
         }
       }
 
-      // Auto-trigger analysis for tabs upon document upload (automated turnover / virada automática)
-      if (tabPrefix === 'matricula' || docType.toLowerCase().includes('matricula')) {
-        if ((window as any).customToast) {
-          (window as any).customToast("Matrícula enviada com sucesso! Iniciando auditoria e análise de Matrícula com IA...", "info");
-        }
-        handleAnalyzeMatricula(updatedDocs);
-      } else if (tabPrefix === 'edital' || docType.toLowerCase().includes('edital')) {
-        if ((window as any).customToast) {
-          (window as any).customToast("Edital enviado com sucesso! Iniciando análise de Edital com IA...", "info");
-        }
-        handleAnalyzeEdital(updatedDocs);
-      } else if (tabPrefix === 'processos' || docType.toLowerCase().includes('processo')) {
-        if ((window as any).customToast) {
-          (window as any).customToast("Documentos do processo enviados com sucesso! Iniciando análise processual com IA...", "info");
-        }
-        handleAnalyzeProcesses(updatedDocs);
-      } else if (tabPrefix === 'smart_analysis') {
-        if ((window as any).customToast) {
-          (window as any).customToast("Documento(s) enviado(s) com sucesso! Executando Análise Smart com IA...", "info");
-        }
-        handleAnalyzeSmart(updatedDocs);
-      } else if (tabPrefix === 'assessoria') {
-        if ((window as any).customToast) {
-          (window as any).customToast("Documento(s) enviado(s) com sucesso! Executando Análise de Assessoria com IA...", "info");
-        }
-        handleAnalyzeAssessoria(updatedDocs);
-      } else {
-        if ((window as any).customToast) {
-          (window as any).customToast("Documento(s) enviado(s) com sucesso! Pronto para análise.", "success");
-        }
+      // Notify user that the document was successfully uploaded and is ready for analysis when they click the Analyze button
+      if ((window as any).customToast) {
+        (window as any).customToast("Documento enviado e salvo com sucesso! Clique no botão de análise para iniciar quando desejar.", "success");
       }
     } catch (err) {
       console.error(err);
@@ -11778,10 +11751,16 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
                         <div className="p-1 sm:p-2 bg-brand-paper rounded-3xl border border-brand-border shadow-lg">
                           <EditalReport 
                             rawAnalysis={state.editalAnalysis} 
+                            propertyTitle={selectedProperty?.title}
                             propertyAddress={selectedProperty?.address}
                             propertyCity={selectedProperty?.city}
                             propertyState={selectedProperty?.state}
                             valuation={metrics?.valuation}
+                            bidValue={Number(state.customBidValue) || metrics?.bid}
+                            expectedSaleValue={Number(state.customSaleValue) || metrics?.valuation}
+                            estimatedProfit={metrics?.estimatedProfit}
+                            roi={metrics?.roi}
+                            tir={metrics?.tir}
                           />
                         </div>
                       </Card>
@@ -11843,11 +11822,16 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
                         <div className="p-1 sm:p-2 bg-brand-paper rounded-3xl border border-brand-border shadow-lg">
                           <MatriculaReport 
                             rawAnalysis={state.matriculaAnalysis} 
+                            propertyTitle={selectedProperty?.title}
                             propertyAddress={selectedProperty?.address}
                             propertyCity={selectedProperty?.city}
                             propertyState={selectedProperty?.state}
                             valuation={metrics?.valuation}
-                            bidValue={metrics?.bid}
+                            bidValue={Number(state.customBidValue) || metrics?.bid}
+                            expectedSaleValue={Number(state.customSaleValue) || metrics?.valuation}
+                            estimatedProfit={metrics?.estimatedProfit}
+                            roi={metrics?.roi}
+                            tir={metrics?.tir}
                           />
                         </div>
                       </Card>
@@ -11909,10 +11893,16 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
                         <div className="p-1 sm:p-2 bg-brand-paper rounded-3xl border border-brand-border shadow-lg">
                           <ProcessoReport 
                             rawAnalysis={state.processAnalysis} 
+                            propertyTitle={selectedProperty?.title}
                             propertyAddress={selectedProperty?.address}
                             propertyCity={selectedProperty?.city}
                             propertyState={selectedProperty?.state}
                             valuation={metrics?.valuation}
+                            bidValue={Number(state.customBidValue) || metrics?.bid}
+                            expectedSaleValue={Number(state.customSaleValue) || metrics?.valuation}
+                            estimatedProfit={metrics?.estimatedProfit}
+                            roi={metrics?.roi}
+                            tir={metrics?.tir}
                           />
                         </div>
                       </Card>

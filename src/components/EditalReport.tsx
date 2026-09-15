@@ -31,6 +31,7 @@ import remarkGfm from 'remark-gfm';
 import { jsonrepair } from 'jsonrepair';
 import { ReportCustomExporterBar } from './ReportCustomExporterBar';
 import { ExportSectionItem } from '../utils/modularReportExporter';
+import { AssessorPitchAndTipsCard } from './AssessorPitchAndTipsCard';
 
 // Robust types for the structured edital data
 export interface EditalReportData {
@@ -127,18 +128,30 @@ export interface EditalReportData {
 
 interface EditalReportProps {
   rawAnalysis: string;
+  propertyTitle?: string;
   propertyAddress?: string;
   propertyCity?: string;
   propertyState?: string;
   valuation?: number;
+  bidValue?: number;
+  expectedSaleValue?: number;
+  estimatedProfit?: number;
+  roi?: number;
+  tir?: number;
 }
 
 export const EditalReport: React.FC<EditalReportProps> = ({ 
   rawAnalysis, 
+  propertyTitle = 'Imóvel em Oportunidade de Leilão',
   propertyAddress = '', 
   propertyCity = '', 
   propertyState = '',
-  valuation = 0
+  valuation = 0,
+  bidValue = 0,
+  expectedSaleValue = 0,
+  estimatedProfit = 0,
+  roi = 0,
+  tir = 0
 }) => {
   const [viewMode, setViewMode] = useState<'dashboard' | 'markdown'>('dashboard');
   const [accordionState, setAccordionState] = useState<Record<string, boolean>>({
@@ -332,8 +345,17 @@ export const EditalReport: React.FC<EditalReportProps> = ({
       `• Regras de Desistência: ${data.penalidades_desistencia?.penalidades_desistencia_detalhe || 'Sujeito a sanções do Art. 897 do CPC'}`,
     ].join('\n');
 
+    // 8. Painel do Assessor & Dicas
+    const painelText = [
+      `🎯 PAINEL DO ASSESSOR - RESUMO & DICAS DO EDITAL:`,
+      `• Síntese do Edital: Condições de lance, parcelamento judicial e sub-rogação de débitos validadas conforme o CPC.`,
+      `• Dica de Captação (Investidor): Destaque a possibilidade de alavancagem com 25% de entrada e saldo em até 30 parcelas com correção oficial, maximizando a TIR da operação.`,
+      `• Dica de Captação (Moradia): Explique a clareza dos custos (comissão e impostos) e a segurança de adquirir um imóvel com edital validado e preço bem abaixo da avaliação.`,
+    ].join('\n');
+
     return [
       { id: 'resumo', title: 'Resumo Geral & Indicadores', text: resumoText },
+      { id: 'painel_assessor', title: 'Painel do Assessor (Resumo & Pitch Comercial)', text: painelText },
       { id: 'valores_lances', title: 'Valores, Lances e Percentuais Mínimos', text: valoresText },
       { id: 'condicoes_pagamento', title: 'Condições de Pagamento e Parcelamento (Art. 895 CPC)', text: pagtoText },
       { id: 'comissao_leiloeiro', title: 'Comissão e Dados do Leiloeiro Oficial', text: leiloeiroText },
@@ -344,7 +366,7 @@ export const EditalReport: React.FC<EditalReportProps> = ({
   }, [data]);
 
   const [selectedSectionIds, setSelectedSectionIds] = useState<string[]>([
-    'resumo', 'valores_lances', 'condicoes_pagamento', 'comissao_leiloeiro', 'dividas_propter_rem', 'situacao_juridica', 'penalidades'
+    'resumo', 'painel_assessor', 'valores_lances', 'condicoes_pagamento', 'comissao_leiloeiro', 'dividas_propter_rem', 'situacao_juridica', 'penalidades'
   ]);
 
   const handleToggleSection = (id: string) => {
@@ -1046,6 +1068,21 @@ export const EditalReport: React.FC<EditalReportProps> = ({
                   </div>
                 </div>
               </div>
+              {/* Painel do Assessor - Resumo e Dicas de Captação */}
+              <AssessorPitchAndTipsCard 
+                contextType="edital"
+                propertyTitle={propertyTitle}
+                propertyAddress={data.caracteristicas_imovel_edital?.endereco || propertyAddress}
+                propertyCity={data.identificacao_leilao?.comarca || propertyCity}
+                propertyState={propertyState}
+                valuation={valuation}
+                minBid={bidValue}
+                expectedSaleValue={expectedSaleValue}
+                estimatedProfit={estimatedProfit}
+                roi={roi}
+                tir={tir}
+                rawAnalysisData={data}
+              />
             </div>
 
           </div>
