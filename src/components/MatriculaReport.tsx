@@ -24,6 +24,8 @@ import {
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { jsonrepair } from 'jsonrepair';
+import { ReportCustomExporterBar } from './ReportCustomExporterBar';
+import { ExportSectionItem } from '../utils/modularReportExporter';
 
 // Robust types for the structured matrícula data
 export interface MatriculaReportData {
@@ -257,16 +259,159 @@ export const MatriculaReport: React.FC<MatriculaReportProps> = ({
     return { data, cleanMarkdown };
   }, [rawAnalysis, propertyAddress, propertyCity, propertyState, valuation, bidValue]);
 
+  const data = parsedData.data;
+
+  // Build modular export sections
+  const modularSections: ExportSectionItem[] = useMemo(() => {
+    if (!data) return [];
+
+    // 1. Resumo Geral
+    const resumoText = [
+      `📊 INDICADORES DA MATRÍCULA:`,
+      `• Vendas registradas: ${data.kpis.num_vendas} ${data.kpis.ultimo_venda_valor ? `(Último valor registrado: ${data.kpis.ultimo_venda_valor})` : ''}`,
+      `• Ônus/Gravames ativos: ${data.kpis.num_onus_ativos}`,
+      `• Processos judiciais citados: ${data.kpis.num_processos_judiciais}`,
+      ``,
+      `👤 PROPRIETÁRIO ATUAL:`,
+      data.proprietario_atual && data.proprietario_atual.length > 0 ? data.proprietario_atual.map(p => `• ${p}`).join('\n') : '• Não identificado explicitamente',
+      ``,
+      `🏙️ LOCALIZAÇÃO E CADASTRO:`,
+      `• Tipo do imóvel: ${data.imovel_tipo || 'Não informado'}`,
+      `• Localização: ${data.localizacao_resumo || 'Não informado'}`,
+      `• Inscrição Municipal / IPTU: ${data.identificacao_matricula?.cadastro_imobiliario || data.caracteristicas_fisicas?.cadastro_imobiliario || data.identificacao_matricula?.inscricao_municipal || 'Não localizada'}`,
+    ].join('\n');
+
+    // 2. Cadeia Registral
+    let cadeiaText = `📜 CADEIA REGISTRAL E HISTÓRICO DE ATOS (R- e AV-):\n\n`;
+    if (data.cadeia_registral && data.cadeia_registral.length > 0) {
+      cadeiaText += data.cadeia_registral.map((ato, idx) => {
+        return [
+          `[Ato ${idx + 1}] ${ato.tipo || 'Registro'}${ato.data ? ` (${ato.data})` : ''}`,
+          ato.valor ? `  - Valor: ${ato.valor}` : null,
+          ato.natureza ? `  - Natureza: ${ato.natureza}` : null,
+          ato.partes ? `  - Partes: ${ato.partes}` : null,
+          ato.descricao ? `  - Descrição: ${ato.descricao}` : null,
+          ato.impacto ? `  - Impacto na Arrematação: ${ato.impacto}` : null,
+        ].filter(Boolean).join('\n');
+      }).join('\n\n');
+    } else {
+      cadeiaText += 'Nenhum ato sequencial de registro/averbação discriminado individualmente.';
+    }
+
+    // 3. Ônus e Gravames
+    let onusText = `⚠️ ÔNUS, PENHORAS E GRAVAMES:\n\n`;
+    if (data.onus_gravames && data.onus_gravames.length > 0) {
+      onusText += data.onus_gravames.map((onus, idx) => {
+        return [
+          `[Ônus ${idx + 1}] ${onus.tipo || 'Gravame'} - Status: ${onus.status || 'Ativo'}`,
+          onus.subtipo ? `  - Subtipo: ${onus.subtipo}` : null,
+          onus.valor ? `  - Valor: ${onus.valor}` : null,
+          onus.credor ? `  - Credor/Beneficiário: ${onus.credor}` : null,
+          onus.devedor ? `  - Devedor: ${onus.devedor}` : null,
+          onus.prioridade ? `  - Prioridade/Ordem: ${onus.prioridade}` : null,
+          onus.data_constituicao ? `  - Data de Constituição: ${onus.data_constituicao}` : null,
+        ].filter(Boolean).join('\n');
+      }).join('\n\n');
+    } else {
+      onusText += 'Nenhum gravame ou penhora ativa apontada na análise.';
+    }
+
+    // 4. Proprietários e Partes
+    let partesText = `👥 PROPRIETÁRIOS E PARTES ENVOLVIDAS:\n\n`;
+    partesText += `• Proprietários Atuais:\n`;
+    if (data.proprietarios_e_partes?.atuais && data.proprietarios_e_partes.atuais.length > 0) {
+      partesText += data.proprietarios_e_partes.atuais.map(p => `  - ${p.nome} ${p.documento ? `(Doc: ${p.documento})` : ''}${p.regime ? ` - Regime: ${p.regime}` : ''}${p.participacao ? ` - Fração: ${p.participacao}` : ''}`).join('\n');
+    } else if (data.proprietario_atual && data.proprietario_atual.length > 0) {
+      partesText += data.proprietario_atual.map(p => `  - ${p}`).join('\n');
+    } else {
+      partesText += `  - Sem registro claro de proprietários atuais.\n`;
+    }
+
+    if (data.proprietarios_e_partes?.anteriores && data.proprietarios_e_partes.anteriores.length > 0) {
+      partesText += `\n• Proprietários Anteriores:\n`;
+      partesText += data.proprietarios_e_partes.anteriores.map(p => `  - ${p.nome} ${p.documento ? `(Doc: ${p.documento})` : ''}`).join('\n');
+    }
+
+    if (data.proprietarios_e_partes?.credores && data.proprietarios_e_partes.credores.length > 0) {
+      partesText += `\n• Credores e Terceiros Interessados:\n`;
+      partesText += data.proprietarios_e_partes.credores.map(c => `  - ${c.nome} ${c.documento ? `(Doc: ${c.documento})` : ''}`).join('\n');
+    }
+
+    // 5. Identificação e Cartório
+    const idText = [
+      `🏛️ DADOS CARTORÁRIOS E REGISTRAIS:`,
+      `• Número da Matrícula: ${data.identificacao_matricula?.numero_matricula || 'Não informado'}`,
+      `• Cartório de Registro de Imóveis (CRI/RGI): ${data.identificacao_matricula?.cartorio || 'Não informado'}`,
+      `• Comarca / UF: ${data.identificacao_matricula?.comarca || ''} / ${data.identificacao_matricula?.uf || ''}`,
+      `• Livro / Ficha: ${data.identificacao_matricula?.livro || 'Não informado'}`,
+      `• Cadastro Imobiliário / Inscrição Municipal / IPTU: ${data.identificacao_matricula?.cadastro_imobiliario || data.caracteristicas_fisicas?.cadastro_imobiliario || data.identificacao_matricula?.inscricao_municipal || 'Não informado'}`,
+    ].join('\n');
+
+    // 6. Características Físicas
+    const caracText = [
+      `📐 CARACTERÍSTICAS FÍSICAS E METRAGEM:`,
+      `• Tipo / Categoria: ${data.caracteristicas_fisicas?.tipo_imovel || data.imovel_tipo || 'Não informado'} (${data.caracteristicas_fisicas?.categoria || 'Não informado'})`,
+      `• Endereço Registral: ${data.caracteristicas_fisicas?.endereco || data.localizacao_resumo || 'Não informado'}`,
+      `• Área Total / Construída: ${data.caracteristicas_fisicas?.area_total || 'Não informada'}`,
+      `• Fração Ideal: ${data.caracteristicas_fisicas?.fracao_ideal || 'Não informada'}`,
+      `• Condomínio: ${data.condominio?.nome || 'Não informado'}`,
+      `• Descrição Registral Completa: ${data.caracteristicas_fisicas?.descricao_completa || 'Não detalhada'}`,
+    ].join('\n');
+
+    return [
+      { id: 'resumo', title: 'Resumo Geral & Indicadores', text: resumoText },
+      { id: 'cadeia_registral', title: 'Cadeia Registral Completa (R- e AV-)', text: cadeiaText },
+      { id: 'onus_gravames', title: 'Ônus, Penhoras e Gravames Ativos', text: onusText },
+      { id: 'proprietarios', title: 'Proprietários e Partes Envolvidas', text: partesText },
+      { id: 'identificacao', title: 'Identificação Registral & Cartório', text: idText },
+      { id: 'caracteristicas', title: 'Características Físicas e Cadastro IPTU', text: caracText },
+    ];
+  }, [data]);
+
+  const [selectedSectionIds, setSelectedSectionIds] = useState<string[]>([
+    'resumo', 'cadeia_registral', 'onus_gravames', 'proprietarios', 'identificacao', 'caracteristicas'
+  ]);
+
+  const handleToggleSection = (id: string) => {
+    setSelectedSectionIds(prev => 
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    );
+  };
+
+  const handleSelectAll = () => {
+    setSelectedSectionIds(modularSections.map(s => s.id));
+  };
+
+  const handleDeselectAll = () => {
+    setSelectedSectionIds([]);
+  };
+
+  const handleSelectOnly = (id: string) => {
+    setSelectedSectionIds([id]);
+  };
+
   const handleCopyText = (text: string, id: string) => {
     navigator.clipboard.writeText(text);
     setCopiedData(id);
     setTimeout(() => setCopiedData(null), 2000);
   };
 
-  const data = parsedData.data;
-
   return (
     <div className="space-y-6 antialiased">
+      {/* Universal Modular Export & Customization Bar */}
+      <ReportCustomExporterBar
+        reportTitle="Análise Detalhada de Matrícula Imobiliária"
+        propertyTitle={propertyAddress || "Imóvel em Leilão"}
+        propertyAddress={propertyAddress}
+        propertyCity={`${propertyCity || ''}${propertyState ? ` - ${propertyState}` : ''}`}
+        sections={modularSections}
+        selectedSectionIds={selectedSectionIds}
+        onToggleSection={handleToggleSection}
+        onSelectAll={handleSelectAll}
+        onDeselectAll={handleDeselectAll}
+        onSelectOnly={handleSelectOnly}
+      />
+
       {/* Header and Toggle Button Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 no-print border-b border-brand-primary/10 pb-4">
         <div className="flex items-center gap-2 bg-brand-bg/65 p-1.5 rounded-2xl border border-brand-primary/10 max-w-sm">
@@ -301,12 +446,6 @@ export const MatriculaReport: React.FC<MatriculaReportProps> = ({
               </button>
             </>
           )}
-          <button 
-            onClick={() => window.print()}
-            className="text-xs bg-brand-primary text-black px-4 py-2 rounded-xl font-bold hover:bg-brand-primary/95 transition-all flex items-center gap-1.5 shadow-sm shadow-brand-primary/10"
-          >
-            <Printer size={14} /> Imprimir Relatório
-          </button>
         </div>
       </div>
 

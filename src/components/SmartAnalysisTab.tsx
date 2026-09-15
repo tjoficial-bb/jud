@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   Shield, Cpu, Loader2, Save, FileText, CheckSquare, 
   HelpCircle, AlertTriangle, AlertCircle, RefreshCw, Sparkles,
@@ -10,6 +10,8 @@ import {
 import { DocumentManager } from './DocumentManager';
 import { AnalysisPremisesCard } from './AnalysisPremisesCard';
 import { exportElementToPDF } from '../utils/pdfExporter';
+import { ReportCustomExporterBar } from './ReportCustomExporterBar';
+import { ExportSectionItem } from '../utils/modularReportExporter';
 
 export interface SmartAnalysisData {
   risco_geral: 'Não avaliado' | 'Baixo' | 'Médio' | 'Alto';
@@ -712,9 +714,75 @@ export default function SmartAnalysisTab({
     }
   };
 
+  const exportSections: ExportSectionItem[] = useMemo(() => {
+    return [
+      {
+        id: 'parecer',
+        title: 'Parecer Geral & Recomendação Executiva',
+        text: `**Risco Geral:** ${localData.risco_geral}\n**Recomendação:** ${localData.recomendacao}\n\n**Justificativa Técnica:**\n${localData.justificativa || 'Não informada.'}\n\n${localData.justificativa_pessoal ? `**Notas do Investidor:**\n${localData.justificativa_pessoal}` : ''}`.trim()
+      },
+      {
+        id: 'edital',
+        title: 'Dados do Edital & Regras do Leilão',
+        text: `**Tipo de Leilão:** ${localData.tipo_leilao}\n**Responsabilidade IPTU:** ${localData.responsabilidade_iptu}\n**Responsabilidade Condomínio:** ${localData.responsabilidade_condominio}\n\n**Observações do Edital:**\n${localData.observacoes_edital || 'Nenhuma observação registrada.'}`.trim()
+      },
+      {
+        id: 'debitos',
+        title: 'Débitos & Encargos do Imóvel',
+        text: `**IPTU em Atraso:** R$ ${localData.iptu_atraso.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}\n**Condomínio em Atraso:** R$ ${localData.condominio_atraso.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}\n**Outros Débitos:** R$ ${localData.outros_debitos.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}\n\n**Observações dos Débitos:**\n${localData.observacoes_debitos || 'Nenhuma observação informada.'}`.trim()
+      },
+      {
+        id: 'desocupacao',
+        title: 'Análise de Desocupação & Posse',
+        text: `**Nível de Risco de Desocupação:** ${localData.risco_desocupacao || localData.nivel_risco_desocupacao}\n**Prazo Estimado:** ${localData.estimativa_prazo_desocupacao || localData.prazo_estimado_desocupacao || 'A calcular'}\n**Custo Estimado de Desocupação:** R$ ${(localData.custo_estimado_desocupacao || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}\n\n**Indicadores de Resistência / Ações:**\n- Liminar bloqueando: ${localData.liminar_bloqueando ? 'Sim (Alerta)' : 'Não'}\n- Ação anulatória ativa: ${localData.acao_anulatoria ? 'Sim (Alerta)' : 'Não'}\n- Embargos pendentes: ${localData.embargos_pendentes ? 'Sim' : 'Não'}\n- Recursos pendentes: ${localData.recurso_pendente ? 'Sim' : 'Não'}\n\n**Observações de Desocupação:**\n${localData.observacoes_desocupacao || 'Sem observações.'}`.trim()
+      },
+      {
+        id: 'nulidade',
+        title: 'Risco de Nulidade & Auditoria Processual',
+        text: `**Risco Geral de Nulidade:** ${localData.risco_nulidade || localData.risco_geral_nulidade}\n**Preço Vil Caracterizado:** ${localData.preco_vil_caracterizado ? 'Sim (Alerta)' : 'Não'}\n**Intimação Pessoal do Executado:** ${localData.intimacao_executado ? 'Regular' : 'Pendente / Irregular'}\n**Intimação do Cônjuge:** ${localData.intimacao_conjuge ? 'Regular' : 'Não identificada / Pendente'}\n\n**Observações de Nulidade:**\n${localData.observacoes_nulidade || 'Sem apontamentos de nulidade insanável.'}`.trim()
+      },
+      {
+        id: 'consolidacao',
+        title: 'Consolidação da Propriedade (Alienação Fiduciária)',
+        text: `**Status da Consolidação:** ${localData.status_consolidacao}\n**Intimação Pessoal do Devedor para Purga da Mora:** ${localData.intimacao_purga_mora ? 'Comprovada' : 'Não comprovada / Pendente'}\n**Intimação dos Leilões:** ${localData.intimacao_leiloes ? 'Comprovada' : 'Não localizada'}\n\n**Observações da Consolidação:**\n${localData.observacoes_consolidacao || 'Sem pendências registradas.'}`.trim()
+      },
+      {
+        id: 'matricula',
+        title: 'Matrícula & Gravames do Imóvel',
+        text: `**Matrícula Atualizada:** ${localData.matricula_atualizada ? 'Sim' : 'Pendente'}\n**Penhoras Ativas:** ${localData.tem_penhora ? 'Sim' : 'Não'}\n**Hipotecas:** ${localData.tem_hipoteca ? 'Sim' : 'Não'}\n**Indisponibilidades:** ${localData.indisponibilidade ? 'Sim' : 'Não'}\n\n**Observações da Matrícula:**\n${localData.observacoes_matricula || 'Matrícula devidamente conferida.'}`.trim()
+      },
+      {
+        id: 'imovel',
+        title: 'Características & Vistoria do Imóvel',
+        text: `**Situação Ocupacional:** ${localData.situacao_ocupacional || localData.status_ocupacao}\n**Tipo de Imóvel:** ${localData.tipo_imovel || 'Imóvel residencial'}\n**Área Privativa:** ${localData.area_privativa || 0} m²\n**Área Construída:** ${localData.area_construida || 0} m²\n**Área do Terreno:** ${localData.area_terreno || 0} m²\n\n**Observações do Imóvel:**\n${localData.observacoes_imovel || 'Sem observações adicionais de vistoria.'}`.trim()
+      },
+      {
+        id: 'ex_mutuario',
+        title: 'Dados do Executado / Ex-Mutuário',
+        text: `**Nome:** ${localData.nome_ex_mutuario || 'Não informado'}\n**CPF/CNPJ:** ${localData.cpf_ex_mutuario || 'Não informado'}\n**Estado Civil:** ${localData.estado_civil_ex_mutuario || 'Não informado'}\n**Profissão:** ${localData.profissao_ex_mutuario || 'Não informado'}\n**Endereço Registrado:** ${localData.endereco_ex_mutuario || 'Não informado'}`.trim()
+      },
+      {
+        id: 'comentarios',
+        title: 'Comentários & Recomendações Estratégicas',
+        text: typeof localData.comentarios_importantes === 'string' ? localData.comentarios_importantes : (localData.comentarios_importantes ? String(localData.comentarios_importantes) : 'Nenhum comentário cadastrado.')
+      }
+    ];
+  }, [localData]);
+
   return (
     <div className="space-y-8 animate-in fade-in duration-500" id="smart-analysis-tab-container">
       
+      {/* Universal Modular Exporter Bar */}
+      <ReportCustomExporterBar
+        reportTitle="Análise Smart de Riscos do Leilão"
+        propertyTitle={selectedProperty?.title || 'Imóvel em Análise'}
+        propertyAddress={selectedProperty?.address}
+        propertyCity={selectedProperty?.city ? `${selectedProperty.city} - ${selectedProperty.state || ''}` : undefined}
+        sections={exportSections}
+        propertyId={selectedProperty?.id}
+        reportType="smart_analysis"
+      />
+
       {/* Top action header card */}
       <div className="bg-brand-paper p-6 sm:p-8 rounded-3xl border border-brand-border shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6" id="smart-analysis-header">
         <div>

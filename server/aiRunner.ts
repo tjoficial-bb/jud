@@ -391,8 +391,9 @@ const optimizePayload = (files: any[], budget: number, model?: string) => {
     
     const isBase64TooLarge = hasData && f.data.length > limit;
     
-    // If rich extracted text is available (> 500 chars), prioritize sending text so Gemini reads all pages cleanly and reliably
-    let useText = !hasData || isBase64TooLarge || !isMultiModalProvider || (hasText && f.extractedText.length > 500);
+    // For multimodal models (Gemini / Claude), preserve the actual binary (PDF/Image) whenever within size limit.
+    // Only force useText = true if binary is absent, exceeds the size budget, or model is text-only.
+    let useText = !hasData || isBase64TooLarge || !isMultiModalProvider;
     
     if ((f.mimeType?.startsWith('text/') || f.mimeType?.includes('txt')) && hasText) {
       useText = true;
@@ -529,8 +530,9 @@ const analyzeWithGemini = async (files: any[], systemInstruction: string, model:
       });
     }
 
-    // 2. If base64 binary is available and text was NOT already provided or is very short (< 500 chars), include visual file binary for multimodal vision
-    if (file.data && !file.useText && (!file.extractedText || file.extractedText.trim().length <= 500)) {
+    // 2. If base64 binary is available and within size limits, ALWAYS include visual file binary for multimodal vision
+    // (Crucial for Matrículas, Editais, Certidões, and scanned documents so Gemini visual model inspects pages, stamps, and signatures)
+    if (file.data && !file.useText) {
       fileParts.push({
         inlineData: {
           data: file.data.includes(',') ? file.data.split(',')[1] : file.data,

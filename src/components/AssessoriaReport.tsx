@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   Shield, Cpu, Loader2, Save, FileText, CheckSquare, 
   HelpCircle, AlertTriangle, AlertCircle, RefreshCw, Sparkles,
@@ -8,6 +8,8 @@ import { DocumentManager } from './DocumentManager';
 import { AnalysisPremisesCard } from './AnalysisPremisesCard';
 import { exportElementToPDF } from '../utils/pdfExporter';
 import { renderTextWithLeafBadges } from './SmartAnalysisTab';
+import { ReportCustomExporterBar } from './ReportCustomExporterBar';
+import { ExportSectionItem } from '../utils/modularReportExporter';
 
 export interface AssessoriaAnalysisData {
   // Montante de débitos
@@ -233,8 +235,114 @@ export default function AssessoriaReport({
     'Execução fiscal'
   ];
 
+  // Modular export sections
+  const modularSections: ExportSectionItem[] = useMemo(() => {
+    // 1. Débitos
+    const debitosText = [
+      `💰 MONTANTE DE DÉBITOS E RESPONSABILIDADE:`,
+      `• Responsabilidade dos Débitos: ${data.responsabilidade_debitos || 'Não informado'}`,
+      `• Direito à Evicção: ${data.direito_eviccao || 'Não informado'}${data.ressalvas_eviccao ? ` (Ressalvas: ${data.ressalvas_eviccao})` : ''}`,
+      `• Dívida de Condomínio: ${data.divida_condominio || 'Não informado'}`,
+      `• Dívida de IPTU: ${data.divida_iptu || 'Não informado'}`,
+      data.comentarios_debitos ? `• Parecer sobre Débitos: ${data.comentarios_debitos}` : null,
+    ].filter(Boolean).join('\n');
+
+    // 2. Matrícula
+    let matriculaText = `📜 ANÁLISE DA MATRÍCULA E ITENS GRAVADOS:\n`;
+    matriculaText += `• Data da Matrícula: ${data.data_matricula || 'Não informada'}\n\n`;
+    if (data.itens_matricula && data.itens_matricula.length > 0) {
+      matriculaText += data.itens_matricula.map(item => `• [${item.item || 'Item'}] ${item.descricao}`).join('\n');
+    }
+    if (data.comentarios_matricula) {
+      matriculaText += `\n\n• Parecer Registral: ${data.comentarios_matricula}`;
+    }
+
+    // 3. Edital & Mercado
+    const editalText = [
+      `📊 ANÁLISE DE MERCADO E EDITAL:`,
+      `• Porte da Cidade: ${data.tamanho_cidade || 'Não informado'}`,
+      `• Entorno do Imóvel: ${data.entorno_imovel || 'Não informado'}`,
+      `• Classificação do Bairro: ${data.bairro || 'Não informado'}`,
+      `• É Casa: ${data.e_casa || 'Não'} | É Condomínio: ${data.e_condominio || 'Não'}`,
+      `• Lance Máximo Sugerido (Teto): ${data.lance_maximo_sugerido || 'A definir'}`,
+    ].join('\n');
+
+    // 4. Viabilidade Jurídica & Posse
+    const viabilidadeText = [
+      `⚖️ VIABILIDADE JURÍDICA E POSSE:`,
+      `• Situação de Ocupação: ${data.ocupacao || 'Não informado'}`,
+      `• Intimação Registrada no Cartório: ${data.intimacao_registro || 'Não informado'} (Forma: ${data.forma_intimacao || 'Não se sabe'})`,
+      `• Notificação das Datas do Leilão: ${data.notificacao_datas || 'Não informado'}`,
+      data.observacoes_purga_mora ? `• Purga da Mora: ${data.observacoes_purga_mora}` : null,
+      `• Leilões Negativos Averbados: ${data.leiloes_negativos_averbados || 'Não'}`,
+      data.observacoes_leiloes_negativos ? `• Obs. Leilões Negativos: ${data.observacoes_leiloes_negativos}` : null,
+      data.comentarios_viabilidade ? `• Parecer de Viabilidade: ${data.comentarios_viabilidade}` : null,
+    ].filter(Boolean).join('\n');
+
+    // 5. Ações Judiciais
+    let acoesText = `🔍 AÇÕES JUDICIAIS RELEVANTES E RISCO:\n`;
+    acoesText += `• Grau de Risco Jurídico: ${data.risco_juridico || 'Não classificado'}\n\n`;
+    if (data.acoes_judiciais && data.acoes_judiciais.length > 0) {
+      acoesText += `• Ações Identificadas:\n` + data.acoes_judiciais.map(a => `  - ${a}`).join('\n');
+    }
+    if (data.comentarios_adicionais) {
+      acoesText += `\n\n• Comentários Adicionais: ${data.comentarios_adicionais}`;
+    }
+
+    // 6. Conclusão & Recomendações
+    const conclusaoText = [
+      `🛡️ CONCLUSÃO E RECOMENDAÇÕES ESTRATÉGICAS FINAIS:`,
+      data.comentarios_recomendacoes_finais || 'Análise técnica concluída sem ressalvas impeditivas.'
+    ].join('\n\n');
+
+    return [
+      { id: 'montante_debitos', title: 'Montante de Débitos e Responsabilidade', text: debitosText },
+      { id: 'analise_matricula', title: 'Análise Registral da Matrícula', text: matriculaText },
+      { id: 'analise_edital', title: 'Análise de Mercado e Lance Máximo Sugerido', text: editalText },
+      { id: 'viabilidade_juridica', title: 'Viabilidade Jurídica, Ocupação e Intimações', text: viabilidadeText },
+      { id: 'acoes_judiciais', title: 'Ações Judiciais Relevantes e Risco Jurídico', text: acoesText },
+      { id: 'conclusao', title: 'Conclusão e Parecer Final', text: conclusaoText },
+    ];
+  }, [data]);
+
+  const [selectedSectionIds, setSelectedSectionIds] = useState<string[]>([
+    'montante_debitos', 'analise_matricula', 'analise_edital', 'viabilidade_juridica', 'acoes_judiciais', 'conclusao'
+  ]);
+
+  const handleToggleSection = (id: string) => {
+    setSelectedSectionIds(prev => 
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    );
+  };
+
+  const handleSelectAll = () => {
+    setSelectedSectionIds(modularSections.map(s => s.id));
+  };
+
+  const handleDeselectAll = () => {
+    setSelectedSectionIds([]);
+  };
+
+  const handleSelectOnly = (id: string) => {
+    setSelectedSectionIds([id]);
+  };
+
   return (
     <div className="space-y-8 animate-fade-in text-brand-ink" id="assessoria-tab-container">
+      {/* Universal Modular Export Bar */}
+      <ReportCustomExporterBar
+        reportTitle="Análise de Assessoria Jurídica de Leilões"
+        propertyTitle={selectedProperty?.title || "Imóvel Selecionado"}
+        propertyAddress={selectedProperty?.address}
+        propertyCity={selectedProperty?.city ? `${selectedProperty.city} - ${selectedProperty.state || ''}` : undefined}
+        sections={modularSections}
+        selectedSectionIds={selectedSectionIds}
+        onToggleSection={handleToggleSection}
+        onSelectAll={handleSelectAll}
+        onDeselectAll={handleDeselectAll}
+        onSelectOnly={handleSelectOnly}
+      />
+
       {/* Header Controls */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-brand-primary/10 pb-6 no-print">
         <div>

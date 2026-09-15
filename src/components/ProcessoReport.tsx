@@ -13,17 +13,19 @@ import {
   Copy, 
   Check, 
   ChevronRight, 
-  ChevronDown,
-  Activity,
-  Archive,
-  Layers,
-  Search,
-  BookOpen,
-  Info
+  ChevronDown, 
+  Activity, 
+  Archive, 
+  Layers, 
+  Search, 
+  BookOpen, 
+  Info 
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { jsonrepair } from 'jsonrepair';
+import { ReportCustomExporterBar } from './ReportCustomExporterBar';
+import { ExportSectionItem } from '../utils/modularReportExporter';
 
 // Robust types for the structured lawsuit/process data
 export interface ProcessoReportData {
@@ -169,8 +171,118 @@ export const ProcessoReport: React.FC<ProcessoReportProps> = ({
 
   const data = parsedData.data;
 
+  // Build modular export sections
+  const modularSections: ExportSectionItem[] = useMemo(() => {
+    if (!data) return [];
+
+    // 1. Processo Principal
+    const procText = [
+      `⚖️ PROCESSO PRINCIPAL DA EXECUÇÃO:`,
+      `• Número dos Autos (CNJ): ${data.processo_principal?.numero_processo || 'Não informado'}`,
+      `• Exequente (Autor): ${data.processo_principal?.executante || 'Não informado'}`,
+      `• Executado (Réu): ${data.processo_principal?.executado || 'Não informado'}`,
+      `• Terceiros Interessados: ${data.processo_principal?.terceiros_interessados || 'Nenhum'}`,
+      `• Motivação / Objeto da Ação: ${data.processo_principal?.motivacao_judicial || 'Execução de Título'}`,
+      `• Segredo de Justiça: ${data.processo_principal?.segredo_justica || 'Não'}`,
+    ].join('\n');
+
+    // 2. Principais Peças Processuais
+    let pecasText = `📑 PRINCIPAIS PEÇAS PROCESSUAIS AUDITADAS:\n\n`;
+    if (data.processo_principal?.principais_pecas && data.processo_principal.principais_pecas.length > 0) {
+      pecasText += data.processo_principal.principais_pecas.map((p, idx) => {
+        return `[Peça ${idx + 1}] ${p.peca}${p.pagina ? ` (Fls. ${p.pagina})` : ''}\n  - Descrição: ${p.descricao}`;
+      }).join('\n\n');
+    } else {
+      pecasText += 'Nenhuma peça individualizada informada.';
+    }
+
+    // 3. Ações do Ex-Mutuário / Risco CPF
+    let acoesText = `🔍 AÇÕES CONTRA EX-MUTUÁRIO / CPF:\n\n`;
+    acoesText += `• Classificação Geral de Risco: ${data.acoes_ex_mutuario?.risco_geral_acoes || 'BAIXO'}\n`;
+    if (data.acoes_ex_mutuario?.comentarios_pesquisa) {
+      acoesText += `• Comentários da Pesquisa: ${data.acoes_ex_mutuario.comentarios_pesquisa}\n\n`;
+    }
+    if (data.acoes_ex_mutuario?.acoes_localizadas && data.acoes_ex_mutuario.acoes_localizadas.length > 0) {
+      acoesText += data.acoes_ex_mutuario.acoes_localizadas.map((a, idx) => {
+        return [
+          `[Ação ${idx + 1}] Processo: ${a.processo} (${a.tribunal || 'TJ'}) - Risco: ${a.risco || 'BAIXO'}`,
+          a.tipo ? `  - Tipo: ${a.tipo}` : null,
+          a.status ? `  - Status: ${a.status}` : null,
+          a.motivacao_risco ? `  - Análise de Impacto: ${a.motivacao_risco}` : null,
+        ].filter(Boolean).join('\n');
+      }).join('\n\n');
+    } else {
+      acoesText += 'Nenhuma ação de alto risco contra o devedor localizada.';
+    }
+
+    // 4. Gravames no Processo
+    let gravamesText = `📜 GRAVAMES E PENHORAS ANALISADOS NO PROCESSO:\n\n`;
+    if (data.gravames_matricula_processo?.gravames_analisados && data.gravames_matricula_processo.gravames_analisados.length > 0) {
+      gravamesText += data.gravames_matricula_processo.gravames_analisados.map((g, idx) => {
+        return `[Item ${idx + 1}] ${g.gravame}\n  - Risco para o Arrematante: ${g.possui_risco}\n  - Fundamentação: ${g.analise}`;
+      }).join('\n\n');
+    } else {
+      gravamesText += 'Nenhum gravame processual pendente de cancelamento apontado.';
+    }
+
+    // 5. Averbação de Obra e Regularidade
+    const averbacaoText = [
+      `🏗️ AVERBAÇÃO DE ÁREA CONSTRUÍDA E PASSIVO DE ISS:`,
+      `• É Casa / Construção Individual: ${data.averbacao_area_construida?.imovel_e_casa ? 'Sim' : 'Não (Apartamento/Unidade Autônoma)'}`,
+      `• Status da Averbação: ${data.averbacao_area_construida?.status_averbacao || 'Totalmente averbada'}`,
+      `• Idade Estimada da Construção: ${data.averbacao_area_construida?.idade_construcao_anos || 'Não informada'}`,
+      `• Prescrição Quinquenal de ISS (Decadência Tributária): ${data.averbacao_area_construida?.prescricao_iss_5_anos || 'Não aplicável'}`,
+      `• Estimativa de Custos de Regularização: ${data.averbacao_area_construida?.estimativa_custos_regularizacao || 'R$ 0,00'}`,
+      data.averbacao_area_construida?.detalhes_regularizacao ? `• Detalhes da Regularização: ${data.averbacao_area_construida.detalhes_regularizacao}` : null,
+    ].filter(Boolean).join('\n');
+
+    return [
+      { id: 'processo_principal', title: 'Processo Principal da Execução', text: procText },
+      { id: 'pecas_principais', title: 'Principais Peças Processuais Auditadas', text: pecasText },
+      { id: 'acoes_ex_mutuario', title: 'Pesquisa de Ações do Ex-Mutuário (CPF)', text: acoesText },
+      { id: 'gravames_processo', title: 'Gravames e Penhoras no Processo', text: gravamesText },
+      { id: 'averbacao_obra', title: 'Averbação de Obra & Passivo de ISS', text: averbacaoText },
+    ];
+  }, [data]);
+
+  const [selectedSectionIds, setSelectedSectionIds] = useState<string[]>([
+    'processo_principal', 'pecas_principais', 'acoes_ex_mutuario', 'gravames_processo', 'averbacao_obra'
+  ]);
+
+  const handleToggleSection = (id: string) => {
+    setSelectedSectionIds(prev => 
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    );
+  };
+
+  const handleSelectAll = () => {
+    setSelectedSectionIds(modularSections.map(s => s.id));
+  };
+
+  const handleDeselectAll = () => {
+    setSelectedSectionIds([]);
+  };
+
+  const handleSelectOnly = (id: string) => {
+    setSelectedSectionIds([id]);
+  };
+
   return (
     <div className="space-y-6 antialiased">
+      {/* Universal Modular Export & Customization Bar */}
+      <ReportCustomExporterBar
+        reportTitle="Dossiê e Análise de Processos Judiciais"
+        propertyTitle={propertyAddress || "Imóvel em Leilão"}
+        propertyAddress={propertyAddress}
+        propertyCity={`${propertyCity || ''}${propertyState ? ` - ${propertyState}` : ''}`}
+        sections={modularSections}
+        selectedSectionIds={selectedSectionIds}
+        onToggleSection={handleToggleSection}
+        onSelectAll={handleSelectAll}
+        onDeselectAll={handleDeselectAll}
+        onSelectOnly={handleSelectOnly}
+      />
+
       {/* Header and Toggle Button Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 no-print border-b border-brand-primary/10 pb-4">
         <div className="flex items-center gap-2 bg-brand-bg/65 p-1.5 rounded-2xl border border-brand-primary/10 max-w-sm">
@@ -205,12 +317,6 @@ export const ProcessoReport: React.FC<ProcessoReportProps> = ({
               </button>
             </>
           )}
-          <button 
-            onClick={() => window.print()}
-            className="text-xs bg-brand-primary text-black px-4 py-2 rounded-xl font-bold hover:bg-brand-primary/95 transition-all flex items-center gap-1.5 shadow-sm shadow-brand-primary/10"
-          >
-            <Printer size={14} /> Imprimir Relatório
-          </button>
         </div>
       </div>
 

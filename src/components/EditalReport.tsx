@@ -18,17 +18,19 @@ import {
   Copy, 
   Check, 
   ChevronRight, 
-  ChevronDown,
-  Activity,
-  PenTool,
-  MessageSquare,
-  BookOpen,
-  Sparkles,
-  Calculator
+  ChevronDown, 
+  Activity, 
+  PenTool, 
+  MessageSquare, 
+  BookOpen, 
+  Sparkles, 
+  Calculator 
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { jsonrepair } from 'jsonrepair';
+import { ReportCustomExporterBar } from './ReportCustomExporterBar';
+import { ExportSectionItem } from '../utils/modularReportExporter';
 
 // Robust types for the structured edital data
 export interface EditalReportData {
@@ -260,8 +262,125 @@ export const EditalReport: React.FC<EditalReportProps> = ({
 
   const data = parsedData.data;
 
+  // Build modular export sections
+  const modularSections: ExportSectionItem[] = useMemo(() => {
+    if (!data) return [];
+
+    // 1. Resumo & KPIs
+    const resumoText = [
+      `📊 INDICADORES DO EDITAL:`,
+      `• Valor de Avaliação: ${data.kpis.avaliacao || 'Não informado'}`,
+      `• Lance Mínimo (2ª Praça): ${data.kpis.lance_minimo || 'Não informado'} ${data.kpis.lance_minimo_subtexto ? `(${data.kpis.lance_minimo_subtexto})` : ''}`,
+      `• Comissão do Leiloeiro: ${data.kpis.comissao_leiloeiro || '5%'}`,
+      `• 1ª Praça: ${data.kpis.primeira_praca || 'A definir'}`,
+      `• 2ª Praça: ${data.kpis.segunda_praca || 'A definir'}`,
+    ].join('\n');
+
+    // 2. Valores e Lances
+    const valoresText = [
+      `💰 VALORES E REGRAS DE LANCE:`,
+      `• Valor de Avaliação Oficial: ${data.valores_lances?.valor_avaliacao || data.kpis.avaliacao || 'Não informado'}`,
+      `• Lance Mínimo 1ª Praça (100%): ${data.valores_lances?.lance_minimo_1a_praca || data.kpis.avaliacao || 'Não informado'}`,
+      `• Lance Mínimo 2ª Praça: ${data.valores_lances?.lance_minimo_2a_praca || data.kpis.lance_minimo || 'Não informado'} (${data.valores_lances?.percentual_minimo_2a_praca || '50%'} da avaliação)`,
+      `• Forma do Leilão: ${data.valores_lances?.forma_leilao || 'Eletrônico / Presencial'}`,
+    ].join('\n');
+
+    // 3. Condições de Pagamento e Parcelamento
+    const pagtoText = [
+      `💳 CONDIÇÕES DE PAGAMENTO E PARCELAMENTO:`,
+      `• Permite Parcelamento judicial (Art. 895 CPC): ${data.condicoes_pagamento?.permite_parcelamento || 'Sim'}`,
+      `• Entrada Mínima: ${data.condicoes_pagamento?.entrada_minima || '25% à vista'}`,
+      `• Número Máximo de Parcelas: ${data.condicoes_pagamento?.num_max_parcelas || 'Até 30 meses'}`,
+      `• Correção das Parcelas: ${data.condicoes_pagamento?.correcao_parcelas || 'Tabela Prática do TJ / IPCA / SELIC'}`,
+      `• Garantia do Parcelamento: ${data.condicoes_pagamento?.garantias_exigidas || 'Hipoteca sobre o próprio imóvel arrematado'}`,
+      `• Desconto à Vista: ${data.condicoes_pagamento?.tem_desconto_vista || 'Não'} ${data.condicoes_pagamento?.percentual_desconto_vista ? `(${data.condicoes_pagamento.percentual_desconto_vista})` : ''}`,
+      `• Detalhes Específicos: ${data.condicoes_pagamento?.parcelamento_especifico || 'Conforme regras gerais do edital'}`,
+    ].join('\n');
+
+    // 4. Comissão e Leiloeiro
+    const leiloeiroText = [
+      `🏛️ COMISSÃO E DADOS DO LEILOEIRO:`,
+      `• Percentual da Comissão: ${data.comissao_leiloeiro_detalhe?.percentual || data.kpis.comissao_leiloeiro || '5%'}`,
+      `• Responsável pelo Pagamento: ${data.comissao_leiloeiro_detalhe?.quem_paga || 'Arrematante'}`,
+      `• Momento do Pagamento: ${data.comissao_leiloeiro_detalhe?.momento_pagamento || 'Em até 24 horas após o encerramento'}`,
+      `• Nome / Empresa do Leiloeiro: ${data.leiloeiro_plataforma?.leiloeiro || 'Leiloeiro Oficial Designado'}`,
+      `• Site / Portal: ${data.leiloeiro_plataforma?.site || data.leiloeiro_plataforma?.url_plataforma || 'Não informado'}`,
+      `• Contatos: ${data.leiloeiro_plataforma?.telefone || ''} ${data.leiloeiro_plataforma?.email ? `| ${data.leiloeiro_plataforma.email}` : ''}`,
+    ].join('\n');
+
+    // 5. Responsabilidade por Dívidas (IPTU / Condomínio)
+    const dividasText = [
+      `⚖️ RESPONSABILIDADE POR DÉBITOS PROPTER REM (IPTU / CONDOMÍNIO):`,
+      `• Débitos de IPTU no Edital: ${data.responsabilidade_dividas?.propter_rem_no_edital || 'Sub-rogam-se no preço (Art. 130 CTN)'}`,
+      `• Débitos de Condomínio: ${data.responsabilidade_dividas?.responsabilidade_propter_rem || 'Conforme previsão expressa no edital'}`,
+      `• Previsão de Sub-rogação no Preço da Arrematação: ${data.responsabilidade_dividas?.sub_rogacao_no_preco || 'Sim'}`,
+    ].join('\n');
+
+    // 6. Situação Jurídica e Ônus
+    const onusText = [
+      `📜 SITUAÇÃO JURÍDICA E ÔNUS NO EDITAL:`,
+      data.situacao_juridica?.onus_reais && data.situacao_juridica.onus_reais.length > 0 
+        ? data.situacao_juridica.onus_reais.map(o => `• ${o}`).join('\n') 
+        : '• Sem ônus impeditivos informados no edital.',
+    ].join('\n');
+
+    // 7. Penalidades
+    const penalidadesText = [
+      `⚠️ PENALIDADES POR DESISTÊNCIA OU INADIMPLÊNCIA:`,
+      `• Multa por Inadimplência: ${data.penalidades_desistencia?.multa_inadimplencia || '20% do valor do lance'}`,
+      `• Perda do Sinal / Comissão: ${data.penalidades_desistencia?.perda_sinal || 'Perda da comissão do leiloeiro e caução'}`,
+      `• Regras de Desistência: ${data.penalidades_desistencia?.penalidades_desistencia_detalhe || 'Sujeito a sanções do Art. 897 do CPC'}`,
+    ].join('\n');
+
+    return [
+      { id: 'resumo', title: 'Resumo Geral & Indicadores', text: resumoText },
+      { id: 'valores_lances', title: 'Valores, Lances e Percentuais Mínimos', text: valoresText },
+      { id: 'condicoes_pagamento', title: 'Condições de Pagamento e Parcelamento (Art. 895 CPC)', text: pagtoText },
+      { id: 'comissao_leiloeiro', title: 'Comissão e Dados do Leiloeiro Oficial', text: leiloeiroText },
+      { id: 'dividas_propter_rem', title: 'Responsabilidade por Débitos (IPTU e Condomínio)', text: dividasText },
+      { id: 'situacao_juridica', title: 'Situação Jurídica e Ônus Informados', text: onusText },
+      { id: 'penalidades', title: 'Penalidades por Desistência / Inadimplência', text: penalidadesText },
+    ];
+  }, [data]);
+
+  const [selectedSectionIds, setSelectedSectionIds] = useState<string[]>([
+    'resumo', 'valores_lances', 'condicoes_pagamento', 'comissao_leiloeiro', 'dividas_propter_rem', 'situacao_juridica', 'penalidades'
+  ]);
+
+  const handleToggleSection = (id: string) => {
+    setSelectedSectionIds(prev => 
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    );
+  };
+
+  const handleSelectAll = () => {
+    setSelectedSectionIds(modularSections.map(s => s.id));
+  };
+
+  const handleDeselectAll = () => {
+    setSelectedSectionIds([]);
+  };
+
+  const handleSelectOnly = (id: string) => {
+    setSelectedSectionIds([id]);
+  };
+
   return (
     <div className="space-y-6 antialiased">
+      {/* Universal Modular Export & Customization Bar */}
+      <ReportCustomExporterBar
+        reportTitle="Análise Detalhada do Edital de Leilão"
+        propertyTitle={propertyAddress || "Imóvel em Leilão"}
+        propertyAddress={propertyAddress}
+        propertyCity={`${propertyCity || ''}${propertyState ? ` - ${propertyState}` : ''}`}
+        sections={modularSections}
+        selectedSectionIds={selectedSectionIds}
+        onToggleSection={handleToggleSection}
+        onSelectAll={handleSelectAll}
+        onDeselectAll={handleDeselectAll}
+        onSelectOnly={handleSelectOnly}
+      />
+
       {/* Header and Toggle Button Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 no-print border-b border-brand-primary/10 pb-4">
         <div className="flex items-center gap-2 bg-brand-bg/65 p-1.5 rounded-2xl border border-brand-primary/10 max-w-sm">
@@ -296,12 +415,6 @@ export const EditalReport: React.FC<EditalReportProps> = ({
               </button>
             </>
           )}
-          <button 
-            onClick={() => window.print()}
-            className="text-xs bg-brand-primary text-black px-4 py-2 rounded-xl font-bold hover:bg-brand-primary/95 transition-all flex items-center gap-1.5 shadow-sm shadow-brand-primary/10"
-          >
-            <Printer size={14} /> Imprimir Relatório
-          </button>
         </div>
       </div>
 

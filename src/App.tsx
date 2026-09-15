@@ -81,6 +81,8 @@ import { exportElementToPDF } from './utils/pdfExporter';
 import { PdfExportModal } from './components/PdfExportModal';
 import { AnalysisPremisesCard } from './components/AnalysisPremisesCard';
 import { DynamicFinancialMetricsBar } from './components/DynamicFinancialMetricsBar';
+import { ReportCustomExporterBar } from './components/ReportCustomExporterBar';
+import { parseMarkdownToSections } from './utils/modularReportExporter';
 
 const SimulationContext = React.createContext<{ 
   simulationData: any, 
@@ -7891,14 +7893,33 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
     if (isChatAttachmentDoc(d)) return false;
     const cat = getCleanDocType(d);
     const fn = getCleanDocFilename(d);
-    return cat.includes('matricula') || fn.includes('matricula');
+    return (
+      cat.includes('matricula') || 
+      cat.includes('certidao') || 
+      cat.includes('registro') || 
+      cat.includes('onus') || 
+      cat.includes('vintenaria') || 
+      cat.includes('inteiro') || 
+      cat.includes('rgi') || 
+      cat.includes('cri') || 
+      cat.includes('transcricao') ||
+      fn.includes('matricula') || 
+      fn.includes('certidao') || 
+      fn.includes('registro') || 
+      fn.includes('onus') || 
+      fn.includes('vintenaria') || 
+      fn.includes('inteiro') || 
+      fn.includes('rgi') || 
+      fn.includes('cri') || 
+      fn.includes('transcricao')
+    );
   };
 
   const isEditalDoc = (d: any) => {
     if (isChatAttachmentDoc(d)) return false;
     const cat = getCleanDocType(d);
     const fn = getCleanDocFilename(d);
-    return cat.includes('edital') || fn.includes('edital');
+    return cat.includes('edital') || fn.includes('edital') || cat.includes('publicacao') || fn.includes('publicacao');
   };
 
   const isProcessoDoc = (d: any) => {
@@ -8680,15 +8701,18 @@ Sua resposta deve ser APENAS um objeto JSON válido, sem qualquer bloco de códi
   };
 
   const triggerAutomaticEditalAnalysis = async (docsToUse: any[]) => {
-    const docs = docsToUse.filter(d => d.doc_type && (d.doc_type === 'Edital' || d.doc_type.toLowerCase() === 'edital' || d.doc_type.endsWith(':Edital') || d.doc_type.endsWith(':edital')));
+    let docs = docsToUse.filter(isEditalDoc);
+    if (docs.length === 0 && docsToUse.length > 0) {
+      docs = docsToUse.filter(d => !isChatAttachmentDoc(d));
+    }
     if (docs.length === 0) return;
     setAnalyzing(true);
     try {
       const fileParts = docs.map(doc => {
         let mimeType = 'application/pdf';
-        if (doc.filename.toLowerCase().endsWith('.jpg') || doc.filename.toLowerCase().endsWith('.jpeg')) mimeType = 'image/jpeg';
-        else if (doc.filename.toLowerCase().endsWith('.png')) mimeType = 'image/png';
-        else if (doc.filename.toLowerCase().endsWith('.webp')) mimeType = 'image/webp';
+        if (doc.filename?.toLowerCase().endsWith('.jpg') || doc.filename?.toLowerCase().endsWith('.jpeg')) mimeType = 'image/jpeg';
+        else if (doc.filename?.toLowerCase().endsWith('.png')) mimeType = 'image/png';
+        else if (doc.filename?.toLowerCase().endsWith('.webp')) mimeType = 'image/webp';
 
         return {
           id: doc.id,
@@ -8714,15 +8738,18 @@ Sua resposta deve ser APENAS um objeto JSON válido, sem qualquer bloco de códi
   };
 
   const triggerAutomaticMatriculaAnalysis = async (docsToUse: any[]) => {
-    const docs = docsToUse.filter(d => d.doc_type && (d.doc_type === 'Matrícula' || d.doc_type === 'Matricula' || d.doc_type.toLowerCase() === 'matricula' || d.doc_type.endsWith(':Matrícula') || d.doc_type.endsWith(':Matricula') || d.doc_type.endsWith(':matricula')));
+    let docs = docsToUse.filter(isMatriculaDoc);
+    if (docs.length === 0 && docsToUse.length > 0) {
+      docs = docsToUse.filter(d => !isChatAttachmentDoc(d));
+    }
     if (docs.length === 0) return;
     setAnalyzing(true);
     try {
       const fileParts = docs.map(doc => {
         let mimeType = 'application/pdf';
-        if (doc.filename.toLowerCase().endsWith('.jpg') || doc.filename.toLowerCase().endsWith('.jpeg')) mimeType = 'image/jpeg';
-        else if (doc.filename.toLowerCase().endsWith('.png')) mimeType = 'image/png';
-        else if (doc.filename.toLowerCase().endsWith('.webp')) mimeType = 'image/webp';
+        if (doc.filename?.toLowerCase().endsWith('.jpg') || doc.filename?.toLowerCase().endsWith('.jpeg')) mimeType = 'image/jpeg';
+        else if (doc.filename?.toLowerCase().endsWith('.png')) mimeType = 'image/png';
+        else if (doc.filename?.toLowerCase().endsWith('.webp')) mimeType = 'image/webp';
 
         return {
           id: doc.id,
@@ -8748,12 +8775,9 @@ Sua resposta deve ser APENAS um objeto JSON válido, sem qualquer bloco de códi
   };
 
   const triggerAutomaticProcessAnalysis = async (docsToUse: any[]) => {
-    let processDocs = docsToUse.filter(d => d.doc_type && (d.doc_type === 'Processo Judicial' || d.doc_type.toLowerCase() === 'processo judicial' || d.doc_type.endsWith(':Processo Judicial') || d.doc_type.endsWith(':processo judicial')));
-    if (processDocs.length === 0) {
-      processDocs = docsToUse.filter(d => d.doc_type && (d.doc_type === 'Edital' || d.doc_type?.toLowerCase() === 'edital' || d.doc_type.endsWith(':Edital') || d.doc_type === 'Matrícula' || d.doc_type?.toLowerCase() === 'matricula' || d.doc_type?.toLowerCase() === 'matrícula' || d.doc_type.endsWith(':Matrícula') || d.doc_type.endsWith(':Matricula')));
-    }
-    if (processDocs.length === 0) {
-      processDocs = docsToUse;
+    let processDocs = docsToUse.filter(isProcessoDoc);
+    if (processDocs.length === 0 && docsToUse.length > 0) {
+      processDocs = docsToUse.filter(d => !isChatAttachmentDoc(d));
     }
     if (processDocs.length === 0) return;
     
@@ -8761,9 +8785,9 @@ Sua resposta deve ser APENAS um objeto JSON válido, sem qualquer bloco de códi
     try {
       const fileParts = processDocs.map(doc => {
         let mimeType = 'application/pdf';
-        if (doc.filename.toLowerCase().endsWith('.jpg') || doc.filename.toLowerCase().endsWith('.jpeg')) mimeType = 'image/jpeg';
-        else if (doc.filename.toLowerCase().endsWith('.png')) mimeType = 'image/png';
-        else if (doc.filename.toLowerCase().endsWith('.webp')) mimeType = 'image/webp';
+        if (doc.filename?.toLowerCase().endsWith('.jpg') || doc.filename?.toLowerCase().endsWith('.jpeg')) mimeType = 'image/jpeg';
+        else if (doc.filename?.toLowerCase().endsWith('.png')) mimeType = 'image/png';
+        else if (doc.filename?.toLowerCase().endsWith('.webp')) mimeType = 'image/webp';
 
         return {
           id: doc.id,
@@ -8808,16 +8832,27 @@ Sua resposta deve ser APENAS um objeto JSON válido, sem qualquer bloco de códi
     }
   };
 
-  const handleAnalyzeEdital = async () => {
-    const docs = editalDocsFiltered;
-    if (docs.length === 0) { alert("Nenhum Edital encontrado nesta aba. Por favor, envie o Edital nesta aba primeiro."); return; }
+  const handleAnalyzeEdital = async (docsOverride?: any[]) => {
+    const sourceDocs = docsOverride && docsOverride.length > 0 ? docsOverride : (selectedPropertyId ? propertyDocs : state.adHocDocs);
+    let docs = sourceDocs.filter(isEditalDoc);
+    if (docs.length === 0 && sourceDocs.length > 0) {
+      docs = sourceDocs.filter(d => !isChatAttachmentDoc(d));
+    }
+    if (docs.length === 0) {
+      if ((window as any).customToast) {
+        (window as any).customToast("Nenhum Edital encontrado nesta aba. Por favor, envie o Edital para prosseguir.", "warning");
+      } else {
+        alert("Nenhum Edital encontrado nesta aba. Por favor, envie o Edital nesta aba primeiro.");
+      }
+      return;
+    }
     setAnalyzing(true);
     try {
       const fileParts = docs.map(doc => {
         let mimeType = 'application/pdf';
-        if (doc.filename.toLowerCase().endsWith('.jpg') || doc.filename.toLowerCase().endsWith('.jpeg')) mimeType = 'image/jpeg';
-        else if (doc.filename.toLowerCase().endsWith('.png')) mimeType = 'image/png';
-        else if (doc.filename.toLowerCase().endsWith('.webp')) mimeType = 'image/webp';
+        if (doc.filename?.toLowerCase().endsWith('.jpg') || doc.filename?.toLowerCase().endsWith('.jpeg')) mimeType = 'image/jpeg';
+        else if (doc.filename?.toLowerCase().endsWith('.png')) mimeType = 'image/png';
+        else if (doc.filename?.toLowerCase().endsWith('.webp')) mimeType = 'image/webp';
 
         return {
           id: doc.id,
@@ -8831,19 +8866,47 @@ Sua resposta deve ser APENAS um objeto JSON válido, sem qualquer bloco de códi
       const editalPrompt = "Analise o Edital detalhadamente linha por linha, extraindo todas as informações financeiras, datas, leiloeiro, e débitos de IPTU e condomínio." + getCustomInstructionsPrompt(state);
       const analysis = await analyzeAuctionDocuments(fileParts, editalPrompt, state.selectedModel || 'gemini-3.7-flash', userApiKey || undefined, [], 'edital');
       setState(prev => ({ ...prev, editalAnalysis: analysis }));
-    } catch (err) { console.error(err); alert("Erro ao analisar Edital."); } finally { setAnalyzing(false); }
+
+      if (selectedPropertyId) {
+        await savePartialAnalysisToDb({ edital_analysis: analysis });
+      }
+
+      if ((window as any).customToast) {
+        (window as any).customToast("Análise de Edital concluída com sucesso!", "success");
+      }
+    } catch (err: any) {
+      console.error("Erro ao analisar Edital:", err);
+      if ((window as any).customToast) {
+        (window as any).customToast(`Erro ao analisar Edital: ${formatErrorMessage(err)}`, "error");
+      } else {
+        alert(`Erro ao analisar Edital: ${formatErrorMessage(err)}`);
+      }
+    } finally {
+      setAnalyzing(false);
+    }
   };
 
-  const handleAnalyzeMatricula = async () => {
-    const docs = matriculaDocsFiltered;
-    if (docs.length === 0) { alert("Nenhuma Matrícula encontrada nesta aba. Por favor, envie a Matrícula nesta aba primeiro."); return; }
+  const handleAnalyzeMatricula = async (docsOverride?: any[]) => {
+    const sourceDocs = docsOverride && docsOverride.length > 0 ? docsOverride : (selectedPropertyId ? propertyDocs : state.adHocDocs);
+    let docs = sourceDocs.filter(isMatriculaDoc);
+    if (docs.length === 0 && sourceDocs.length > 0) {
+      docs = sourceDocs.filter(d => !isChatAttachmentDoc(d));
+    }
+    if (docs.length === 0) {
+      if ((window as any).customToast) {
+        (window as any).customToast("Nenhuma Certidão de Matrícula encontrada nesta aba. Por favor, envie o documento da Matrícula para prosseguir.", "warning");
+      } else {
+        alert("Nenhuma Matrícula encontrada nesta aba. Por favor, envie a Matrícula nesta aba primeiro.");
+      }
+      return;
+    }
     setAnalyzing(true);
     try {
       const fileParts = docs.map(doc => {
         let mimeType = 'application/pdf';
-        if (doc.filename.toLowerCase().endsWith('.jpg') || doc.filename.toLowerCase().endsWith('.jpeg')) mimeType = 'image/jpeg';
-        else if (doc.filename.toLowerCase().endsWith('.png')) mimeType = 'image/png';
-        else if (doc.filename.toLowerCase().endsWith('.webp')) mimeType = 'image/webp';
+        if (doc.filename?.toLowerCase().endsWith('.jpg') || doc.filename?.toLowerCase().endsWith('.jpeg')) mimeType = 'image/jpeg';
+        else if (doc.filename?.toLowerCase().endsWith('.png')) mimeType = 'image/png';
+        else if (doc.filename?.toLowerCase().endsWith('.webp')) mimeType = 'image/webp';
 
         return {
           id: doc.id,
@@ -8857,15 +8920,39 @@ Sua resposta deve ser APENAS um objeto JSON válido, sem qualquer bloco de códi
       const matriculaPrompt = "Analise a Matrícula detalhadamente folha por folha. Identifique obrigatoriamente: Inscrição Imobiliária / Cadastro Municipal / IPTU / SQL, proprietários, adquirentes, credores fiduciários, consolidação da propriedade, gravames, penhoras e ônus." + getCustomInstructionsPrompt(state);
       const analysis = await analyzeAuctionDocuments(fileParts, matriculaPrompt, state.selectedModel || 'gemini-3.7-flash', userApiKey || undefined, [], 'matricula');
       setState(prev => ({ ...prev, matriculaAnalysis: analysis }));
-    } catch (err) { console.error(err); alert("Erro ao analisar Matrícula."); } finally { setAnalyzing(false); }
+
+      if (selectedPropertyId) {
+        await savePartialAnalysisToDb({ matricula_analysis: analysis });
+      }
+
+      if ((window as any).customToast) {
+        (window as any).customToast("Análise de Matrícula concluída com sucesso!", "success");
+      }
+    } catch (err: any) {
+      console.error("Erro ao analisar Matrícula:", err);
+      if ((window as any).customToast) {
+        (window as any).customToast(`Erro ao analisar Matrícula: ${formatErrorMessage(err)}`, "error");
+      } else {
+        alert(`Erro ao analisar Matrícula: ${formatErrorMessage(err)}`);
+      }
+    } finally {
+      setAnalyzing(false);
+    }
   };
 
-  const handleAnalyzeProcesses = async () => {
-    let processDocs = processDocsFiltered;
+  const handleAnalyzeProcesses = async (docsOverride?: any[]) => {
+    const sourceDocs = docsOverride && docsOverride.length > 0 ? docsOverride : (selectedPropertyId ? propertyDocs : state.adHocDocs);
+    let processDocs = sourceDocs.filter(isProcessoDoc);
+    if (processDocs.length === 0 && sourceDocs.length > 0) {
+      processDocs = sourceDocs.filter(d => !isChatAttachmentDoc(d));
+    }
     
-    // Only block if we have absolutely nothing uploaded at all in the procesos tab
     if (processDocs.length === 0) {
-      alert("Nenhum documento de Processo Judicial encontrado nesta aba. Por favor, envie os documentos processuais nesta aba primeiro.");
+      if ((window as any).customToast) {
+        (window as any).customToast("Nenhum documento de Processo Judicial encontrado nesta aba. Por favor, envie os documentos processuais primeiro.", "warning");
+      } else {
+        alert("Nenhum documento de Processo Judicial encontrado nesta aba. Por favor, envie os documentos processuais nesta aba primeiro.");
+      }
       return;
     }
     
@@ -8873,9 +8960,9 @@ Sua resposta deve ser APENAS um objeto JSON válido, sem qualquer bloco de códi
     try {
       const fileParts = processDocs.map(doc => {
         let mimeType = 'application/pdf';
-        if (doc.filename.toLowerCase().endsWith('.jpg') || doc.filename.toLowerCase().endsWith('.jpeg')) mimeType = 'image/jpeg';
-        else if (doc.filename.toLowerCase().endsWith('.png')) mimeType = 'image/png';
-        else if (doc.filename.toLowerCase().endsWith('.webp')) mimeType = 'image/webp';
+        if (doc.filename?.toLowerCase().endsWith('.jpg') || doc.filename?.toLowerCase().endsWith('.jpeg')) mimeType = 'image/jpeg';
+        else if (doc.filename?.toLowerCase().endsWith('.png')) mimeType = 'image/png';
+        else if (doc.filename?.toLowerCase().endsWith('.webp')) mimeType = 'image/webp';
 
         return {
           id: doc.id,
@@ -8910,9 +8997,21 @@ Sua resposta deve ser APENAS um objeto JSON válido, sem qualquer bloco de códi
       const userApiKey = resolveApiKey(state.selectedKeySource, state.aiConfig, state.selectedModel || 'gemini-3.7-flash') || "";
       const analysis = await analyzeAuctionDocuments(fileParts, prompt, state.selectedModel || 'gemini-3.7-flash', userApiKey || undefined, [], 'processo');
       setState(prev => ({ ...prev, processAnalysis: analysis }));
-    } catch (err) {
-      console.error(err);
-      alert("Erro ao analisar processos.");
+
+      if (selectedPropertyId) {
+        await savePartialAnalysisToDb({ process_analysis: analysis });
+      }
+
+      if ((window as any).customToast) {
+        (window as any).customToast("Análise de Processos concluída com sucesso!", "success");
+      }
+    } catch (err: any) {
+      console.error("Erro ao analisar processos:", err);
+      if ((window as any).customToast) {
+        (window as any).customToast(`Erro ao analisar processos: ${formatErrorMessage(err)}`, "error");
+      } else {
+        alert(`Erro ao analisar processos: ${formatErrorMessage(err)}`);
+      }
     } finally {
       setAnalyzing(false);
     }
@@ -9549,8 +9648,23 @@ Sua resposta deve ser APENAS um objeto JSON válido, sem qualquer bloco de códi
         }
       }
 
-      // Auto-trigger analysis for smart_analysis and assessoria tabs upon document upload
-      if (tabPrefix === 'smart_analysis') {
+      // Auto-trigger analysis for tabs upon document upload (automated turnover / virada automática)
+      if (tabPrefix === 'matricula' || docType.toLowerCase().includes('matricula')) {
+        if ((window as any).customToast) {
+          (window as any).customToast("Matrícula enviada com sucesso! Iniciando auditoria e análise de Matrícula com IA...", "info");
+        }
+        handleAnalyzeMatricula(updatedDocs);
+      } else if (tabPrefix === 'edital' || docType.toLowerCase().includes('edital')) {
+        if ((window as any).customToast) {
+          (window as any).customToast("Edital enviado com sucesso! Iniciando análise de Edital com IA...", "info");
+        }
+        handleAnalyzeEdital(updatedDocs);
+      } else if (tabPrefix === 'processos' || docType.toLowerCase().includes('processo')) {
+        if ((window as any).customToast) {
+          (window as any).customToast("Documentos do processo enviados com sucesso! Iniciando análise processual com IA...", "info");
+        }
+        handleAnalyzeProcesses(updatedDocs);
+      } else if (tabPrefix === 'smart_analysis') {
         if ((window as any).customToast) {
           (window as any).customToast("Documento(s) enviado(s) com sucesso! Executando Análise Smart com IA...", "info");
         }
@@ -11638,7 +11752,7 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
                       />
                       <div className="mt-6 pt-6 border-t border-brand-primary/10">
                         <button 
-                          onClick={handleAnalyzeEdital} 
+                          onClick={() => handleAnalyzeEdital()} 
                           disabled={analyzing} 
                           className="w-full bg-brand-primary text-black py-4 rounded-xl font-bold hover:bg-brand-primary/90 transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-md shadow-brand-primary/10"
                         >
@@ -11703,7 +11817,7 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
                       />
                       <div className="mt-6 pt-6 border-t border-brand-primary/10">
                         <button 
-                          onClick={handleAnalyzeMatricula} 
+                          onClick={() => handleAnalyzeMatricula()} 
                           disabled={analyzing} 
                           className="w-full bg-brand-primary text-black py-4 rounded-xl font-bold hover:bg-brand-primary/90 transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-md shadow-brand-primary/10"
                         >
@@ -11769,7 +11883,7 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
                       />
                       <div className="mt-6 pt-6 border-t border-brand-primary/10">
                         <button 
-                          onClick={handleAnalyzeProcesses}
+                          onClick={() => handleAnalyzeProcesses()}
                           disabled={analyzing}
                           className="w-full bg-brand-primary text-black py-4 rounded-xl font-bold hover:bg-brand-primary/90 transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-md shadow-brand-primary/10"
                         >
@@ -12030,6 +12144,19 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
                         selectedModel={selectedModel}
                         userApiKey={resolveApiKey(state.selectedKeySource, state.aiConfig, state.selectedModel || 'gemini-3.7-flash') || ""}
                       />
+
+                      {/* Universal Modular Exporter Bar */}
+                      {report && (
+                        <ReportCustomExporterBar
+                          reportTitle="Relatório Estratégico de Leilão"
+                          propertyTitle={selectedProperty?.title || 'Análise de Oportunidade'}
+                          propertyAddress={selectedProperty?.address}
+                          propertyCity={selectedProperty?.city ? `${selectedProperty.city} - ${selectedProperty.state || ''}` : undefined}
+                          sections={parseMarkdownToSections(report)}
+                          propertyId={selectedPropertyId || undefined}
+                          reportType="exec_summary"
+                        />
+                      )}
 
                       <div className="bg-brand-paper rounded-2xl sm:rounded-[2.5rem] border border-brand-border shadow-inner overflow-hidden">
                         <div className="p-4 sm:p-6 md:p-10 markdown-body max-w-none text-brand-ink break-words">

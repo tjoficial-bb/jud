@@ -555,6 +555,20 @@ try {
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
 
+  CREATE TABLE IF NOT EXISTS custom_public_shares (
+    slug TEXT PRIMARY KEY,
+    title TEXT NOT NULL,
+    property_title TEXT,
+    property_address TEXT,
+    property_city TEXT,
+    sections_json TEXT NOT NULL,
+    analysis_id TEXT,
+    property_id TEXT,
+    view_count INTEGER DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+
   CREATE TABLE IF NOT EXISTS ai_config (
     id TEXT PRIMARY KEY,
     primary_ia TEXT DEFAULT 'Gemini',
@@ -580,8 +594,20 @@ try {
     raw_json TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
+
+  CREATE INDEX IF NOT EXISTS idx_documents_prop ON documents(property_id);
+  CREATE INDEX IF NOT EXISTS idx_documents_temp_prop ON documents(temp_property_id);
+  CREATE INDEX IF NOT EXISTS idx_debts_prop ON debts(property_id);
+  CREATE INDEX IF NOT EXISTS idx_ai_analyses_prop ON ai_analyses(property_id);
+  CREATE INDEX IF NOT EXISTS idx_process_stories_prop ON process_stories(property_id);
 `);
-  console.log("Tabelas base inicializadas.");
+  try {
+    db.pragma('journal_mode = WAL');
+    db.pragma('synchronous = NORMAL');
+  } catch (pErr) {
+    // Non-fatal
+  }
+  console.log("Tabelas base e índices inicializados.");
 
   // Migrations for strategic_brain
   try {
@@ -1468,6 +1494,146 @@ async function startServer() {
     } catch (error: any) {
       console.error("Erro ao atualizar análise:", error.message);
       res.status(500).json({ error: "Erro ao atualizar análise: " + error.message });
+    }
+  });
+
+  // --- Custom Public Share Endpoints ---
+  app.post("/api/custom-share", async (req, res) => {
+    try {
+      const { 
+        slug: requestedSlug, 
+        title, 
+        property_title, 
+        property_address, 
+        property_city, 
+        sections, 
+        analysis_id, 
+        property_id 
+      } = req.body;
+
+      if (!title || !sections || !Array.isArray(sections)) {
+        return res.status(400).json({ error: "Título e seções são obrigatórios." });
+      }
+
+      // Sanitize or generate slug
+      let cleanSlug = "";
+      if (requestedSlug && typeof requestedSlug === 'string' && requestedSlug.trim().length > 0) {
+        cleanSlug = requestedSlug
+          .toLowerCase()
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .replace(/[^a-z0-9-_]/g, "-")
+          .replace(/-+/g, "-")
+          .replace(/^-|-$/g, "");
+      }
+
+      if (!cleanSlug) {
+        // Generate random friendly slug
+        const randomHex = Math.random().toString(36).substring(2, 8);
+        const prefix = (property_title || title || "relatorio")
+          .toLowerCase()
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .replace(/[^a-z0-9]/g, "")
+          .substring(0, 15);
+        cleanSlug = `${prefix ? prefix + '-' : ''}${randomHex}`;
+      }
+
+      const sectionsJson = JSON.stringify(sections);
+
+      // Check if slug exists
+      const existing = db.prepare("SELECT slug FROM custom_public_shares WHERE slug = ?").get(cleanSlug) as any;
+      if (existing) {
+        db.prepare(`
+          UPDATE custom_public_shares 
+          SET title = ?, property_title = ?, property_address = ?, property_city = ?, sections_json = ?, analysis_id = ?, property_id = ?, updated_at = CURRENT_TIMESTAMP
+          WHERE slug = ?
+        `).run(
+          title, 
+          property_title || null, 
+          property_address || null, 
+          property_city || null, 
+          sectionsJson, 
+          analysis_id || null, 
+          property_id || null, 
+          cleanSlug
+        );
+      } else {
+        db.prepare(`
+          INSERT INTO custom_public_shares (
+            slug, title, property_title, property_address, property_city, sections_json, analysis_id, property_id, view_count
+          )
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)
+        `).run(
+          cleanSlug, 
+          title, 
+          property_title || null, 
+          property_address || null, 
+          property_city || null, 
+          sectionsJson, 
+          analysis_id || null, 
+          property_id || null
+        );
+      }
+
+      const sharePath = `/share/${cleanSlug}`;
+      res.json({
+        success: true,
+        slug: cleanSlug,
+        sharePath,
+      });
+    } catch (error: any) {
+      console.error("Erro ao salvar compartilhamento público:", error);
+      res.status(500).json({ error: "Erro ao gerar link de compartilhamento: " + error.message });
+    }
+  });
+
+  app.get("/api/custom-share/:slug", (req, res) => {
+    try {
+      const slug = req.params.slug;
+      const share = db.prepare("SELECT * FROM custom_public_shares WHERE slug = ? COLLATE NOCASE").get(slug) as any;
+      
+      if (!share) {
+        return res.status(404).json({ error: "Relatório compartilhado não encontrado ou expirado." });
+      }
+
+      // Increment view count asynchronously
+      try {
+        db.prepare("UPDATE custom_public_shares SET view_count = view_count + 1 WHERE slug = ?").run(slug);
+      } catch (_) {}
+
+      let parsedSections = [];
+      try {
+        parsedSections = JSON.parse(share.sections_json);
+      } catch (_) {
+        parsedSections = [];
+      }
+
+      res.json({
+        success: true,
+        share: {
+          slug: share.slug,
+          title: share.title,
+          property_title: share.property_title,
+          property_address: share.property_address,
+          property_city: share.property_city,
+          sections: parsedSections,
+          created_at: share.created_at,
+          view_count: (share.view_count || 0) + 1
+        }
+      });
+    } catch (error: any) {
+      console.error("Erro ao buscar compartilhamento público:", error);
+      res.status(500).json({ error: "Erro ao buscar dados do link: " + error.message });
+    }
+  });
+
+  app.delete("/api/custom-share/:slug", authenticateToken, (req, res) => {
+    try {
+      db.prepare("DELETE FROM custom_public_shares WHERE slug = ?").run(req.params.slug);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
     }
   });
 
