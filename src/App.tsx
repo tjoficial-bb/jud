@@ -356,6 +356,11 @@ const formatErrorMessage = (err: any) => {
     return "Os servidores do Google Gemini estão com alta demanda temporária (Erro 503). O sistema continuará automaticamente com modelos alternativos de contingência. Se persistir, tente novamente em alguns segundos.";
   }
 
+  // Detect 429 / Quota errors
+  if (msg.includes('429') || msg.includes('RESOURCE_EXHAUSTED') || msg.includes('quota')) {
+    return "A cota de requisições da sua chave Gemini foi atingida temporariamente (Erro 429). Aguarde alguns instantes para a cota recarregar, ou experimente alterar o modelo de IA nas configurações.";
+  }
+
   // Extract message from raw JSON error if present
   try {
     if (msg.includes('{"error":')) {
@@ -363,8 +368,12 @@ const formatErrorMessage = (err: any) => {
       if (match) {
         const parsed = JSON.parse(match[0]);
         if (parsed?.error?.message) {
-          if (parsed.error.code === 503 || parsed.error.status === 'UNAVAILABLE' || parsed.error.message.includes('high demand')) {
+          const errMsg = parsed.error.message.toLowerCase();
+          if (parsed.error.code === 503 || parsed.error.status === 'UNAVAILABLE' || errMsg.includes('high demand')) {
             return "Os servidores do Google Gemini estão com alta demanda temporária (Erro 503). Sua chave é válida, mas a infraestrutura da Google está momentaneamente sobrecarregada. Tente novamente em alguns segundos.";
+          }
+          if (parsed.error.code === 429 || parsed.error.status === 'RESOURCE_EXHAUSTED' || errMsg.includes('quota')) {
+            return "A cota de requisições da sua chave Gemini foi atingida temporariamente (Erro 429). Aguarde alguns instantes para a cota recarregar, ou experimente alterar o modelo de IA nas configurações.";
           }
           return parsed.error.message;
         }
@@ -10372,7 +10381,7 @@ OBRIGATORIAMENTE insira o bloco JSON de extração de dados no final do texto.`;
         }
         return `### ⚠️ Erro na Geração do Relatório de Viabilidade Geral\n\n` +
           `Ocorreu um problema ao obter o parecer do Cérebro Estratégico para esta etapa.\n\n` +
-          `**Detalhe Técnico:** \`${err.message || err}\`\n\n` +
+          `**Detalhe Técnico:** \`${formatErrorMessage(err)}\`\n\n` +
           `---\n\n` +
           `### 💡 Como resolver:\n` +
           `1. **Gargalo de Cota/Sobrecarga:** Se você está usando o *Padrão do Sistema (Google AI Studio)*, a cota de requisições sequenciais pode ter sido atingida temporariamente. Aguarde 30 segundos e clique em **Executar Análise IA** novamente.\n` +
@@ -10416,7 +10425,7 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
         }
         return `### ⚠️ Erro na Geração do Dossiê de Arrematação\n\n` +
           `Não foi possível consolidar as informações para compilar o Dossiê Final nesta rodada.\n\n` +
-          `**Detalhe Técnico:** \`${err.message || err}\`\n\n` +
+          `**Detalhe Técnico:** \`${formatErrorMessage(err)}\`\n\n` +
           `---\n\n` +
           `### 💡 Como resolver:\n` +
           `Aguarde cerca de 30 segundos para a cota de requisições ser liberada e execute a análise novamente para restaurar e consolidar todos os pareceres pendentes.`; 
