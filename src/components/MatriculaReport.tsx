@@ -29,6 +29,37 @@ import { ExportSectionItem } from '../utils/modularReportExporter';
 import { AssessorPitchAndTipsCard } from './AssessorPitchAndTipsCard';
 
 // Robust types for the structured matrícula data
+export interface MatriculaAto {
+  tipo: string;
+  data?: string;
+  valor?: string;
+  descricao?: string;
+  partes?: string;
+  natureza?: string;
+  impacto?: string;
+}
+
+export interface MatriculaParte {
+  nome: string;
+  documento?: string;
+  tipo?: string;
+  participacao?: string;
+  estado_civil?: string;
+  regime?: string;
+  detalhes?: string;
+}
+
+export interface MatriculaOnus {
+  tipo?: string;
+  status?: string;
+  subtipo?: string;
+  prioridade?: string;
+  valor?: string;
+  credor?: string;
+  devedor?: string;
+  data_constituicao?: string;
+}
+
 export interface MatriculaReportData {
   kpis: {
     num_vendas: number;
@@ -66,30 +97,13 @@ export interface MatriculaReportData {
   condominio?: {
     nome?: string;
   };
-  cadeia_registral?: Array<{
-    tipo: string;
-    data?: string;
-    valor?: string;
-    descricao?: string;
-    partes?: string;
-    natureza?: string;
-    impacto?: string;
-  }>;
+  cadeia_registral?: MatriculaAto[];
   proprietarios_e_partes?: {
-    atuais?: Array<{ nome: string; documento?: string; tipo?: string; participacao?: string; estado_civil?: string; regime?: string; detalhes?: string }>;
-    anteriores?: Array<{ nome: string; documento?: string; tipo?: string; detalhes?: string }>;
-    credores?: Array<{ nome: string; documento?: string; tipo?: string; detalhes?: string }>;
+    atuais?: MatriculaParte[];
+    anteriores?: MatriculaParte[];
+    credores?: MatriculaParte[];
   };
-  onus_gravames?: Array<{
-    tipo?: string;
-    status?: string;
-    subtipo?: string;
-    prioridade?: string;
-    valor?: string;
-    credor?: string;
-    devedor?: string;
-    data_constituicao?: string;
-  }>;
+  onus_gravames?: MatriculaOnus[];
   restricoes_clausulas?: {
     inalienabilidade?: string;
     impenhorabilidade?: string;
@@ -227,8 +241,8 @@ export const MatriculaReport: React.FC<MatriculaReportProps> = ({
     let cleanMarkdown = rawAnalysis;
     let data: MatriculaReportData | null = null;
 
-    // Search for XML-style tag: <analysis_data>...<analysis_data>
-    const match = rawAnalysis.match(/<analysis_data>([\s\S]*?)<\/analysis_data>/);
+    // Strategy 1: Search for XML-style tag: <analysis_data>...<analysis_data>
+    const match = rawAnalysis.match(/<analysis_data>([\s\S]*?)<\/analysis_data>/i);
     if (match) {
       try {
         const cleanedJson = cleanJsonText(match[1]);
@@ -237,15 +251,33 @@ export const MatriculaReport: React.FC<MatriculaReportProps> = ({
         } catch (_) {
           data = JSON.parse(jsonrepair(cleanedJson));
         }
-        cleanMarkdown = rawAnalysis.replace(/<analysis_data>[\s\S]*?<\/analysis_data>/g, '').trim();
+        cleanMarkdown = rawAnalysis.replace(/<analysis_data>[\s\S]*?<\/analysis_data>/gi, '').trim();
       } catch (err) {
         console.error("Failed to parse structured JSON block in matrix analysis:", err);
       }
     }
 
-    // Fall back to searching for raw JSON object if XML-style tags are missing
+    // Strategy 2: Search for ```json ... ``` markdown code block
     if (!data) {
-      const jsonRegex = /(\{[\s\S]*"kpis"[\s\S]*\})/i;
+      const codeBlockMatch = rawAnalysis.match(/```(?:json)?\s*([\s\S]*?"(?:kpis|cadeia_registral|identificacao_matricula)"[\s\S]*?)```/i);
+      if (codeBlockMatch) {
+        try {
+          const cleanedJson = cleanJsonText(codeBlockMatch[1]);
+          try {
+            data = JSON.parse(cleanedJson);
+          } catch (_) {
+            data = JSON.parse(jsonrepair(cleanedJson));
+          }
+          cleanMarkdown = rawAnalysis.replace(codeBlockMatch[0], '').trim();
+        } catch (err) {
+          console.error("Failed to parse code block JSON in matrix analysis:", err);
+        }
+      }
+    }
+
+    // Strategy 3: Fall back to searching for raw JSON object if XML-style tags or code blocks are missing
+    if (!data) {
+      const jsonRegex = /(\{[\s\S]*"(?:kpis|cadeia_registral|identificacao_matricula)"[\s\S]*\})/i;
       const jsonMatch = rawAnalysis.match(jsonRegex);
       if (jsonMatch) {
         try {
@@ -262,9 +294,50 @@ export const MatriculaReport: React.FC<MatriculaReportProps> = ({
       }
     }
 
-    // Fall back to intelligent heuristic parser if JSON not found
+    // If no JSON was found at all, create from heuristic extraction
     if (!data) {
       data = parseHeuristics(rawAnalysis, propertyAddress, propertyCity, propertyState, valuation, bidValue);
+    } else {
+      // If JSON was found, ensure essential arrays and fields are never empty if the text contains the data!
+      const fallbackExtracted = parseHeuristics(rawAnalysis, propertyAddress, propertyCity, propertyState, valuation, bidValue);
+
+      if (!data.cadeia_registral || data.cadeia_registral.length === 0) {
+        data.cadeia_registral = fallbackExtracted.cadeia_registral;
+      }
+      if (!data.onus_gravames || data.onus_gravames.length === 0) {
+        data.onus_gravames = fallbackExtracted.onus_gravames;
+      }
+      if (!data.proprietarios_e_partes || (!data.proprietarios_e_partes.atuais?.length && !data.proprietarios_e_partes.anteriores?.length)) {
+        data.proprietarios_e_partes = fallbackExtracted.proprietarios_e_partes;
+      }
+      if (!data.processos_judiciais || data.processos_judiciais.length === 0) {
+        data.processos_judiciais = fallbackExtracted.processos_judiciais;
+      }
+      if (!data.identificacao_matricula?.cadastro_imobiliario && fallbackExtracted.identificacao_matricula?.cadastro_imobiliario) {
+        if (!data.identificacao_matricula) data.identificacao_matricula = fallbackExtracted.identificacao_matricula;
+        else data.identificacao_matricula.cadastro_imobiliario = fallbackExtracted.identificacao_matricula.cadastro_imobiliario;
+      }
+      if (!data.identificacao_matricula?.numero_matricula || data.identificacao_matricula.numero_matricula === 'Não informado') {
+        if (fallbackExtracted.identificacao_matricula?.numero_matricula && fallbackExtracted.identificacao_matricula.numero_matricula !== 'Não informado') {
+          if (data.identificacao_matricula) data.identificacao_matricula.numero_matricula = fallbackExtracted.identificacao_matricula.numero_matricula;
+        }
+      }
+
+      // Re-calculate KPIs if they were 0 or missing
+      if (!data.kpis) {
+        data.kpis = fallbackExtracted.kpis;
+      } else {
+        if (!data.kpis.num_vendas && data.cadeia_registral && data.cadeia_registral.length > 0) {
+          const vendas = data.cadeia_registral.filter(a => (a.natureza || a.descricao || '').toLowerCase().includes('venda') || (a.tipo || '').toUpperCase().startsWith('R'));
+          data.kpis.num_vendas = vendas.length;
+        }
+        if (!data.kpis.num_onus_ativos && data.onus_gravames && data.onus_gravames.length > 0) {
+          data.kpis.num_onus_ativos = data.onus_gravames.length;
+        }
+        if (!data.kpis.num_processos_judiciais && data.processos_judiciais && data.processos_judiciais.length > 0) {
+          data.kpis.num_processos_judiciais = data.processos_judiciais.length;
+        }
+      }
     }
 
     return { data, cleanMarkdown };
@@ -1491,6 +1564,169 @@ function parseHeuristics(
         impacto: 'RISCO DE HASTA PÚBLICA'
       }));
     }
+
+    // 8. DEEP CADEIA REGISTRAL EXTRACTION (Tables + Lists + Paragraphs)
+    const extractedAtos: MatriculaAto[] = [];
+
+    // 8.1 Extract from Markdown Tables
+    const tableRowRegex = /\|\s*(R[\.\-]?\d+|AV[\.\-]?\d+|Registro\s*\d+|Averbação\s*\d+|Ato\s*\d+)\s*\|([^|\n]+)\|([^|\n]+)\|?([^|\n]*)?\|?([^|\n]*)?\|?([^|\n]*)?/gi;
+    let tMatch;
+    while ((tMatch = tableRowRegex.exec(text)) !== null) {
+      const col1 = tMatch[1]?.trim() || '';
+      const col2 = tMatch[2]?.trim() || '';
+      const col3 = tMatch[3]?.trim() || '';
+      const col4 = tMatch[4]?.trim() || '';
+      const col5 = tMatch[5]?.trim() || '';
+      const col6 = tMatch[6]?.trim() || '';
+
+      // Skip header divider rows
+      if (col1.includes('---') || col2.includes('---')) continue;
+
+      // Extract date, value, parties, nature
+      const allCols = [col2, col3, col4, col5, col6].filter(Boolean);
+      const dateVal = allCols.find(c => /\d{2}[\/\.\-]\d{2}[\/\.\-]\d{4}/.test(c)) || '';
+      const curVal = allCols.find(c => /R\$\s*[\d\.\,]+/.test(c)) || '';
+      const descCol = allCols.find(c => c !== dateVal && c !== curVal && c.length > 10) || col2;
+      const partCol = allCols.find(c => c !== dateVal && c !== curVal && c !== descCol) || '';
+
+      extractedAtos.push({
+        tipo: col1.toUpperCase(),
+        data: dateVal || 'Registrado',
+        valor: curVal || undefined,
+        descricao: descCol || col2 || 'Ato Registral',
+        partes: partCol || undefined,
+        natureza: col1.toUpperCase().startsWith('R') ? 'Registro Imobiliário' : 'Averbação',
+        impacto: 'Histórico da Matrícula'
+      });
+    }
+
+    // 8.2 Extract from Bullet points or lines like "**R-1 (10/05/2010)**: Compra e Venda..."
+    const lineAtoRegex = /(?:^|\n)\s*(?:[\*\-\•]\s*)?(?:\*\*)?(R[\.\-]?\d+|AV[\.\-]?\d+|Registro\s*\d+|Averbação\s*\d+)(?:\*\*)?\s*[:\-\(]\s*([^\n\r]+)/gi;
+    let lMatch;
+    while ((lMatch = lineAtoRegex.exec(text)) !== null) {
+      const atoCode = lMatch[1].trim().toUpperCase();
+      const atoBody = lMatch[2].trim();
+
+      // Avoid duplicates
+      if (extractedAtos.some(a => a.tipo === atoCode || a.descricao === atoBody)) continue;
+
+      const dateMatch = atoBody.match(/\d{2}[\/\.\-]\d{2}[\/\.\-]\d{4}/);
+      const valMatch = atoBody.match(/R\$\s*[\d\.\,]+/);
+      const partyMatch = atoBody.match(/(?:Partes|Transmitente|Adquirente|Comprador|Vendedor|Credor|Devedor)[\s:]+([^;\.\n]+)/i);
+
+      let natureza = atoCode.startsWith('R') ? 'Registro Imobiliário' : 'Averbação';
+      const bodyLower = atoBody.toLowerCase();
+      if (bodyLower.includes('compra e venda')) natureza = 'Compra e Venda';
+      else if (bodyLower.includes('alienação fiduciária') || bodyLower.includes('alienacao fiduciaria')) natureza = 'Alienação Fiduciária';
+      else if (bodyLower.includes('penhora')) natureza = 'Penhora Judicial';
+      else if (bodyLower.includes('hipoteca')) natureza = 'Hipoteca';
+      else if (bodyLower.includes('indisponibilidade')) natureza = 'Indisponibilidade de Bens';
+      else if (bodyLower.includes('consolidação') || bodyLower.includes('consolidacao')) natureza = 'Consolidação de Propriedade';
+      else if (bodyLower.includes('cancelamento')) natureza = 'Cancelamento de Gravame';
+
+      extractedAtos.push({
+        tipo: atoCode,
+        data: dateMatch ? dateMatch[0] : 'Averbado',
+        valor: valMatch ? valMatch[0] : undefined,
+        descricao: atoBody.replace(/\*\*/g, ''),
+        partes: partyMatch ? partyMatch[1].trim() : undefined,
+        natureza,
+        impacto: 'Constante da Certidão'
+      });
+    }
+
+    if (extractedAtos.length > 0) {
+      result.cadeia_registral = extractedAtos;
+      result.kpis.num_vendas = extractedAtos.filter(a => (a.natureza || '').toLowerCase().includes('venda') || a.tipo.startsWith('R')).length || 1;
+    }
+
+    // 9. DEEP ONUS E GRAVAMES EXTRACTION
+    const extractedOnus: MatriculaOnus[] = [];
+    const onusPatterns = [
+      { name: 'Penhora', kw: /penhora[^\n\.\;]*/gi, tipo: 'PENHORA', subtipo: 'Judicial' },
+      { name: 'Alienação Fiduciária', kw: /aliena[çc][ãa]o\s+fiduci[áa]ria[^\n\.\;]*/gi, tipo: 'ALIENACAO_FIDUCIARIA', subtipo: 'Garantia Bancária' },
+      { name: 'Hipoteca', kw: /hipoteca[^\n\.\;]*/gi, tipo: 'HIPOTECA', subtipo: 'Direito Real' },
+      { name: 'Indisponibilidade', kw: /indisponibilidade[^\n\.\;]*/gi, tipo: 'INDISPONIBILIDADE', subtipo: 'Bloqueio Judicial' },
+      { name: 'Usufruto', kw: /usufruto[^\n\.\;]*/gi, tipo: 'USUFRUTO', subtipo: 'Direito Real de Habitação' }
+    ];
+
+    for (const op of onusPatterns) {
+      let oMatch;
+      while ((oMatch = op.kw.exec(text)) !== null) {
+        const snippet = oMatch[0];
+        if (extractedOnus.some(o => o.tipo === op.tipo && o.devedor === snippet)) continue;
+
+        const valMatch = snippet.match(/R\$\s*[\d\.\,]+/);
+        const credorMatch = snippet.match(/(?:a favor d[eoa]|em favor d[eoa]|credor[a]?:?|banco)\s*([A-Za-z0-9\s\.\,\/]{4,40})/i);
+        const dataMatch = snippet.match(/\d{2}[\/\.\-]\d{2}[\/\.\-]\d{4}/);
+
+        extractedOnus.push({
+          tipo: op.name,
+          status: snippet.toLowerCase().includes('cancelad') || snippet.toLowerCase().includes('baixad') ? 'BAIXADO' : 'ATIVO',
+          subtipo: op.subtipo,
+          prioridade: op.tipo === 'INDISPONIBILIDADE' || op.tipo === 'USUFRUTO' ? 'ALTO' : 'MEDIO',
+          valor: valMatch ? valMatch[0] : undefined,
+          credor: credorMatch ? credorMatch[1].trim() : undefined,
+          data_constituicao: dataMatch ? dataMatch[0] : undefined
+        });
+      }
+    }
+
+    if (extractedOnus.length > 0) {
+      result.onus_gravames = extractedOnus;
+      result.kpis.num_onus_ativos = extractedOnus.filter(o => o.status === 'ATIVO').length;
+    }
+
+    // 10. DEEP PROPRIETÁRIOS E PARTES EXTRACTION
+    const proprietariosAtuais: MatriculaParte[] = [];
+    const proprietariosAnteriores: MatriculaParte[] = [];
+    const credoresList: MatriculaParte[] = [];
+
+    // Current owners
+    const currentOwnerRegex = /(?:Proprietário Atual|Proprietária Atual|Adquirente Atual|Proprietários Atuais|Atual Titular)[\s:]+([^\n\r]+)/gi;
+    let coMatch;
+    while ((coMatch = currentOwnerRegex.exec(text)) !== null) {
+      const line = coMatch[1].trim();
+      const docMatch = line.match(/(?:CPF|CNPJ)[\s:\.]*([0-9\.\-\/]+)/i);
+      const nameOnly = line.split(/[,;\(]|\bCPF\b|\bCNPJ\b/)[0].trim();
+      if (nameOnly.length > 3) {
+        proprietariosAtuais.push({
+          nome: nameOnly,
+          documento: docMatch ? docMatch[1].trim() : undefined,
+          tipo: line.toLowerCase().includes('cnpj') || line.toLowerCase().includes('s/a') || line.toLowerCase().includes('ltda') ? 'PJ' : 'PF',
+          detalhes: line
+        });
+      }
+    }
+
+    // Creditors
+    const creditorRegex = /(?:Credor Fiduciário|Credor Hipotecário|Credor Exequente|Exequente|Instituição Credora)[\s:]+([^\n\r]+)/gi;
+    let crMatch;
+    while ((crMatch = creditorRegex.exec(text)) !== null) {
+      const line = crMatch[1].trim();
+      const docMatch = line.match(/(?:CPF|CNPJ)[\s:\.]*([0-9\.\-\/]+)/i);
+      const nameOnly = line.split(/[,;\(]|\bCPF\b|\bCNPJ\b/)[0].trim();
+      if (nameOnly.length > 3) {
+        credoresList.push({
+          nome: nameOnly,
+          documento: docMatch ? docMatch[1].trim() : undefined,
+          tipo: 'PJ',
+          detalhes: line
+        });
+      }
+    }
+
+    if (proprietariosAtuais.length > 0 || proprietariosAnteriores.length > 0 || credoresList.length > 0) {
+      result.proprietarios_e_partes = {
+        atuais: proprietariosAtuais,
+        anteriores: proprietariosAnteriores,
+        credores: credoresList
+      };
+      if (proprietariosAtuais.length > 0) {
+        result.proprietario_atual = proprietariosAtuais.map(p => p.nome);
+      }
+    }
+
   } catch (err) {
     console.error("Heuristics parser failed moderately", err);
   }

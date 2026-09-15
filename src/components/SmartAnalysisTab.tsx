@@ -2476,7 +2476,7 @@ export default function SmartAnalysisTab({
 
       {/* Painel do Assessor - Resumo e Dicas de Captação */}
       <AssessorPitchAndTipsCard 
-        contextType="smart_analysis"
+        contextType="smart"
         propertyTitle={selectedProperty?.title || 'Imóvel em Oportunidade de Leilão'}
         propertyAddress={selectedProperty?.address || ''}
         propertyCity={selectedProperty?.city || ''}

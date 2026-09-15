@@ -711,7 +711,7 @@ export const ProcessoReport: React.FC<ProcessoReportProps> = ({
 
           {/* Painel do Assessor - Resumo e Dicas de Captação */}
           <AssessorPitchAndTipsCard 
-            contextType="processos"
+            contextType="processo"
             propertyTitle={propertyTitle}
             propertyAddress={propertyAddress}
             propertyCity={propertyCity}
