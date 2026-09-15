@@ -467,6 +467,8 @@ try {
     observations TEXT,
     share_token TEXT UNIQUE,
     is_public INTEGER DEFAULT 0,
+    anonymize_property INTEGER DEFAULT 0,
+    auction_url TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
 
@@ -490,6 +492,7 @@ try {
     filename TEXT NOT NULL,
     doc_type TEXT, -- Processo, Matricula, Edital, etc.
     property_id TEXT,
+    temp_property_id TEXT,
     process_id TEXT,
     data TEXT, -- Base64
     extracted_text TEXT,
@@ -523,7 +526,12 @@ try {
     tir REAL,
     estimated_profit REAL,
     ia_used TEXT,
+    edital_analysis TEXT,
+    matricula_analysis TEXT,
+    process_analysis TEXT,
+    dossier_analysis TEXT,
     smart_analysis_json TEXT,
+    assessoria_analysis_json TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY(property_id) REFERENCES properties(id)
   );
@@ -546,6 +554,13 @@ try {
     extracted_text TEXT,
     data TEXT,
     embeddings TEXT,
+    url TEXT,
+    username TEXT,
+    password TEXT,
+    is_automated INTEGER DEFAULT 0,
+    last_sync DATETIME,
+    module TEXT,
+    lesson TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
 
@@ -578,6 +593,7 @@ try {
     claude_key TEXT,
     deepseek_key TEXT,
     datajud_key TEXT,
+    custom_domain TEXT,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
 
@@ -594,24 +610,47 @@ try {
     raw_json TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
-
-  CREATE INDEX IF NOT EXISTS idx_documents_prop ON documents(property_id);
-  CREATE INDEX IF NOT EXISTS idx_documents_temp_prop ON documents(temp_property_id);
-  CREATE INDEX IF NOT EXISTS idx_debts_prop ON debts(property_id);
-  CREATE INDEX IF NOT EXISTS idx_ai_analyses_prop ON ai_analyses(property_id);
-  CREATE INDEX IF NOT EXISTS idx_process_stories_prop ON process_stories(property_id);
 `);
+
   try {
     db.pragma('journal_mode = WAL');
     db.pragma('synchronous = NORMAL');
   } catch (pErr) {
     // Non-fatal
   }
-  console.log("Tabelas base e índices inicializados.");
+  console.log("Tabelas base inicializadas.");
 
-  // Migrations for strategic_brain
+  // Run dynamic schema migrations for existing databases
   try {
-    console.log("Verificando migrações para ai_analyses...");
+    // Migrations for documents
+    const docTableInfo: any[] = db.prepare("PRAGMA table_info(documents)").all();
+    const docColumns = docTableInfo.map(c => c.name);
+    if (!docColumns.includes('temp_property_id')) {
+      console.log("Adicionando coluna 'temp_property_id' em documents...");
+      db.prepare("ALTER TABLE documents ADD COLUMN temp_property_id TEXT").run();
+    }
+  } catch (err: any) {
+    console.error("Erro na migração de documents:", err.message);
+  }
+
+  try {
+    // Migrations for properties
+    const propTableInfo: any[] = db.prepare("PRAGMA table_info(properties)").all();
+    const propColumns = propTableInfo.map(c => c.name);
+    if (!propColumns.includes('anonymize_property')) {
+      console.log("Adicionando coluna 'anonymize_property'...");
+      db.prepare("ALTER TABLE properties ADD COLUMN anonymize_property INTEGER DEFAULT 0").run();
+    }
+    if (!propColumns.includes('auction_url')) {
+      console.log("Adicionando coluna 'auction_url'...");
+      db.prepare("ALTER TABLE properties ADD COLUMN auction_url TEXT").run();
+    }
+  } catch (err: any) {
+    console.error("Erro na migração de properties:", err.message);
+  }
+
+  try {
+    // Migrations for ai_analyses
     const tableInfo: any[] = db.prepare("PRAGMA table_info(ai_analyses)").all();
     const columns = tableInfo.map(c => c.name);
     
@@ -640,12 +679,11 @@ try {
       db.prepare("ALTER TABLE ai_analyses ADD COLUMN assessoria_analysis_json TEXT").run();
     }
   } catch (err: any) {
-    console.error("Erro ao aplicar migrações em ai_analyses:", err);
+    console.error("Erro ao aplicar migrações em ai_analyses:", err.message);
   }
 
-  // Migrations for strategic_brain
   try {
-    console.log("Verificando migrações para strategic_brain...");
+    // Migrations for strategic_brain
     const tableInfo: any[] = db.prepare("PRAGMA table_info(strategic_brain)").all();
     const columns = tableInfo.map(c => c.name);
     
@@ -677,34 +715,12 @@ try {
       console.log("Adicionando coluna 'lesson'...");
       db.prepare("ALTER TABLE strategic_brain ADD COLUMN lesson TEXT").run();
     }
-    console.log("Migrações de tabelas do Cérebro Estratégico concluídas com sucesso.");
-    
-    // Seed strategic_brain with premium curated items
-    console.log("Verificando e semeando dados no Cérebro Estratégico (Base de Conhecimento)...");
-    seedStrategicBrain(db);
-    console.log("Cérebro Estratégico semeado/restaurado com dados premium.");
+  } catch (err: any) {
+    console.error("Erro ao aplicar migrações em strategic_brain:", err.message);
+  }
 
-    console.log("Verificando migrações para properties...");
-    const propTableInfo: any[] = db.prepare("PRAGMA table_info(properties)").all();
-    const propColumns = propTableInfo.map(c => c.name);
-    if (!propColumns.includes('anonymize_property')) {
-      console.log("Adicionando coluna 'anonymize_property'...");
-      db.prepare("ALTER TABLE properties ADD COLUMN anonymize_property INTEGER DEFAULT 0").run();
-    }
-    if (!propColumns.includes('auction_url')) {
-      console.log("Adicionando coluna 'auction_url'...");
-      db.prepare("ALTER TABLE properties ADD COLUMN auction_url TEXT").run();
-    }
-
-    console.log("Verificando migrações para documents...");
-    const docTableInfo: any[] = db.prepare("PRAGMA table_info(documents)").all();
-    const docColumns = docTableInfo.map(c => c.name);
-    if (!docColumns.includes('temp_property_id')) {
-      console.log("Adicionando coluna 'temp_property_id'...");
-      db.prepare("ALTER TABLE documents ADD COLUMN temp_property_id TEXT").run();
-    }
-
-    console.log("Verificando migrações para ai_config...");
+  try {
+    // Migrations for ai_config
     const aiConfigTableInfo: any[] = db.prepare("PRAGMA table_info(ai_config)").all();
     const aiConfigColumns = aiConfigTableInfo.map(c => c.name);
     
@@ -736,11 +752,33 @@ try {
       console.log("Adicionando coluna 'custom_domain'...");
       db.prepare("ALTER TABLE ai_config ADD COLUMN custom_domain TEXT").run();
     }
-  } catch (err) {
-    console.error("Erro durante as migrações:", err);
+  } catch (err: any) {
+    console.error("Erro durante as migrações de ai_config:", err.message);
   }
-  console.log("Tabelas de configuração inicializadas.");
-} catch (err) {
+
+  // Create indexes safely after columns are guaranteed to exist
+  try {
+    db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_documents_prop ON documents(property_id);
+      CREATE INDEX IF NOT EXISTS idx_documents_temp_prop ON documents(temp_property_id);
+      CREATE INDEX IF NOT EXISTS idx_debts_prop ON debts(property_id);
+      CREATE INDEX IF NOT EXISTS idx_ai_analyses_prop ON ai_analyses(property_id);
+      CREATE INDEX IF NOT EXISTS idx_process_stories_prop ON process_stories(property_id);
+    `);
+    console.log("Índices do banco de dados verificados.");
+  } catch (idxErr: any) {
+    console.warn("Aviso ao criar índices:", idxErr.message);
+  }
+
+  try {
+    // Seed strategic_brain with premium curated items
+    console.log("Verificando e semeando dados no Cérebro Estratégico (Base de Conhecimento)...");
+    seedStrategicBrain(db);
+    console.log("Cérebro Estratégico semeado/restaurado com dados premium.");
+  } catch (seedErr: any) {
+    console.error("Erro ao semear dados:", seedErr.message);
+  }
+} catch (err: any) {
   console.error("Erro ao inicializar tabelas:", err);
 }
 
