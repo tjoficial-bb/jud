@@ -19,7 +19,8 @@ import {
   Building,
   Activity,
   Award,
-  DollarSign
+  DollarSign,
+  Ruler
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -27,6 +28,7 @@ import { jsonrepair } from 'jsonrepair';
 import { ReportCustomExporterBar } from './ReportCustomExporterBar';
 import { ExportSectionItem } from '../utils/modularReportExporter';
 import { AssessorPitchAndTipsCard } from './AssessorPitchAndTipsCard';
+import { MatriculaMeasurementCard } from './MatriculaMeasurementCard';
 
 // Robust types for the structured matrícula data
 export interface MatriculaAto {
@@ -149,6 +151,9 @@ interface MatriculaReportProps {
   estimatedProfit?: number;
   roi?: number;
   tir?: number;
+  propertyId?: string | null;
+  analysisId?: string | null;
+  customDomain?: string;
 }
 
 export const MatriculaReport: React.FC<MatriculaReportProps> = ({ 
@@ -162,7 +167,10 @@ export const MatriculaReport: React.FC<MatriculaReportProps> = ({
   expectedSaleValue = 0,
   estimatedProfit = 0,
   roi = 0,
-  tir = 0
+  tir = 0,
+  propertyId = null,
+  analysisId = null,
+  customDomain
 }) => {
   const [viewMode, setViewMode] = useState<'dashboard' | 'markdown'>('dashboard');
   const [accordionState, setAccordionState] = useState<Record<string, boolean>>({
@@ -473,7 +481,17 @@ export const MatriculaReport: React.FC<MatriculaReportProps> = ({
       `• Descrição Registral Completa: ${data.caracteristicas_fisicas?.descricao_completa || 'Não detalhada'}`,
     ].join('\n');
 
-    // 7. Painel do Assessor & Dicas
+    // 7. Medição e Confrontações Cartográficas
+    const medicaoText = [
+      `📐 MEDIÇÃO CARTOGRÁFICA E CONFRONTAÇÕES DA MATRÍCULA:`,
+      `• Área Total Registrada: ${data.caracteristicas_fisicas?.area_total || 'Conforme memorial descritivo'}`,
+      `• Endereço: ${data.caracteristicas_fisicas?.endereco || propertyAddress || 'Não informado'}`,
+      `• Inscrição Municipal / IPTU: ${data.identificacao_matricula?.cadastro_imobiliario || data.caracteristicas_fisicas?.cadastro_imobiliario || data.identificacao_matricula?.inscricao_municipal || 'N/I'}`,
+      `• Cartório / Comarca: ${data.identificacao_matricula?.cartorio || 'CRI'} - ${data.identificacao_matricula?.comarca || propertyCity || ''}/${data.identificacao_matricula?.uf || propertyState || ''}`,
+      `• Memorial Descritivo: ${data.caracteristicas_fisicas?.descricao_completa || 'Dimensões regulares apuradas.'}`
+    ].join('\n');
+
+    // 8. Painel do Assessor & Dicas
     const painelText = [
       `🎯 PAINEL DO ASSESSOR - RESUMO & DICAS DA MATRÍCULA:`,
       `• Síntese Registral: A cadeia de domínio foi conferida. Todos os gravames e penhoras anteriores são baixados com a Carta de Arrematação.`,
@@ -483,6 +501,7 @@ export const MatriculaReport: React.FC<MatriculaReportProps> = ({
 
     return [
       { id: 'resumo', title: 'Resumo Geral & Indicadores', text: resumoText },
+      { id: 'medicao_matricula', title: 'Medição Cartográfica & Perimetral', text: medicaoText },
       { id: 'painel_assessor', title: 'Painel do Assessor (Resumo & Pitch Comercial)', text: painelText },
       { id: 'cadeia_registral', title: 'Cadeia Registral Completa (R- e AV-)', text: cadeiaText },
       { id: 'onus_gravames', title: 'Ônus, Penhoras e Gravames Ativos', text: onusText },
@@ -490,10 +509,10 @@ export const MatriculaReport: React.FC<MatriculaReportProps> = ({
       { id: 'identificacao', title: 'Identificação Registral & Cartório', text: idText },
       { id: 'caracteristicas', title: 'Características Físicas e Cadastro IPTU', text: caracText },
     ];
-  }, [data]);
+  }, [data, propertyAddress, propertyCity, propertyState]);
 
   const [selectedSectionIds, setSelectedSectionIds] = useState<string[]>([
-    'resumo', 'painel_assessor', 'cadeia_registral', 'onus_gravames', 'proprietarios', 'identificacao', 'caracteristicas'
+    'resumo', 'medicao_matricula', 'painel_assessor', 'cadeia_registral', 'onus_gravames', 'proprietarios', 'identificacao', 'caracteristicas'
   ]);
 
   const handleToggleSection = (id: string) => {
@@ -534,6 +553,10 @@ export const MatriculaReport: React.FC<MatriculaReportProps> = ({
         onSelectAll={handleSelectAll}
         onDeselectAll={handleDeselectAll}
         onSelectOnly={handleSelectOnly}
+        customDomain={customDomain}
+        analysisId={analysisId}
+        propertyId={propertyId}
+        reportType="matricula"
       />
 
       {/* Header and Toggle Button Bar */}
@@ -703,6 +726,18 @@ export const MatriculaReport: React.FC<MatriculaReportProps> = ({
               </div>
             </div>
           </div>
+
+          {/* 1.1. MEDIÇÃO CARTOGRÁFICA & CONFRONTAÇÕES DA MATRÍCULA (INTERATIVO COM GERAÇÃO DE LINK E IMAGEM) */}
+          <MatriculaMeasurementCard
+            matriculaData={data}
+            rawAnalysis={rawAnalysis}
+            propertyAddress={propertyAddress}
+            propertyCity={propertyCity}
+            propertyState={propertyState}
+            propertyId={propertyId}
+            analysisId={analysisId}
+            customDomain={customDomain}
+          />
 
           <h3 className="text-xs font-bold text-brand-ink/40 uppercase tracking-widest pl-1">detalhamento completo</h3>
 

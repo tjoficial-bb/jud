@@ -8933,7 +8933,7 @@ Sua resposta deve ser APENAS um objeto JSON válido, sem qualquer bloco de códi
         };
       });
       const userApiKey = resolveApiKey(state.selectedKeySource, state.aiConfig, state.selectedModel || 'gemini-3.7-flash') || "";
-      const matriculaPrompt = "Analise a Matrícula detalhadamente folha por folha. Identifique obrigatoriamente: Inscrição Imobiliária / Cadastro Municipal / IPTU / SQL, proprietários, adquirentes, credores fiduciários, consolidação da propriedade, gravames, penhoras e ônus." + getCustomInstructionsPrompt(state);
+      const matriculaPrompt = "Analise a Certidão de Matrícula Imobiliária detalhadamente folha por folha. Identifique e extraia com precisão máxima: 1) Inscrição Imobiliária / Cadastro Municipal / IPTU / SQL / Código Cartográfico; 2) Medição perimetral e confrontações completas (Área total em m², Testada/Frente em metros, Profundidade/Fundos em metros, Perímetro total, Área construída estimada, Confrontação de Frente, Fundos, Lado Direito e Lado Esquerdo); 3) Identificação do Cartório e Comarca; 4) Proprietários atuais e anteriores com documentos; 5) Ônus, gravames, penhoras, hipotecas, indisponibilidades e alienações fiduciárias ativas; 6) Valores de transações anteriores. Forneça o JSON estruturado conforme o schema e detalhamento técnico completo." + getCustomInstructionsPrompt(state);
       const analysis = await analyzeAuctionDocuments(fileParts, matriculaPrompt, state.selectedModel || 'gemini-3.7-flash', userApiKey || undefined, [], 'matricula');
       setState(prev => ({ ...prev, matriculaAnalysis: analysis }));
 
@@ -9664,9 +9664,26 @@ Sua resposta deve ser APENAS um objeto JSON válido, sem qualquer bloco de códi
         }
       }
 
-      // Notify user that the document was successfully uploaded and is ready for analysis when they click the Analyze button
-      if ((window as any).customToast) {
-        (window as any).customToast("Documento enviado e salvo com sucesso! Clique no botão de análise para iniciar quando desejar.", "success");
+      // Automatically detect if this upload is a Matrícula to trigger immediate extraction
+      const isMatriculaUpload = effectiveDocType === 'Matrícula' || 
+        effectiveDocType.toLowerCase().includes('matr') ||
+        files.some(f => f.name.toLowerCase().includes('matr') || f.name.toLowerCase().includes('certidao') || f.name.toLowerCase().includes('registro'));
+
+      if (isMatriculaUpload) {
+        if ((window as any).customToast) {
+          (window as any).customToast("Certidão de Matrícula enviada! Extraindo dados, confrontações e medições automaticamente...", "info");
+        }
+        // Ensure user is viewing the Matrícula tab
+        updateState({ activeSubTab: 'matricula' });
+        // Automatically start the deep extraction and measurement
+        setTimeout(() => {
+          handleAnalyzeMatricula(updatedDocs);
+        }, 350);
+      } else {
+        // Notify user that the document was successfully uploaded and is ready for analysis
+        if ((window as any).customToast) {
+          (window as any).customToast("Documento enviado e salvo com sucesso!", "success");
+        }
       }
     } catch (err) {
       console.error(err);
@@ -11899,6 +11916,9 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
                             estimatedProfit={metrics?.estimatedProfit}
                             roi={metrics?.roi}
                             tir={metrics?.tir}
+                            propertyId={selectedPropertyId}
+                            analysisId={state.analysisId}
+                            customDomain={state.customDomain}
                           />
                         </div>
                       </Card>

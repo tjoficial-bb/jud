@@ -369,12 +369,17 @@ export const UnifiedSummaryHub: React.FC<UnifiedSummaryHubProps> = ({
 
   const handleInsertTemplate = (templateName: string) => {
     let textToInsert = '';
+    const dateStr = new Date().toLocaleDateString('pt-BR');
     if (templateName === 'parecer') {
-      textToInsert = `**Parecer do Investidor:**\n- Viabilidade da Operação: Alta / Recomendada\n- Lance Máximo Sugerido: R$ \n- Expectativa de Desocupação: 60 a 90 dias via acordo amigável\n- Margem de Segurança: `;
+      textToInsert = `**Parecer Executivo do Investidor (${dateStr}):**\n- Viabilidade da Operação: [ ] Alta / Recomendada  [ ] Média  [ ] Baixa\n- Lance Máximo Sugerido: R$ \n- Expectativa de Desocupação: 60 a 90 dias via acordo amigável\n- Margem de Segurança Estimada: > 35% de lucro bruto`;
     } else if (templateName === 'estrategia') {
-      textToInsert = `**Estratégia de Entrada e Saída:**\n1. Participar no 2º Leilão com lance teto de R$ \n2. Notificar ocupante em até 48h após expedição da carta de arrematação\n3. Realizar reforma estética rápida (pintura e reparos)\n4. Colocar para revenda abaixo da média de mercado para giro rápido`;
+      textToInsert = `**Estratégia de Entrada e Saída (${dateStr}):**\n1. Participar no 2º Leilão com lance teto de R$ \n2. Notificar ocupante em até 48h após expedição da carta de arrematação\n3. Realizar reforma estética rápida (pintura e reparos essenciais)\n4. Colocar para revenda abaixo da média de mercado para giro rápido`;
     } else if (templateName === 'riscos') {
-      textToInsert = `**Pontos de Atenção & Mitigação de Riscos:**\n- Débitos Condominiais: Sub-rogam no preço conforme edital / Negociar diretamente com o síndico\n- Ocupação: Ocupado pelo próprio executado\n- Estado de Conservação: Bom estado apurado via satélite/visita externa`;
+      textToInsert = `**Pontos de Atenção & Mitigação de Riscos (${dateStr}):**\n- Débitos Condominiais: Sub-rogam no preço conforme edital / Negociar diretamente com o síndico\n- Ocupação: Ocupado pelo próprio executado\n- Estado de Conservação: Bom estado apurado via satélite/visita externa`;
+    } else if (templateName === 'leiloeiro') {
+      textToInsert = `**Informações & Contatos do Leilão (${dateStr}):**\n- Leiloeiro Oficial: \n- Link Direto do Lote: \n- Telefone / Contato do Leiloeiro: \n- Vara Judicial / Comarca: \n- Habilitação no Portal: [ ] Concluída com sucesso\n- Condições de Pagamento: [ ] À vista  [ ] Parcelado (25% + 30x)`;
+    } else if (templateName === 'financeiro') {
+      textToInsert = `**Metas Financeiras & Teto de Lance (${dateStr}):**\n- Avaliação de Mercado: R$ \n- Lance Mínimo (2ª Praça): R$ \n- Lance Teto Máximo: R$ \n- Comissão Leiloeiro (5%): R$ \n- ITBI + Registro (~4%): R$ \n- Custo Previsto Desocupação/Reforma: R$ \n- Lucro Líquido Alvo: R$ `;
     }
     setCustomUserInput(prev => (prev ? prev + '\n\n' : '') + textToInsert);
   };
@@ -547,33 +552,55 @@ Formate em Markdown executivo de altíssimo padrão, elegante, direto e com tabe
             <span className="text-[10px] font-bold uppercase tracking-widest text-brand-ink/40">Modelos Rápidos:</span>
             <button
               onClick={() => handleInsertTemplate('parecer')}
-              className="text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-brand-bg hover:bg-brand-primary/10 border border-brand-primary/15 text-brand-ink hover:text-brand-primary transition-all"
+              className="text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-brand-bg hover:bg-brand-primary/10 border border-brand-primary/15 text-brand-ink hover:text-brand-primary transition-all cursor-pointer"
             >
-              + Modelo Parecer
+              + Parecer Executivo
             </button>
             <button
               onClick={() => handleInsertTemplate('estrategia')}
-              className="text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-brand-bg hover:bg-brand-primary/10 border border-brand-primary/15 text-brand-ink hover:text-brand-primary transition-all"
+              className="text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-brand-bg hover:bg-brand-primary/10 border border-brand-primary/15 text-brand-ink hover:text-brand-primary transition-all cursor-pointer"
             >
-              + Modelo Estratégia
+              + Estratégia & Posse
             </button>
             <button
               onClick={() => handleInsertTemplate('riscos')}
-              className="text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-brand-bg hover:bg-brand-primary/10 border border-brand-primary/15 text-brand-ink hover:text-brand-primary transition-all"
+              className="text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-brand-bg hover:bg-brand-primary/10 border border-brand-primary/15 text-brand-ink hover:text-brand-primary transition-all cursor-pointer"
             >
-              + Modelo Riscos
+              + Riscos & Débitos
+            </button>
+            <button
+              onClick={() => handleInsertTemplate('leiloeiro')}
+              className="text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-brand-bg hover:bg-brand-primary/10 border border-brand-primary/15 text-brand-ink hover:text-brand-primary transition-all cursor-pointer"
+            >
+              + Dados Leilão & Vara
+            </button>
+            <button
+              onClick={() => handleInsertTemplate('financeiro')}
+              className="text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-brand-bg hover:bg-brand-primary/10 border border-brand-primary/15 text-brand-ink hover:text-brand-primary transition-all cursor-pointer"
+            >
+              + Metas Financeiras
             </button>
           </div>
         </div>
 
         {/* Text Input Area */}
-        <textarea
-          value={customUserInput}
-          onChange={e => setCustomUserInput(e.target.value)}
-          rows={4}
-          placeholder="Digite aqui livremente suas anotações, conclusões, valores combinados com o cliente, estratégias de desocupação ou qualquer informação estratégica para compor o Resumão Unificado..."
-          className="w-full bg-brand-bg border border-brand-primary/20 rounded-2xl p-4 text-sm font-medium text-brand-ink leading-relaxed focus:ring-2 focus:ring-brand-primary focus:outline-none resize-y placeholder:text-brand-ink/30"
-        />
+        <div className="space-y-2">
+          <textarea
+            value={customUserInput}
+            onChange={e => setCustomUserInput(e.target.value)}
+            rows={5}
+            placeholder="Digite aqui livremente suas anotações, parecer executivo, valores combinados com o cliente, estratégias de desocupação ou qualquer informação estratégica para compor o Resumão Unificado..."
+            className="w-full bg-brand-bg border border-brand-primary/20 rounded-2xl p-4 text-sm font-medium text-brand-ink leading-relaxed focus:ring-2 focus:ring-brand-primary focus:outline-none resize-y placeholder:text-brand-ink/30"
+          />
+          <div className="flex items-center justify-between text-[11px] text-brand-ink/40 font-mono px-1">
+            <span>Escreva observações ou use os modelos acima</span>
+            <div className="flex items-center gap-3">
+              <span>{customUserInput.trim() ? customUserInput.trim().split(/\s+/).length : 0} palavras</span>
+              <span>•</span>
+              <span>{customUserInput.length} caracteres</span>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Main 2-Column Layout */}
