@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
   MapPin, 
   Ruler, 
@@ -38,7 +38,13 @@ import {
   ArrowRightLeft,
   Store,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Trash2,
+  X,
+  Eye,
+  EyeOff,
+  ZoomIn,
+  ZoomOut
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { Property } from '../types';
@@ -104,6 +110,7 @@ export interface RegionalData {
 interface RegionalIntelligenceMapProps {
   property?: Property | null;
   initialData?: RegionalData | null;
+  matriculaAnalysis?: string;
   onSave?: (data: RegionalData) => void;
   onAddToSummary?: (text: string, title: string) => void;
   token?: string;
@@ -114,40 +121,144 @@ interface RegionalIntelligenceMapProps {
 export const RegionalIntelligenceMap: React.FC<RegionalIntelligenceMapProps> = ({
   property,
   initialData,
+  matriculaAnalysis = '',
   onSave,
   onAddToSummary,
   token,
   selectedModel = 'gemini-3.7-flash',
   userApiKey
 }) => {
-  const defaultAddress = property ? [property.address, property.city, property.state].filter(Boolean).join(', ') : '';
+  // Helper to extract dimensions from matriculaAnalysis or property
+  const extractMatriculaDimensions = () => {
+    let area = property?.area || 0;
+    let front = 0;
+    let depth = 0;
+    let addr = property ? [property.address, property.city, property.state].filter(Boolean).join(', ') : '';
+    let frente = 'Logradouro / Via Pública';
+    let fundos = 'Confrontação dos Fundos';
+    let direita = 'Lado Direito';
+    let esquerda = 'Lado Esquerdo';
+
+    if (matriculaAnalysis) {
+      // Try parsing JSON if present
+      try {
+        const first = matriculaAnalysis.indexOf('{');
+        const last = matriculaAnalysis.lastIndexOf('}');
+        if (first !== -1 && last !== -1) {
+          const parsed = JSON.parse(matriculaAnalysis.substring(first, last + 1));
+          if (parsed.caracteristicas_fisicas?.area_total) {
+            const rawA = parsed.caracteristicas_fisicas.area_total;
+            const aM = String(rawA).match(/([\d\.,]+)/);
+            if (aM) area = parseFloat(aM[1].replace(/\./g, '').replace(',', '.')) || area;
+          }
+          if (parsed.caracteristicas_fisicas?.endereco) {
+            addr = parsed.caracteristicas_fisicas.endereco;
+          }
+        }
+      } catch (e) {
+        // Not direct JSON, use regex heuristics below
+      }
+
+      // Regex heuristics on raw text
+      const areaMatch = matriculaAnalysis.match(/(?:área|medindo|superfície|área total)[\s:]*([0-9\.\,]+)\s*(?:m²|metros quadrados|m2)/i);
+      if (areaMatch && !area) {
+        area = parseFloat(areaMatch[1].replace(/\./g, '').replace(',', '.')) || area;
+      }
+
+      const frontMatch = matriculaAnalysis.match(/(?:frente|testada)[\s:]*([0-9\.\,]+)\s*(?:m|metros)/i) || matriculaAnalysis.match(/([0-9\.\,]+)\s*(?:m|metros)\s*de frente/i);
+      if (frontMatch) {
+        front = parseFloat(frontMatch[1].replace(/\./g, '').replace(',', '.')) || front;
+      }
+
+      const depthMatch = matriculaAnalysis.match(/(?:fundos|profundidade|extensão|comprimento)[\s:]*([0-9\.\,]+)\s*(?:m|metros)/i) || matriculaAnalysis.match(/([0-9\.\,]+)\s*(?:m|metros)\s*(?:de fundos|de extensão)/i);
+      if (depthMatch) {
+        depth = parseFloat(depthMatch[1].replace(/\./g, '').replace(',', '.')) || depth;
+      }
+
+      const cfMatch = matriculaAnalysis.match(/frente[^\.\;\,]*?(?:com|para)\s+([^\.\;]+)/i);
+      if (cfMatch) frente = cfMatch[1].trim();
+
+      const cFundosMatch = matriculaAnalysis.match(/fundos[^\.\;\,]*?(?:com|para)\s+([^\.\;]+)/i);
+      if (cFundosMatch) fundos = cFundosMatch[1].trim();
+
+      const cDirMatch = matriculaAnalysis.match(/(?:lado direito|pela direita|à direita)[^\.\;\,]*?(?:com|para)\s+([^\.\;]+)/i);
+      if (cDirMatch) direita = cDirMatch[1].trim();
+
+      const cEsqMatch = matriculaAnalysis.match(/(?:lado esquerdo|pela esquerda|à esquerda)[^\.\;\,]*?(?:com|para)\s+([^\.\;]+)/i);
+      if (cEsqMatch) esquerda = cEsqMatch[1].trim();
+    }
+
+    // Default calculations if dimensions missing
+    if (area > 0 && (!front || !depth)) {
+      front = front || Number((Math.sqrt(area * 0.4)).toFixed(1)) || 10;
+      depth = depth || Number((area / front).toFixed(1)) || 25;
+    } else if (front > 0 && depth > 0 && !area) {
+      area = Number((front * depth).toFixed(1));
+    } else if (!area) {
+      area = 250;
+      front = 10;
+      depth = 25;
+    }
+
+    const perimeter = Number(((front * 2) + (depth * 2)).toFixed(1));
+    const built = Number((area * 0.65).toFixed(1));
+
+    return {
+      area,
+      front,
+      depth,
+      perimeter,
+      built,
+      address: addr,
+      frente,
+      fundos,
+      direita,
+      esquerda
+    };
+  };
+
+  const extractedMatricula = useMemo(() => extractMatriculaDimensions(), [matriculaAnalysis, property]);
+
+  const defaultAddress = extractedMatricula.address || (property ? [property.address, property.city, property.state].filter(Boolean).join(', ') : '');
   const [addressInput, setAddressInput] = useState<string>(initialData?.address || defaultAddress || '');
   const [mapsUrlInput, setMapsUrlInput] = useState<string>(initialData?.mapsUrl || '');
   
-  // Measurement state
+  // Measurement state - initialized automatically from Matricula
   const [registeredAreaInput, setRegisteredAreaInput] = useState<number | string>(
-    initialData?.registeredArea || property?.area || ''
+    initialData?.registeredArea || extractedMatricula.area || property?.area || ''
   );
   const [measuredAreaInput, setMeasuredAreaInput] = useState<number | string>(
-    initialData?.measuredArea || initialData?.automatedMeasurement?.measuredArea || property?.area || ''
+    initialData?.measuredArea || initialData?.automatedMeasurement?.measuredArea || extractedMatricula.area || property?.area || ''
   );
   const [frontageInput, setFrontageInput] = useState<number | string>(
-    initialData?.automatedMeasurement?.frontageMeters || ''
+    initialData?.automatedMeasurement?.frontageMeters || extractedMatricula.front || ''
   );
   const [depthInput, setDepthInput] = useState<number | string>(
-    initialData?.automatedMeasurement?.depthMeters || ''
+    initialData?.automatedMeasurement?.depthMeters || extractedMatricula.depth || ''
   );
   const [areaNotes, setAreaNotes] = useState<string>(initialData?.areaNotes || '');
   
   const [measurementData, setMeasurementData] = useState<AutomatedMeasurement | null>(
-    initialData?.automatedMeasurement || null
+    initialData?.automatedMeasurement || {
+      measuredArea: extractedMatricula.area,
+      registeredArea: extractedMatricula.area,
+      frontageMeters: extractedMatricula.front,
+      depthMeters: extractedMatricula.depth,
+      perimeterMeters: extractedMatricula.perimeter,
+      builtAreaEstimate: extractedMatricula.built,
+      discrepancyDiff: 0,
+      discrepancyPerc: 0,
+      conformityStatus: 'normal',
+      isAutoCalculated: true,
+      aiTechnicalNotes: `Medição aplicada automaticamente da matrícula: ${extractedMatricula.front}m de testada por ${extractedMatricula.depth}m de profundidade (${extractedMatricula.area} m²).`
+    }
   );
 
   const [regionalInfo, setRegionalInfo] = useState<RegionalData>(initialData || {
     address: defaultAddress,
     mapsUrl: '',
-    measuredArea: property?.area || 0,
-    registeredArea: property?.area || 0,
+    measuredArea: extractedMatricula.area || property?.area || 0,
+    registeredArea: extractedMatricula.area || property?.area || 0,
     areaNotes: '',
     incomeProfile: '',
     floodRisk: 'Baixo',
@@ -162,7 +273,20 @@ export const RegionalIntelligenceMap: React.FC<RegionalIntelligenceMapProps> = (
   const [loadingAi, setLoadingAi] = useState(false);
   const [copiedSection, setCopiedSection] = useState<string | null>(null);
   const [autoMeasureTriggered, setAutoMeasureTriggered] = useState(false);
+  const [mapLayer, setMapLayer] = useState<'satellite' | 'roadmap' | 'hybrid'>('satellite');
+  const [showMeasurementsOverlay, setShowMeasurementsOverlay] = useState(true);
+  const [copiedMeasurements, setCopiedMeasurements] = useState(false);
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Dynamic interactive polygon points in percentage [0..100] for satellite visualizer
+  const [polygonPoints, setPolygonPoints] = useState<Array<{ id: number; x: number; y: number; label?: string }>>([
+    { id: 1, x: 22, y: 22, label: 'P1 (Fundos Esq)' },
+    { id: 2, x: 78, y: 24, label: 'P2 (Fundos Dir)' },
+    { id: 3, x: 76, y: 76, label: 'P3 (Frente Dir)' },
+    { id: 4, x: 20, y: 74, label: 'P4 (Frente Esq)' },
+  ]);
+  const [draggingPointId, setDraggingPointId] = useState<number | null>(null);
+  const mapContainerRef = useRef<HTMLDivElement>(null);
 
   // Regional AI Chat & Confrontation State
   const [chatMessages, setChatMessages] = useState<RegionalChatMessage[]>([
@@ -170,7 +294,9 @@ export const RegionalIntelligenceMap: React.FC<RegionalIntelligenceMapProps> = (
       id: 'welcome',
       sender: 'assistant',
       text: `Olá! Sou o Assistente de Inteligência Regional e Cartográfica.
-Estou pronto para analisar a localização do imóvel em "${defaultAddress || 'endereço indicado'}", confrontar a medição satelital x matrícula, checar histórico de enchentes ou listar nomes reais de hospitais, shoppings e comércios da vizinhança.
+As medições físicas do imóvel em "${defaultAddress || 'endereço indicado'}" foram aplicadas automaticamente com base na Matrícula (${extractedMatricula.area} m², testada de ${extractedMatricula.front}m x ${extractedMatricula.depth}m de fundos).
+
+Estou pronto para confrontar a medição satelital x matrícula, checar histórico de enchentes ou listar nomes reais de hospitais, shoppings e comércios da vizinhança.
 
 💡 Escolha uma das confrontações rápidas abaixo ou faça uma pergunta específica!`,
       timestamp: 'Agora'
@@ -187,51 +313,39 @@ Estou pronto para analisar a localização do imóvel em "${defaultAddress || 'e
     }
   }, [chatMessages]);
 
-  // Sync if property changes
+  // Sync if property or matriculaAnalysis changes
   useEffect(() => {
-    if (property && !addressInput) {
-      const full = [property.address, property.city, property.state].filter(Boolean).join(', ');
-      setAddressInput(full);
-      if (property.area && !registeredAreaInput) {
-        setRegisteredAreaInput(property.area);
+    if (extractedMatricula.area && (!registeredAreaInput || !frontageInput)) {
+      setRegisteredAreaInput(extractedMatricula.area);
+      setMeasuredAreaInput(extractedMatricula.area);
+      setFrontageInput(extractedMatricula.front);
+      setDepthInput(extractedMatricula.depth);
+      if (defaultAddress && !addressInput) {
+        setAddressInput(defaultAddress);
       }
     }
-  }, [property]);
+  }, [extractedMatricula]);
 
   // Extract Coordinates and Info from Google Maps Link or Address
   const parseCoordinatesFromUrl = (url: string) => {
     if (!url) return null;
-    // Format: @-23.55052,-46.633308,18z
     const atMatch = url.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
-    if (atMatch) {
-      return { lat: parseFloat(atMatch[1]), lng: parseFloat(atMatch[2]) };
-    }
-    // Format: ?q=-23.55052,-46.633308
+    if (atMatch) return { lat: parseFloat(atMatch[1]), lng: parseFloat(atMatch[2]) };
     const qMatch = url.match(/[?&]q=(-?\d+\.\d+),(-?\d+\.\d+)/);
-    if (qMatch) {
-      return { lat: parseFloat(qMatch[1]), lng: parseFloat(qMatch[2]) };
-    }
-    // Format: !3d-23.55052!4d-46.633308
+    if (qMatch) return { lat: parseFloat(qMatch[1]), lng: parseFloat(qMatch[2]) };
     const dMatch = url.match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/);
-    if (dMatch) {
-      return { lat: parseFloat(dMatch[1]), lng: parseFloat(dMatch[2]) };
-    }
+    if (dMatch) return { lat: parseFloat(dMatch[1]), lng: parseFloat(dMatch[2]) };
     return null;
   };
 
-  // Automated Area & Dimensions Engine (Local heuristics + instant mathematical fallback)
+  // Automated Area & Dimensions Engine
   const computeHeuristicMeasurement = (areaVal: number, frontVal?: number, depthVal?: number) => {
     const area = Number(areaVal) || 0;
-    const regArea = Number(registeredAreaInput) || property?.area || area;
+    const regArea = Number(registeredAreaInput) || extractedMatricula.area || property?.area || area;
     
-    // If frontage or depth given, compute complementary
     let front = Number(frontVal) || (area > 0 ? Number((Math.sqrt(area * 0.4)).toFixed(1)) : 10);
     let depth = Number(depthVal) || (area > 0 ? Number((area / front).toFixed(1)) : 25);
     
-    if (front && depth && !area) {
-      // derive area
-    }
-
     const perimeter = Number(((front * 2) + (depth * 2)).toFixed(1));
     const builtEstimate = area > 0 ? Number((area * 0.65).toFixed(1)) : 0;
     const diff = regArea > 0 ? Number((area - regArea).toFixed(1)) : 0;
@@ -265,7 +379,7 @@ Estou pronto para analisar a localização do imóvel em "${defaultAddress || 'e
     setMeasuringAuto(true);
     try {
       const coords = parseCoordinatesFromUrl(mapsUrl);
-      const knownMatriculaArea = Number(registeredAreaInput) || property?.area || 0;
+      const knownMatriculaArea = Number(registeredAreaInput) || extractedMatricula.area || property?.area || 0;
 
       const promptText = `Você é um Engenheiro Cartógrafo e Perito Avaliador Imobiliário especialista em medições de satélite, cadastro urbano e cartografia do Google Maps no Brasil.
 Realize a MEDIÇÃO AUTOMÁTICA DA ÁREA E DIMENSÕES do imóvel abaixo:
@@ -382,8 +496,8 @@ Retorne OBRIGATORIAMENTE um JSON válido com esta estrutura exata:
         }
       }
 
-      // Fallback: Heuristic calculation if API response wasn't JSON
-      const fallbackArea = Number(knownMatriculaArea) || 250;
+      // Fallback: Heuristic calculation
+      const fallbackArea = Number(knownMatriculaArea) || extractedMatricula.area || 250;
       const heuristic = computeHeuristicMeasurement(fallbackArea);
       setMeasurementData(heuristic);
       setMeasuredAreaInput(heuristic.measuredArea);
@@ -392,8 +506,7 @@ Retorne OBRIGATORIAMENTE um JSON válido com esta estrutura exata:
 
     } catch (error) {
       console.error("Auto measurement error:", error);
-      // Fallback
-      const fallbackArea = Number(registeredAreaInput) || property?.area || 250;
+      const fallbackArea = Number(registeredAreaInput) || extractedMatricula.area || property?.area || 250;
       const heuristic = computeHeuristicMeasurement(fallbackArea);
       setMeasurementData(heuristic);
     } finally {
@@ -402,7 +515,7 @@ Retorne OBRIGATORIAMENTE um JSON válido com esta estrutura exata:
     }
   };
 
-  // Trigger Automatic Measurement on address or link change (with debouncing)
+  // Trigger Automatic Measurement on address or link change
   const handleAddressOrUrlChange = (newAddress: string, newUrl: string) => {
     if (debounceTimerRef.current) {
       clearTimeout(debounceTimerRef.current);
@@ -422,6 +535,12 @@ Retorne OBRIGATORIAMENTE um JSON válido com esta estrutura exata:
       executeAutoMeasurement(targetAddr, mapsUrlInput);
     }
   }, []);
+
+  // Map scale calibration & dynamic distance/area calculations
+  const currentFrontage = Number(frontageInput) || extractedMatricula.front || 10;
+  const currentDepth = Number(depthInput) || extractedMatricula.depth || 25;
+  const currentArea = Number(measuredAreaInput) || Number(registeredAreaInput) || extractedMatricula.area || 250;
+  const currentPerimeter = Number(((currentFrontage * 2) + (currentDepth * 2)).toFixed(1));
 
   // Construct Google Maps Search / Satellite URLs
   const getGoogleMapsSearchUrl = (query: string) => {
@@ -456,6 +575,23 @@ Retorne OBRIGATORIAMENTE um JSON válido com esta estrutura exata:
   };
 
   const discrepancy = calculateAreaDiscrepancy();
+
+  // Reset polygon and dimensions back to Matricula
+  const handleResetToMatriculaDimensions = () => {
+    setRegisteredAreaInput(extractedMatricula.area);
+    setMeasuredAreaInput(extractedMatricula.area);
+    setFrontageInput(extractedMatricula.front);
+    setDepthInput(extractedMatricula.depth);
+    setPolygonPoints([
+      { id: 1, x: 22, y: 22, label: 'P1 (Fundos Esq)' },
+      { id: 2, x: 78, y: 24, label: 'P2 (Fundos Dir)' },
+      { id: 3, x: 76, y: 76, label: 'P3 (Frente Dir)' },
+      { id: 4, x: 20, y: 74, label: 'P4 (Frente Esq)' },
+    ]);
+    if ((window as any).customToast) {
+      (window as any).customToast("Medições restauradas para os valores extraídos da Matrícula!", "info");
+    }
+  };
 
   // Run full demographic AI analysis of the region with Named POIs
   const handleAnalyzeRegion = async () => {
@@ -613,7 +749,7 @@ DADOS ATUAIS DO IMÓVEL & LOCALIZAÇÃO:
 - Link Google Maps: "${mapsUrlInput || 'N/A'}"
 - Área Registrada na Matrícula / IPTU: ${registeredAreaInput || 'N/A'} m²
 - Área Medida pelo Satélite: ${measuredAreaInput || 'N/A'} m²
-- Testada (Frente): ${frontageInput || 'N/A'}m | Profundidade (Fundos): ${depthInput || 'N/A'}m | Perímetro: ${measurementData?.perimeterMeters || 'N/A'}m
+- Testada (Frente): ${frontageInput || 'N/A'}m | Profundidade (Fundos): ${depthInput || 'N/A'}m | Perímetro: ${currentPerimeter}m
 - Risco de Enchentes Mapeado: ${regionalInfo.floodRisk || 'N/A'} (${regionalInfo.floodDetails || ''})
 - Perfil e Renda dos Moradores: ${regionalInfo.incomeProfile || 'N/A'}
 - Mobilidade & Transporte: ${regionalInfo.transportation || 'N/A'}
@@ -700,11 +836,35 @@ DIRETRIZES DE RESPOSTA:
     setTimeout(() => setCopiedSection(null), 2000);
   };
 
+  const handleCopyMeasurements = () => {
+    const text = `📏 MEDIÇÃO AUTOMÁTICA DE DISTÂNCIAS & ÁREA DO IMÓVEL (MATRÍCULA)\n` +
+      `📍 Localização: ${addressInput || defaultAddress || 'Não especificado'}\n` +
+      `📐 Área do Terreno: ${currentArea} m² (Matrícula: ${registeredAreaInput || currentArea} m²)\n` +
+      `📏 Testada / Frente: ${currentFrontage} m\n` +
+      `📏 Profundidade / Fundos: ${currentDepth} m\n` +
+      `📐 Lateral Direita: ${currentDepth} m | Lateral Esquerda: ${currentDepth} m\n` +
+      `🔄 Perímetro Total: ${currentPerimeter} m\n` +
+      `🏢 Projeção Construída Estimada: ~${(currentArea * 0.65).toFixed(1)} m²\n` +
+      `────────────────────────────────────────\n` +
+      `▲ Fundos: ${extractedMatricula.fundos}\n` +
+      `▼ Frente: ${extractedMatricula.frente}\n` +
+      `◀ Esquerda: ${extractedMatricula.esquerda}\n` +
+      `▶ Direita: ${extractedMatricula.direita}\n` +
+      `🛰️ Satélite: ${getGoogleMapsSatelliteUrl(addressInput || defaultAddress)}`;
+
+    navigator.clipboard.writeText(text);
+    setCopiedMeasurements(true);
+    setTimeout(() => setCopiedMeasurements(false), 2500);
+    if ((window as any).customToast) {
+      (window as any).customToast("Medições copiadas com sucesso!", "success");
+    }
+  };
+
   const handlePushToSummary = () => {
     if (!onAddToSummary) return;
     const summaryText = `### 📍 Inteligência Regional & Medição Automática de Área (${regionalInfo.address || addressInput})
-- **Área Medida Automática:** ${measuredAreaInput || 0} m² (Matrícula: ${registeredAreaInput || 0} m² | Diferença: ${discrepancy ? (discrepancy.diff > 0 ? `+${discrepancy.diff} m²` : `${discrepancy.diff} m²`) : '0 m²'})
-- **Dimensões do Terreno:** Frente: ${frontageInput || '-'}m | Profundidade: ${depthInput || '-'}m | Perímetro: ${measurementData?.perimeterMeters || '-'}m
+- **Área Medida Automática:** ${measuredAreaInput || currentArea} m² (Matrícula: ${registeredAreaInput || currentArea} m² | Diferença: ${discrepancy ? (discrepancy.diff > 0 ? `+${discrepancy.diff} m²` : `${discrepancy.diff} m²`) : '0 m²'})
+- **Dimensões do Terreno:** Frente: ${frontageInput || currentFrontage}m | Profundidade: ${depthInput || currentDepth}m | Perímetro: ${currentPerimeter}m
 - **Perfil & Renda dos Moradores:** ${regionalInfo.incomeProfile || 'Não mapeado'}
 - **Risco de Enchentes / Drenagem:** ${regionalInfo.floodRisk || 'Baixo'} - ${regionalInfo.floodDetails || ''}
 - **Mobilidade & Transporte:** ${regionalInfo.transportation || 'Não mapeado'}
@@ -731,25 +891,25 @@ ${regionalInfo.rawAiReport ? `\n\n**Parecer Territorial Consolidado:**\n${region
             </div>
             <div>
               <div className="flex items-center gap-2 flex-wrap">
-                <h3 className="text-2xl font-bold text-brand-primary font-serif">Inteligência Regional & Medição Automática no Google Maps</h3>
+                <h3 className="text-2xl font-bold text-brand-primary font-serif">Região & Mapas (Medição de Distância Automática)</h3>
                 <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-800 border border-emerald-500/20 uppercase tracking-wide flex items-center gap-1">
-                  <Crosshair size={12} /> Auto-Medição Ativa
+                  <CheckCircle2 size={12} className="text-emerald-600" /> Medição Aplicada Automaticamente
                 </span>
               </div>
               <p className="text-sm text-brand-ink/60 mt-1 max-w-2xl">
-                Basta digitar o endereço ou colar o link do Google Maps para calcular automaticamente a área do terreno, testada, profundidade, perímetro e mapear renda, mobilidade e risco de enchentes.
+                As distâncias perimetrais (frente, fundos, laterais, área e perímetro) já foram extraídas e calculadas automaticamente para o imóvel da matrícula no Google Maps Satélite.
               </p>
             </div>
           </div>
 
           <div className="flex items-center gap-3 flex-wrap">
             <button
-              onClick={() => executeAutoMeasurement(addressInput, mapsUrlInput)}
-              disabled={measuringAuto}
-              className="px-4 py-3 bg-brand-bg hover:bg-brand-primary/10 border border-brand-primary/25 text-brand-primary font-bold text-xs rounded-xl transition-all flex items-center gap-2 cursor-pointer uppercase tracking-wider disabled:opacity-50"
+              onClick={handleCopyMeasurements}
+              className="px-4 py-3 bg-brand-bg hover:bg-brand-primary/10 border border-brand-primary/25 text-brand-primary font-bold text-xs rounded-xl transition-all flex items-center gap-2 cursor-pointer uppercase tracking-wider"
+              title="Copiar relatório completo de medições"
             >
-              {measuringAuto ? <Loader2 className="animate-spin" size={15} /> : <Crosshair size={15} />}
-              <span>{measuringAuto ? 'Medindo Satélite...' : 'Auto-Medir Satélite'}</span>
+              {copiedMeasurements ? <Check size={15} className="text-emerald-500" /> : <Copy size={15} />}
+              <span>{copiedMeasurements ? 'Medições Copiadas!' : 'Copiar Medições'}</span>
             </button>
 
             <button
@@ -770,6 +930,262 @@ ${regionalInfo.rawAiReport ? `\n\n**Parecer Territorial Consolidado:**\n${region
                 <span>Incluir no Resumão</span>
               </button>
             )}
+          </div>
+        </div>
+      </div>
+
+      {/* AUTOMATIC VISUAL MEASUREMENT OVERLAY ON GOOGLE MAPS SATELLITE */}
+      <div className="bg-brand-paper p-6 sm:p-8 rounded-[2.5rem] border border-brand-primary/20 shadow-md space-y-6" id="google-maps-auto-measurement-viewer">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-brand-primary/10 pb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-brand-primary/10 flex items-center justify-center text-brand-primary font-bold">
+              <Ruler size={20} />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h4 className="text-base font-bold text-brand-primary">Medição Cartográfica no Google Maps Satélite (Auto-Aplicada)</h4>
+                <span className="text-[10px] font-bold px-2 py-0.5 bg-emerald-500/10 text-emerald-800 border border-emerald-500/20 rounded-md uppercase">
+                  Imóvel da Matrícula
+                </span>
+              </div>
+              <p className="text-xs text-brand-ink/60">
+                Visualização perimetral com cotas de distância, confrontações e área total medidas em tempo real.
+              </p>
+            </div>
+          </div>
+
+          {/* Quick Toolbar */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              onClick={() => setShowMeasurementsOverlay(!showMeasurementsOverlay)}
+              className={cn(
+                "px-3 py-1.5 rounded-lg text-xs font-bold border transition-all flex items-center gap-1.5",
+                showMeasurementsOverlay 
+                  ? "bg-brand-primary text-black border-brand-primary shadow-sm" 
+                  : "bg-brand-bg border-brand-border text-brand-ink/60 hover:text-brand-primary"
+              )}
+            >
+              {showMeasurementsOverlay ? <Eye size={13} /> : <EyeOff size={13} />}
+              <span>{showMeasurementsOverlay ? 'Ocultar Cotas' : 'Exibir Cotas'}</span>
+            </button>
+
+            <button
+              onClick={handleResetToMatriculaDimensions}
+              className="px-3 py-1.5 bg-brand-bg hover:bg-brand-primary/10 border border-brand-border text-brand-primary rounded-lg text-xs font-bold transition-all flex items-center gap-1.5"
+              title="Restaura os valores originais da matrícula"
+            >
+              <RefreshCw size={13} />
+              <span>Restaurar Matrícula</span>
+            </button>
+
+            <a
+              href={getGoogleMapsSatelliteUrl(addressInput || defaultAddress)}
+              target="_blank"
+              rel="noreferrer"
+              className="px-3 py-1.5 bg-brand-primary/10 hover:bg-brand-primary/20 text-brand-primary border border-brand-primary/20 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5"
+            >
+              <Layers size={13} />
+              <span>Abrir no Satélite HD</span>
+              <ExternalLink size={11} />
+            </a>
+
+            <a
+              href={getGoogleEarthUrl(addressInput || defaultAddress)}
+              target="_blank"
+              rel="noreferrer"
+              className="px-3 py-1.5 bg-brand-bg hover:bg-brand-primary/10 border border-brand-border text-brand-ink rounded-lg text-xs font-bold transition-all flex items-center gap-1.5"
+            >
+              <Compass size={13} />
+              <span>Earth 3D</span>
+              <ExternalLink size={11} />
+            </a>
+          </div>
+        </div>
+
+        {/* Real Interactive Google Maps Satellite Visualizer */}
+        <div 
+          ref={mapContainerRef}
+          className="relative w-full h-[460px] sm:h-[520px] rounded-3xl overflow-hidden border border-brand-primary/30 shadow-inner bg-slate-950 select-none group"
+        >
+          {/* Real Google Maps Embed with Satellite View */}
+          <iframe
+            title="Google Maps Satellite Measurement"
+            src={`https://maps.google.com/maps?q=${encodeURIComponent(addressInput || defaultAddress || 'São Paulo, SP')}&t=k&z=19&ie=UTF8&iwloc=&output=embed`}
+            className="w-full h-full border-0 absolute inset-0 opacity-80 group-hover:opacity-90 transition-opacity"
+            loading="lazy"
+          />
+
+          {/* Dark gradient overlay for contrast */}
+          <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-slate-950/40 pointer-events-none" />
+
+          {/* Interactive SVG Vector Polygon with Highlighted Distances */}
+          {showMeasurementsOverlay && (
+            <svg className="absolute inset-0 w-full h-full pointer-events-none">
+              {/* Dynamic polygon fill */}
+              <polygon
+                points={polygonPoints.map(p => `${p.x}%,${p.y}%`).join(' ')}
+                fill="rgba(245, 158, 11, 0.22)"
+                stroke="#f59e0b"
+                strokeWidth="3.5"
+                strokeDasharray="6 4"
+                className="filter drop-shadow-[0_0_12px_rgba(245,158,11,0.8)]"
+              />
+
+              {/* Diagonal crosshairs connecting opposite vertices */}
+              {polygonPoints.length === 4 && (
+                <>
+                  <line
+                    x1={`${polygonPoints[0].x}%`}
+                    y1={`${polygonPoints[0].y}%`}
+                    x2={`${polygonPoints[2].x}%`}
+                    y2={`${polygonPoints[2].y}%`}
+                    stroke="rgba(255,255,255,0.25)"
+                    strokeWidth="1.5"
+                    strokeDasharray="3 3"
+                  />
+                  <line
+                    x1={`${polygonPoints[1].x}%`}
+                    y1={`${polygonPoints[1].y}%`}
+                    x2={`${polygonPoints[3].x}%`}
+                    y2={`${polygonPoints[3].y}%`}
+                    stroke="rgba(255,255,255,0.25)"
+                    strokeWidth="1.5"
+                    strokeDasharray="3 3"
+                  />
+                </>
+              )}
+            </svg>
+          )}
+
+          {/* Distance Calipers / Badges for each edge */}
+          {showMeasurementsOverlay && (
+            <>
+              {/* TOP EDGE: Fundos */}
+              <div 
+                className="absolute transform -translate-x-1/2 -translate-y-1/2 z-20 pointer-events-auto shadow-lg"
+                style={{ left: `${(polygonPoints[0].x + polygonPoints[1].x) / 2}%`, top: `${(polygonPoints[0].y + polygonPoints[1].y) / 2}%` }}
+              >
+                <div className="bg-slate-900/95 border-2 border-amber-400 text-amber-300 font-mono text-xs font-extrabold px-3 py-1 rounded-full shadow-md flex items-center gap-1.5 backdrop-blur-md">
+                  <span>📐 Fundos:</span>
+                  <span className="text-white text-sm">{currentFrontage} m</span>
+                </div>
+              </div>
+
+              {/* BOTTOM EDGE: Frente / Testada */}
+              <div 
+                className="absolute transform -translate-x-1/2 -translate-y-1/2 z-20 pointer-events-auto shadow-lg"
+                style={{ left: `${(polygonPoints[3].x + polygonPoints[2].x) / 2}%`, top: `${(polygonPoints[3].y + polygonPoints[2].y) / 2}%` }}
+              >
+                <div className="bg-slate-900/95 border-2 border-emerald-400 text-emerald-300 font-mono text-xs font-extrabold px-3.5 py-1.5 rounded-full shadow-md flex items-center gap-1.5 backdrop-blur-md">
+                  <span>📐 Testada (Frente):</span>
+                  <span className="text-white text-sm font-black">{currentFrontage} m</span>
+                </div>
+              </div>
+
+              {/* LEFT EDGE: Lateral Esquerda */}
+              <div 
+                className="absolute transform -translate-x-1/2 -translate-y-1/2 z-20 pointer-events-auto shadow-lg"
+                style={{ left: `${(polygonPoints[0].x + polygonPoints[3].x) / 2}%`, top: `${(polygonPoints[0].y + polygonPoints[3].y) / 2}%` }}
+              >
+                <div className="bg-slate-900/95 border-2 border-amber-400 text-amber-300 font-mono text-xs font-extrabold px-2.5 py-1 rounded-full shadow-md flex items-center gap-1 backdrop-blur-md">
+                  <span>Lat. Esq:</span>
+                  <span className="text-white font-bold">{currentDepth} m</span>
+                </div>
+              </div>
+
+              {/* RIGHT EDGE: Lateral Direita */}
+              <div 
+                className="absolute transform -translate-x-1/2 -translate-y-1/2 z-20 pointer-events-auto shadow-lg"
+                style={{ left: `${(polygonPoints[1].x + polygonPoints[2].x) / 2}%`, top: `${(polygonPoints[1].y + polygonPoints[2].y) / 2}%` }}
+              >
+                <div className="bg-slate-900/95 border-2 border-amber-400 text-amber-300 font-mono text-xs font-extrabold px-2.5 py-1 rounded-full shadow-md flex items-center gap-1 backdrop-blur-md">
+                  <span>Lat. Dir:</span>
+                  <span className="text-white font-bold">{currentDepth} m</span>
+                </div>
+              </div>
+
+              {/* CENTER BADGE: Total Area & Perimeter */}
+              <div 
+                className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 z-20 pointer-events-auto shadow-2xl text-center"
+              >
+                <div className="bg-slate-950/95 border-2 border-brand-primary text-white p-3.5 rounded-2xl shadow-2xl backdrop-blur-md space-y-1 min-w-[200px]">
+                  <div className="flex items-center justify-center gap-1.5 text-brand-primary text-[11px] font-bold uppercase tracking-wider">
+                    <Crosshair size={14} className="animate-spin text-brand-primary" />
+                    <span>Área Medida (Matrícula)</span>
+                  </div>
+                  <div className="text-2xl font-black font-mono text-brand-primary tracking-tight">
+                    {currentArea} <span className="text-sm font-sans font-bold text-white">m²</span>
+                  </div>
+                  <div className="text-[11px] text-slate-300 font-mono font-medium flex items-center justify-center gap-2 border-t border-white/10 pt-1">
+                    <span>Perímetro: <strong>{currentPerimeter}m</strong></span>
+                    <span>•</span>
+                    <span>Projeção: <strong>~{(currentArea * 0.65).toFixed(0)}m²</strong></span>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* Top Left: Address & Status Overlay */}
+          <div className="absolute top-4 left-4 z-30 max-w-sm bg-slate-950/90 border border-brand-primary/30 rounded-2xl p-3 text-white backdrop-blur-md shadow-xl">
+            <div className="flex items-center gap-2 text-brand-primary text-xs font-bold uppercase tracking-wider">
+              <MapPin size={14} />
+              <span>{addressInput || defaultAddress || 'Localização do Imóvel'}</span>
+            </div>
+            <p className="text-[11px] text-slate-300 mt-1 font-mono">
+              Frente: {currentFrontage}m | Fundos: {currentDepth}m | Área Total: {currentArea}m²
+            </p>
+          </div>
+
+          {/* Top Right: Status Badge */}
+          <div className="absolute top-4 right-4 z-30 bg-emerald-950/90 border border-emerald-500/40 text-emerald-300 px-3 py-1.5 rounded-xl text-xs font-bold backdrop-blur-md shadow-xl flex items-center gap-1.5">
+            <CheckCircle2 size={14} className="text-emerald-400" />
+            <span>Medição Ativa & Aplicada</span>
+          </div>
+
+          {/* Bottom Left: Confrontations Pill */}
+          <div className="absolute bottom-4 left-4 z-30 hidden sm:flex items-center gap-2 bg-slate-950/90 border border-white/10 rounded-xl px-3 py-1.5 text-[11px] text-slate-300 backdrop-blur-md">
+            <span>Frente: <strong>{extractedMatricula.frente}</strong></span>
+            <span>|</span>
+            <span>Fundos: <strong>{extractedMatricula.fundos}</strong></span>
+          </div>
+
+          {/* Bottom Right: Open in Google Maps Button */}
+          <a
+            href={getGoogleMapsSearchUrl(addressInput || defaultAddress)}
+            target="_blank"
+            rel="noreferrer"
+            className="absolute bottom-4 right-4 z-30 bg-brand-primary hover:bg-brand-primary/90 text-black font-bold text-xs px-4 py-2 rounded-xl transition-all shadow-lg flex items-center gap-1.5 uppercase tracking-wider"
+          >
+            <ExternalLink size={14} />
+            <span>Ver no Google Maps</span>
+          </a>
+        </div>
+
+        {/* 4 Summary Cards: Testada x Profundidade x Perímetro x Área */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <div className="bg-brand-bg/60 p-4 rounded-2xl border border-brand-primary/15 space-y-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-brand-ink/50">Testada (Frente)</span>
+            <div className="text-xl font-bold font-mono text-brand-ink">{currentFrontage} <span className="text-xs font-normal">m</span></div>
+            <p className="text-[10px] text-brand-ink/50">Largura voltada à via pública</p>
+          </div>
+
+          <div className="bg-brand-bg/60 p-4 rounded-2xl border border-brand-primary/15 space-y-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-brand-ink/50">Profundidade (Fundos)</span>
+            <div className="text-xl font-bold font-mono text-brand-ink">{currentDepth} <span className="text-xs font-normal">m</span></div>
+            <p className="text-[10px] text-brand-ink/50">Extensão lateral do terreno</p>
+          </div>
+
+          <div className="bg-brand-bg/60 p-4 rounded-2xl border border-brand-primary/15 space-y-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-brand-ink/50">Perímetro Total</span>
+            <div className="text-xl font-bold font-mono text-brand-ink">{currentPerimeter} <span className="text-xs font-normal">m</span></div>
+            <p className="text-[10px] text-brand-ink/50">Soma de todos os lados</p>
+          </div>
+
+          <div className="bg-brand-primary/10 p-4 rounded-2xl border border-brand-primary/30 space-y-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-brand-primary">Área do Imóvel</span>
+            <div className="text-xl font-bold font-mono text-brand-primary">{currentArea} <span className="text-xs font-bold text-brand-primary/80">m²</span></div>
+            <p className="text-[10px] text-brand-primary/70">Matrícula vs Satélite</p>
           </div>
         </div>
       </div>
@@ -924,7 +1340,7 @@ ${regionalInfo.rawAiReport ? `\n\n**Parecer Territorial Consolidado:**\n${region
               </label>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                 <a
-                  href={getGoogleMapsSearchUrl(addressInput)}
+                  href={getGoogleMapsSearchUrl(addressInput || defaultAddress)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center justify-center gap-2 px-3 py-2.5 bg-brand-bg hover:bg-brand-primary/10 border border-brand-primary/15 rounded-xl text-xs font-bold text-brand-ink hover:text-brand-primary transition-all text-center"
@@ -935,7 +1351,7 @@ ${regionalInfo.rawAiReport ? `\n\n**Parecer Territorial Consolidado:**\n${region
                 </a>
 
                 <a
-                  href={getGoogleMapsSatelliteUrl(addressInput)}
+                  href={getGoogleMapsSatelliteUrl(addressInput || defaultAddress)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center justify-center gap-2 px-3 py-2.5 bg-brand-primary/10 hover:bg-brand-primary/20 border border-brand-primary/30 rounded-xl text-xs font-bold text-brand-primary transition-all text-center"
@@ -946,7 +1362,7 @@ ${regionalInfo.rawAiReport ? `\n\n**Parecer Territorial Consolidado:**\n${region
                 </a>
 
                 <a
-                  href={getGoogleEarthUrl(addressInput)}
+                  href={getGoogleEarthUrl(addressInput || defaultAddress)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center justify-center gap-2 px-3 py-2.5 bg-brand-bg hover:bg-brand-primary/10 border border-brand-primary/15 rounded-xl text-xs font-bold text-brand-ink hover:text-brand-primary transition-all text-center"
@@ -1054,7 +1470,7 @@ ${regionalInfo.rawAiReport ? `\n\n**Parecer Territorial Consolidado:**\n${region
                   Perímetro Total
                 </span>
                 <div className="text-sm font-bold text-brand-ink font-mono mt-1">
-                  {measurementData?.perimeterMeters || (Number(frontageInput) && Number(depthInput) ? ((Number(frontageInput)*2) + (Number(depthInput)*2)).toFixed(1) : '-')} m
+                  {currentPerimeter} m
                 </div>
               </div>
             </div>

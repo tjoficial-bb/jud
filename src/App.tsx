@@ -11572,6 +11572,7 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
                   <RegionalIntelligenceMap
                     property={selectedProperty}
                     initialData={state.regionalData}
+                    matriculaAnalysis={state.matriculaAnalysis}
                     onSave={(data) => updateState({ regionalData: data })}
                     onAddToSummary={(text, title) => {
                       updateState({
