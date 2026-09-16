@@ -785,16 +785,55 @@ ${regionalInfo.rawAiReport ? `\n\n**Parecer Territorial Consolidado:**\n${region
                 <MapPin size={18} className="text-brand-primary" />
                 Localização & Link do Google Maps
               </h4>
-              <span className="text-[10px] font-bold px-2 py-0.5 bg-brand-primary/10 text-brand-primary rounded-full uppercase">
-                Gatilho Automático
-              </span>
+              <div className="flex items-center gap-2">
+                {(addressInput || mapsUrlInput || measurementData) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAddressInput('');
+                      setMapsUrlInput('');
+                      setMeasurementData(null);
+                      setMeasuredAreaInput('');
+                      setRegisteredAreaInput('');
+                      setFrontageInput('');
+                      setDepthInput('');
+                      setAreaNotes('');
+                      if ((window as any).customToast) {
+                        (window as any).customToast("Informações de localização e medição limpas.", "info");
+                      }
+                    }}
+                    className="text-[11px] font-bold text-rose-600 dark:text-rose-400 hover:bg-rose-500/10 px-2.5 py-1 rounded-lg border border-rose-500/20 transition-all flex items-center gap-1 cursor-pointer"
+                    title="Limpar todos os campos de endereço e medição"
+                  >
+                    <Trash2 size={12} />
+                    <span>Limpar Tudo</span>
+                  </button>
+                )}
+                <span className="text-[10px] font-bold px-2 py-0.5 bg-brand-primary/10 text-brand-primary rounded-full uppercase">
+                  Gatilho Automático
+                </span>
+              </div>
             </div>
 
             <div className="space-y-4">
               <div>
                 <label className="block text-[10px] font-bold uppercase tracking-widest text-brand-ink/60 mb-1.5 flex items-center justify-between">
                   <span>Endereço Completo do Imóvel</span>
-                  <span className="text-[9px] text-brand-primary font-normal">Mede automaticamente ao digitar</span>
+                  <div className="flex items-center gap-2">
+                    {addressInput && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAddressInput('');
+                          handleAddressOrUrlChange('', mapsUrlInput);
+                        }}
+                        className="text-[10px] text-brand-ink/50 hover:text-rose-500 font-bold underline"
+                      >
+                        Limpar endereço
+                      </button>
+                    )}
+                    <span className="text-[9px] text-brand-primary font-normal">Mede automaticamente ao digitar</span>
+                  </div>
                 </label>
                 <div className="relative">
                   <input
@@ -805,20 +844,49 @@ ${regionalInfo.rawAiReport ? `\n\n**Parecer Territorial Consolidado:**\n${region
                       handleAddressOrUrlChange(e.target.value, mapsUrlInput);
                     }}
                     placeholder="Ex: Rua das Palmeiras, 150 - Bairro Centro, São Paulo - SP"
-                    className="w-full bg-brand-bg border border-brand-primary/20 rounded-xl pl-4 pr-10 py-3 text-sm font-medium text-brand-ink focus:ring-2 focus:ring-brand-primary focus:outline-none"
+                    className="w-full bg-brand-bg border border-brand-primary/20 rounded-xl pl-4 pr-16 py-3 text-sm font-medium text-brand-ink focus:ring-2 focus:ring-brand-primary focus:outline-none"
                   />
-                  {measuringAuto && (
-                    <div className="absolute right-3 top-3.5 text-brand-primary animate-spin">
-                      <Loader2 size={16} />
-                    </div>
-                  )}
+                  <div className="absolute right-3 top-3 flex items-center gap-1.5">
+                    {addressInput && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAddressInput('');
+                          handleAddressOrUrlChange('', mapsUrlInput);
+                        }}
+                        className="p-1 text-brand-ink/40 hover:text-brand-ink rounded"
+                        title="Limpar endereço"
+                      >
+                        <X size={14} />
+                      </button>
+                    )}
+                    {measuringAuto && (
+                      <div className="text-brand-primary animate-spin">
+                        <Loader2 size={16} />
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 
               <div>
                 <label className="block text-[10px] font-bold uppercase tracking-widest text-brand-ink/60 mb-1.5 flex items-center justify-between">
                   <span>Link do Google Maps (Cole a URL)</span>
-                  <span className="text-[9px] text-brand-primary font-normal">Extrai coordenadas e lote na hora</span>
+                  <div className="flex items-center gap-2">
+                    {mapsUrlInput && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setMapsUrlInput('');
+                          handleAddressOrUrlChange(addressInput, '');
+                        }}
+                        className="text-[10px] text-brand-ink/50 hover:text-rose-500 font-bold underline"
+                      >
+                        Limpar link
+                      </button>
+                    )}
+                    <span className="text-[9px] text-brand-primary font-normal">Extrai coordenadas e lote na hora</span>
+                  </div>
                 </label>
                 <div className="relative">
                   <input
@@ -829,14 +897,20 @@ ${regionalInfo.rawAiReport ? `\n\n**Parecer Territorial Consolidado:**\n${region
                       handleAddressOrUrlChange(addressInput, e.target.value);
                     }}
                     placeholder="Cole aqui o link do Google Maps (ex: https://maps.app.goo.gl/...)"
-                    className="w-full bg-brand-bg border border-brand-primary/20 rounded-xl pl-4 pr-10 py-3 text-sm font-medium text-brand-ink focus:ring-2 focus:ring-brand-primary focus:outline-none font-mono text-xs"
+                    className="w-full bg-brand-bg border border-brand-primary/20 rounded-xl pl-4 pr-16 py-3 text-sm font-medium text-brand-ink focus:ring-2 focus:ring-brand-primary focus:outline-none font-mono text-xs"
                   />
                   {mapsUrlInput && (
                     <button
-                      onClick={() => setMapsUrlInput('')}
-                      className="absolute right-3 top-3 text-[10px] text-brand-ink/40 hover:text-brand-ink"
+                      type="button"
+                      onClick={() => {
+                        setMapsUrlInput('');
+                        handleAddressOrUrlChange(addressInput, '');
+                      }}
+                      className="absolute right-3 top-3 p-1 text-brand-ink/40 hover:text-brand-ink rounded flex items-center gap-1 text-[10px]"
+                      title="Limpar link"
                     >
-                      Limpar
+                      <X size={14} />
+                      <span>Limpar</span>
                     </button>
                   )}
                 </div>

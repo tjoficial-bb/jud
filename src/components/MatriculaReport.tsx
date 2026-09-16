@@ -189,6 +189,12 @@ export const MatriculaReport: React.FC<MatriculaReportProps> = ({
 
   const [copiedRaw, setCopiedRaw] = useState(false);
   const [copiedData, setCopiedData] = useState<string | null>(null);
+  const [copiedAtoIdx, setCopiedAtoIdx] = useState<number | null>(null);
+
+  // Cadeia Registral UI controls
+  const [cadeiaFilter, setCadeiaFilter] = useState<'all' | 'R' | 'AV' | 'gravames' | 'vendas'>('all');
+  const [cadeiaSearchQuery, setCadeiaSearchQuery] = useState('');
+  const [cadeiaViewMode, setCadeiaViewMode] = useState<'cards' | 'table' | 'timeline'>('timeline');
 
   // Estados Interativos para as melhorias inteligentes sugeridas
   const [customBid, setCustomBid] = useState<number>(bidValue || (valuation ? valuation * 0.5 : 150000));
@@ -813,33 +819,369 @@ export const MatriculaReport: React.FC<MatriculaReportProps> = ({
             {/* Sec: Cadeia registral */}
             <AccordionSection 
               id="cadeia" 
-              title="Cadeia registral (sequência de atos)" 
+              title="Cadeia registral (sequência exaustiva de atos R- e AV-)" 
               icon={<Layers size={18} className="text-orange-500" />} 
               isOpen={accordionState.cadeia} 
               onToggle={() => toggleAccordion('cadeia')}
             >
               {data.cadeia_registral && data.cadeia_registral.length > 0 ? (
-                <div className="space-y-4 font-sans">
-                  {data.cadeia_registral.map((ato, idx) => (
-                    <div key={idx} className="bg-brand-bg/20 rounded-2xl border border-brand-border/50 p-4 relative space-y-2.5">
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10px] font-bold px-2 py-0.5 bg-brand-primary/10 text-brand-primary border border-brand-primary/10 rounded-md tracking-wider">{ato.tipo}</span>
-                          {ato.data && <span className="text-[11px] text-brand-ink/40 font-mono">{ato.data}</span>}
+                (() => {
+                  const atos = data.cadeia_registral;
+                  const totalR = atos.filter(a => (a.tipo || '').toUpperCase().startsWith('R') || (a.natureza || '').toLowerCase().includes('registro') || (a.natureza || '').toLowerCase().includes('venda')).length;
+                  const totalAV = atos.filter(a => (a.tipo || '').toUpperCase().startsWith('AV') || (a.natureza || '').toLowerCase().includes('averba')).length;
+                  const totalGravames = atos.filter(a => {
+                    const nat = (a.natureza || a.descricao || '').toLowerCase();
+                    return nat.includes('penhora') || nat.includes('hipoteca') || nat.includes('indisponib') || nat.includes('aliena') || nat.includes('bloqueio') || nat.includes('gravame');
+                  }).length;
+                  const totalVendas = atos.filter(a => {
+                    const nat = (a.natureza || a.descricao || '').toLowerCase();
+                    return nat.includes('compra e venda') || nat.includes('venda') || nat.includes('arremata') || nat.includes('adjudica');
+                  }).length;
+
+                  // Filtered list based on search and selected filter tab
+                  const filteredAtos = atos.filter((ato, idx) => {
+                    const typeUpper = (ato.tipo || '').toUpperCase();
+                    const natLower = (ato.natureza || '').toLowerCase();
+                    const descLower = (ato.descricao || '').toLowerCase();
+                    const partesLower = (ato.partes || '').toLowerCase();
+                    const q = cadeiaSearchQuery.toLowerCase().trim();
+
+                    // Tab filter
+                    if (cadeiaFilter === 'R' && !typeUpper.startsWith('R')) return false;
+                    if (cadeiaFilter === 'AV' && !typeUpper.startsWith('AV')) return false;
+                    if (cadeiaFilter === 'gravames') {
+                      const isGrav = natLower.includes('penhora') || natLower.includes('hipoteca') || natLower.includes('indisponib') || natLower.includes('aliena') || natLower.includes('gravame') || descLower.includes('penhora') || descLower.includes('aliena');
+                      if (!isGrav) return false;
+                    }
+                    if (cadeiaFilter === 'vendas') {
+                      const isVenda = natLower.includes('venda') || descLower.includes('venda') || natLower.includes('arremata') || descLower.includes('arremata');
+                      if (!isVenda) return false;
+                    }
+
+                    // Query filter
+                    if (q) {
+                      const matchType = typeUpper.includes(q);
+                      const matchDesc = descLower.includes(q);
+                      const matchPartes = partesLower.includes(q);
+                      const matchNat = natLower.includes(q);
+                      const matchData = (ato.data || '').toLowerCase().includes(q);
+                      const matchVal = (ato.valor || '').toLowerCase().includes(q);
+                      if (!matchType && !matchDesc && !matchPartes && !matchNat && !matchData && !matchVal) {
+                        return false;
+                      }
+                    }
+
+                    return true;
+                  });
+
+                  const copyAtoText = (ato: MatriculaAto, idx: number) => {
+                    const txt = `[${ato.tipo || 'Ato'}] Data: ${ato.data || 'N/I'} | Natureza: ${ato.natureza || 'Ato'} | Valor: ${ato.valor || 'N/C'}\nDescrição: ${ato.descricao || ''}\nPartes: ${ato.partes || 'Não qualificadas'}\nImpacto: ${ato.impacto || ''}`;
+                    navigator.clipboard.writeText(txt);
+                    setCopiedAtoIdx(idx);
+                    setTimeout(() => setCopiedAtoIdx(null), 2000);
+                  };
+
+                  return (
+                    <div className="space-y-4 font-sans">
+                      {/* Cadeia Header Bar: Metrics & Controls */}
+                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-brand-bg/40 p-3.5 rounded-2xl border border-brand-border/40">
+                        {/* Filter Tabs */}
+                        <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                          <button
+                            type="button"
+                            onClick={() => setCadeiaFilter('all')}
+                            className={`px-2.5 py-1 rounded-lg font-bold transition-all ${
+                              cadeiaFilter === 'all'
+                                ? 'bg-brand-primary text-black shadow-xs'
+                                : 'bg-brand-bg/60 text-brand-ink/70 hover:text-brand-ink'
+                            }`}
+                          >
+                            Todos ({atos.length})
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setCadeiaFilter('R')}
+                            className={`px-2.5 py-1 rounded-lg font-bold transition-all ${
+                              cadeiaFilter === 'R'
+                                ? 'bg-emerald-500 text-white shadow-xs'
+                                : 'bg-brand-bg/60 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10'
+                            }`}
+                          >
+                            Registros R- ({totalR})
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setCadeiaFilter('AV')}
+                            className={`px-2.5 py-1 rounded-lg font-bold transition-all ${
+                              cadeiaFilter === 'AV'
+                                ? 'bg-amber-500 text-black shadow-xs'
+                                : 'bg-brand-bg/60 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10'
+                            }`}
+                          >
+                            Averbações AV- ({totalAV})
+                          </button>
+                          {totalGravames > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => setCadeiaFilter('gravames')}
+                              className={`px-2.5 py-1 rounded-lg font-bold transition-all ${
+                                cadeiaFilter === 'gravames'
+                                  ? 'bg-rose-500 text-white shadow-xs'
+                                  : 'bg-brand-bg/60 text-rose-600 dark:text-rose-400 hover:bg-rose-500/10'
+                              }`}
+                            >
+                              Gravames & Ônus ({totalGravames})
+                            </button>
+                          )}
+                          {totalVendas > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => setCadeiaFilter('vendas')}
+                              className={`px-2.5 py-1 rounded-lg font-bold transition-all ${
+                                cadeiaFilter === 'vendas'
+                                  ? 'bg-blue-600 text-white shadow-xs'
+                                  : 'bg-brand-bg/60 text-blue-600 dark:text-blue-400 hover:bg-blue-500/10'
+                              }`}
+                            >
+                              Vendas ({totalVendas})
+                            </button>
+                          )}
                         </div>
-                        {ato.valor && (
-                          <span className="text-sm font-bold text-emerald-500 font-mono tracking-tight">{ato.valor}</span>
-                        )}
+
+                        {/* Search & View Mode Switcher */}
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="text"
+                            value={cadeiaSearchQuery}
+                            onChange={(e) => setCadeiaSearchQuery(e.target.value)}
+                            placeholder="Buscar ato, parte, data ou CPF..."
+                            className="bg-brand-bg border border-brand-border rounded-xl px-3 py-1.5 text-xs text-brand-ink focus:outline-none focus:border-brand-primary w-full md:w-56"
+                          />
+
+                          <div className="flex items-center bg-brand-bg border border-brand-border rounded-xl p-0.5 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => setCadeiaViewMode('timeline')}
+                              className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all ${
+                                cadeiaViewMode === 'timeline' ? 'bg-brand-primary/20 text-brand-primary' : 'text-brand-ink/50 hover:text-brand-ink'
+                              }`}
+                              title="Visualizar em Linha do Tempo"
+                            >
+                              Timeline
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setCadeiaViewMode('cards')}
+                              className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all ${
+                                cadeiaViewMode === 'cards' ? 'bg-brand-primary/20 text-brand-primary' : 'text-brand-ink/50 hover:text-brand-ink'
+                              }`}
+                              title="Visualizar em Cards"
+                            >
+                              Cards
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setCadeiaViewMode('table')}
+                              className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all ${
+                                cadeiaViewMode === 'table' ? 'bg-brand-primary/20 text-brand-primary' : 'text-brand-ink/50 hover:text-brand-ink'
+                              }`}
+                              title="Visualizar em Tabela Cronológica"
+                            >
+                              Tabela
+                            </button>
+                          </div>
+                        </div>
                       </div>
-                      <div className="text-xs space-y-1 shadow-none">
-                        {ato.descricao && <p className="font-bold text-brand-ink text-[13px]">{ato.descricao}</p>}
-                        {ato.partes && <p className="text-brand-ink/75"><span className="font-semibold text-brand-ink/60">Partes:</span> {ato.partes}</p>}
-                        {ato.natureza && <p className="text-brand-ink/75"><span className="font-semibold text-brand-ink/60">Natureza:</span> {ato.natureza}</p>}
-                        {ato.impacto && <p className="text-brand-ink/75"><span className="font-semibold text-brand-ink/60 font-sans">Impacto:</span> {ato.impacto}</p>}
-                      </div>
+
+                      {/* Display message if search yields no results */}
+                      {filteredAtos.length === 0 && (
+                        <div className="text-center py-6 text-xs text-brand-ink/50 bg-brand-bg/10 rounded-2xl border border-brand-border/30">
+                          Nenhum ato registral corresponde ao filtro ou busca selecionada.
+                        </div>
+                      )}
+
+                      {/* VIEW 1: TABLE MODE */}
+                      {cadeiaViewMode === 'table' && filteredAtos.length > 0 && (
+                        <div className="overflow-x-auto rounded-2xl border border-brand-border/50">
+                          <table className="w-full text-left text-xs">
+                            <thead className="bg-brand-bg/60 border-b border-brand-border/50 text-[10px] font-bold uppercase tracking-wider text-brand-ink/60">
+                              <tr>
+                                <th className="p-3">Ato / Código</th>
+                                <th className="p-3">Data</th>
+                                <th className="p-3">Natureza Jurídica</th>
+                                <th className="p-3">Partes Envolvidas</th>
+                                <th className="p-3">Valor</th>
+                                <th className="p-3">Descrição Resumida</th>
+                                <th className="p-3 text-right">Ação</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-brand-border/30">
+                              {filteredAtos.map((ato, idx) => {
+                                const isR = (ato.tipo || '').toUpperCase().startsWith('R');
+                                const isGrav = (ato.natureza || '').toLowerCase().includes('penhora') || (ato.natureza || '').toLowerCase().includes('indisponib') || (ato.natureza || '').toLowerCase().includes('aliena');
+                                return (
+                                  <tr key={idx} className="hover:bg-brand-bg/30 transition-colors">
+                                    <td className="p-3 whitespace-nowrap">
+                                      <span className={`font-mono font-bold px-2 py-0.5 rounded text-[11px] ${
+                                        isR ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20' :
+                                        isGrav ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20' :
+                                        'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20'
+                                      }`}>
+                                        {ato.tipo}
+                                      </span>
+                                    </td>
+                                    <td className="p-3 whitespace-nowrap font-mono text-[11px] text-brand-ink/70">
+                                      {ato.data || 'Registrado'}
+                                    </td>
+                                    <td className="p-3 font-semibold text-brand-ink">
+                                      {ato.natureza || (isR ? 'Registro' : 'Averbação')}
+                                    </td>
+                                    <td className="p-3 text-brand-ink/80 max-w-xs truncate" title={ato.partes}>
+                                      {ato.partes || 'Não especificado'}
+                                    </td>
+                                    <td className="p-3 whitespace-nowrap font-mono font-bold text-emerald-500">
+                                      {ato.valor || '—'}
+                                    </td>
+                                    <td className="p-3 text-brand-ink/75 max-w-sm truncate" title={ato.descricao}>
+                                      {ato.descricao || '—'}
+                                    </td>
+                                    <td className="p-3 text-right whitespace-nowrap">
+                                      <button
+                                        type="button"
+                                        onClick={() => copyAtoText(ato, idx)}
+                                        className="p-1.5 hover:bg-brand-primary/10 rounded-lg text-brand-ink/50 hover:text-brand-primary transition-all inline-flex items-center gap-1 text-[10px]"
+                                        title="Copiar dados do ato"
+                                      >
+                                        {copiedAtoIdx === idx ? <Check size={13} className="text-emerald-500" /> : <Copy size={13} />}
+                                      </button>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+
+                      {/* VIEW 2: TIMELINE MODE */}
+                      {cadeiaViewMode === 'timeline' && filteredAtos.length > 0 && (
+                        <div className="relative pl-6 space-y-6 before:content-[''] before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-brand-border/60">
+                          {filteredAtos.map((ato, idx) => {
+                            const isR = (ato.tipo || '').toUpperCase().startsWith('R');
+                            const isGrav = (ato.natureza || '').toLowerCase().includes('penhora') || (ato.natureza || '').toLowerCase().includes('indisponib') || (ato.natureza || '').toLowerCase().includes('aliena');
+                            
+                            return (
+                              <div key={idx} className="relative group">
+                                {/* Bullet indicator on the timeline line */}
+                                <div className={`absolute -left-6 top-1.5 w-5 h-5 rounded-full border-2 flex items-center justify-center text-[9px] font-bold shadow-xs ${
+                                  isR ? 'bg-emerald-500 border-emerald-200 text-white' :
+                                  isGrav ? 'bg-rose-500 border-rose-200 text-white' :
+                                  'bg-amber-500 border-amber-200 text-black'
+                                }`}>
+                                  {isR ? 'R' : 'AV'}
+                                </div>
+
+                                <div className={`bg-brand-bg/20 hover:bg-brand-bg/35 transition-all rounded-2xl border p-4 space-y-2.5 ${
+                                  isGrav ? 'border-rose-500/30 bg-rose-500/[0.02]' :
+                                  isR ? 'border-emerald-500/30 bg-emerald-500/[0.02]' :
+                                  'border-brand-border/50'
+                                }`}>
+                                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 border-b border-brand-border/30 pb-2">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <span className={`text-[11px] font-mono font-bold px-2 py-0.5 rounded-md tracking-wider border ${
+                                        isR ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20' :
+                                        isGrav ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20' :
+                                        'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20'
+                                      }`}>
+                                        {ato.tipo}
+                                      </span>
+                                      <span className="text-xs font-bold text-brand-ink">{ato.natureza || (isR ? 'Registro Imobiliário' : 'Averbação')}</span>
+                                      {ato.data && (
+                                        <span className="text-[11px] text-brand-ink/50 font-mono bg-brand-bg/60 px-2 py-0.5 rounded-md border border-brand-border/40">
+                                          📅 {ato.data}
+                                        </span>
+                                      )}
+                                    </div>
+
+                                    <div className="flex items-center gap-2">
+                                      {ato.valor && (
+                                        <span className="text-sm font-bold text-emerald-500 font-mono tracking-tight bg-emerald-500/10 px-2.5 py-0.5 rounded-md">
+                                          {ato.valor}
+                                        </span>
+                                      )}
+                                      <button
+                                        type="button"
+                                        onClick={() => copyAtoText(ato, idx)}
+                                        className="p-1 text-brand-ink/40 hover:text-brand-primary transition-all"
+                                        title="Copiar ato"
+                                      >
+                                        {copiedAtoIdx === idx ? <Check size={14} className="text-emerald-500" /> : <Copy size={14} />}
+                                      </button>
+                                    </div>
+                                  </div>
+
+                                  <div className="text-xs space-y-1.5">
+                                    {ato.descricao && <p className="text-brand-ink leading-relaxed font-medium">{ato.descricao}</p>}
+                                    {ato.partes && (
+                                      <div className="p-2 bg-brand-bg/40 rounded-xl border border-brand-border/30 text-brand-ink/80 text-[11.5px]">
+                                        <span className="font-bold text-brand-ink/60 uppercase text-[10px] tracking-wider block mb-0.5">Partes Envolvidas / Qualificação:</span>
+                                        {ato.partes}
+                                      </div>
+                                    )}
+                                    {ato.impacto && (
+                                      <p className="text-[11px] text-brand-ink/60 flex items-center gap-1 pt-1">
+                                        <span className="font-bold text-brand-primary">Impacto no Leilão:</span> {ato.impacto}
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      {/* VIEW 3: CARDS MODE */}
+                      {cadeiaViewMode === 'cards' && filteredAtos.length > 0 && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          {filteredAtos.map((ato, idx) => {
+                            const isR = (ato.tipo || '').toUpperCase().startsWith('R');
+                            const isGrav = (ato.natureza || '').toLowerCase().includes('penhora') || (ato.natureza || '').toLowerCase().includes('indisponib') || (ato.natureza || '').toLowerCase().includes('aliena');
+                            
+                            return (
+                              <div key={idx} className={`bg-brand-bg/20 rounded-2xl border p-4 space-y-2.5 flex flex-col justify-between ${
+                                isGrav ? 'border-rose-500/30' : isR ? 'border-emerald-500/30' : 'border-brand-border/50'
+                              }`}>
+                                <div className="space-y-2">
+                                  <div className="flex items-center justify-between gap-1">
+                                    <div className="flex items-center gap-1.5">
+                                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md font-mono ${
+                                        isR ? 'bg-emerald-500/10 text-emerald-600' : 'bg-amber-500/10 text-amber-600'
+                                      }`}>
+                                        {ato.tipo}
+                                      </span>
+                                      {ato.data && <span className="text-[11px] text-brand-ink/50 font-mono">{ato.data}</span>}
+                                    </div>
+                                    {ato.valor && (
+                                      <span className="text-xs font-bold text-emerald-500 font-mono">{ato.valor}</span>
+                                    )}
+                                  </div>
+                                  <h5 className="font-bold text-brand-ink text-xs">{ato.natureza || ato.descricao}</h5>
+                                  {ato.descricao && <p className="text-xs text-brand-ink/75 line-clamp-3">{ato.descricao}</p>}
+                                </div>
+                                {ato.partes && (
+                                  <div className="pt-2 border-t border-brand-border/30 text-[11px] text-brand-ink/65 truncate" title={ato.partes}>
+                                    <span className="font-semibold">Partes:</span> {ato.partes}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
-                  ))}
-                </div>
+                  );
+                })()
               ) : <NoData />}
             </AccordionSection>
 
@@ -1731,6 +2073,41 @@ function parseHeuristics(
         data: dateMatch ? dateMatch[0] : 'Averbado',
         valor: valMatch ? valMatch[0] : undefined,
         descricao: atoBody.replace(/\*\*/g, ''),
+        partes: partyMatch ? partyMatch[1].trim() : undefined,
+        natureza,
+        impacto: 'Constante da Certidão'
+      });
+    }
+
+    // 8.4 Deep paragraph scan for R.X/AV.X pattern in free-flowing text
+    const paragraphAtoRegex = /(?:^|\n\n|\.\s+)(R\.?\s*\d+(?:\/[\d\.\-]+)?|AV\.?\s*\d+(?:\/[\d\.\-]+)?)\s*[:\-\–\—\.]?\s*([^\n\r]{20,400})/gi;
+    let pMatch;
+    while ((pMatch = paragraphAtoRegex.exec(text)) !== null) {
+      const rawCode = pMatch[1].trim().toUpperCase().replace(/\s+/g, '');
+      const atoCode = rawCode.startsWith('R') && !rawCode.startsWith('R-') && !rawCode.startsWith('R.') ? `R-${rawCode.slice(1)}` : rawCode;
+      const atoBody = pMatch[2].trim();
+
+      if (extractedAtos.some(a => a.tipo === atoCode || a.tipo === rawCode)) continue;
+
+      const dateMatch = atoBody.match(/\d{2}[\/\.\-]\d{2}[\/\.\-]\d{4}/) || atoBody.match(/(?:em|data|de)\s+(\d{1,2}\s+de\s+[a-zçãõ]+\s+de\s+\d{4})/i);
+      const valMatch = atoBody.match(/R\$\s*[\d\.\,]+/);
+      const partyMatch = atoBody.match(/(?:adquirente|comprador|vendedor|transmitente|credor|devedor|fiduciante|fiduciário)[\s:]+([^;\.\n]+)/i);
+
+      let natureza = atoCode.startsWith('R') ? 'Registro Imobiliário' : 'Averbação';
+      const bodyLower = atoBody.toLowerCase();
+      if (bodyLower.includes('compra e venda')) natureza = 'Compra e Venda';
+      else if (bodyLower.includes('alienação fiduciária') || bodyLower.includes('alienacao fiduciaria')) natureza = 'Alienação Fiduciária';
+      else if (bodyLower.includes('penhora')) natureza = 'Penhora Judicial';
+      else if (bodyLower.includes('hipoteca')) natureza = 'Hipoteca';
+      else if (bodyLower.includes('indisponibilidade')) natureza = 'Indisponibilidade de Bens';
+      else if (bodyLower.includes('consolidação') || bodyLower.includes('consolidacao')) natureza = 'Consolidação de Propriedade';
+      else if (bodyLower.includes('cancelamento')) natureza = 'Cancelamento de Gravame';
+
+      extractedAtos.push({
+        tipo: atoCode,
+        data: dateMatch ? (typeof dateMatch[0] === 'string' ? dateMatch[0] : 'Averbado') : 'Averbado',
+        valor: valMatch ? valMatch[0] : undefined,
+        descricao: atoBody.replace(/\*\*/g, '').slice(0, 200),
         partes: partyMatch ? partyMatch[1].trim() : undefined,
         natureza,
         impacto: 'Constante da Certidão'

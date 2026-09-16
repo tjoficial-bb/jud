@@ -160,7 +160,8 @@ export const MatriculaMeasurementCard: React.FC<MatriculaMeasurementCardProps> =
   const [generatedImageUrl, setGeneratedImageUrl] = useState<string | null>(null);
   const [copiedLink, setCopiedLink] = useState(false);
   const [confirmedStatus, setConfirmedStatus] = useState<'Confirmado' | 'Pendente' | 'Divergente'>(initialValues.statusConfirmacao || 'Confirmado');
-  const [viewStyle, setViewStyle] = useState<'blueprint' | 'satellite'>('blueprint');
+  const [viewStyle, setViewStyle] = useState<'blueprint' | 'satellite' | 'earth3d'>('satellite');
+  const [satelliteZoom, setSatelliteZoom] = useState<number>(19);
 
   const svgRef = useRef<SVGSVGElement>(null);
 
@@ -603,156 +604,274 @@ export const MatriculaMeasurementCard: React.FC<MatriculaMeasurementCardProps> =
 
       {/* Main Visual Layout: Technical Blueprint Vector Diagram + Confrontation Specs */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
-        {/* Left: Vector Cartographic Blueprint Canvas */}
-        <div className="lg:col-span-7 bg-[#0b1120] rounded-2xl border border-slate-800 p-4 sm:p-5 relative overflow-hidden flex flex-col justify-between min-h-[380px] shadow-inner">
-          {/* Blueprint Grid Watermark Background */}
-          <div className="absolute inset-0 bg-[linear-gradient(to_right,#1e293b_1px,transparent_1px),linear-gradient(to_bottom,#1e293b_1px,transparent_1px)] bg-[size:24px_24px] opacity-40 pointer-events-none" />
+        {/* Left: Vector Cartographic Blueprint or Real Satellite Map Canvas */}
+        <div className="lg:col-span-7 bg-[#0b1120] rounded-2xl border border-slate-800 p-4 sm:p-5 relative overflow-hidden flex flex-col justify-between min-h-[440px] shadow-inner">
+          {/* Blueprint Grid Watermark Background (active in blueprint mode) */}
+          {viewStyle === 'blueprint' && (
+            <div className="absolute inset-0 bg-[linear-gradient(to_right,#1e293b_1px,transparent_1px),linear-gradient(to_bottom,#1e293b_1px,transparent_1px)] bg-[size:24px_24px] opacity-40 pointer-events-none" />
+          )}
 
-          {/* Top Stamp Bar */}
-          <div className="relative z-10 flex items-center justify-between border-b border-slate-800/80 pb-3 text-slate-300">
+          {/* Top Stamp Bar & Visual Mode Switcher */}
+          <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800/80 pb-3 text-slate-300">
             <div className="flex items-center gap-2">
               <Compass className="text-amber-400 animate-pulse" size={16} />
               <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-amber-400">
-                Planta Cadastral Perimetral
+                {viewStyle === 'blueprint' ? 'Planta Cadastral Perimetral' : viewStyle === 'satellite' ? 'Satélite HD Real & Medição' : 'Google Earth 3D'}
               </span>
             </div>
-            <div className="text-[10px] font-mono text-slate-400 flex items-center gap-2">
-              <span>Matrícula: {formData.numeroMatricula || 'S/N'}</span>
-              <span>•</span>
-              <span>IPTU: {formData.inscricaoMunicipal || 'N/I'}</span>
+
+            {/* View Mode Switcher Pills */}
+            <div className="flex items-center bg-slate-900/90 border border-slate-700/80 rounded-xl p-1 gap-1">
+              <button
+                type="button"
+                onClick={() => setViewStyle('satellite')}
+                className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all ${
+                  viewStyle === 'satellite' ? 'bg-amber-500 text-black shadow-xs' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                🛰️ Satélite Real
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewStyle('blueprint')}
+                className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all ${
+                  viewStyle === 'blueprint' ? 'bg-amber-500 text-black shadow-xs' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                📐 Planta CAD
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewStyle('earth3d')}
+                className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all ${
+                  viewStyle === 'earth3d' ? 'bg-amber-500 text-black shadow-xs' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                🌍 Earth 3D
+              </button>
             </div>
           </div>
 
-          {/* SVG Diagram Canvas */}
-          <div className="relative z-10 flex-1 flex items-center justify-center py-4">
-            <svg
-              ref={svgRef}
-              viewBox="0 0 700 450"
-              className="w-full h-auto max-h-[320px] select-none filter drop-shadow-md"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <defs>
-                <linearGradient id="lotGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="#f59e0b" stopOpacity="0.25" />
-                  <stop offset="100%" stopColor="#d97706" stopOpacity="0.08" />
-                </linearGradient>
-                <linearGradient id="builtGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="#38bdf8" stopOpacity="0.3" />
-                  <stop offset="100%" stopColor="#0284c7" stopOpacity="0.1" />
-                </linearGradient>
-                <marker id="arrow" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-                  <path d="M 0 1.5 L 10 5 L 0 8.5 z" fill="#f59e0b" />
-                </marker>
-                <marker id="arrowBlue" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-                  <path d="M 0 1.5 L 10 5 L 0 8.5 z" fill="#38bdf8" />
-                </marker>
-              </defs>
-
-              {/* North Arrow Compass in top-right */}
-              <g transform="translate(630, 45)">
-                <circle cx="0" cy="0" r="22" fill="#1e293b" stroke="#334155" strokeWidth="1.5" />
-                <path d="M 0 -16 L 6 0 L 0 -4 L -6 0 Z" fill="#ef4444" />
-                <path d="M 0 16 L 6 0 L 0 4 L -6 0 Z" fill="#94a3b8" />
-                <text x="0" y="-19" fill="#ef4444" fontSize="10" fontWeight="bold" textAnchor="middle" fontFamily="sans-serif">N</text>
-              </g>
-
-              {/* Surrounding Boundary Lines & Street Label */}
-              {/* Front Street representation */}
-              <rect x="120" y="370" width="460" height="40" fill="#1e293b" stroke="#334155" strokeDasharray="4 4" rx="4" />
-              <text x="350" y="395" fill="#94a3b8" fontSize="12" fontWeight="600" textAnchor="middle" fontFamily="sans-serif">
-                🛣️ {formData.confrontacaoFrente || 'Logradouro / Via Pública (Frente)'}
-              </text>
-
-              {/* The Lot Polygon */}
-              <polygon
-                points="180,80 520,80 520,350 180,350"
-                fill="url(#lotGrad)"
-                stroke="#f59e0b"
-                strokeWidth="2.5"
-                strokeLinejoin="round"
+          {/* SATELLITE REAL MODE */}
+          {viewStyle === 'satellite' && (
+            <div className="relative z-10 flex-1 my-3 rounded-xl overflow-hidden border border-slate-700/80 bg-slate-950 flex flex-col min-h-[300px]">
+              <iframe
+                title="Google Maps Satellite View"
+                src={`https://maps.google.com/maps?q=${encodeURIComponent((formData.endereco || propertyAddress || '') + (propertyCity ? `, ${propertyCity}` : ''))}&t=k&z=${satelliteZoom}&output=embed`}
+                className="w-full flex-1 border-0 min-h-[280px]"
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
               />
 
-              {/* Built area projection (inner footprint) */}
-              <polygon
-                points="220,130 480,130 480,300 220,300"
-                fill="url(#builtGrad)"
-                stroke="#38bdf8"
-                strokeWidth="1.5"
-                strokeDasharray="5 3"
-              />
-              <text x="350" y="210" fill="#38bdf8" fontSize="11" fontWeight="bold" textAnchor="middle" fontFamily="sans-serif">
-                Projeção Construída (~{formData.areaConstruidaEstimada || 0} m²)
-              </text>
+              {/* HUD Measurement Overlay on top of Satellite */}
+              <div className="absolute top-3 left-3 bg-slate-900/90 backdrop-blur-md border border-amber-500/40 rounded-xl p-2.5 text-xs text-slate-200 shadow-xl space-y-1">
+                <div className="flex items-center gap-2 border-b border-slate-700/60 pb-1">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+                  <span className="font-bold font-mono text-[11px] text-amber-400">
+                    ÁREA: {formData.areaMedida || formData.areaRegistrada || 0} m²
+                  </span>
+                </div>
+                <div className="text-[10px] font-mono grid grid-cols-2 gap-x-3 text-slate-300">
+                  <span>Frente: {formData.testadaFrente || 0}m</span>
+                  <span>Fundos: {formData.profundidadeFundos || 0}m</span>
+                  <span>Perímetro: {formData.perimetro || 0}m</span>
+                  <span>Projeção: ~{formData.areaConstruidaEstimada || 0}m²</span>
+                </div>
+              </div>
 
-              {/* Lot Center Info Tag */}
-              <g transform="translate(350, 240)">
-                <rect x="-85" y="-16" width="170" height="32" rx="16" fill="#0f172a" stroke="#f59e0b" strokeWidth="1.5" />
-                <text x="0" y="5" fill="#f8fafc" fontSize="13" fontWeight="bold" textAnchor="middle" fontFamily="monospace">
-                  ÁREA: {formData.areaMedida || formData.areaRegistrada || 0} m²
+              {/* Zoom and Satellite Control Strip */}
+              <div className="absolute bottom-3 right-3 flex items-center gap-1.5 bg-slate-900/90 backdrop-blur-md border border-slate-700 rounded-xl p-1 shadow-lg">
+                <button
+                  type="button"
+                  onClick={() => setSatelliteZoom(prev => Math.min(prev + 1, 21))}
+                  className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-white rounded text-xs font-bold font-mono"
+                  title="Aumentar Zoom Satélite"
+                >
+                  +
+                </button>
+                <span className="text-[10px] font-mono text-slate-400 px-1">Z{satelliteZoom}</span>
+                <button
+                  type="button"
+                  onClick={() => setSatelliteZoom(prev => Math.max(prev - 1, 15))}
+                  className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-white rounded text-xs font-bold font-mono"
+                  title="Diminuir Zoom Satélite"
+                >
+                  -
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* EARTH 3D MODE */}
+          {viewStyle === 'earth3d' && (
+            <div className="relative z-10 flex-1 my-3 rounded-xl overflow-hidden border border-slate-700/80 bg-slate-950 flex flex-col items-center justify-center p-6 text-center space-y-4 min-h-[300px]">
+              <div className="w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400">
+                <Compass size={28} className="animate-spin-slow" />
+              </div>
+              <div className="space-y-1 max-w-md">
+                <h5 className="text-sm font-bold text-slate-100">Visualização & Voo 3D no Google Earth</h5>
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  Explore a topografia real, relevo tridimensional e vizinhança do imóvel localizado em <span className="text-amber-400 font-medium">{formData.endereco || propertyAddress || 'imóvel'}</span>.
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
+                <a
+                  href={`https://earth.google.com/web/search/${encodeURIComponent((formData.endereco || propertyAddress || '') + (propertyCity ? `, ${propertyCity}` : ''))}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-black font-bold text-xs rounded-xl transition-all flex items-center gap-1.5 shadow-md"
+                >
+                  <ArrowUpRight size={14} />
+                  <span>Abrir no Google Earth 3D</span>
+                </a>
+
+                <a
+                  href={`https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${encodeURIComponent((formData.endereco || propertyAddress || '') + (propertyCity ? `, ${propertyCity}` : ''))}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs rounded-xl border border-slate-700 transition-all flex items-center gap-1.5"
+                >
+                  <span>👁️ Street View 360º</span>
+                </a>
+              </div>
+            </div>
+          )}
+
+          {/* BLUEPRINT CAD VECTOR MODE */}
+          {viewStyle === 'blueprint' && (
+            <div className="relative z-10 flex-1 flex items-center justify-center py-4">
+              <svg
+                ref={svgRef}
+                viewBox="0 0 700 450"
+                className="w-full h-auto max-h-[320px] select-none filter drop-shadow-md"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <defs>
+                  <linearGradient id="lotGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stopColor="#f59e0b" stopOpacity="0.25" />
+                    <stop offset="100%" stopColor="#d97706" stopOpacity="0.08" />
+                  </linearGradient>
+                  <linearGradient id="builtGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stopColor="#38bdf8" stopOpacity="0.3" />
+                    <stop offset="100%" stopColor="#0284c7" stopOpacity="0.1" />
+                  </linearGradient>
+                  <marker id="arrow" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                    <path d="M 0 1.5 L 10 5 L 0 8.5 z" fill="#f59e0b" />
+                  </marker>
+                  <marker id="arrowBlue" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                    <path d="M 0 1.5 L 10 5 L 0 8.5 z" fill="#38bdf8" />
+                  </marker>
+                </defs>
+
+                {/* North Arrow Compass in top-right */}
+                <g transform="translate(630, 45)">
+                  <circle cx="0" cy="0" r="22" fill="#1e293b" stroke="#334155" strokeWidth="1.5" />
+                  <path d="M 0 -16 L 6 0 L 0 -4 L -6 0 Z" fill="#ef4444" />
+                  <path d="M 0 16 L 6 0 L 0 4 L -6 0 Z" fill="#94a3b8" />
+                  <text x="0" y="-19" fill="#ef4444" fontSize="10" fontWeight="bold" textAnchor="middle" fontFamily="sans-serif">N</text>
+                </g>
+
+                {/* Surrounding Boundary Lines & Street Label */}
+                {/* Front Street representation */}
+                <rect x="120" y="370" width="460" height="40" fill="#1e293b" stroke="#334155" strokeDasharray="4 4" rx="4" />
+                <text x="350" y="395" fill="#94a3b8" fontSize="12" fontWeight="600" textAnchor="middle" fontFamily="sans-serif">
+                  🛣️ {formData.confrontacaoFrente || 'Logradouro / Via Pública (Frente)'}
                 </text>
-              </g>
 
-              {/* Front Dimension Arrow & Label (Bottom) */}
-              <line x1="180" y1="360" x2="520" y2="360" stroke="#f59e0b" strokeWidth="1.5" markerStart="url(#arrow)" markerEnd="url(#arrow)" />
-              <text x="350" y="345" fill="#fbbf24" fontSize="12" fontWeight="bold" textAnchor="middle" fontFamily="monospace">
-                Testada: {formData.testadaFrente || 0} m
-              </text>
+                {/* The Lot Polygon */}
+                <polygon
+                  points="180,80 520,80 520,350 180,350"
+                  fill="url(#lotGrad)"
+                  stroke="#f59e0b"
+                  strokeWidth="2.5"
+                  strokeLinejoin="round"
+                />
 
-              {/* Depth / Side Dimension Arrow & Label (Left) */}
-              <line x1="165" y1="80" x2="165" y2="350" stroke="#f59e0b" strokeWidth="1.5" markerStart="url(#arrow)" markerEnd="url(#arrow)" />
-              <text x="150" y="215" fill="#fbbf24" fontSize="12" fontWeight="bold" textAnchor="middle" transform="rotate(-90 150 215)" fontFamily="monospace">
-                Profundidade: {formData.profundidadeFundos || 0} m
-              </text>
-
-              {/* Back Confrontation (Top) */}
-              <text x="350" y="65" fill="#cbd5e1" fontSize="11" fontWeight="500" textAnchor="middle" fontFamily="sans-serif">
-                ▲ Fundos: {formData.confrontacaoFundos || 'Confronta com lote vizinho'} ({formData.testadaFrente || 0}m)
-              </text>
-
-              {/* Right Confrontation (Right side) */}
-              <text x="535" y="215" fill="#cbd5e1" fontSize="11" fontWeight="500" textAnchor="middle" transform="rotate(90 535 215)" fontFamily="sans-serif">
-                ▶ Dir: {formData.confrontacaoDireita || 'Imóvel vizinho'} ({formData.profundidadeFundos || 0}m)
-              </text>
-
-              {/* Left Confrontation (Left side) */}
-              <text x="110" y="215" fill="#cbd5e1" fontSize="11" fontWeight="500" textAnchor="middle" transform="rotate(-90 110 215)" fontFamily="sans-serif">
-                ◀ Esq: {formData.confrontacaoEsquerda || 'Imóvel vizinho'} ({formData.profundidadeFundos || 0}m)
-              </text>
-
-              {/* Scale bar in bottom-left */}
-              <g transform="translate(30, 420)">
-                <line x1="0" y1="0" x2="60" y2="0" stroke="#64748b" strokeWidth="3" />
-                <line x1="0" y1="-4" x2="0" y2="4" stroke="#64748b" strokeWidth="2" />
-                <line x1="60" y1="-4" x2="60" y2="4" stroke="#64748b" strokeWidth="2" />
-                <text x="30" y="-8" fill="#94a3b8" fontSize="9" fontWeight="bold" textAnchor="middle" fontFamily="sans-serif">ESCALA 1:250</text>
-              </g>
-
-              {/* Official Stamp Stamp Box in bottom-right */}
-              <g transform="translate(560, 415)">
-                <text x="0" y="0" fill="#64748b" fontSize="9" fontWeight="bold" textAnchor="middle" fontFamily="monospace">
-                  CRI VÁLIDO • {formData.numeroMatricula ? `MAT ${formData.numeroMatricula}` : 'LEILÃO'}
+                {/* Built area projection (inner footprint) */}
+                <polygon
+                  points="220,130 480,130 480,300 220,300"
+                  fill="url(#builtGrad)"
+                  stroke="#38bdf8"
+                  strokeWidth="1.5"
+                  strokeDasharray="5 3"
+                />
+                <text x="350" y="210" fill="#38bdf8" fontSize="11" fontWeight="bold" textAnchor="middle" fontFamily="sans-serif">
+                  Projeção Construída (~{formData.areaConstruidaEstimada || 0} m²)
                 </text>
-              </g>
-            </svg>
-          </div>
 
-          {/* Bottom Toolbar inside Blueprint */}
+                {/* Lot Center Info Tag */}
+                <g transform="translate(350, 240)">
+                  <rect x="-85" y="-16" width="170" height="32" rx="16" fill="#0f172a" stroke="#f59e0b" strokeWidth="1.5" />
+                  <text x="0" y="5" fill="#f8fafc" fontSize="13" fontWeight="bold" textAnchor="middle" fontFamily="monospace">
+                    ÁREA: {formData.areaMedida || formData.areaRegistrada || 0} m²
+                  </text>
+                </g>
+
+                {/* Front Dimension Arrow & Label (Bottom) */}
+                <line x1="180" y1="360" x2="520" y2="360" stroke="#f59e0b" strokeWidth="1.5" markerStart="url(#arrow)" markerEnd="url(#arrow)" />
+                <text x="350" y="345" fill="#fbbf24" fontSize="12" fontWeight="bold" textAnchor="middle" fontFamily="monospace">
+                  Testada: {formData.testadaFrente || 0} m
+                </text>
+
+                {/* Depth / Side Dimension Arrow & Label (Left) */}
+                <line x1="165" y1="80" x2="165" y2="350" stroke="#f59e0b" strokeWidth="1.5" markerStart="url(#arrow)" markerEnd="url(#arrow)" />
+                <text x="150" y="215" fill="#fbbf24" fontSize="12" fontWeight="bold" textAnchor="middle" transform="rotate(-90 150 215)" fontFamily="monospace">
+                  Profundidade: {formData.profundidadeFundos || 0} m
+                </text>
+
+                {/* Back Confrontation (Top) */}
+                <text x="350" y="65" fill="#cbd5e1" fontSize="11" fontWeight="500" textAnchor="middle" fontFamily="sans-serif">
+                  ▲ Fundos: {formData.confrontacaoFundos || 'Confronta com lote vizinho'} ({formData.testadaFrente || 0}m)
+                </text>
+
+                {/* Right Confrontation (Right side) */}
+                <text x="535" y="215" fill="#cbd5e1" fontSize="11" fontWeight="500" textAnchor="middle" transform="rotate(90 535 215)" fontFamily="sans-serif">
+                  ▶ Dir: {formData.confrontacaoDireita || 'Imóvel vizinho'} ({formData.profundidadeFundos || 0}m)
+                </text>
+
+                {/* Left Confrontation (Left side) */}
+                <text x="110" y="215" fill="#cbd5e1" fontSize="11" fontWeight="500" textAnchor="middle" transform="rotate(-90 110 215)" fontFamily="sans-serif">
+                  ◀ Esq: {formData.confrontacaoEsquerda || 'Imóvel vizinho'} ({formData.profundidadeFundos || 0}m)
+                </text>
+
+                {/* Scale bar in bottom-left */}
+                <g transform="translate(30, 420)">
+                  <line x1="0" y1="0" x2="60" y2="0" stroke="#64748b" strokeWidth="3" />
+                  <line x1="0" y1="-4" x2="0" y2="4" stroke="#64748b" strokeWidth="2" />
+                  <line x1="60" y1="-4" x2="60" y2="4" stroke="#64748b" strokeWidth="2" />
+                  <text x="30" y="-8" fill="#94a3b8" fontSize="9" fontWeight="bold" textAnchor="middle" fontFamily="sans-serif">ESCALA 1:250</text>
+                </g>
+
+                {/* Official Stamp Stamp Box in bottom-right */}
+                <g transform="translate(560, 415)">
+                  <text x="0" y="0" fill="#64748b" fontSize="9" fontWeight="bold" textAnchor="middle" fontFamily="monospace">
+                    CRI VÁLIDO • {formData.numeroMatricula ? `MAT ${formData.numeroMatricula}` : 'LEILÃO'}
+                  </text>
+                </g>
+              </svg>
+            </div>
+          )}
+
+          {/* Bottom Toolbar inside Visual Card */}
           <div className="relative z-10 flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-slate-800/80 text-[11px] text-slate-400">
             <div className="flex items-center gap-2 font-mono">
               <span className="w-2 h-2 rounded-full bg-emerald-400" />
               <span>Coordenadas Georreferenciadas Mapeadas</span>
             </div>
 
-            <a
-              href={formData.googleMapsUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="text-amber-400 hover:text-amber-300 transition-all flex items-center gap-1 font-bold text-xs"
-            >
-              <MapPin size={13} />
-              <span>Ver no Google Maps</span>
-              <ArrowUpRight size={13} />
-            </a>
+            <div className="flex items-center gap-3">
+              <a
+                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent((formData.endereco || propertyAddress || '') + (propertyCity ? `, ${propertyCity}` : ''))}`}
+                target="_blank"
+                rel="noreferrer"
+                className="text-amber-400 hover:text-amber-300 transition-all flex items-center gap-1 font-bold text-xs"
+              >
+                <MapPin size={13} />
+                <span>Google Maps Satélite</span>
+                <ArrowUpRight size={13} />
+              </a>
+            </div>
           </div>
         </div>
 
