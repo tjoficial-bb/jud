@@ -204,8 +204,7 @@ export const MatriculaMeasurementCard: React.FC<MatriculaMeasurementCardProps> =
         const svgElement = svgRef.current;
         const svgString = new XMLSerializer().serializeToString(svgElement);
         const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
-        const URLObj = window.URL || window.webkitURL || window;
-        const blobURL = URLObj.createObjectURL(svgBlob);
+        const blobURL = URL.createObjectURL(svgBlob);
         
         const image = new Image();
         image.crossOrigin = "anonymous";
@@ -215,7 +214,7 @@ export const MatriculaMeasurementCard: React.FC<MatriculaMeasurementCardProps> =
           canvas.height = 800;
           const ctx = canvas.getContext('2d');
           if (!ctx) {
-            URLObj.revokeObjectURL(blobURL);
+            URL.revokeObjectURL(blobURL);
             return resolve("");
           }
           
@@ -224,12 +223,12 @@ export const MatriculaMeasurementCard: React.FC<MatriculaMeasurementCardProps> =
           ctx.fillRect(0, 0, canvas.width, canvas.height);
           ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
           
-          URLObj.revokeObjectURL(blobURL);
+          URL.revokeObjectURL(blobURL);
           const dataUrl = canvas.toDataURL('image/png');
           resolve(dataUrl);
         };
         image.onerror = (err) => {
-          URLObj.revokeObjectURL(blobURL);
+          URL.revokeObjectURL(blobURL);
           console.error("Error loading SVG to canvas:", err);
           resolve("");
         };
