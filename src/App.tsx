@@ -59,7 +59,8 @@ import {
   Layers,
   Compass,
   MapPin,
-  Ruler
+  Ruler,
+  Link as LinkIcon
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import ReactMarkdown from 'react-markdown';
@@ -77,6 +78,7 @@ import { ProcessoReport, detectCityAndStateFromText } from './components/Process
 import { SmartResetPanel } from './components/SmartResetPanel';
 import { UnifiedSummaryHub } from './components/UnifiedSummaryHub';
 import { RegionalIntelligenceMap } from './components/RegionalIntelligenceMap';
+import { GeneratedLinksHub } from './components/GeneratedLinksHub';
 import { User, Property, Process, AIConfig, StrategicBrainItem } from './types';
 import { SYSTEM_PROMPT } from './constants';
 import { analyzeAuctionDocuments, generateProcessStory, sendChatMessage } from './services/aiService';
@@ -11514,6 +11516,7 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
               <AnalysisTab active={activeSubTab === 'smart_analysis'} onClick={() => updateState({ activeSubTab: 'smart_analysis' })} icon={<Cpu size={16} />} label="Análise Smart" />
               <AnalysisTab active={activeSubTab === 'unified_summary'} onClick={() => updateState({ activeSubTab: 'unified_summary' })} icon={<Layers size={16} />} label="Resumão Unificado" />
               <AnalysisTab active={activeSubTab === 'regional_map'} onClick={() => updateState({ activeSubTab: 'regional_map' })} icon={<Compass size={16} />} label="Região & Mapas" />
+              <AnalysisTab active={activeSubTab === 'links_hub'} onClick={() => updateState({ activeSubTab: 'links_hub' })} icon={<LinkIcon size={16} />} label="Central de Links" />
               <AnalysisTab active={activeSubTab === 'edital'} onClick={() => updateState({ activeSubTab: 'edital' })} icon={<FileText size={16} />} label="Edital" />
               <AnalysisTab active={activeSubTab === 'matricula'} onClick={() => updateState({ activeSubTab: 'matricula' })} icon={<BookOpen size={16} />} label="Matrícula" />
               <AnalysisTab active={activeSubTab === 'processos'} onClick={() => updateState({ activeSubTab: 'processos' })} icon={<Search size={16} />} label="Processos" />
@@ -11573,6 +11576,10 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
                     property={selectedProperty}
                     initialData={state.regionalData}
                     matriculaAnalysis={state.matriculaAnalysis}
+                    editalAnalysis={state.editalAnalysis}
+                    processoAnalysis={state.processoAnalysis}
+                    customDomain={state.aiConfig?.custom_domain}
+                    shareToken={selectedProperty?.share_token}
                     onSave={(data) => updateState({ regionalData: data })}
                     onAddToSummary={(text, title) => {
                       updateState({
@@ -11591,6 +11598,20 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
                     onResetTab={() => handleResetSubTab('regional_map')}
                     onResetAll={handleResetAllPropertyData}
                     onApplySettings={(settings) => updateState({ aiDepth: settings.depth, aiFocus: settings.focus })}
+                  />
+                </div>
+              )}
+              {activeSubTab === 'links_hub' && (
+                <div className="space-y-6">
+                  <GeneratedLinksHub
+                    property={selectedProperty}
+                    customDomain={state.aiConfig?.custom_domain}
+                    shareToken={selectedProperty?.share_token}
+                    matriculaAnalysis={state.matriculaAnalysis}
+                    editalAnalysis={state.editalAnalysis}
+                    processoAnalysis={state.processoAnalysis}
+                    address={state.regionalData?.address || selectedProperty?.address}
+                    mapsUrl={state.regionalData?.mapsUrl}
                   />
                 </div>
               )}
