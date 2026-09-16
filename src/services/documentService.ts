@@ -10,73 +10,42 @@ export async function uploadDocuments(
 ) {
   const allResults: any[] = [];
   const MAX_FILE_SIZE = 30 * 1024 * 1024; // 30MB (GCP Cloud Run hard limit is 32MB)
+  const activeToken = token || (typeof window !== 'undefined' ? localStorage.getItem('token') || '' : '');
 
   for (const file of files) {
     let clientExtractedText = "";
     
-    // Always extract text client-side for PDFs (highly resilient & modern)
+    // Always extract text client-side for PDFs if fast
     if (file.name.toLowerCase().endsWith('.pdf')) {
       if (onProgress) {
-        onProgress(`Extraindo texto de ${file.name} localmente para agilizar a IA...`);
+        onProgress(`Lendo prévia de ${file.name}...`);
       }
       try {
         clientExtractedText = await extractTextFromPdfClientSide(file, (pct, page, total) => {
           if (onProgress) {
-            onProgress(`Lendo PDF localmente: pág. ${page}/${total} (${pct}%)`);
+            onProgress(`Lendo PDF: pág. ${page}/${total} (${pct}%)`);
           }
         });
-        console.log(`[documentService] Texto extraído com sucesso de ${file.name}: ${clientExtractedText.length} caracteres.`);
+        if (clientExtractedText) {
+          console.log(`[documentService] Texto extraído com sucesso de ${file.name}: ${clientExtractedText.length} caracteres.`);
+        }
       } catch (err: any) {
-        console.warn(`[documentService] Falha na extração de texto via navegador para ${file.name}:`, err.message);
+        console.warn(`[documentService] Falha na extração local para ${file.name}:`, err.message);
         if (err?.message && (err.message.includes('protegido por senha') || err.message.includes('senha') || err.message.toLowerCase().includes('password'))) {
           throw new Error(`O anexo "${file.name}" está protegido por senha. Remova a senha antes de anexar.`);
         }
       }
     }
 
-    // For PDFs, if text was extracted client-side, we pass it along, but for scanned/low-density PDFs or Matrículas where text might just be headers,
-    // we always send the file binary to /api/documents so the server has the base64 binary for multimodal AI / OCR.
-    // Only use text-only shortcut for extremely large PDFs (> 15MB) where uploading binary might be slow and text is genuine (> 5000 chars).
-    if (file.name.toLowerCase().endsWith('.pdf') && file.size > 15 * 1024 * 1024 && clientExtractedText && clientExtractedText.trim().length > 5000) {
-      if (onProgress) {
-        onProgress(`Enviando texto extraído de ${file.name} (${(file.size / (1024 * 1024)).toFixed(1)}MB) para análise rápida...`);
-      }
-
-      const res = await robustFetch('/api/documents/text-only', {
-        method: 'POST',
-        headers: { 
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          filename: file.name,
-          doc_type: docType,
-          property_id: propertyId,
-          extracted_text: clientExtractedText
-        })
-      });
-
-      if (!res.ok) {
-        const errorData = await parseJsonResponse(res).catch(() => ({}));
-        throw new Error(errorData.error || `Erro ao enviar o texto do PDF (${res.status})`);
-      }
-
-      const data = await parseJsonResponse(res);
-      if (Array.isArray(data)) {
-        allResults.push(...data);
-      } else {
-        allResults.push(data);
-      }
-      continue;
-    }
-
     if (file.size > MAX_FILE_SIZE) {
       throw new Error(
-        `O arquivo "${file.name}" possui ${(file.size / (1024 * 1024)).toFixed(1)}MB e excede o limite de 30MB da infraestrutura contratada.\n\n` +
-        `Para arquivos maiores que 30MB, utilize ferramentas gratuitas para:\n` +
-        `1. Comprimir o arquivo;\n` +
-        `2. Dividir em partes menores.`
+        `O arquivo "${file.name}" possui ${(file.size / (1024 * 1024)).toFixed(1)}MB e excede o limite de 30MB da infraestrutura.\n\n` +
+        `Para arquivos maiores que 30MB, utilize ferramentas gratuitas para comprimir o arquivo ou dividir em partes menores.`
       );
+    }
+
+    if (onProgress) {
+      onProgress(`Enviando ${file.name} ao servidor...`);
     }
 
     const formData = new FormData();
@@ -89,7 +58,7 @@ export async function uploadDocuments(
 
     const res = await robustFetch('/api/documents', {
       method: 'POST',
-      headers: { 'Authorization': `Bearer ${token}` },
+      headers: { 'Authorization': `Bearer ${activeToken}` },
       body: formData
     });
 

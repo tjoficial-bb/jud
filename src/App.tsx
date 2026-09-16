@@ -9602,16 +9602,16 @@ Sua resposta deve ser APENAS um objeto JSON válido, sem qualquer bloco de códi
     try {
         setUploading(true);
         const propertyId = selectedPropertyId || `temp_${state.sessionId}`;
+        const effectiveToken = token || (typeof window !== 'undefined' ? localStorage.getItem('token') || '' : '');
         
-        if (!token) {
-          throw new Error("Sessão expirada. Por favor, faça o login novamente.");
+        if (!effectiveToken) {
+          throw new Error("Sessão expirada ou não autenticada. Por favor, faça o login novamente.");
         }
         
         const isChatAttachment = (docType || '').toLowerCase().includes('anexo') || (docType || '').toLowerCase().includes('chat');
         const effectiveDocType = docType || 'Outros';
-        const tabPrefix = state.activeSubTab;
         
-        const newDocs = await uploadDocuments(files, effectiveDocType, propertyId, token, (status) => {
+        const newDocs = await uploadDocuments(files, effectiveDocType, propertyId, effectiveToken, (status) => {
           setUploadProgressText(status);
         });
 
@@ -9631,14 +9631,14 @@ Sua resposta deve ser APENAS um objeto JSON válido, sem qualquer bloco de códi
       if (!selectedPropertyId) {
         // Prevent duplicate IDs
         const existingIds = new Set(newAdHocDocs.map(d => d.id));
-        updatedDocs = [...state.adHocDocs.filter((d: any) => !existingIds.has(d.id)), ...newAdHocDocs];
+        updatedDocs = [...(state.adHocDocs || []).filter((d: any) => !existingIds.has(d.id)), ...newAdHocDocs];
         setState((prev: any) => ({
           ...prev,
           adHocDocs: updatedDocs
         }));
       } else {
         const existingIds = new Set(newAdHocDocs.map(d => d.id));
-        updatedDocs = [...propertyDocs.filter((d: any) => !existingIds.has(d.id)), ...newAdHocDocs];
+        updatedDocs = [...(propertyDocs || []).filter((d: any) => !existingIds.has(d.id)), ...newAdHocDocs];
         // Direct state update for propertyDocs instead of just re-fetching
         setPropertyDocs(updatedDocs);
         // Also fetchPropertyData to ensure consistency (background)
@@ -9666,7 +9666,7 @@ Sua resposta deve ser APENAS um objeto JSON válido, sem qualquer bloco de códi
         }
       }
 
-      // Automatically detect if this upload is a Matrícula to trigger immediate extraction
+      // Automatically detect if this upload is a Matrícula
       const isMatriculaUpload = effectiveDocType === 'Matrícula' || 
         effectiveDocType.toLowerCase().includes('matr') ||
         files.some(f => f.name.toLowerCase().includes('matr') || f.name.toLowerCase().includes('certidao') || f.name.toLowerCase().includes('registro'));
@@ -9689,7 +9689,11 @@ Sua resposta deve ser APENAS um objeto JSON válido, sem qualquer bloco de códi
     } finally {
       setUploading(false);
       setUploadProgressText("");
-      e.target.value = '';
+      if (e?.target) {
+        try {
+          e.target.value = '';
+        } catch {}
+      }
     }
   };
 

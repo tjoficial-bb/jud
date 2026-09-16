@@ -3,43 +3,52 @@ let pdfjsPromise: Promise<any> | null = null;
 export function loadPdfJs(): Promise<any> {
   if (pdfjsPromise) return pdfjsPromise;
 
-  pdfjsPromise = new Promise((resolve, reject) => {
+  pdfjsPromise = new Promise((resolve) => {
+    if (typeof window === 'undefined') {
+      resolve(null);
+      return;
+    }
+
     if ((window as any).pdfjsLib) {
       resolve((window as any).pdfjsLib);
       return;
     }
 
     // Load PDF.js main script
-    const script = document.createElement('script');
-    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
-    script.crossOrigin = 'anonymous';
-    script.onload = () => {
-      try {
-        const pdfjsLib = (window as any).pdfjsLib;
-        if (pdfjsLib?.GlobalWorkerOptions) {
-          try {
-            // Use in-origin blob worker to avoid cross-origin Worker SecurityError in iframes
-            const workerBlob = new Blob([
-              `importScripts('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js');`
-            ], { type: 'application/javascript' });
-            pdfjsLib.GlobalWorkerOptions.workerSrc = URL.createObjectURL(workerBlob);
-          } catch {
-            pdfjsLib.GlobalWorkerOptions.workerSrc = '';
+    try {
+      const script = document.createElement('script');
+      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+      script.crossOrigin = 'anonymous';
+      script.onload = () => {
+        try {
+          const pdfjsLib = (window as any).pdfjsLib;
+          if (pdfjsLib?.GlobalWorkerOptions) {
+            try {
+              // Use in-origin blob worker to avoid cross-origin Worker SecurityError in iframes
+              const workerBlob = new Blob([
+                `importScripts('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js');`
+              ], { type: 'application/javascript' });
+              pdfjsLib.GlobalWorkerOptions.workerSrc = URL.createObjectURL(workerBlob);
+            } catch {
+              pdfjsLib.GlobalWorkerOptions.workerSrc = '';
+            }
           }
+          console.log("[PDFJS Client] PDF.js carregado com sucesso.");
+          resolve(pdfjsLib);
+        } catch (err) {
+          console.warn("[PDFJS Client] Aviso na configuração do worker:", err);
+          resolve((window as any).pdfjsLib || null);
         }
-        console.log("[PDFJS Client] PDF.js carregado com sucesso.");
-        resolve(pdfjsLib);
-      } catch (err) {
-        console.warn("[PDFJS Client] Aviso na configuração do worker:", err);
-        resolve((window as any).pdfjsLib);
-      }
-    };
-    script.onerror = (err) => {
-      pdfjsPromise = null; // Reset on error
-      console.warn("[PDFJS Client] Falha ao carregar script do PDF.js via CDN:", err);
-      reject(new Error("Não foi possível carregar o leitor de PDF do navegador."));
-    };
-    document.head.appendChild(script);
+      };
+      script.onerror = (err) => {
+        pdfjsPromise = null; // Reset on error
+        console.warn("[PDFJS Client] Falha ao carregar script do PDF.js via CDN (usando extração servidor):", err);
+        resolve(null);
+      };
+      document.head.appendChild(script);
+    } catch (e) {
+      resolve(null);
+    }
   });
 
   return pdfjsPromise;
@@ -49,10 +58,13 @@ export async function extractTextFromPdfClientSide(
   file: File,
   onProgress?: (progress: number, currentPage: number, totalPages: number) => void
 ): Promise<string> {
-  // Safety timeout: don't let client-side extraction hang the upload indefinitely (max 10 seconds)
+  // Fast safety timeout: never let client-side extraction hang the upload (max 3 seconds)
   const extractionPromise = (async () => {
     try {
       const pdfjsLib = await loadPdfJs();
+      if (!pdfjsLib) {
+        return "";
+      }
       const arrayBuffer = await file.arrayBuffer();
       
       const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
@@ -68,8 +80,8 @@ export async function extractTextFromPdfClientSide(
       const numPages = pdf.numPages;
       let fullText = "";
 
-      // Extract up to 60 pages in browser to keep UI responsive
-      const maxPagesToRead = Math.min(numPages, 60);
+      // Extract up to 30 pages in browser quickly
+      const maxPagesToRead = Math.min(numPages, 30);
 
       for (let i = 1; i <= maxPagesToRead; i++) {
         try {
@@ -98,16 +110,14 @@ export async function extractTextFromPdfClientSide(
       }
       
       console.warn(`[PDFjs client-side] Extração local opcional ignorada (${errorName}): ${errorMessage}`);
-      // Return empty string so upload continues to server
       return "";
     }
   })();
 
   const timeoutPromise = new Promise<string>((resolve) => {
     setTimeout(() => {
-      console.warn("[PDFjs client-side] Timeout de 10s atingido na extração local. Prosseguindo com envio ao servidor...");
       resolve("");
-    }, 10000);
+    }, 3000);
   });
 
   return Promise.race([extractionPromise, timeoutPromise]);
