@@ -168,14 +168,18 @@ function getCustomInstructionsPrompt(state: any): string {
 type AIModel = 
   | 'gemini-3.8-flash'
   | 'gemini-3.7-flash'
+  | 'gemini-3.6-flash'
+  | 'gemini-3.5-flash'
+  | 'gemini-3.4-flash'
   | 'gemini-3.1-flash-lite'
   | 'gemini-3.1-pro-preview' 
-  | 'gemini-3.5-flash'
   | 'gemini-3.1-flash-preview'
   | 'gemini-3-flash-preview' 
   | 'gemini-2.5-pro'
   | 'gemini-2.5-flash'
+  | 'gemini-2.5-flash-lite'
   | 'gemini-flash-latest' 
+  | 'gemini-pro-latest'
   | 'claude-4-6-opus'
   | 'claude-4-6-sonnet'
   | 'claude-4-5-haiku'
@@ -11414,11 +11418,17 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
                 >
                   {(state.selectedKeySource === 'system_default' || state.selectedKeySource === 'gemini_custom') && (
                     <optgroup label="Google Gemini">
-                      <option value="gemini-3.8-flash">Gemini 3.8 Flash (Recomendado - Mais Estável e Veloz)</option>
-                      <option value="gemini-flash-latest">Gemini Flash Latest</option>
+                      <option value="gemini-3.8-flash">Gemini 3.8 Flash (Recomendado - Veloz e Estável)</option>
                       <option value="gemini-3.7-flash">Gemini 3.7 Flash</option>
-                      <option value="gemini-3.1-flash-lite">Gemini 3.1 Flash Lite (Rápido e Leve)</option>
-                      <option value="gemini-3.1-pro-preview">Gemini 3.1 Pro (Preview)</option>
+                      <option value="gemini-3.6-flash">Gemini 3.6 Flash</option>
+                      <option value="gemini-3.5-flash">Gemini 3.5 Flash</option>
+                      <option value="gemini-3.4-flash">Gemini 3.4 Flash</option>
+                      <option value="gemini-3.1-flash-lite">Gemini 3.1 Flash Lite (Maior Cota de Tokens / Mais Rápido)</option>
+                      <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
+                      <option value="gemini-2.5-flash-lite">Gemini 2.5 Flash Lite</option>
+                      <option value="gemini-flash-latest">Gemini Flash Latest</option>
+                      <option value="gemini-3.1-pro-preview">Gemini 3.1 Pro (Raciocínio Jurídico)</option>
+                      <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
                     </optgroup>
                   )}
                   {state.selectedKeySource === 'openai_custom' && (
@@ -12929,11 +12939,17 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
                         onChange={(e) => updateState({ selectedModel: e.target.value as any })}
                         className="w-full text-xs font-semibold px-3 py-2.5 rounded-xl border border-brand-border bg-white text-brand-ink focus:outline-none focus:border-brand-primary"
                       >
-                        <option value="gemini-3.8-flash">Gemini 3.8 Flash (Mais Estável e Veloz - Recomendado)</option>
-                        <option value="gemini-flash-latest">Gemini Flash Latest</option>
+                        <option value="gemini-3.8-flash">Gemini 3.8 Flash (Recomendado - Veloz e Estável)</option>
                         <option value="gemini-3.7-flash">Gemini 3.7 Flash</option>
-                        <option value="gemini-3.1-flash-lite">Gemini 3.1 Flash Lite</option>
+                        <option value="gemini-3.6-flash">Gemini 3.6 Flash</option>
+                        <option value="gemini-3.5-flash">Gemini 3.5 Flash</option>
+                        <option value="gemini-3.4-flash">Gemini 3.4 Flash</option>
+                        <option value="gemini-3.1-flash-lite">Gemini 3.1 Flash Lite (Maior Cota de Tokens / Mais Rápido)</option>
+                        <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
+                        <option value="gemini-2.5-flash-lite">Gemini 2.5 Flash Lite</option>
+                        <option value="gemini-flash-latest">Gemini Flash Latest</option>
                         <option value="gemini-3.1-pro-preview">Gemini 3.1 Pro (Preview)</option>
+                        <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
                       </select>
                     </div>
 

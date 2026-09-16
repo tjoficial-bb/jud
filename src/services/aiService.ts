@@ -18,13 +18,7 @@ export const analyzeAuctionDocuments = async (
   analysisType?: 'geral' | 'edital' | 'matricula' | 'processo' | 'dossier' | 'smart_analysis' | 'assessoria_analysis'
 ) => {
   const token = localStorage.getItem("token") || "";
-  
-  // Use Gemini 3.8 Flash directly if we already downgraded to prevent multiple slow timeouts
-  let activeModel = model;
-  if (hasDowngradedToFlash && model.startsWith('gemini') && model !== 'gemini-3.8-flash') {
-    activeModel = 'gemini-3.8-flash';
-    console.log(`[AI SERVICE] Automatically using gemini-3.8-flash due to prior session downgrade.`);
-  }
+  const activeModel = model;
 
   try {
     const res = await robustFetch("/api/ai/analyze", {
@@ -49,8 +43,6 @@ export const analyzeAuctionDocuments = async (
                         errMessage.includes('unavailable') || 
                         errMessage.includes('indisponível') || 
                         errMessage.includes('indisponivel') || 
-                        errMessage.includes('reinicialização') || 
-                        errMessage.includes('reinicializacao') || 
                         errMessage.includes('temporariamente') || 
                         errMessage.includes('429') || 
                         errMessage.includes('overloaded') || 
@@ -60,27 +52,19 @@ export const analyzeAuctionDocuments = async (
                         errMessage.includes('excedeu') ||
                         errMessage.includes('limite') ||
                         errMessage.includes('exhausted') ||
-                        errMessage.includes('unregistered callers') ||
-                        errMessage.includes('permission_denied') ||
-                        errMessage.includes('rejeitado') ||
-                        errMessage.includes('negado') ||
-                        errMessage.includes('error 500') ||
-                        errMessage.includes('500');
+                        errMessage.includes('resource_exhausted');
 
     if (isOverloaded) {
-      // For quota errors (429, TPM limits), forcefully fallback to the highest-quota model available (gemini-3.1-flash-lite with 10M TPM)
-      const fallbackTarget = errMessage.includes('429') || errMessage.includes('quota') || errMessage.includes('limite') || errMessage.includes('exhausted')
-        ? 'gemini-3.1-flash-lite'
-        : (activeModel === 'gemini-3.8-flash' ? 'gemini-3.1-flash-lite' : 'gemini-3.8-flash');
+      // For quota errors (429, TPM limits), fallback to gemini-3.1-flash-lite or gemini-2.5-flash which have massive quotas
+      const fallbackTarget = activeModel === 'gemini-3.1-flash-lite' ? 'gemini-2.5-flash' : 'gemini-3.1-flash-lite';
         
       console.warn(`[AI SERVICE FALLBACK] Model ${activeModel} failed with overloading/quota. Retrying automatically with ${fallbackTarget}...`);
-      hasDowngradedToFlash = true; // Downgrade session-wide
       
       if (typeof window !== 'undefined' && (window as any).customToast) {
-        (window as any).customToast(`Cota atingida ou alta demanda. Redirecionando automaticamente para ${fallbackTarget}...`, "warning");
+        (window as any).customToast(`Limite de cota atingido em ${activeModel}. Alternando automaticamente para ${fallbackTarget}...`, "warning");
       }
 
-      await new Promise(resolve => setTimeout(resolve, 3000)); // Give it a 3s breather to reset TPM
+      await new Promise(resolve => setTimeout(resolve, 2000));
       
       const retryRes = await robustFetch("/api/ai/analyze", {
         method: "POST",
@@ -133,12 +117,7 @@ export const sendChatMessage = async (
   apiKey?: string
 ) => {
   const token = localStorage.getItem("token") || "";
-  
-  // Use Gemini 3.8 Flash directly if we already downgraded to prevent slow requests
-  let activeModel = model;
-  if (hasDowngradedToFlash && model.startsWith('gemini') && model !== 'gemini-3.8-flash') {
-    activeModel = 'gemini-3.8-flash';
-  }
+  const activeModel = model;
 
   try {
     const res = await robustFetch("/api/ai/chat", {
@@ -163,8 +142,6 @@ export const sendChatMessage = async (
                         errMessage.includes('unavailable') || 
                         errMessage.includes('indisponível') || 
                         errMessage.includes('indisponivel') || 
-                        errMessage.includes('reinicialização') || 
-                        errMessage.includes('reinicializacao') || 
                         errMessage.includes('temporariamente') || 
                         errMessage.includes('429') || 
                         errMessage.includes('overloaded') || 
@@ -174,27 +151,18 @@ export const sendChatMessage = async (
                         errMessage.includes('excedeu') ||
                         errMessage.includes('limite') ||
                         errMessage.includes('exhausted') ||
-                        errMessage.includes('unregistered callers') ||
-                        errMessage.includes('permission_denied') ||
-                        errMessage.includes('rejeitado') ||
-                        errMessage.includes('negado') ||
-                        errMessage.includes('error 500') ||
-                        errMessage.includes('500');
+                        errMessage.includes('resource_exhausted');
 
     if (isOverloaded) {
-      // For quota errors (429, TPM limits), forcefully fallback to the highest-quota model available (gemini-3.1-flash-lite with 10M TPM)
-      const fallbackTarget = errMessage.includes('429') || errMessage.includes('quota') || errMessage.includes('limite') || errMessage.includes('exhausted')
-        ? 'gemini-3.1-flash-lite'
-        : (activeModel === 'gemini-3.8-flash' ? 'gemini-3.1-flash-lite' : 'gemini-3.8-flash');
+      const fallbackTarget = activeModel === 'gemini-3.1-flash-lite' ? 'gemini-2.5-flash' : 'gemini-3.1-flash-lite';
         
-      console.warn(`[AI SERVICE FALLBACK] Chat model ${activeModel} failed with overloading/quota. Retrying automatically with ${fallbackTarget}...`);
-      hasDowngradedToFlash = true; // Downgrade session-wide
+      console.warn(`[AI SERVICE FALLBACK] Chat model ${activeModel} failed with overloading/quota. Retrying with ${fallbackTarget}...`);
       
       if (typeof window !== 'undefined' && (window as any).customToast) {
-        (window as any).customToast(`Cota atingida ou alta demanda. Redirecionando chat para ${fallbackTarget}...`, "warning");
+        (window as any).customToast(`Limite de cota atingido em ${activeModel}. Redirecionando chat para ${fallbackTarget}...`, "warning");
       }
 
-      await new Promise(resolve => setTimeout(resolve, 3000)); // Give it a 3s breather
+      await new Promise(resolve => setTimeout(resolve, 2000));
       
       const retryRes = await robustFetch("/api/ai/chat", {
         method: "POST",
