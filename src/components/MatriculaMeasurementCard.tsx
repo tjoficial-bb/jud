@@ -20,7 +20,11 @@ import {
   MessageCircle,
   Building2,
   Layers,
-  ArrowUpRight
+  ArrowUpRight,
+  Eye,
+  EyeOff,
+  Crosshair,
+  SlidersHorizontal
 } from 'lucide-react';
 
 export interface MatriculaMeasurementData {
@@ -162,6 +166,10 @@ export const MatriculaMeasurementCard: React.FC<MatriculaMeasurementCardProps> =
   const [confirmedStatus, setConfirmedStatus] = useState<'Confirmado' | 'Pendente' | 'Divergente'>(initialValues.statusConfirmacao || 'Confirmado');
   const [viewStyle, setViewStyle] = useState<'blueprint' | 'satellite' | 'earth3d'>('satellite');
   const [satelliteZoom, setSatelliteZoom] = useState<number>(19);
+  const [showMeasurementsOnMap, setShowMeasurementsOnMap] = useState<boolean>(true);
+  const [showConfrontationsOnMap, setShowConfrontationsOnMap] = useState<boolean>(true);
+  const [highlightGlow, setHighlightGlow] = useState<boolean>(true);
+  const [copiedMeasurements, setCopiedMeasurements] = useState<boolean>(false);
 
   const svgRef = useRef<SVGSVGElement>(null);
 
@@ -194,6 +202,32 @@ export const MatriculaMeasurementCard: React.FC<MatriculaMeasurementCardProps> =
   const discrepancyPerc = (formData.areaRegistrada && formData.areaRegistrada > 0) 
     ? Number(((areaDiff / formData.areaRegistrada) * 100).toFixed(1)) 
     : 0;
+
+  const copyMeasurementsSummary = () => {
+    const text = `📏 MEDIÇÃO CARTOGRÁFICA & PERIMETRAL DO IMÓVEL\n` +
+      `📍 Endereço: ${formData.endereco || propertyAddress || 'Não informado'}\n` +
+      `📄 Matrícula: ${formData.numeroMatricula || 'N/I'} | Inscrição Municipal/IPTU: ${formData.inscricaoMunicipal || 'N/I'}\n` +
+      `────────────────────────────────────────\n` +
+      `📐 Área Total Medida: ${formData.areaMedida || formData.areaRegistrada || 0} m²\n` +
+      `📐 Área Registrada no CRI: ${formData.areaRegistrada || 0} m²\n` +
+      `📏 Testada (Frente): ${formData.testadaFrente || 0} m\n` +
+      `📏 Profundidade (Fundos): ${formData.profundidadeFundos || 0} m\n` +
+      `📐 Perímetro Perimetral: ${formData.perimetro || 0} m\n` +
+      `🏢 Projeção Construída Estimada: ~${formData.areaConstruidaEstimada || 0} m²\n` +
+      `────────────────────────────────────────\n` +
+      `▲ Confrontação Fundos: ${formData.confrontacaoFundos || 'Não especificado'}\n` +
+      `▼ Confrontação Frente: ${formData.confrontacaoFrente || 'Via Pública'}\n` +
+      `◀ Confrontação Esquerda: ${formData.confrontacaoEsquerda || 'Não especificado'}\n` +
+      `▶ Confrontação Direita: ${formData.confrontacaoDireita || 'Não especificado'}\n` +
+      `🛰️ Link Google Maps: https://www.google.com/maps/search/?api=1&query=${encodeURIComponent((formData.endereco || propertyAddress || '') + (propertyCity ? `, ${propertyCity}` : ''))}`;
+
+    navigator.clipboard.writeText(text);
+    setCopiedMeasurements(true);
+    setTimeout(() => setCopiedMeasurements(false), 2500);
+    if ((window as any).customToast) {
+      (window as any).customToast("Medições perimetrais copiadas para a área de transferência!", "success");
+    }
+  };
 
   // Convert the SVG diagram to PNG Base64 Data URL
   const generatePngFromSvg = (): Promise<string> => {
@@ -652,52 +686,211 @@ export const MatriculaMeasurementCard: React.FC<MatriculaMeasurementCardProps> =
             </div>
           </div>
 
-          {/* SATELLITE REAL MODE */}
+          {/* SATELLITE REAL MODE WITH HIGHLIGHTED MEASUREMENTS */}
           {viewStyle === 'satellite' && (
-            <div className="relative z-10 flex-1 my-3 rounded-xl overflow-hidden border border-slate-700/80 bg-slate-950 flex flex-col min-h-[300px]">
-              <iframe
-                title="Google Maps Satellite View"
-                src={`https://maps.google.com/maps?q=${encodeURIComponent((formData.endereco || propertyAddress || '') + (propertyCity ? `, ${propertyCity}` : ''))}&t=k&z=${satelliteZoom}&output=embed`}
-                className="w-full flex-1 border-0 min-h-[280px]"
-                loading="lazy"
-                referrerPolicy="no-referrer-when-downgrade"
-              />
+            <div className="relative z-10 flex-1 my-3 rounded-xl overflow-hidden border border-slate-700/80 bg-slate-950 flex flex-col min-h-[380px]">
+              {/* Secondary Map Control & Measurement Toggles Strip */}
+              <div className="bg-slate-900/90 border-b border-slate-800 px-3 py-2 flex flex-wrap items-center justify-between gap-2 text-xs">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={() => setShowMeasurementsOnMap(!showMeasurementsOnMap)}
+                    className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1.5 ${
+                      showMeasurementsOnMap
+                        ? 'bg-amber-500 text-black shadow-xs'
+                        : 'bg-slate-800 text-slate-400 hover:text-white'
+                    }`}
+                    title="Alternar destaque de cotas perimetrais sobre o mapa"
+                  >
+                    {showMeasurementsOnMap ? <Eye size={12} /> : <EyeOff size={12} />}
+                    <span>📐 Destacar Medições ({formData.areaMedida || formData.areaRegistrada || 0} m²)</span>
+                  </button>
 
-              {/* HUD Measurement Overlay on top of Satellite */}
-              <div className="absolute top-3 left-3 bg-slate-900/90 backdrop-blur-md border border-amber-500/40 rounded-xl p-2.5 text-xs text-slate-200 shadow-xl space-y-1">
-                <div className="flex items-center gap-2 border-b border-slate-700/60 pb-1">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-                  <span className="font-bold font-mono text-[11px] text-amber-400">
-                    ÁREA: {formData.areaMedida || formData.areaRegistrada || 0} m²
-                  </span>
+                  {showMeasurementsOnMap && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => setShowConfrontationsOnMap(!showConfrontationsOnMap)}
+                        className={`px-2 py-1 rounded-lg text-[10.5px] font-medium transition-all ${
+                          showConfrontationsOnMap
+                            ? 'bg-slate-700 text-amber-300 border border-amber-500/30'
+                            : 'bg-slate-800/80 text-slate-400 hover:text-slate-200'
+                        }`}
+                        title="Exibir ou ocultar nomes dos confrontantes no mapa"
+                      >
+                        🏷️ Confrontantes
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setHighlightGlow(!highlightGlow)}
+                        className={`px-2 py-1 rounded-lg text-[10.5px] font-medium transition-all ${
+                          highlightGlow
+                            ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                            : 'bg-slate-800/80 text-slate-400'
+                        }`}
+                        title="Alternar brilho neon do perímetro"
+                      >
+                        ✨ Brilho
+                      </button>
+                    </>
+                  )}
                 </div>
-                <div className="text-[10px] font-mono grid grid-cols-2 gap-x-3 text-slate-300">
-                  <span>Frente: {formData.testadaFrente || 0}m</span>
-                  <span>Fundos: {formData.profundidadeFundos || 0}m</span>
-                  <span>Perímetro: {formData.perimetro || 0}m</span>
-                  <span>Projeção: ~{formData.areaConstruidaEstimada || 0}m²</span>
+
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={copyMeasurementsSummary}
+                    className="px-2.5 py-1 rounded-lg text-[10.5px] font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-all flex items-center gap-1"
+                    title="Copiar todas as medições formatadas"
+                  >
+                    {copiedMeasurements ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} />}
+                    <span>{copiedMeasurements ? 'Copiado!' : 'Copiar Medições'}</span>
+                  </button>
                 </div>
               </div>
 
-              {/* Zoom and Satellite Control Strip */}
-              <div className="absolute bottom-3 right-3 flex items-center gap-1.5 bg-slate-900/90 backdrop-blur-md border border-slate-700 rounded-xl p-1 shadow-lg">
-                <button
-                  type="button"
-                  onClick={() => setSatelliteZoom(prev => Math.min(prev + 1, 21))}
-                  className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-white rounded text-xs font-bold font-mono"
-                  title="Aumentar Zoom Satélite"
-                >
-                  +
-                </button>
-                <span className="text-[10px] font-mono text-slate-400 px-1">Z{satelliteZoom}</span>
-                <button
-                  type="button"
-                  onClick={() => setSatelliteZoom(prev => Math.max(prev - 1, 15))}
-                  className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-white rounded text-xs font-bold font-mono"
-                  title="Diminuir Zoom Satélite"
-                >
-                  -
-                </button>
+              {/* Map Canvas Frame */}
+              <div className="relative flex-1 min-h-[320px] w-full overflow-hidden">
+                <iframe
+                  title="Google Maps Satellite View"
+                  src={`https://maps.google.com/maps?q=${encodeURIComponent((formData.endereco || propertyAddress || '') + (propertyCity ? `, ${propertyCity}` : ''))}&t=k&z=${satelliteZoom}&output=embed`}
+                  className="w-full h-full border-0 absolute inset-0 min-h-[320px]"
+                  loading="lazy"
+                  referrerPolicy="no-referrer-when-downgrade"
+                />
+
+                {/* HIGHLIGHTED MEASUREMENT OVERLAY ON GOOGLE MAPS */}
+                {showMeasurementsOnMap && (
+                  <div className="absolute inset-0 pointer-events-none flex items-center justify-center select-none overflow-hidden">
+                    {/* Centered Demarcation Box on Map */}
+                    <div className="relative w-[78%] max-w-[420px] h-[64%] max-h-[260px] flex items-center justify-center">
+                      {/* Bounding Polygon with Glowing Perimeter Borders */}
+                      <div className={`absolute inset-0 rounded-xl border-2 transition-all ${
+                        highlightGlow 
+                          ? 'border-amber-400 bg-amber-400/[0.08] shadow-[0_0_25px_rgba(245,158,11,0.45)] ring-1 ring-amber-300/60' 
+                          : 'border-amber-400/80 bg-amber-500/[0.04]'
+                      }`}>
+                        {/* Corner Target Reticles (P1..P4) */}
+                        <div className="absolute -top-1.5 -left-1.5 w-3.5 h-3.5 border-t-2 border-l-2 border-amber-300" />
+                        <div className="absolute -top-1.5 -right-1.5 w-3.5 h-3.5 border-t-2 border-r-2 border-amber-300" />
+                        <div className="absolute -bottom-1.5 -left-1.5 w-3.5 h-3.5 border-b-2 border-l-2 border-amber-300" />
+                        <div className="absolute -bottom-1.5 -right-1.5 w-3.5 h-3.5 border-b-2 border-r-2 border-amber-300" />
+
+                        {/* Dashed Inner Footprint */}
+                        <div className="absolute inset-4 rounded-lg border border-dashed border-sky-400/40 bg-sky-400/[0.03]" />
+                      </div>
+
+                      {/* 1. TOP MEASUREMENT BADGE: FUNDOS */}
+                      <div className="absolute -top-4 left-1/2 -translate-x-1/2 flex flex-col items-center pointer-events-auto z-20">
+                        <div className="bg-gradient-to-r from-amber-500 to-amber-400 text-slate-950 font-black font-mono text-[11px] px-3 py-0.5 rounded-full shadow-lg border border-amber-200 flex items-center gap-1">
+                          <span>▲ FUNDOS:</span>
+                          <span className="text-xs">{formData.testadaFrente || 0} m</span>
+                        </div>
+                        {showConfrontationsOnMap && formData.confrontacaoFundos && (
+                          <div className="text-[9px] text-amber-200 bg-slate-950/85 backdrop-blur-md px-2 py-0.5 rounded-md mt-0.5 border border-amber-500/30 max-w-[220px] truncate shadow-md">
+                            ▲ {formData.confrontacaoFundos}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* 2. BOTTOM MEASUREMENT BADGE: FRENTE / TESTADA */}
+                      <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 flex flex-col items-center pointer-events-auto z-20">
+                        {showConfrontationsOnMap && formData.confrontacaoFrente && (
+                          <div className="text-[9px] text-amber-200 bg-slate-950/85 backdrop-blur-md px-2 py-0.5 rounded-md mb-0.5 border border-amber-500/30 max-w-[220px] truncate shadow-md">
+                            🛣️ {formData.confrontacaoFrente}
+                          </div>
+                        )}
+                        <div className="bg-gradient-to-r from-amber-500 to-amber-400 text-slate-950 font-black font-mono text-[11px] px-3 py-0.5 rounded-full shadow-lg border border-amber-200 flex items-center gap-1">
+                          <span>▼ TESTADA (FRENTE):</span>
+                          <span className="text-xs">{formData.testadaFrente || 0} m</span>
+                        </div>
+                      </div>
+
+                      {/* 3. LEFT MEASUREMENT BADGE: LATERAL ESQUERDA */}
+                      <div className="absolute -left-3.5 top-1/2 -translate-y-1/2 flex items-center pointer-events-auto z-20">
+                        <div className="bg-gradient-to-b from-amber-500 to-amber-400 text-slate-950 font-black font-mono text-[10px] px-2 py-1 rounded-lg shadow-lg border border-amber-200 -rotate-90 origin-center whitespace-nowrap">
+                          ◀ ESQ: {formData.profundidadeFundos || 0} m
+                        </div>
+                      </div>
+
+                      {/* 4. RIGHT MEASUREMENT BADGE: LATERAL DIREITA */}
+                      <div className="absolute -right-3.5 top-1/2 -translate-y-1/2 flex items-center pointer-events-auto z-20">
+                        <div className="bg-gradient-to-b from-amber-500 to-amber-400 text-slate-950 font-black font-mono text-[10px] px-2 py-1 rounded-lg shadow-lg border border-amber-200 rotate-90 origin-center whitespace-nowrap">
+                          ▶ DIR: {formData.profundidadeFundos || 0} m
+                        </div>
+                      </div>
+
+                      {/* 5. CENTER FLOATING HUD TARGET */}
+                      <div className="relative pointer-events-auto z-10 flex flex-col items-center">
+                        <div className="bg-slate-950/90 backdrop-blur-md border-2 border-amber-400 rounded-2xl px-3.5 py-2 text-center shadow-2xl flex flex-col items-center gap-0.5 max-w-[210px]">
+                          <div className="flex items-center gap-1 text-[9.5px] font-black uppercase tracking-wider text-amber-400">
+                            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+                            <span>Lote Demarcado</span>
+                          </div>
+                          <div className="text-base font-black font-mono text-emerald-400 tracking-tight leading-none my-0.5">
+                            {formData.areaMedida || formData.areaRegistrada || 0} m²
+                          </div>
+                          <div className="text-[10px] font-mono text-slate-300 border-t border-slate-800 pt-0.5 flex items-center gap-2">
+                            <span>Perím: <b>{formData.perimetro || 0}m</b></span>
+                            <span>•</span>
+                            <span>Proj: <b>~{formData.areaConstruidaEstimada || 0}m²</b></span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Left Floating Summary Capsule */}
+                <div className="absolute top-3 left-3 bg-slate-950/85 backdrop-blur-md border border-amber-500/40 rounded-xl p-2.5 text-xs text-slate-200 shadow-xl space-y-1 pointer-events-auto">
+                  <div className="flex items-center gap-2 border-b border-slate-800 pb-1">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                    <span className="font-bold font-mono text-[11px] text-amber-400">
+                      ÁREA: {formData.areaMedida || formData.areaRegistrada || 0} m²
+                    </span>
+                  </div>
+                  <div className="text-[10px] font-mono grid grid-cols-2 gap-x-2 text-slate-300">
+                    <span>Frente: {formData.testadaFrente || 0}m</span>
+                    <span>Fundos: {formData.profundidadeFundos || 0}m</span>
+                    <span>Perímetro: {formData.perimetro || 0}m</span>
+                    <span>Proj: ~{formData.areaConstruidaEstimada || 0}m²</span>
+                  </div>
+                </div>
+
+                {/* Zoom & Direct Measure Button in Bottom Right */}
+                <div className="absolute bottom-3 right-3 flex items-center gap-1.5 bg-slate-950/90 backdrop-blur-md border border-slate-700 rounded-xl p-1 shadow-lg pointer-events-auto">
+                  <button
+                    type="button"
+                    onClick={() => setSatelliteZoom(prev => Math.min(prev + 1, 21))}
+                    className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-white rounded text-xs font-bold font-mono"
+                    title="Aumentar Zoom do Satélite"
+                  >
+                    +
+                  </button>
+                  <span className="text-[10px] font-mono text-slate-300 px-1">Z{satelliteZoom}</span>
+                  <button
+                    type="button"
+                    onClick={() => setSatelliteZoom(prev => Math.max(prev - 1, 15))}
+                    className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-white rounded text-xs font-bold font-mono"
+                    title="Diminuir Zoom do Satélite"
+                  >
+                    -
+                  </button>
+
+                  <div className="h-4 w-px bg-slate-700 mx-0.5" />
+
+                  <a
+                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent((formData.endereco || propertyAddress || '') + (propertyCity ? `, ${propertyCity}` : ''))}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="px-2 py-1 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 rounded text-[10px] font-bold flex items-center gap-1 transition-all"
+                    title="Abrir no Google Maps Oficial"
+                  >
+                    <span>Medir no Maps</span>
+                    <ArrowUpRight size={11} />
+                  </a>
+                </div>
               </div>
             </div>
           )}
