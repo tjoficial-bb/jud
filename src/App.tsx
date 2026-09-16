@@ -9671,18 +9671,12 @@ Sua resposta deve ser APENAS um objeto JSON válido, sem qualquer bloco de códi
         effectiveDocType.toLowerCase().includes('matr') ||
         files.some(f => f.name.toLowerCase().includes('matr') || f.name.toLowerCase().includes('certidao') || f.name.toLowerCase().includes('registro'));
 
+      // Notify user that the document was successfully uploaded and is ready for analysis
       if (isMatriculaUpload) {
         if ((window as any).customToast) {
-          (window as any).customToast("Certidão de Matrícula enviada! Extraindo dados, confrontações e medições automaticamente...", "info");
+          (window as any).customToast("Certidão de Matrícula enviada e salva com sucesso! Clique em 'Analisar Matrícula' para iniciar a extração.", "success");
         }
-        // Ensure user is viewing the Matrícula tab
-        updateState({ activeSubTab: 'matricula' });
-        // Automatically start the deep extraction and measurement
-        setTimeout(() => {
-          handleAnalyzeMatricula(updatedDocs);
-        }, 350);
       } else {
-        // Notify user that the document was successfully uploaded and is ready for analysis
         if ((window as any).customToast) {
           (window as any).customToast("Documento enviado e salvo com sucesso!", "success");
         }
