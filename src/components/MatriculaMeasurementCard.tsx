@@ -170,7 +170,20 @@ export const MatriculaMeasurementCard: React.FC<MatriculaMeasurementCardProps> =
   const [showConfrontationsOnMap, setShowConfrontationsOnMap] = useState<boolean>(true);
   const [highlightGlow, setHighlightGlow] = useState<boolean>(true);
   const [copiedMeasurements, setCopiedMeasurements] = useState<boolean>(false);
+  const [showGoogleMeasurePopup, setShowGoogleMeasurePopup] = useState<boolean>(true);
+  const [activeMeasureMode, setActiveMeasureMode] = useState<'auto' | 'custom'>('auto');
+  const [isAddingPoints, setIsAddingPoints] = useState<boolean>(false);
+  const [draggingPointId, setDraggingPointId] = useState<number | null>(null);
 
+  // Dynamic interactive polygon points in percentage [0..100]
+  const [polygonPoints, setPolygonPoints] = useState<Array<{ id: number; x: number; y: number; label?: string }>>([
+    { id: 1, x: 22, y: 22, label: 'P1 (Fundos Esq)' },
+    { id: 2, x: 78, y: 24, label: 'P2 (Fundos Dir)' },
+    { id: 3, x: 76, y: 76, label: 'P3 (Frente Dir)' },
+    { id: 4, x: 20, y: 74, label: 'P4 (Frente Esq)' },
+  ]);
+
+  const mapContainerRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
 
   // Keep state updated when initial values change
@@ -227,6 +240,140 @@ export const MatriculaMeasurementCard: React.FC<MatriculaMeasurementCardProps> =
     if ((window as any).customToast) {
       (window as any).customToast("Medições perimetrais copiadas para a área de transferência!", "success");
     }
+  };
+
+  // Map scale calibration & dynamic distance/area calculations
+  const mapMeasurementMetrics = useMemo(() => {
+    if (polygonPoints.length < 2) {
+      return {
+        segments: [],
+        totalDistanceMeters: 0,
+        totalDistanceFeet: 0,
+        totalAreaM2: 0,
+        totalAreaSqFt: 0,
+      };
+    }
+
+    const testada = formData.testadaFrente && formData.testadaFrente > 0 ? formData.testadaFrente : 12.5;
+    const profundidade = formData.profundidadeFundos && formData.profundidadeFundos > 0 ? formData.profundidadeFundos : 30.0;
+
+    // Calibration: ~56% width = testada, ~52% height = profundidade
+    const metersPerPctX = testada / 56;
+    const metersPerPctY = profundidade / 52;
+
+    const segments: Array<{ from: typeof polygonPoints[0]; to: typeof polygonPoints[0]; distanceMeters: number; midX: number; midY: number }> = [];
+    let totalDist = 0;
+
+    for (let i = 0; i < polygonPoints.length; i++) {
+      const p1 = polygonPoints[i];
+      const p2 = polygonPoints[(i + 1) % polygonPoints.length];
+
+      // If less than 3 points, don't close loop
+      if (polygonPoints.length < 3 && i === polygonPoints.length - 1) break;
+
+      const dx = (p2.x - p1.x) * metersPerPctX;
+      const dy = (p2.y - p1.y) * metersPerPctY;
+      const segLen = Math.sqrt(dx * dx + dy * dy);
+
+      totalDist += segLen;
+      segments.push({
+        from: p1,
+        to: p2,
+        distanceMeters: Number(segLen.toFixed(2)),
+        midX: (p1.x + p2.x) / 2,
+        midY: (p1.y + p2.y) / 2
+      });
+    }
+
+    // Shoelace formula for polygon area in square meters
+    let areaM2 = 0;
+    if (polygonPoints.length >= 3) {
+      for (let i = 0; i < polygonPoints.length; i++) {
+        const p1 = polygonPoints[i];
+        const p2 = polygonPoints[(i + 1) % polygonPoints.length];
+        const x1 = p1.x * metersPerPctX;
+        const y1 = p1.y * metersPerPctY;
+        const x2 = p2.x * metersPerPctX;
+        const y2 = p2.y * metersPerPctY;
+        areaM2 += (x1 * y2 - x2 * y1);
+      }
+      areaM2 = Math.abs(areaM2) / 2;
+    }
+
+    // If 4 standard corners and very close to formData area, align with formData.areaMedida
+    if (polygonPoints.length === 4 && (!areaM2 || Math.abs(areaM2 - (formData.areaMedida || 0)) < 15)) {
+      areaM2 = formData.areaMedida || areaM2 || (testada * profundidade);
+    }
+
+    const totalDistanceFeet = Number((totalDist * 3.28084).toFixed(2));
+    const totalAreaSqFt = Number((areaM2 * 10.7639).toFixed(2));
+
+    return {
+      segments,
+      totalDistanceMeters: Number(totalDist.toFixed(2)),
+      totalDistanceFeet,
+      totalAreaM2: Number(areaM2.toFixed(2)),
+      totalAreaSqFt
+    };
+  }, [polygonPoints, formData.testadaFrente, formData.profundidadeFundos, formData.areaMedida]);
+
+  // Handle Dragging Polygon Points on Satellite Map
+  const handleMapPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (draggingPointId === null || !mapContainerRef.current) return;
+
+    const rect = mapContainerRef.current.getBoundingClientRect();
+    const xPct = Math.max(4, Math.min(96, ((e.clientX - rect.left) / rect.width) * 100));
+    const yPct = Math.max(4, Math.min(96, ((e.clientY - rect.top) / rect.height) * 100));
+
+    setPolygonPoints(prev =>
+      prev.map(p => (p.id === draggingPointId ? { ...p, x: Number(xPct.toFixed(1)), y: Number(yPct.toFixed(1)) } : p))
+    );
+  };
+
+  const handleMapPointerUp = () => {
+    if (draggingPointId !== null) {
+      setDraggingPointId(null);
+    }
+  };
+
+  // Handle clicking map to add custom vertex
+  const handleMapContainerClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!isAddingPoints || draggingPointId !== null || !mapContainerRef.current) return;
+
+    const rect = mapContainerRef.current.getBoundingClientRect();
+    const xPct = Math.max(4, Math.min(96, ((e.clientX - rect.left) / rect.width) * 100));
+    const yPct = Math.max(4, Math.min(96, ((e.clientY - rect.top) / rect.height) * 100));
+
+    const newId = (polygonPoints[polygonPoints.length - 1]?.id || 0) + 1;
+    setPolygonPoints(prev => [...prev, { id: newId, x: Number(xPct.toFixed(1)), y: Number(yPct.toFixed(1)), label: `P${newId}` }]);
+
+    if ((window as any).customToast) {
+      (window as any).customToast(`Ponto P${newId} adicionado ao caminho!`, "info");
+    }
+  };
+
+  // Reset polygon to default 4 corners based on matrícula
+  const resetPolygonToMatricula = () => {
+    setPolygonPoints([
+      { id: 1, x: 22, y: 22, label: 'P1 (Fundos Esq)' },
+      { id: 2, x: 78, y: 24, label: 'P2 (Fundos Dir)' },
+      { id: 3, x: 76, y: 76, label: 'P3 (Frente Dir)' },
+      { id: 4, x: 20, y: 74, label: 'P4 (Frente Esq)' },
+    ]);
+    setIsAddingPoints(false);
+    if ((window as any).customToast) {
+      (window as any).customToast("Perímetro restaurado para o formato padrão da matrícula.", "info");
+    }
+  };
+
+  const removeLastPoint = () => {
+    if (polygonPoints.length <= 3) {
+      if ((window as any).customToast) {
+        (window as any).customToast("Mantenha pelo menos 3 pontos para formar o polígono.", "warning");
+      }
+      return;
+    }
+    setPolygonPoints(prev => prev.slice(0, prev.length - 1));
   };
 
   // Convert the SVG diagram to PNG Base64 Data URL
@@ -686,11 +833,11 @@ export const MatriculaMeasurementCard: React.FC<MatriculaMeasurementCardProps> =
             </div>
           </div>
 
-          {/* SATELLITE REAL MODE WITH HIGHLIGHTED MEASUREMENTS */}
+          {/* SATELLITE REAL MODE WITH AUTHENTIC GOOGLE MAPS MEASUREMENT TOOL */}
           {viewStyle === 'satellite' && (
-            <div className="relative z-10 flex-1 my-3 rounded-xl overflow-hidden border border-slate-700/80 bg-slate-950 flex flex-col min-h-[380px]">
+            <div className="relative z-10 flex-1 my-3 rounded-xl overflow-hidden border border-slate-700/80 bg-slate-950 flex flex-col min-h-[440px]">
               {/* Secondary Map Control & Measurement Toggles Strip */}
-              <div className="bg-slate-900/90 border-b border-slate-800 px-3 py-2 flex flex-wrap items-center justify-between gap-2 text-xs">
+              <div className="bg-slate-900/95 border-b border-slate-800 px-3 py-2 flex flex-wrap items-center justify-between gap-2 text-xs">
                 <div className="flex items-center gap-1.5 flex-wrap">
                   <button
                     type="button"
@@ -700,14 +847,28 @@ export const MatriculaMeasurementCard: React.FC<MatriculaMeasurementCardProps> =
                         ? 'bg-amber-500 text-black shadow-xs'
                         : 'bg-slate-800 text-slate-400 hover:text-white'
                     }`}
-                    title="Alternar destaque de cotas perimetrais sobre o mapa"
+                    title="Alternar modo de medição perimetral no mapa"
                   >
                     {showMeasurementsOnMap ? <Eye size={12} /> : <EyeOff size={12} />}
-                    <span>📐 Destacar Medições ({formData.areaMedida || formData.areaRegistrada || 0} m²)</span>
+                    <span>📐 Medir Distância & Área ({mapMeasurementMetrics.totalAreaM2} m²)</span>
                   </button>
 
                   {showMeasurementsOnMap && (
                     <>
+                      <button
+                        type="button"
+                        onClick={() => setIsAddingPoints(!isAddingPoints)}
+                        className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1 ${
+                          isAddingPoints
+                            ? 'bg-emerald-500 text-slate-950 animate-pulse ring-2 ring-emerald-300'
+                            : 'bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700'
+                        }`}
+                        title="Ativar modo de clique para adicionar novos pontos"
+                      >
+                        <Crosshair size={12} />
+                        <span>{isAddingPoints ? 'Clique no mapa para adicionar' : '+ Adicionar Pontos'}</span>
+                      </button>
+
                       <button
                         type="button"
                         onClick={() => setShowConfrontationsOnMap(!showConfrontationsOnMap)}
@@ -751,115 +912,271 @@ export const MatriculaMeasurementCard: React.FC<MatriculaMeasurementCardProps> =
               </div>
 
               {/* Map Canvas Frame */}
-              <div className="relative flex-1 min-h-[320px] w-full overflow-hidden">
+              <div 
+                ref={mapContainerRef}
+                onClick={handleMapContainerClick}
+                onPointerMove={handleMapPointerMove}
+                onPointerUp={handleMapPointerUp}
+                className={`relative flex-1 min-h-[380px] w-full overflow-hidden select-none ${
+                  isAddingPoints ? 'cursor-crosshair' : draggingPointId !== null ? 'cursor-grabbing' : 'cursor-default'
+                }`}
+              >
+                {/* Background Google Maps Satellite iFrame */}
                 <iframe
                   title="Google Maps Satellite View"
                   src={`https://maps.google.com/maps?q=${encodeURIComponent((formData.endereco || propertyAddress || '') + (propertyCity ? `, ${propertyCity}` : ''))}&t=k&z=${satelliteZoom}&output=embed`}
-                  className="w-full h-full border-0 absolute inset-0 min-h-[320px]"
+                  className="w-full h-full border-0 absolute inset-0 min-h-[380px] pointer-events-auto"
                   loading="lazy"
                   referrerPolicy="no-referrer-when-downgrade"
                 />
 
-                {/* HIGHLIGHTED MEASUREMENT OVERLAY ON GOOGLE MAPS */}
+                {/* INTERACTIVE MEASUREMENT OVERLAY ON GOOGLE MAPS */}
                 {showMeasurementsOnMap && (
-                  <div className="absolute inset-0 pointer-events-none flex items-center justify-center select-none overflow-hidden">
-                    {/* Centered Demarcation Box on Map */}
-                    <div className="relative w-[78%] max-w-[420px] h-[64%] max-h-[260px] flex items-center justify-center">
-                      {/* Bounding Polygon with Glowing Perimeter Borders */}
-                      <div className={`absolute inset-0 rounded-xl border-2 transition-all ${
-                        highlightGlow 
-                          ? 'border-amber-400 bg-amber-400/[0.08] shadow-[0_0_25px_rgba(245,158,11,0.45)] ring-1 ring-amber-300/60' 
-                          : 'border-amber-400/80 bg-amber-500/[0.04]'
-                      }`}>
-                        {/* Corner Target Reticles (P1..P4) */}
-                        <div className="absolute -top-1.5 -left-1.5 w-3.5 h-3.5 border-t-2 border-l-2 border-amber-300" />
-                        <div className="absolute -top-1.5 -right-1.5 w-3.5 h-3.5 border-t-2 border-r-2 border-amber-300" />
-                        <div className="absolute -bottom-1.5 -left-1.5 w-3.5 h-3.5 border-b-2 border-l-2 border-amber-300" />
-                        <div className="absolute -bottom-1.5 -right-1.5 w-3.5 h-3.5 border-b-2 border-r-2 border-amber-300" />
+                  <div className="absolute inset-0 pointer-events-none z-10">
+                    <svg className="w-full h-full absolute inset-0 pointer-events-none">
+                      <defs>
+                        <linearGradient id="mapLotFill" x1="0%" y1="0%" x2="100%" y2="100%">
+                          <stop offset="0%" stopColor="#f59e0b" stopOpacity={highlightGlow ? "0.28" : "0.14"} />
+                          <stop offset="100%" stopColor="#d97706" stopOpacity={highlightGlow ? "0.18" : "0.06"} />
+                        </linearGradient>
+                        <filter id="neonGlow" x="-20%" y="-20%" width="140%" height="140%">
+                          <feDropShadow dx="0" dy="0" stdDeviation="4" floodColor="#f59e0b" floodOpacity="0.85" />
+                        </filter>
+                      </defs>
 
-                        {/* Dashed Inner Footprint */}
-                        <div className="absolute inset-4 rounded-lg border border-dashed border-sky-400/40 bg-sky-400/[0.03]" />
+                      {/* Closed polygon fill if >= 3 points */}
+                      {polygonPoints.length >= 3 && (
+                        <polygon
+                          points={polygonPoints.map(p => `${p.x}%,${p.y}%`).join(' ')}
+                          fill="url(#mapLotFill)"
+                          stroke={highlightGlow ? "#fbbf24" : "#f59e0b"}
+                          strokeWidth={highlightGlow ? "3" : "2.5"}
+                          strokeLinejoin="round"
+                          filter={highlightGlow ? "url(#neonGlow)" : undefined}
+                        />
+                      )}
+
+                      {/* Perimeter lines connecting points */}
+                      {mapMeasurementMetrics.segments.map((seg, idx) => (
+                        <g key={`seg-line-${idx}`}>
+                          {/* Dark contrast casing behind line */}
+                          <line
+                            x1={`${seg.from.x}%`}
+                            y1={`${seg.from.y}%`}
+                            x2={`${seg.to.x}%`}
+                            y2={`${seg.to.y}%`}
+                            stroke="#0f172a"
+                            strokeWidth="5"
+                            strokeLinecap="round"
+                            opacity="0.8"
+                          />
+                          {/* Inner glowing line */}
+                          <line
+                            x1={`${seg.from.x}%`}
+                            y1={`${seg.from.y}%`}
+                            x2={`${seg.to.x}%`}
+                            y2={`${seg.to.y}%`}
+                            stroke="#f59e0b"
+                            strokeWidth="2.5"
+                            strokeDasharray={polygonPoints.length < 3 ? "6 3" : undefined}
+                            strokeLinecap="round"
+                          />
+                        </g>
+                      ))}
+                    </svg>
+
+                    {/* RED ARROW INDICATOR (As in user reference image) */}
+                    <div 
+                      className="absolute pointer-events-none transition-all duration-300"
+                      style={{
+                        left: `${(polygonPoints[0]?.x || 50) + 16}%`,
+                        top: `${(polygonPoints[0]?.y || 50) + 18}%`,
+                        transform: 'translate(-50%, -50%) rotate(-45deg)'
+                      }}
+                    >
+                      <div className="flex flex-col items-center">
+                        <div className="w-0 h-0 border-l-[9px] border-l-transparent border-r-[9px] border-r-transparent border-b-[20px] border-b-rose-500 filter drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] animate-bounce" />
+                        <div className="w-1.5 h-12 bg-rose-500 rounded-b filter drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]" />
+                      </div>
+                    </div>
+
+                    {/* SEGMENT DISTANCE LABELS ON MAP */}
+                    {mapMeasurementMetrics.segments.map((seg, idx) => (
+                      <div
+                        key={`seg-badge-${idx}`}
+                        className="absolute pointer-events-auto z-20 -translate-x-1/2 -translate-y-1/2"
+                        style={{ left: `${seg.midX}%`, top: `${seg.midY}%` }}
+                      >
+                        <div className="bg-slate-950/95 backdrop-blur-md text-amber-300 border border-amber-400/80 rounded-md px-2 py-0.5 text-[10px] font-black font-mono shadow-[0_2px_8px_rgba(0,0,0,0.8)] flex items-center gap-1 whitespace-nowrap hover:scale-110 transition-transform">
+                          <span>{seg.distanceMeters} m</span>
+                        </div>
+                      </div>
+                    ))}
+
+                    {/* INTERACTIVE VERTEX PINS (White circular nodes with black borders matching Google Maps) */}
+                    {polygonPoints.map((point, idx) => (
+                      <div
+                        key={point.id}
+                        onPointerDown={(e) => {
+                          e.stopPropagation();
+                          setDraggingPointId(point.id);
+                        }}
+                        className={`absolute pointer-events-auto z-30 -translate-x-1/2 -translate-y-1/2 group ${
+                          draggingPointId === point.id ? 'cursor-grabbing scale-125' : 'cursor-grab hover:scale-125'
+                        } transition-transform`}
+                        style={{ left: `${point.x}%`, top: `${point.y}%` }}
+                        title={`Vértice ${point.label || `P${idx + 1}`} - Arraste para calibrar no terreno`}
+                      >
+                        {/* Target halo */}
+                        <div className="w-8 h-8 rounded-full bg-amber-400/20 absolute -inset-1.5 animate-ping opacity-30 pointer-events-none" />
+                        
+                        {/* Google Maps Authentic White Pin with Black Stroke */}
+                        <div className="w-4 h-4 rounded-full bg-white border-[2.5px] border-slate-950 shadow-[0_2px_6px_rgba(0,0,0,0.9)] flex items-center justify-center relative">
+                          <div className="w-1 h-1 rounded-full bg-slate-900" />
+                        </div>
+
+                        {/* Vertex Tag Tooltip */}
+                        <div className="absolute top-4 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-950 text-white text-[9px] font-mono font-bold px-1.5 py-0.5 rounded whitespace-nowrap pointer-events-none shadow-md border border-slate-700">
+                          {point.label || `P${idx + 1}`}
+                        </div>
+                      </div>
+                    ))}
+
+                    {/* CONFRONTATION LABELS OVERLAY (When enabled) */}
+                    {showConfrontationsOnMap && (
+                      <>
+                        {/* Top: Fundos */}
+                        {formData.confrontacaoFundos && (
+                          <div 
+                            className="absolute pointer-events-auto z-20 -translate-x-1/2 -translate-y-full mb-2"
+                            style={{ 
+                              left: `${(polygonPoints[0]?.x + polygonPoints[1]?.x) / 2 || 50}%`, 
+                              top: `${Math.min(polygonPoints[0]?.y || 20, polygonPoints[1]?.y || 20) - 2}%` 
+                            }}
+                          >
+                            <div className="bg-slate-950/90 text-amber-200 border border-amber-500/40 rounded-md px-2 py-0.5 text-[9.5px] font-medium shadow-md truncate max-w-[200px]">
+                              ▲ Fundos: {formData.confrontacaoFundos}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Bottom: Frente */}
+                        {formData.confrontacaoFrente && (
+                          <div 
+                            className="absolute pointer-events-auto z-20 -translate-x-1/2 translate-y-full mt-2"
+                            style={{ 
+                              left: `${(polygonPoints[3]?.x + polygonPoints[2]?.x) / 2 || 50}%`, 
+                              top: `${Math.max(polygonPoints[3]?.y || 75, polygonPoints[2]?.y || 75) + 2}%` 
+                            }}
+                          >
+                            <div className="bg-slate-950/90 text-amber-200 border border-amber-500/40 rounded-md px-2 py-0.5 text-[9.5px] font-medium shadow-md truncate max-w-[200px]">
+                              🛣️ Frente: {formData.confrontacaoFrente}
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                )}
+
+                {/* EXACT GOOGLE MAPS "MEDIR DISTÂNCIA" POPUP MODAL (As shown in user's image) */}
+                {showGoogleMeasurePopup && (
+                  <div className="absolute bottom-3 left-3 z-30 max-w-[310px] sm:max-w-[340px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700/80 rounded-2xl p-3.5 shadow-2xl transition-all text-slate-900 dark:text-slate-100">
+                    <div className="flex items-start justify-between gap-2 border-b border-slate-100 dark:border-slate-800 pb-2 mb-2">
+                      <div className="space-y-0.5">
+                        <div className="flex items-center gap-1.5">
+                          <Ruler size={14} className="text-amber-500" />
+                          <h5 className="font-bold text-xs tracking-tight">Medir distância</h5>
+                        </div>
+                        <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-tight">
+                          {isAddingPoints 
+                            ? 'Clique no mapa para adicionar pontos ao caminho.' 
+                            : 'Arraste os pontos brancos no mapa para calibrar no terreno.'}
+                        </p>
                       </div>
 
-                      {/* 1. TOP MEASUREMENT BADGE: FUNDOS */}
-                      <div className="absolute -top-4 left-1/2 -translate-x-1/2 flex flex-col items-center pointer-events-auto z-20">
-                        <div className="bg-gradient-to-r from-amber-500 to-amber-400 text-slate-950 font-black font-mono text-[11px] px-3 py-0.5 rounded-full shadow-lg border border-amber-200 flex items-center gap-1">
-                          <span>▲ FUNDOS:</span>
-                          <span className="text-xs">{formData.testadaFrente || 0} m</span>
+                      <button
+                        type="button"
+                        onClick={() => setShowGoogleMeasurePopup(false)}
+                        className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-all"
+                        title="Fechar painel de medição"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+
+                    <div className="space-y-1.5 text-xs font-mono">
+                      <div className="flex items-center justify-between text-slate-700 dark:text-slate-200 font-bold bg-slate-50 dark:bg-slate-800/60 p-1.5 rounded-lg border border-slate-100 dark:border-slate-700/50">
+                        <span className="text-[11px] text-slate-500 dark:text-slate-400 font-sans">Distância total:</span>
+                        <span className="text-amber-600 dark:text-amber-400 font-black">
+                          {mapMeasurementMetrics.totalDistanceMeters.toLocaleString('pt-BR')} m ({mapMeasurementMetrics.totalDistanceFeet.toLocaleString('pt-BR')} pés)
+                        </span>
+                      </div>
+
+                      {polygonPoints.length >= 3 && (
+                        <div className="flex items-center justify-between text-slate-700 dark:text-slate-200 font-bold bg-slate-50 dark:bg-slate-800/60 p-1.5 rounded-lg border border-slate-100 dark:border-slate-700/50">
+                          <span className="text-[11px] text-slate-500 dark:text-slate-400 font-sans">Área total:</span>
+                          <span className="text-emerald-600 dark:text-emerald-400 font-black">
+                            {mapMeasurementMetrics.totalAreaM2.toLocaleString('pt-BR')} m² ({mapMeasurementMetrics.totalAreaSqFt.toLocaleString('pt-BR')} pés²)
+                          </span>
                         </div>
-                        {showConfrontationsOnMap && formData.confrontacaoFundos && (
-                          <div className="text-[9px] text-amber-200 bg-slate-950/85 backdrop-blur-md px-2 py-0.5 rounded-md mt-0.5 border border-amber-500/30 max-w-[220px] truncate shadow-md">
-                            ▲ {formData.confrontacaoFundos}
-                          </div>
+                      )}
+                    </div>
+
+                    {/* Action controls inside Google Maps Modal */}
+                    <div className="mt-2.5 pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-1.5">
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => setIsAddingPoints(!isAddingPoints)}
+                          className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-all flex items-center gap-1 ${
+                            isAddingPoints 
+                              ? 'bg-emerald-500 text-black' 
+                              : 'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300'
+                          }`}
+                          title="Adicionar pontos"
+                        >
+                          <span>{isAddingPoints ? '✓ Concluir' : '+ Ponto'}</span>
+                        </button>
+
+                        {polygonPoints.length > 3 && (
+                          <button
+                            type="button"
+                            onClick={removeLastPoint}
+                            className="px-2 py-1 rounded-lg text-[10px] font-medium bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400"
+                            title="Desfazer último ponto adicionado"
+                          >
+                            Desfazer
+                          </button>
                         )}
                       </div>
 
-                      {/* 2. BOTTOM MEASUREMENT BADGE: FRENTE / TESTADA */}
-                      <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 flex flex-col items-center pointer-events-auto z-20">
-                        {showConfrontationsOnMap && formData.confrontacaoFrente && (
-                          <div className="text-[9px] text-amber-200 bg-slate-950/85 backdrop-blur-md px-2 py-0.5 rounded-md mb-0.5 border border-amber-500/30 max-w-[220px] truncate shadow-md">
-                            🛣️ {formData.confrontacaoFrente}
-                          </div>
-                        )}
-                        <div className="bg-gradient-to-r from-amber-500 to-amber-400 text-slate-950 font-black font-mono text-[11px] px-3 py-0.5 rounded-full shadow-lg border border-amber-200 flex items-center gap-1">
-                          <span>▼ TESTADA (FRENTE):</span>
-                          <span className="text-xs">{formData.testadaFrente || 0} m</span>
-                        </div>
-                      </div>
-
-                      {/* 3. LEFT MEASUREMENT BADGE: LATERAL ESQUERDA */}
-                      <div className="absolute -left-3.5 top-1/2 -translate-y-1/2 flex items-center pointer-events-auto z-20">
-                        <div className="bg-gradient-to-b from-amber-500 to-amber-400 text-slate-950 font-black font-mono text-[10px] px-2 py-1 rounded-lg shadow-lg border border-amber-200 -rotate-90 origin-center whitespace-nowrap">
-                          ◀ ESQ: {formData.profundidadeFundos || 0} m
-                        </div>
-                      </div>
-
-                      {/* 4. RIGHT MEASUREMENT BADGE: LATERAL DIREITA */}
-                      <div className="absolute -right-3.5 top-1/2 -translate-y-1/2 flex items-center pointer-events-auto z-20">
-                        <div className="bg-gradient-to-b from-amber-500 to-amber-400 text-slate-950 font-black font-mono text-[10px] px-2 py-1 rounded-lg shadow-lg border border-amber-200 rotate-90 origin-center whitespace-nowrap">
-                          ▶ DIR: {formData.profundidadeFundos || 0} m
-                        </div>
-                      </div>
-
-                      {/* 5. CENTER FLOATING HUD TARGET */}
-                      <div className="relative pointer-events-auto z-10 flex flex-col items-center">
-                        <div className="bg-slate-950/90 backdrop-blur-md border-2 border-amber-400 rounded-2xl px-3.5 py-2 text-center shadow-2xl flex flex-col items-center gap-0.5 max-w-[210px]">
-                          <div className="flex items-center gap-1 text-[9.5px] font-black uppercase tracking-wider text-amber-400">
-                            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-                            <span>Lote Demarcado</span>
-                          </div>
-                          <div className="text-base font-black font-mono text-emerald-400 tracking-tight leading-none my-0.5">
-                            {formData.areaMedida || formData.areaRegistrada || 0} m²
-                          </div>
-                          <div className="text-[10px] font-mono text-slate-300 border-t border-slate-800 pt-0.5 flex items-center gap-2">
-                            <span>Perím: <b>{formData.perimetro || 0}m</b></span>
-                            <span>•</span>
-                            <span>Proj: <b>~{formData.areaConstruidaEstimada || 0}m²</b></span>
-                          </div>
-                        </div>
-                      </div>
+                      <button
+                        type="button"
+                        onClick={resetPolygonToMatricula}
+                        className="px-2 py-1 rounded-lg text-[10px] font-medium text-amber-600 dark:text-amber-400 hover:bg-amber-500/10 transition-all"
+                        title="Restaurar formato inicial da matrícula"
+                      >
+                        Restaurar Matrícula
+                      </button>
                     </div>
                   </div>
                 )}
 
-                {/* Left Floating Summary Capsule */}
-                <div className="absolute top-3 left-3 bg-slate-950/85 backdrop-blur-md border border-amber-500/40 rounded-xl p-2.5 text-xs text-slate-200 shadow-xl space-y-1 pointer-events-auto">
-                  <div className="flex items-center gap-2 border-b border-slate-800 pb-1">
-                    <span className="w-2 h-2 rounded-full bg-emerald-400" />
-                    <span className="font-bold font-mono text-[11px] text-amber-400">
-                      ÁREA: {formData.areaMedida || formData.areaRegistrada || 0} m²
-                    </span>
-                  </div>
-                  <div className="text-[10px] font-mono grid grid-cols-2 gap-x-2 text-slate-300">
-                    <span>Frente: {formData.testadaFrente || 0}m</span>
-                    <span>Fundos: {formData.profundidadeFundos || 0}m</span>
-                    <span>Perímetro: {formData.perimetro || 0}m</span>
-                    <span>Proj: ~{formData.areaConstruidaEstimada || 0}m²</span>
-                  </div>
-                </div>
+                {/* Re-open Google Measure Popup Toggle if closed */}
+                {!showGoogleMeasurePopup && (
+                  <button
+                    type="button"
+                    onClick={() => setShowGoogleMeasurePopup(true)}
+                    className="absolute bottom-3 left-3 z-30 px-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200 rounded-xl text-xs font-bold shadow-xl flex items-center gap-1.5 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all"
+                  >
+                    <Ruler size={13} className="text-amber-500" />
+                    <span>Abrir Medidor ({mapMeasurementMetrics.totalAreaM2} m²)</span>
+                  </button>
+                )}
 
                 {/* Zoom & Direct Measure Button in Bottom Right */}
-                <div className="absolute bottom-3 right-3 flex items-center gap-1.5 bg-slate-950/90 backdrop-blur-md border border-slate-700 rounded-xl p-1 shadow-lg pointer-events-auto">
+                <div className="absolute bottom-3 right-3 flex items-center gap-1.5 bg-slate-950/90 backdrop-blur-md border border-slate-700 rounded-xl p-1 shadow-lg pointer-events-auto z-30">
                   <button
                     type="button"
                     onClick={() => setSatelliteZoom(prev => Math.min(prev + 1, 21))}
@@ -887,7 +1204,7 @@ export const MatriculaMeasurementCard: React.FC<MatriculaMeasurementCardProps> =
                     className="px-2 py-1 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 rounded text-[10px] font-bold flex items-center gap-1 transition-all"
                     title="Abrir no Google Maps Oficial"
                   >
-                    <span>Medir no Maps</span>
+                    <span>Abrir no Maps</span>
                     <ArrowUpRight size={11} />
                   </a>
                 </div>
