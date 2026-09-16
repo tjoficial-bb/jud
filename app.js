@@ -227,10 +227,28 @@ function runBuildAsync(callback) {
     });
 }
 
+function listenServer(serverInstance, callback) {
+  const rawPort = process.env.PORT;
+  if (rawPort && isNaN(Number(rawPort))) {
+    return serverInstance.listen(rawPort, () => {
+      console.log(`[app.js]: Server listening on socket ${rawPort}`);
+      logToFile(`Server listening on socket ${rawPort}`);
+      if (callback) callback();
+    });
+  } else {
+    const port = rawPort ? parseInt(rawPort, 10) : 3000;
+    return serverInstance.listen(port, '0.0.0.0', () => {
+      console.log(`[app.js]: Server listening on port ${port}`);
+      logToFile(`Server listening on port ${port}`);
+      if (callback) callback();
+    });
+  }
+}
+
 function startFallbackServer(error) {
   if (fallbackServer) return;
   
-  logToFile(`Starting fallback helper on port ${PORT}...`);
+  logToFile(`Starting fallback diagnostic helper...`);
   
   try {
     fallbackServer = http.createServer((req, res) => {
@@ -355,10 +373,7 @@ function startFallbackServer(error) {
       res.end();
     });
     
-    fallbackServer.listen(PORT, '0.0.0.0', () => {
-      console.log(`[app.js]: Helper server running on port ${PORT}`);
-      logToFile(`Helper server listening on port ${PORT}`);
-    });
+    listenServer(fallbackServer);
   } catch (e) {
     console.error("Failed to start helper server:", e);
     logToFile(`Failed to start helper server: ${e?.stack || e}`);
@@ -399,14 +414,22 @@ function loadCompiledServer() {
 }
 
 if (!fs.existsSync(serverPath)) {
-  addBuildLog("Arquivo 'dist/server.cjs' não encontrado. Iniciando compilação direta...");
-  logToFile("dist/server.cjs not found. Running auto-build...");
+  addBuildLog("Arquivo 'dist/server.cjs' não encontrado. Iniciando servidor de diagnóstico e compilação direta...");
+  logToFile("dist/server.cjs not found. Starting fallback server & running auto-build...");
+  
+  startFallbackServer();
   
   performBuild()
     .then(() => {
       if (fs.existsSync(serverPath)) {
         addBuildLog("Auto-build completado com sucesso!");
-        loadCompiledServer();
+        if (fallbackServer) {
+          fallbackServer.close(() => {
+            loadCompiledServer();
+          });
+        } else {
+          loadCompiledServer();
+        }
       } else {
         throw new Error("Build concluído mas dist/server.cjs não foi gerado.");
       }
@@ -414,7 +437,6 @@ if (!fs.existsSync(serverPath)) {
     .catch((err) => {
       console.error("[app.js] Auto-build error:", err?.message);
       logToFile(`Auto-build error: ${err?.message}`);
-      startFallbackServer(err);
     });
 } else {
   loadCompiledServer();

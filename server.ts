@@ -2437,9 +2437,18 @@ async function startServer() {
     });
   }
 
-  const server = app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on http://localhost:${PORT}`);
-  });
+  const rawPort = process.env.PORT;
+  let server: any;
+  if (rawPort && isNaN(Number(rawPort))) {
+    server = app.listen(rawPort, () => {
+      console.log(`Server running on socket ${rawPort}`);
+    });
+  } else {
+    const port = rawPort ? parseInt(rawPort, 10) : 3000;
+    server = app.listen(port, "0.0.0.0", () => {
+      console.log(`Server running on http://localhost:${port}`);
+    });
+  }
   server.keepAliveTimeout = 120000;
   server.headersTimeout = 125000;
   server.timeout = 300000;
