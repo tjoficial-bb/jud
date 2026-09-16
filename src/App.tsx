@@ -11495,17 +11495,12 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
             <div className="flex border-b border-brand-primary/10 bg-brand-bg/30 overflow-x-auto no-print">
               <AnalysisTab active={activeSubTab === 'report'} onClick={() => updateState({ activeSubTab: 'report' })} icon={<Brain size={16} />} label="Relatório" />
               <AnalysisTab active={activeSubTab === 'smart_analysis'} onClick={() => updateState({ activeSubTab: 'smart_analysis' })} icon={<Cpu size={16} />} label="Análise Smart" />
-              <AnalysisTab active={activeSubTab === 'assessoria'} onClick={() => updateState({ activeSubTab: 'assessoria' })} icon={<Scale size={16} />} label="Análise de Assessoria" />
               <AnalysisTab active={activeSubTab === 'unified_summary'} onClick={() => updateState({ activeSubTab: 'unified_summary' })} icon={<Layers size={16} />} label="Resumão Unificado" />
               <AnalysisTab active={activeSubTab === 'regional_map'} onClick={() => updateState({ activeSubTab: 'regional_map' })} icon={<Compass size={16} />} label="Região & Mapas" />
-              <AnalysisTab active={activeSubTab === 'dossier'} onClick={() => updateState({ activeSubTab: 'dossier' })} icon={<Clipboard size={16} />} label="Dossiê de Arrematação" />
               <AnalysisTab active={activeSubTab === 'edital'} onClick={() => updateState({ activeSubTab: 'edital' })} icon={<FileText size={16} />} label="Edital" />
               <AnalysisTab active={activeSubTab === 'matricula'} onClick={() => updateState({ activeSubTab: 'matricula' })} icon={<BookOpen size={16} />} label="Matrícula" />
               <AnalysisTab active={activeSubTab === 'processos'} onClick={() => updateState({ activeSubTab: 'processos' })} icon={<Search size={16} />} label="Processos" />
               {!isPublicView && <AnalysisTab active={activeSubTab === 'documents'} onClick={() => updateState({ activeSubTab: 'documents' })} icon={<Files size={16} />} label="Documentos" />}
-              <AnalysisTab active={activeSubTab === 'simulations'} onClick={() => updateState({ activeSubTab: 'simulations' })} icon={<TrendingUp size={16} />} label="Simulação" />
-              <AnalysisTab active={activeSubTab === 'investors'} onClick={() => updateState({ activeSubTab: 'investors' })} icon={<Users size={16} />} label="Investidores" />
-              <AnalysisTab active={activeSubTab === 'instagram'} onClick={() => updateState({ activeSubTab: 'instagram' })} icon={<Instagram size={16} />} label="Captação" />
             </div>
 
             {/* Tab Content */}
