@@ -19,7 +19,12 @@ import {
   Layers, 
   Search, 
   BookOpen, 
-  Info 
+  Info,
+  FileSearch,
+  Target,
+  Sparkles,
+  ShieldCheck,
+  AlertTriangle
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -41,6 +46,31 @@ export interface ProcessoReportData {
       peca: string;
       pagina: string;
       descricao: string;
+      impacto?: string;
+      risco?: 'BAIXO' | 'MÉDIO' | 'ALTO';
+    }>;
+  };
+  auditoria_pagina_a_pagina?: Array<{
+    pagina_folha: string;
+    peca_documento: string;
+    data_evento?: string;
+    resumo_analise: string;
+    impacto_leilao: string;
+    tipo_impacto: 'FAVORAVEL' | 'NEUTRO' | 'DESFAVORAVEL' | 'ALERTA';
+    grau_risco: 'BAIXO' | 'MÉDIO' | 'ALTO';
+    recomendacao_arrematante?: string;
+  }>;
+  pros_e_contras?: {
+    pros: Array<{
+      titulo: string;
+      descricao: string;
+      impacto_positivo: string;
+    }>;
+    contras: Array<{
+      titulo: string;
+      risco: string;
+      mitigacao: string;
+      gravidade: 'BAIXO' | 'MÉDIO' | 'ALTO';
     }>;
   };
   acoes_ex_mutuario: {
@@ -69,6 +99,12 @@ export interface ProcessoReportData {
     prescricao_iss_5_anos?: 'Sim (Prescreveu - sem ISS)' | 'Não' | 'Pendente de verificação';
     estimativa_custos_regularizacao?: string;
     detalhes_regularizacao?: string;
+  };
+  parecer_consolidado_risco?: {
+    classificacao_geral: 'BAIXO' | 'MÉDIO' | 'ALTO';
+    risco_anulacao: 'BAIXO' | 'MÉDIO' | 'ALTO';
+    estimativa_tempo_desocupacao: string;
+    recomendacao_estrategica: string;
   };
 }
 
@@ -101,12 +137,17 @@ export const ProcessoReport: React.FC<ProcessoReportProps> = ({
 }) => {
   const [viewMode, setViewMode] = useState<'dashboard' | 'markdown'>('dashboard');
   const [accordionState, setAccordionState] = useState<Record<string, boolean>>({
+    auditoria_folhas: true,
+    pros_e_contras: true,
+    parecer_estrategico: true,
     processo_principal: true,
     acoes_judiciais: true,
     gravames_registro: true,
     averbacao_obra: true,
   });
 
+  const [pageSearch, setPageSearch] = useState('');
+  const [impactFilter, setImpactFilter] = useState<'ALL' | 'FAVORAVEL' | 'DESFAVORAVEL' | 'ALERTA' | 'NEUTRO'>('ALL');
   const [copiedRaw, setCopiedRaw] = useState(false);
 
   const toggleAccordion = (key: string) => {
@@ -199,17 +240,50 @@ export const ProcessoReport: React.FC<ProcessoReportProps> = ({
       `• Segredo de Justiça: ${data.processo_principal?.segredo_justica || 'Não'}`,
     ].join('\n');
 
-    // 2. Principais Peças Processuais
-    let pecasText = `📑 PRINCIPAIS PEÇAS PROCESSUAIS AUDITADAS:\n\n`;
-    if (data.processo_principal?.principais_pecas && data.processo_principal.principais_pecas.length > 0) {
-      pecasText += data.processo_principal.principais_pecas.map((p, idx) => {
-        return `[Peça ${idx + 1}] ${p.peca}${p.pagina ? ` (Fls. ${p.pagina})` : ''}\n  - Descrição: ${p.descricao}`;
+    // 2. Auditoria Página a Página (Folha a Folha)
+    let auditoriaText = `📑 AUDITORIA PÁGINA A PÁGINA & IMPACTO NO LEILÃO (FOLHA POR FOLHA):\n\n`;
+    if (data.auditoria_pagina_a_pagina && data.auditoria_pagina_a_pagina.length > 0) {
+      auditoriaText += data.auditoria_pagina_a_pagina.map((item, idx) => {
+        return [
+          `[Item ${idx + 1}] ${item.pagina_folha} - ${item.peca_documento} (${item.tipo_impacto || 'NEUTRO'} | Risco: ${item.grau_risco || 'BAIXO'})`,
+          `  - Resumo: ${item.resumo_analise}`,
+          `  - Impacto Direto no Leilão: ${item.impacto_leilao}`,
+          item.recomendacao_arrematante ? `  - Recomendação ao Arrematante: ${item.recomendacao_arrematante}` : null,
+        ].filter(Boolean).join('\n');
       }).join('\n\n');
     } else {
-      pecasText += 'Nenhuma peça individualizada informada.';
+      auditoriaText += 'Nenhuma folha individual auditada.';
     }
 
-    // 3. Ações do Ex-Mutuário / Risco CPF
+    // 3. Prós e Contras do Processo
+    let prosContrasText = `⚖️ BALANÇO DE PRÓS E CONTRAS DO PROCESSO JUDICIAL:\n\n`;
+    prosContrasText += `🟢 PONTOS FAVORÁVEIS (PRÓS):\n`;
+    if (data.pros_e_contras?.pros && data.pros_e_contras.pros.length > 0) {
+      prosContrasText += data.pros_e_contras.pros.map((p, idx) => {
+        return `[Pró ${idx + 1}] ${p.titulo}\n  - Fundamentação: ${p.descricao}\n  - Impacto Positivo: ${p.impacto_positivo}`;
+      }).join('\n\n');
+    } else {
+      prosContrasText += 'Nenhum ponto pró destacado.\n';
+    }
+    prosContrasText += `\n🔴 PONTOS DE ATENÇÃO E RISCOS (CONTRAS):\n`;
+    if (data.pros_e_contras?.contras && data.pros_e_contras.contras.length > 0) {
+      prosContrasText += data.pros_e_contras.contras.map((c, idx) => {
+        return `[Contra ${idx + 1}] ${c.titulo} (Gravidade: ${c.gravidade || 'MÉDIO'})\n  - Risco: ${c.risco}\n  - Mitigação/Solução Prática: ${c.mitigacao}`;
+      }).join('\n\n');
+    } else {
+      prosContrasText += 'Nenhum ponto de risco/contra destacado.\n';
+    }
+
+    // 4. Parecer Estratégico Consolidado
+    const parecerText = [
+      `🎯 PARECER ESTRATÉGICO CONSOLIDADO DE ENTRADA E SAÍDA:`,
+      `• Classificação Geral de Risco: ${data.parecer_consolidado_risco?.classificacao_geral || 'BAIXO'}`,
+      `• Risco de Anulação do Leilão: ${data.parecer_consolidado_risco?.risco_anulacao || 'BAIXO'}`,
+      `• Estimativa de Tempo para Posse: ${data.parecer_consolidado_risco?.estimativa_tempo_desocupacao || '45 a 90 dias'}`,
+      `• Recomendação Estratégica: ${data.parecer_consolidado_risco?.recomendacao_estrategica || 'Operação recomendada com rito formal regular.'}`,
+    ].join('\n');
+
+    // 5. Ações do Ex-Mutuário / Risco CPF
     let acoesText = `🔍 AÇÕES CONTRA EX-MUTUÁRIO / CPF:\n\n`;
     acoesText += `• Classificação Geral de Risco: ${data.acoes_ex_mutuario?.risco_geral_acoes || 'BAIXO'}\n`;
     if (data.acoes_ex_mutuario?.comentarios_pesquisa) {
@@ -228,7 +302,7 @@ export const ProcessoReport: React.FC<ProcessoReportProps> = ({
       acoesText += 'Nenhuma ação de alto risco contra o devedor localizada.';
     }
 
-    // 4. Gravames no Processo
+    // 6. Gravames no Processo
     let gravamesText = `📜 GRAVAMES E PENHORAS ANALISADOS NO PROCESSO:\n\n`;
     if (data.gravames_matricula_processo?.gravames_analisados && data.gravames_matricula_processo.gravames_analisados.length > 0) {
       gravamesText += data.gravames_matricula_processo.gravames_analisados.map((g, idx) => {
@@ -238,7 +312,7 @@ export const ProcessoReport: React.FC<ProcessoReportProps> = ({
       gravamesText += 'Nenhum gravame processual pendente de cancelamento apontado.';
     }
 
-    // 5. Averbação de Obra e Regularidade
+    // 7. Averbação de Obra e Regularidade
     const averbacaoText = [
       `🏗️ AVERBAÇÃO DE ÁREA CONSTRUÍDA E PASSIVO DE ISS:`,
       `• É Casa / Construção Individual: ${data.averbacao_area_construida?.imovel_e_casa ? 'Sim' : 'Não (Apartamento/Unidade Autônoma)'}`,
@@ -249,18 +323,11 @@ export const ProcessoReport: React.FC<ProcessoReportProps> = ({
       data.averbacao_area_construida?.detalhes_regularizacao ? `• Detalhes da Regularização: ${data.averbacao_area_construida.detalhes_regularizacao}` : null,
     ].filter(Boolean).join('\n');
 
-    // 6. Painel do Assessor & Dicas
-    const painelText = [
-      `🎯 PAINEL DO ASSESSOR - RESUMO & DICAS PROCESSUAIS:`,
-      `• Síntese Processual: Validação dos atos citatórios, ausência de recursos com efeito suspensivo e segurança para emissão da Carta de Arrematação.`,
-      `• Dica de Captação (Investidor): Destaque o baixo risco jurídico e a velocidade esperada para a expedição do mandado de imissão na posse.`,
-      `• Dica de Captação (Moradia): Tranquilize o comprador final explicando que a dívida do antigo proprietário não recai sobre o novo dono.`,
-    ].join('\n');
-
     return [
+      { id: 'auditoria_folhas', title: 'Auditoria Página a Página (Folha a Folha)', text: auditoriaText },
+      { id: 'pros_e_contras', title: 'Prós e Contras do Processo Judicial', text: prosContrasText },
+      { id: 'parecer_estrategico', title: 'Parecer Estratégico de Entrada e Saída', text: parecerText },
       { id: 'processo_principal', title: 'Processo Principal da Execução', text: procText },
-      { id: 'painel_assessor', title: 'Painel do Assessor (Resumo & Pitch Comercial)', text: painelText },
-      { id: 'pecas_principais', title: 'Principais Peças Processuais Auditadas', text: pecasText },
       { id: 'acoes_ex_mutuario', title: 'Pesquisa de Ações do Ex-Mutuário (CPF)', text: acoesText },
       { id: 'gravames_processo', title: 'Gravames e Penhoras no Processo', text: gravamesText },
       { id: 'averbacao_obra', title: 'Averbação de Obra & Passivo de ISS', text: averbacaoText },
@@ -268,7 +335,7 @@ export const ProcessoReport: React.FC<ProcessoReportProps> = ({
   }, [data]);
 
   const [selectedSectionIds, setSelectedSectionIds] = useState<string[]>([
-    'processo_principal', 'painel_assessor', 'pecas_principais', 'acoes_ex_mutuario', 'gravames_processo', 'averbacao_obra'
+    'auditoria_folhas', 'pros_e_contras', 'parecer_estrategico', 'processo_principal', 'acoes_ex_mutuario', 'gravames_processo', 'averbacao_obra'
   ]);
 
   const handleToggleSection = (id: string) => {
@@ -443,6 +510,339 @@ export const ProcessoReport: React.FC<ProcessoReportProps> = ({
 
           {/* 2. COMPLETENESS COLLAPSIBLE SECTIONS */}
           <div className="space-y-4">
+            
+            {/* Sec: Auditoria Página a Página */}
+            <AccordionSection 
+              id="auditoria_folhas" 
+              title="Auditoria Página a Página & Impacto no Leilão (Folha a Folha)" 
+              icon={<FileSearch size={18} className="text-amber-500" />} 
+              isOpen={accordionState.auditoria_folhas} 
+              onToggle={() => toggleAccordion('auditoria_folhas')}
+            >
+              <div className="space-y-5">
+                <div className="p-4 bg-brand-bg/15 rounded-2xl border border-brand-border/65 text-xs text-brand-ink/85 font-medium leading-relaxed flex items-start gap-3">
+                  <FileText size={16} className="text-brand-primary mt-0.5 shrink-0" />
+                  <div>
+                    <span className="font-bold block text-brand-ink mb-1 uppercase tracking-wider text-[10px]">LEITURA MINUCIOSA DOS AUTOS DO PROCESSO</span>
+                    Auditoria forense item a item das peças processuais chave, localizando os números de folhas/páginas e calculando o impacto direto (prós, contras e segurança jurídica) para a arrematação e emissão da Carta de Arrematação.
+                  </div>
+                </div>
+
+                {/* Search & Impact Filter Controls */}
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-1">
+                  <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
+                    <button
+                      onClick={() => setImpactFilter('ALL')}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                        impactFilter === 'ALL'
+                          ? 'bg-brand-primary text-black'
+                          : 'bg-brand-bg/40 text-brand-ink/70 hover:text-brand-primary border border-brand-border/40'
+                      }`}
+                    >
+                      Todos ({data.auditoria_pagina_a_pagina?.length || 0})
+                    </button>
+                    <button
+                      onClick={() => setImpactFilter('FAVORAVEL')}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                        impactFilter === 'FAVORAVEL'
+                          ? 'bg-emerald-600 text-white'
+                          : 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/20'
+                      }`}
+                    >
+                      Favoráveis ({data.auditoria_pagina_a_pagina?.filter(x => x.tipo_impacto === 'FAVORAVEL').length || 0})
+                    </button>
+                    <button
+                      onClick={() => setImpactFilter('ALERTA')}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                        impactFilter === 'ALERTA'
+                          ? 'bg-amber-600 text-white'
+                          : 'bg-amber-500/10 text-amber-700 dark:text-amber-400 hover:bg-amber-500/20 border border-amber-500/20'
+                      }`}
+                    >
+                      Alertas ({data.auditoria_pagina_a_pagina?.filter(x => x.tipo_impacto === 'ALERTA').length || 0})
+                    </button>
+                    <button
+                      onClick={() => setImpactFilter('DESFAVORAVEL')}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                        impactFilter === 'DESFAVORAVEL'
+                          ? 'bg-rose-600 text-white'
+                          : 'bg-rose-500/10 text-rose-700 dark:text-rose-400 hover:bg-rose-500/20 border border-rose-500/20'
+                      }`}
+                    >
+                      Contras / Riscos ({data.auditoria_pagina_a_pagina?.filter(x => x.tipo_impacto === 'DESFAVORAVEL').length || 0})
+                    </button>
+                  </div>
+
+                  <div className="relative min-w-[200px]">
+                    <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-ink/40" />
+                    <input
+                      type="text"
+                      placeholder="Buscar folha ou peça..."
+                      value={pageSearch}
+                      onChange={e => setPageSearch(e.target.value)}
+                      className="w-full pl-8 pr-3 py-1.5 bg-brand-bg/40 border border-brand-border/60 rounded-xl text-xs text-brand-ink placeholder:text-brand-ink/40 focus:outline-none focus:border-brand-primary"
+                    />
+                  </div>
+                </div>
+
+                {/* Audit Items Render */}
+                {data.auditoria_pagina_a_pagina && data.auditoria_pagina_a_pagina.length > 0 ? (
+                  <div className="space-y-3">
+                    {data.auditoria_pagina_a_pagina
+                      .filter(item => {
+                        if (impactFilter !== 'ALL' && item.tipo_impacto !== impactFilter) return false;
+                        if (!pageSearch) return true;
+                        const s = pageSearch.toLowerCase();
+                        return (
+                          item.pagina_folha.toLowerCase().includes(s) ||
+                          item.peca_documento.toLowerCase().includes(s) ||
+                          item.resumo_analise.toLowerCase().includes(s) ||
+                          item.impacto_leilao.toLowerCase().includes(s)
+                        );
+                      })
+                      .map((item, idx) => {
+                        const isFav = item.tipo_impacto === 'FAVORAVEL';
+                        const isAlert = item.tipo_impacto === 'ALERTA';
+                        const isDesfav = item.tipo_impacto === 'DESFAVORAVEL';
+
+                        return (
+                          <div 
+                            key={idx} 
+                            className={`rounded-2xl border p-4 sm:p-5 space-y-3 transition-all ${
+                              isFav 
+                                ? 'bg-emerald-500/[0.02] border-emerald-500/20 dark:bg-emerald-950/10' 
+                                : isAlert
+                                ? 'bg-amber-500/[0.03] border-amber-500/20 dark:bg-amber-950/10'
+                                : isDesfav
+                                ? 'bg-rose-500/[0.03] border-rose-500/20 dark:bg-rose-950/10'
+                                : 'bg-brand-bg/10 border-brand-border/60'
+                            }`}
+                          >
+                            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-brand-border/20 pb-2.5">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="bg-brand-primary/10 text-brand-primary font-mono font-extrabold text-xs px-2.5 py-1 rounded-lg border border-brand-primary/20">
+                                  {item.pagina_folha}
+                                </span>
+                                <h4 className="font-bold text-brand-ink text-sm tracking-tight">{item.peca_documento}</h4>
+                                {item.data_evento && (
+                                  <span className="text-[11px] text-brand-ink/50 font-medium font-sans">
+                                    • {item.data_evento}
+                                  </span>
+                                )}
+                              </div>
+
+                              <div className="flex items-center gap-1.5">
+                                <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase font-sans tracking-wider border ${
+                                  isFav
+                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800'
+                                    : isAlert
+                                    ? 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800'
+                                    : isDesfav
+                                    ? 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800'
+                                    : 'bg-zinc-100 text-zinc-700 border-zinc-200 dark:bg-zinc-800 dark:text-zinc-300'
+                                }`}>
+                                  {item.tipo_impacto === 'FAVORAVEL' ? 'Favorável' : item.tipo_impacto === 'ALERTA' ? 'Alerta' : item.tipo_impacto === 'DESFAVORAVEL' ? 'Ponto de Risco' : 'Neutro'}
+                                </span>
+
+                                <span className={`px-2 py-0.5 rounded-md text-[9px] font-bold uppercase font-mono ${
+                                  item.grau_risco === 'ALTO'
+                                    ? 'bg-rose-100 text-rose-700 dark:bg-rose-900/50 dark:text-rose-300'
+                                    : item.grau_risco === 'MÉDIO'
+                                    ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300'
+                                    : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300'
+                                }`}>
+                                  Risco {item.grau_risco}
+                                </span>
+                              </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                              <div className="bg-brand-bg/25 rounded-xl p-3 border border-brand-border/30 space-y-1">
+                                <span className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider block">
+                                  Resumo da Peça Auditada
+                                </span>
+                                <p className="text-brand-ink/90 font-medium leading-relaxed">{item.resumo_analise}</p>
+                              </div>
+
+                              <div className={`rounded-xl p-3 border space-y-1 ${
+                                isFav 
+                                  ? 'bg-emerald-500/5 border-emerald-500/20 text-emerald-950 dark:text-emerald-100' 
+                                  : isDesfav
+                                  ? 'bg-rose-500/5 border-rose-500/20 text-rose-950 dark:text-rose-100'
+                                  : 'bg-amber-500/5 border-amber-500/20 text-amber-950 dark:text-amber-100'
+                              }`}>
+                                <span className="text-[10px] font-extrabold uppercase tracking-wider block opacity-75">
+                                  Impacto Direto no Leilão
+                                </span>
+                                <p className="font-semibold leading-relaxed text-brand-ink/90">{item.impacto_leilao}</p>
+                              </div>
+                            </div>
+
+                            {item.recomendacao_arrematante && (
+                              <div className="bg-brand-primary/[0.04] rounded-xl p-3 border border-brand-primary/15 flex items-start gap-2 text-xs">
+                                <ShieldCheck size={15} className="text-brand-primary shrink-0 mt-0.5" />
+                                <div>
+                                  <span className="font-bold text-brand-primary block text-[10px] uppercase tracking-wider">
+                                    Recomendação ao Arrematante / Estratégia
+                                  </span>
+                                  <p className="text-brand-ink/80 font-medium leading-relaxed">{item.recomendacao_arrematante}</p>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                  </div>
+                ) : (
+                  <div className="py-6 text-center text-xs text-brand-ink/40 font-semibold uppercase tracking-widest bg-brand-bg/5 rounded-xl border border-dashed border-brand-border">
+                    Nenhuma folha individual listada
+                  </div>
+                )}
+              </div>
+            </AccordionSection>
+
+            {/* Sec: Prós e Contras */}
+            <AccordionSection 
+              id="pros_e_contras" 
+              title="Prós e Contras do Processo Judicial (Balanço de Segurança)" 
+              icon={<Scale size={18} className="text-indigo-500" />} 
+              isOpen={accordionState.pros_e_contras} 
+              onToggle={() => toggleAccordion('pros_e_contras')}
+            >
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                  {/* Coluna de PRÓS */}
+                  <div className="bg-emerald-50/50 dark:bg-emerald-950/15 border border-emerald-200 dark:border-emerald-800/40 rounded-2xl p-5 space-y-4">
+                    <div className="flex items-center gap-2 border-b border-emerald-200 dark:border-emerald-800/40 pb-3">
+                      <div className="w-7 h-7 rounded-full bg-emerald-500/10 text-emerald-600 flex items-center justify-center font-bold">
+                        <CheckCircle2 size={16} />
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-emerald-950 dark:text-emerald-100 text-sm">Prós & Vantagens Processuais</h4>
+                        <span className="text-[11px] text-emerald-700 dark:text-emerald-400 font-medium">Pontos de segurança e blindagem da arrematação</span>
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      {data.pros_e_contras?.pros && data.pros_e_contras.pros.length > 0 ? (
+                        data.pros_e_contras.pros.map((pro, idx) => (
+                          <div key={idx} className="bg-white/80 dark:bg-zinc-900/60 rounded-xl p-3.5 border border-emerald-100 dark:border-emerald-900/30 space-y-1.5 shadow-sm">
+                            <div className="flex items-center gap-1.5">
+                              <Check size={14} className="text-emerald-600 shrink-0" />
+                              <h5 className="font-bold text-xs text-brand-ink tracking-tight">{pro.titulo}</h5>
+                            </div>
+                            <p className="text-xs text-brand-ink/75 font-medium leading-relaxed pl-5">{pro.descricao}</p>
+                            <div className="pl-5 pt-1">
+                              <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider block">
+                                Ganho Prático: {pro.impacto_positivo}
+                              </span>
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-xs text-brand-ink/50 italic">Nenhum ponto pró listado.</p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Coluna de CONTRAS / PONTOS DE ATENÇÃO */}
+                  <div className="bg-rose-50/50 dark:bg-rose-950/15 border border-rose-200 dark:border-rose-800/40 rounded-2xl p-5 space-y-4">
+                    <div className="flex items-center gap-2 border-b border-rose-200 dark:border-rose-800/40 pb-3">
+                      <div className="w-7 h-7 rounded-full bg-rose-500/10 text-rose-600 flex items-center justify-center font-bold">
+                        <AlertTriangle size={16} />
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-rose-950 dark:text-rose-100 text-sm">Contras & Riscos a Mitigar</h4>
+                        <span className="text-[11px] text-rose-700 dark:text-rose-400 font-medium">Pontos de atenção e soluções táticas recomendadas</span>
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      {data.pros_e_contras?.contras && data.pros_e_contras.contras.length > 0 ? (
+                        data.pros_e_contras.contras.map((contra, idx) => (
+                          <div key={idx} className="bg-white/80 dark:bg-zinc-900/60 rounded-xl p-3.5 border border-rose-100 dark:border-rose-900/30 space-y-2 shadow-sm">
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-1.5">
+                                <AlertOctagon size={14} className="text-rose-600 shrink-0" />
+                                <h5 className="font-bold text-xs text-brand-ink tracking-tight">{contra.titulo}</h5>
+                              </div>
+                              <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase ${
+                                contra.gravidade === 'ALTO'
+                                  ? 'bg-rose-100 text-rose-700'
+                                  : contra.gravidade === 'MÉDIO'
+                                  ? 'bg-amber-100 text-amber-700'
+                                  : 'bg-zinc-100 text-zinc-700'
+                              }`}>
+                                Gravidade {contra.gravidade}
+                              </span>
+                            </div>
+                            <p className="text-xs text-brand-ink/75 font-medium leading-relaxed pl-5">{contra.risco}</p>
+                            <div className="pl-5 pt-1.5 border-t border-brand-border/20">
+                              <span className="text-[10px] font-bold text-brand-primary uppercase tracking-wider block mb-0.5">
+                                Solução / Mitigação Recomendada:
+                              </span>
+                              <p className="text-xs text-brand-ink/90 font-semibold leading-relaxed">{contra.mitigacao}</p>
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-xs text-brand-ink/50 italic">Nenhum ponto de risco significativo apontado.</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </AccordionSection>
+
+            {/* Sec: Parecer Estratégico Consolidado */}
+            {data.parecer_consolidado_risco && (
+              <AccordionSection 
+                id="parecer_estrategico" 
+                title="Parecer Estratégico de Entrada e Saída da Operação" 
+                icon={<Target size={18} className="text-emerald-500" />} 
+                isOpen={accordionState.parecer_estrategico} 
+                onToggle={() => toggleAccordion('parecer_estrategico')}
+              >
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="bg-brand-bg/25 rounded-2xl p-4 border border-brand-border/50 text-center space-y-1">
+                      <span className="text-[10px] font-bold text-brand-ink/40 uppercase tracking-widest block">Classificação Geral</span>
+                      <span className="text-xl font-extrabold text-brand-ink font-sans tracking-tight block">
+                        Risco {data.parecer_consolidado_risco.classificacao_geral}
+                      </span>
+                    </div>
+                    <div className="bg-brand-bg/25 rounded-2xl p-4 border border-brand-border/50 text-center space-y-1">
+                      <span className="text-[10px] font-bold text-brand-ink/40 uppercase tracking-widest block">Risco de Anulação</span>
+                      <span className={`text-xl font-extrabold font-sans tracking-tight block ${
+                        data.parecer_consolidado_risco.risco_anulacao === 'ALTO'
+                          ? 'text-rose-600'
+                          : data.parecer_consolidado_risco.risco_anulacao === 'MÉDIO'
+                          ? 'text-amber-600'
+                          : 'text-emerald-600'
+                      }`}>
+                        {data.parecer_consolidado_risco.risco_anulacao}
+                      </span>
+                    </div>
+                    <div className="bg-brand-bg/25 rounded-2xl p-4 border border-brand-border/50 text-center space-y-1">
+                      <span className="text-[10px] font-bold text-brand-ink/40 uppercase tracking-widest block">Prazo Médio p/ Posse</span>
+                      <span className="text-base sm:text-lg font-extrabold text-brand-ink font-sans tracking-tight block">
+                        {data.parecer_consolidado_risco.estimativa_tempo_desocupacao}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="bg-brand-primary/[0.05] border border-brand-primary/20 rounded-2xl p-5 space-y-2">
+                    <div className="flex items-center gap-2 text-brand-primary font-bold text-xs uppercase tracking-wider">
+                      <Sparkles size={16} />
+                      Recomendação Estratégica para o Investidor
+                    </div>
+                    <p className="text-xs sm:text-sm text-brand-ink/90 font-medium leading-relaxed">
+                      {data.parecer_consolidado_risco.recomendacao_estrategica}
+                    </p>
+                  </div>
+                </div>
+              </AccordionSection>
+            )}
             
             {/* Sec: Processo Principal */}
             <AccordionSection 
@@ -949,27 +1349,137 @@ function getFallbackProcessoData(
         {
           peca: 'Petição Inicial de Cobrança',
           pagina: '1-15',
-          descricao: 'Inicia a ação de execução com demonstrativo de débito e planilha atualizada das frações condominiais inadimplidas.'
+          descricao: 'Inicia a ação de execução com demonstrativo de débito e planilha atualizada das frações condominiais inadimplidas.',
+          impacto: 'Fixa a competência e a dívida originária propter rem.',
+          risco: 'BAIXO'
         },
         {
           peca: 'Citação Válida do Executado',
           pagina: '48',
-          descricao: 'Certidão do Oficial de Justiça atesta entrega do mandado, minimizando o risco de futura nulidade por falta de citação.'
+          descricao: 'Certidão do Oficial de Justiça atesta entrega do mandado e citação pessoal do executado.',
+          impacto: 'Elimina risco de nulidade por vício de citação.',
+          risco: 'BAIXO'
         },
         {
           peca: 'Auto de Penhora e Avaliação',
           pagina: '112',
-          descricao: 'Penhora averbada devidamente sobre a fração do imóvel. Descrição física minuciosa do imóvel compatível com o edital.'
+          descricao: 'Penhora averbada devidamente sobre a fração do imóvel. Descrição física minuciosa e laudo pericial.',
+          impacto: 'Garante a legalidade do ato de constrição e publicidade registral.',
+          risco: 'BAIXO'
         },
         {
-          peca: 'Manifestação do Credor',
+          peca: 'Manifestação e Intimação do Credor',
           pagina: '185',
-          descricao: 'O credor com garantia real intervém, ciente da hasta pública e requerendo preferência de crédito sobre o preço.'
+          descricao: 'O credor com garantia real foi devidamente intimado da realização do leilão.',
+          impacto: 'Cumpre a exigência do Art. 889 do CPC.',
+          risco: 'BAIXO'
         },
         {
           peca: 'Edital Judicial Homologado',
           pagina: '310',
-          descricao: `Assinatura eletrônica do juiz da vara decretando as datas de leilão, garantindo plena lisura procedimental.`
+          descricao: 'Assinatura eletrônica do juiz da vara decretando as datas de leilão, garantindo plena lisura procedimental.',
+          impacto: 'Segurança absoluta para emissão da Carta de Arrematação.',
+          risco: 'BAIXO'
+        }
+      ]
+    },
+    auditoria_pagina_a_pagina: [
+      {
+        pagina_folha: 'Fls. 1-18',
+        peca_documento: 'Petição Inicial & Demonstrativo de Cálculo',
+        data_evento: 'Fase Inicial',
+        resumo_analise: 'Ação proposta para execução de débitos propter rem com planilha detalhada de encargos e convenção do condomínio.',
+        impacto_leilao: 'Positivo: A dívida tem natureza propter rem (onera a própria coisa), garantindo preferência processual absoluta sobre outros credores comuns.',
+        tipo_impacto: 'FAVORAVEL',
+        grau_risco: 'BAIXO',
+        recomendacao_arrematante: 'Certificar que o valor de arrematação é suficiente para quitar o crédito executado ou verificar a cláusula de sub-rogação do edital.'
+      },
+      {
+        pagina_folha: 'Fls. 45-52',
+        peca_documento: 'Certidão do Oficial de Justiça (Citação Pessoal)',
+        data_evento: 'Citação',
+        resumo_analise: 'O Oficial de Justiça realizou a citação presencial do réu executado e seu respectivo cônjuge no endereço residencial.',
+        impacto_leilao: 'Crucial: Blindagem total contra alegações futuras de nulidade de citação (a principal causa de anulação de leilões no Brasil).',
+        tipo_impacto: 'FAVORAVEL',
+        grau_risco: 'BAIXO',
+        recomendacao_arrematante: 'Ponto forte de segurança jurídica para comprovar no ato de arrematação.'
+      },
+      {
+        pagina_folha: 'Fls. 98-124',
+        peca_documento: 'Laudo Pericial de Avaliação Judicial',
+        data_evento: 'Avaliação do Imóvel',
+        resumo_analise: 'Perito engenheiro nomeado pelo juiz vistoriou o imóvel, mediu as áreas e fixou o valor de mercado com comparativos regionais.',
+        impacto_leilao: 'Favorável: Laudo detalhado com fotos internas/externas que afastam qualquer alegação de preço vil ou avaliação defasada.',
+        tipo_impacto: 'FAVORAVEL',
+        grau_risco: 'BAIXO',
+        recomendacao_arrematante: 'Usar as fotos e metragem descritas no laudo para planejar custos de eventuais reparos.'
+      },
+      {
+        pagina_folha: 'Fls. 165-178',
+        peca_documento: 'Petição de Impugnação / Exceção do Executado',
+        data_evento: 'Defesa do Executado',
+        resumo_analise: 'O executado tentou alegar impenhorabilidade de bem de família e excesso de execução.',
+        impacto_leilao: 'Decidido: O juiz rejeitou liminarmente a tese com base na exceção do Art. 3º da Lei 8.009/90 (dívida condominial ou hipotecária afasta bem de família).',
+        tipo_impacto: 'FAVORAVEL',
+        grau_risco: 'BAIXO',
+        recomendacao_arrematante: 'Verificar se houve agravo de instrumento com efeito suspensivo. Como não há efeito suspensivo ativo, o leilão segue normalmente.'
+      },
+      {
+        pagina_folha: 'Fls. 210-222',
+        peca_documento: 'Intimação Formal do Credor Hipotecário / Fiduciário',
+        data_evento: 'Intimação de Terceiros',
+        resumo_analise: 'Comprovação de recebimento de carta com AR pelo banco/credor hipotecário com antecedência mínima de 10 dias úteis.',
+        impacto_leilao: 'Conforme: Atende integralmente o Art. 889, inciso V do CPC, impedindo que o banco anule a arrematação.',
+        tipo_impacto: 'FAVORAVEL',
+        grau_risco: 'BAIXO',
+        recomendacao_arrematante: 'Garantir que a carta de arrematação declare expressamente a extinção/cancelamento da hipoteca anterior.'
+      },
+      {
+        pagina_folha: 'Fls. 280-315',
+        peca_documento: 'Decisão de Designação de Leilão & Homologação de Edital',
+        data_evento: 'Fase de Leilão',
+        resumo_analise: 'Juiz homologou as datas do 1º e 2º leilão, nomeou o leiloeiro oficial credenciado e fixou a comissão de 5%.',
+        impacto_leilao: 'Seguro: Todas as regras de publicação e prazos foram rigorosamente atendidas nos autos.',
+        tipo_impacto: 'FAVORAVEL',
+        grau_risco: 'BAIXO',
+        recomendacao_arrematante: 'Operação liberada para participação do investidor.'
+      }
+    ],
+    pros_e_contras: {
+      pros: [
+        {
+          titulo: 'Citação Pessoal Válida e Comprovada',
+          descricao: 'Oficial de justiça certificou a citação presencial das partes executadas e cônjuge, eliminando a principal causa de nulidade processual.',
+          impacto_positivo: 'Segurança jurídica máxima contra anulações pós-arrematação.'
+        },
+        {
+          titulo: 'Dívida Propter Rem com Preferência Legal',
+          descricao: 'A natureza da dívida condominial decorre da própria unidade, sobrepondo-se inclusive a credores hipotecários e fiscais comuns.',
+          impacto_positivo: 'Garante que a arrematação extingue os ônus anteriores na forma da lei.'
+        },
+        {
+          titulo: 'Intimação Tempestiva do Credor com Garantia Real',
+          descricao: 'O credor fiduciário/hipotecário foi intimado via AR cumprindo o prazo estrito do art. 889 do CPC.',
+          impacto_positivo: 'Impede embargos de terceiros por parte da instituição financeira.'
+        },
+        {
+          titulo: 'Laudo Pericial Judicial Conclusivo',
+          descricao: 'Perícia técnica homologada pelo juízo sem recursos com efeito suspensivo pendentes.',
+          impacto_positivo: 'Blindagem total contra alegação de preço vil no 2º leilão.'
+        }
+      ],
+      contras: [
+        {
+          titulo: 'Ocupação Atual do Imóvel pelo Devedor',
+          risco: 'O imóvel encontra-se ocupado pelo devedor ou terceiros, exigindo cumprimento do mandado de imissão na posse.',
+          mitigacao: 'Requerer expedição do mandado de imissão na posse imediatamente após a assinatura do auto de arrematação. Prazo médio de desocupação: 45 a 90 dias.',
+          gravidade: 'MÉDIO'
+        },
+        {
+          titulo: 'Débitos Acessórios de IPTU / Condomínio Acumulados',
+          risco: 'Necessidade de verificar se o edital prevê sub-rogação dos débitos no preço ou se recaem sobre o arrematante.',
+          mitigacao: 'Aplicar a regra do Art. 130 do CTN e pedir expedição de ofício pelo juiz ao município para baixa das inscrições em dívida ativa.',
+          gravidade: 'BAIXO'
         }
       ]
     },
@@ -1024,6 +1534,12 @@ function getFallbackProcessoData(
       prescricao_iss_5_anos: 'Sim (Prescreveu - sem ISS)',
       estimativa_custos_regularizacao: 'R$ 6.500,00',
       detalhes_regularizacao: `Comprovado o lapso temporal superior a 5 anos pela data das faturas de energia e imagens históricas do Street View. O imposto de construção civil municipal (ISS/INSS) está integralmente prescrito nos termos do CTN. Custos computados restringem-se a laudo técnico de vistoria assinado por engenheiro civil habilitado (ART/RRT), taxas administrativas perante a ${displayPrefeitura} e emolumentos do ${displayCartorio} para averbação del memorial descritivo.`
+    },
+    parecer_consolidado_risco: {
+      classificacao_geral: 'BAIXO',
+      risco_anulacao: 'BAIXO',
+      estimativa_tempo_desocupacao: '45 a 90 dias úteis',
+      recomendacao_estrategica: 'Operação altamente viável com rito processual formalmente perfeito. Recomendado dar lance no 2º leilão para maximizar o deságio e requerer a imissão na posse imediatamente após a homologação judicial.'
     }
   };
 }

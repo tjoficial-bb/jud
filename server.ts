@@ -2314,6 +2314,54 @@ async function startServer() {
     }
   });
 
+  app.post("/api/analyze-direct", authenticateToken, async (req, res) => {
+    try {
+      const { prompt, systemInstruction, model, apiKey } = req.body;
+      const safeModel = (typeof model === 'string' && model.trim()) ? model.trim() : 'gemini-3.7-flash';
+      const provider = safeModel.startsWith('gemini') ? 'gemini' : 
+                       safeModel.startsWith('claude') ? 'claude' : 
+                       (safeModel.startsWith('gpt') || safeModel.startsWith('o1')) ? 'openai' : 'deepseek';
+
+      let resolvedKey = apiKey || "";
+      if (!resolvedKey || resolvedKey.trim() === "") {
+        const config: any = db.prepare("SELECT * FROM ai_config LIMIT 1").get() || {};
+        if (provider === 'gemini') resolvedKey = config.gemini_key || "";
+        else if (provider === 'openai') resolvedKey = config.openai_key || "";
+        else if (provider === 'claude') resolvedKey = config.claude_key || "";
+        else if (provider === 'deepseek') resolvedKey = config.deepseek_key || "";
+      }
+
+      if (!resolvedKey || resolvedKey.trim() === "") {
+        if (provider === 'gemini') {
+          resolvedKey = process.env.GEMINI_API_KEY || process.env.API_KEY || "";
+        } else if (provider === 'openai') {
+          resolvedKey = process.env.OPENAI_API_KEY || "";
+        } else if (provider === 'claude') {
+          resolvedKey = process.env.CLAUDE_API_KEY || "";
+        } else if (provider === 'deepseek') {
+          resolvedKey = process.env.DEEPSEEK_API_KEY || "";
+        }
+      }
+
+      if (resolvedKey.includes(' • ')) {
+        resolvedKey = resolvedKey.split(' • ')[1].trim();
+      }
+
+      if (!resolvedKey || resolvedKey.trim().length < 5) {
+        return res.status(400).json({ error: `Configuração de IA incompleta: Nenhuma chave de API válida encontrada para o provedor ${provider.toUpperCase()}` });
+      }
+
+      console.log(`[Proxy Direct] Executando prompt direto com modelo ${safeModel} (${provider}).`);
+      const defaultInstruction = systemInstruction || "Você é um assistente perito em leilões judiciais e extrajudiciais de imóveis no Brasil.";
+      const messages = [{ role: 'user', content: prompt }];
+      const result = await runBackendChatMessage(messages, defaultInstruction, safeModel, resolvedKey);
+      res.json({ analysis: result, text: result, success: true });
+    } catch (error: any) {
+      console.error("Erro na API analyze-direct server-side:", error);
+      res.status(500).json({ error: error.message || "Erro desconhecido na análise direta." });
+    }
+  });
+
   // API Routes 404 Handler
   app.use("/api/*", (req, res) => {
     console.error(`DEBUG: API endpoint not found: ${req.method} ${req.originalUrl}`);

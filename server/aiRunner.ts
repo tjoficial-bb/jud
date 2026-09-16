@@ -950,7 +950,14 @@ export const runBackendAnalysis = async (
       "\n  }" +
       "\n}";
   } else if (analysisType === 'processo') {
-    specializedInstruction += "\n\nFOCO COMPLEMENTAR DE ALTÍSSIMA PRIORIDADE: Analise estritamente os PROCESSOS JUDICIAIS de ponta a ponta. Identifique todos os CPF/CNPJ, nomes completos e endereços de réus, autores, executados, credores hipotecários, e cônjuges. Identifique e relate todos os processos correlacionados ou incidentes judiciais ativos, o número completo da ação judicial, a vara/juiz correspondente, e faça uma avaliação minuciosa de risco quanto a vício de citação/intimação ou recursos pendentes do executado.";
+    specializedInstruction += "\n\nFOCO COMPLEMENTAR DE ALTÍSSIMA PRIORIDADE: AUDITORIA JUDICIAL PÁGINA A PÁGINA / FOLHA A FOLHA DO PROCESSO." +
+      "\nFaça uma leitura detalhada e minuciosa de cada peça e página do processo judicial para mapear exatamente o que aconteceu em cada fase e o impacto direto no leilão." +
+      "\nIdentifique todos os CPF/CNPJ, partes envolvidas (executante, executado, cônjuge, terceiros interessados), número do processo, vara, valor da execução, penhoras, certidões de intimação/citação e recursos." +
+      "\nDESTAQUE OBRIGATORIAMENTE OS PRÓS E CONTRAS DO PROCESSO PARA O ARREMATANTE (pontos que dão segurança jurídica vs pontos de atenção/risco)." +
+      "\nNo seu texto descritivo em Markdown, estruture:" +
+      "\n1. AUDITORIA CRONOLÓGICA DAS FOLHAS / PEÇAS PROCESSUAIS (Tabela ou lista com Página/Folha, Peça, Resumo e Impacto no Leilão)." +
+      "\n2. PRÓS E CONTRAS DO PROCESSO (Destaques de segurança jurídica vs riscos processuais)." +
+      "\n3. PARECER ESTRATÉGICO DE ENTRADA E SAÍDA (Classificação de risco, recomendação de lance e estimativa de posse).";
     specializedInstruction += "\n\nCRUCIAL - RETORNO DE DADOS ESTRUTURADOS (MANDATÓRIO):" +
       "\nNo final do seu texto de análise do processo, adicione OBRIGATORIAMENTE um bloco com a tag `<analysis_data>` contendo um objeto JSON válido correspondente às informações extraídas do processo judicial." +
       "\nNão invente nem use placeholders se a informação não constar; retorne valores em branco ou omitidos." +
@@ -965,7 +972,27 @@ export const runBackendAnalysis = async (
       "\n    \"motivacao_judicial\": \"... Cobrança de condomínio | Execução de contrato | Execução fiscal ...\"," +
       "\n    \"segredo_justica\": \"Sim|Não\"," +
       "\n    \"principais_pecas\": [" +
-      "\n      { \"peca\": \"...\", \"pagina\": \"...\", \"descricao\": \"...\" }" +
+      "\n      { \"peca\": \"...\", \"pagina\": \"...\", \"descricao\": \"...\", \"impacto\": \"...\", \"risco\": \"BAIXO|MÉDIO|ALTO\" }" +
+      "\n    ]" +
+      "\n  }," +
+      "\n  \"auditoria_pagina_a_pagina\": [" +
+      "\n    {" +
+      "\n      \"pagina_folha\": \"ex: Fls. 1-15 ou Fls. 48\"," +
+      "\n      \"peca_documento\": \"Petição Inicial | Auto de Penhora | Certidão de Citação | Decisão Interlocutória | Laudo de Avaliação | Embargos | Edital\"," +
+      "\n      \"data_evento\": \"DD/MM/AAAA ou marco\"," +
+      "\n      \"resumo_analise\": \"Resumo objetivo do que ocorreu nesta peça/página\"," +
+      "\n      \"impacto_leilao\": \"Impacto direto na segurança, validade ou arrematação do imóvel\"," +
+      "\n      \"tipo_impacto\": \"FAVORAVEL|NEUTRO|DESFAVORAVEL|ALERTA\"," +
+      "\n      \"grau_risco\": \"BAIXO|MÉDIO|ALTO\"," +
+      "\n      \"recomendacao_arrematante\": \"Ação preventiva ou orientação tática para o investidor\"" +
+      "\n    }" +
+      "\n  ]," +
+      "\n  \"pros_e_contras\": {" +
+      "\n    \"pros\": [" +
+      "\n      { \"titulo\": \"...\", \"descricao\": \"...\", \"impacto_positivo\": \"...\" }" +
+      "\n    ]," +
+      "\n    \"contras\": [" +
+      "\n      { \"titulo\": \"...\", \"risco\": \"...\", \"mitigacao\": \"...\", \"gravidade\": \"BAIXO|MÉDIO|ALTO\" }" +
       "\n    ]" +
       "\n  }," +
       "\n  \"acoes_ex_mutuario\": {" +
@@ -987,6 +1014,12 @@ export const runBackendAnalysis = async (
       "\n    \"prescricao_iss_5_anos\": \"Sim (Prescreveu - sem ISS)|Não|Pendente de verificação\"," +
       "\n    \"estimativa_custos_regularizacao\": \"... R$ ...\"," +
       "\n    \"detalhes_regularizacao\": \"... Custos com engenheiro, taxas da prefeitura, etc ...\"" +
+      "\n  }," +
+      "\n  \"parecer_consolidado_risco\": {" +
+      "\n    \"classificacao_geral\": \"BAIXO|MÉDIO|ALTO\"," +
+      "\n    \"risco_anulacao\": \"BAIXO|MÉDIO|ALTO\"," +
+      "\n    \"estimativa_tempo_desocupacao\": \"ex: 60 a 120 dias\"," +
+      "\n    \"recomendacao_estrategica\": \"... Parecer executivo final ...\"" +
       "\n  }" +
       "\n}";
   } else if (analysisType === 'dossier') {

@@ -277,7 +277,7 @@ export const MatriculaReport: React.FC<MatriculaReportProps> = ({
 
     // Strategy 3: Fall back to searching for raw JSON object if XML-style tags or code blocks are missing
     if (!data) {
-      const jsonRegex = /(\{[\s\S]*"(?:kpis|cadeia_registral|identificacao_matricula)"[\s\S]*\})/i;
+      const jsonRegex = /(\{[\s\S]*"(?:kpis|cadeia_registral|cadeiaRegistral|atos_registrais|identificacao_matricula)"[\s\S]*\})/i;
       const jsonMatch = rawAnalysis.match(jsonRegex);
       if (jsonMatch) {
         try {
@@ -291,6 +291,37 @@ export const MatriculaReport: React.FC<MatriculaReportProps> = ({
         } catch (err) {
           console.error("Failed to parse fallback JSON block in matrix analysis:", err);
         }
+      }
+    }
+
+    // Normalize any alternate JSON keys if provided by different AI models
+    if (data) {
+      const rawObj = data as any;
+      if (!rawObj.cadeia_registral) {
+        rawObj.cadeia_registral = rawObj.cadeiaRegistral || rawObj.atos_registrais || rawObj.atosRegistrais || rawObj.registros_averbacoes || rawObj.historico_registral || rawObj.atos || [];
+      }
+      if (Array.isArray(rawObj.cadeia_registral)) {
+        rawObj.cadeia_registral = rawObj.cadeia_registral.map((item: any) => ({
+          tipo: item.tipo || item.code || item.codigo || item.ato || item.id || item.tag || 'R/AV',
+          data: item.data || item.date || item.data_registro || item.data_ato || 'Registrado',
+          valor: item.valor || item.value || item.preco || item.valor_transacao || undefined,
+          descricao: item.descricao || item.description || item.detalhes || item.texto || item.resumo || item.historico || item.ato || '',
+          partes: item.partes || item.parties || item.envolvidos || item.qualificacao || undefined,
+          natureza: item.natureza || item.natureza_juridica || item.tipo_ato || ((item.tipo || '').toUpperCase().startsWith('R') ? 'Registro Imobiliário' : 'Averbação'),
+          impacto: item.impacto || item.impacto_leilao || item.impacto_arrematacao || 'Histórico da Matrícula'
+        }));
+      }
+      if (!rawObj.identificacao_matricula && (rawObj.identificacaoMatricula || rawObj.identificacao)) {
+        rawObj.identificacao_matricula = rawObj.identificacaoMatricula || rawObj.identificacao;
+      }
+      if (!rawObj.caracteristicas_fisicas && (rawObj.caracteristicasFisicas || rawObj.imovel)) {
+        rawObj.caracteristicas_fisicas = rawObj.caracteristicasFisicas || rawObj.imovel;
+      }
+      if (!rawObj.onus_gravames && (rawObj.onusGravames || rawObj.gravames || rawObj.onus)) {
+        rawObj.onus_gravames = rawObj.onusGravames || rawObj.gravames || rawObj.onus;
+      }
+      if (!rawObj.proprietarios_e_partes && (rawObj.proprietariosEPartes || rawObj.proprietarios)) {
+        rawObj.proprietarios_e_partes = rawObj.proprietariosEPartes || rawObj.proprietarios;
       }
     }
 
@@ -1565,11 +1596,11 @@ function parseHeuristics(
       }));
     }
 
-    // 8. DEEP CADEIA REGISTRAL EXTRACTION (Tables + Lists + Paragraphs)
+    // 8. DEEP CADEIA REGISTRAL EXTRACTION (Tables + Lists + Headings + Paragraphs)
     const extractedAtos: MatriculaAto[] = [];
 
     // 8.1 Extract from Markdown Tables
-    const tableRowRegex = /\|\s*(R[\.\-]?\d+|AV[\.\-]?\d+|Registro\s*\d+|Averbação\s*\d+|Ato\s*\d+)\s*\|([^|\n]+)\|([^|\n]+)\|?([^|\n]*)?\|?([^|\n]*)?\|?([^|\n]*)?/gi;
+    const tableRowRegex = /\|\s*(R[\.\-\s]?\d+(?:\/[\w\.\-]+)?|AV[\.\-\s]?\d+(?:\/[\w\.\-]+)?|Registro\s*\d+|Averbação\s*\d+|Ato\s*\d+)\s*\|([^|\n]+)\|([^|\n]+)\|?([^|\n]*)?\|?([^|\n]*)?\|?([^|\n]*)?/gi;
     let tMatch;
     while ((tMatch = tableRowRegex.exec(text)) !== null) {
       const col1 = tMatch[1]?.trim() || '';
@@ -1580,7 +1611,7 @@ function parseHeuristics(
       const col6 = tMatch[6]?.trim() || '';
 
       // Skip header divider rows
-      if (col1.includes('---') || col2.includes('---')) continue;
+      if (col1.includes('---') || col2.includes('---') || col1.toLowerCase().includes('código') || col1.toLowerCase().includes('ato')) continue;
 
       // Extract date, value, parties, nature
       const allCols = [col2, col3, col4, col5, col6].filter(Boolean);
@@ -1600,8 +1631,44 @@ function parseHeuristics(
       });
     }
 
-    // 8.2 Extract from Bullet points or lines like "**R-1 (10/05/2010)**: Compra e Venda..."
-    const lineAtoRegex = /(?:^|\n)\s*(?:[\*\-\•]\s*)?(?:\*\*)?(R[\.\-]?\d+|AV[\.\-]?\d+|Registro\s*\d+|Averbação\s*\d+)(?:\*\*)?\s*[:\-\(]\s*([^\n\r]+)/gi;
+    // 8.2 Extract from Headings like "### R-1 / Compra e Venda" or "### AV-2: Penhora"
+    const headingAtoRegex = /(?:^|\n)#{2,4}\s*(?:Ato\s*)?(R[\.\-\s]?\d+(?:\/[\w\.\-]+)?|AV[\.\-\s]?\d+(?:\/[\w\.\-]+)?|Registro\s*\d+|Averbação\s*\d+)\s*[:\-\—\–]?\s*([^\n\r]+)([\s\S]*?)(?=(?:^|\n)#{2,4}\s|\Z)/gi;
+    let hMatch;
+    while ((hMatch = headingAtoRegex.exec(text)) !== null) {
+      const atoCode = hMatch[1].trim().toUpperCase();
+      const atoTitle = hMatch[2].trim();
+      const atoSectionBody = hMatch[3] ? hMatch[3].trim() : '';
+      const fullText = `${atoTitle} ${atoSectionBody}`;
+
+      if (extractedAtos.some(a => a.tipo === atoCode)) continue;
+
+      const dateMatch = fullText.match(/\d{2}[\/\.\-]\d{2}[\/\.\-]\d{4}/);
+      const valMatch = fullText.match(/R\$\s*[\d\.\,]+/);
+      const partyMatch = fullText.match(/(?:Partes|Transmitente|Adquirente|Comprador|Vendedor|Credor|Devedor)[\s:]+([^;\.\n]+)/i);
+
+      let natureza = atoCode.startsWith('R') ? 'Registro Imobiliário' : 'Averbação';
+      const bodyLower = fullText.toLowerCase();
+      if (bodyLower.includes('compra e venda')) natureza = 'Compra e Venda';
+      else if (bodyLower.includes('alienação fiduciária') || bodyLower.includes('alienacao fiduciaria')) natureza = 'Alienação Fiduciária';
+      else if (bodyLower.includes('penhora')) natureza = 'Penhora Judicial';
+      else if (bodyLower.includes('hipoteca')) natureza = 'Hipoteca';
+      else if (bodyLower.includes('indisponibilidade')) natureza = 'Indisponibilidade de Bens';
+      else if (bodyLower.includes('consolidação') || bodyLower.includes('consolidacao')) natureza = 'Consolidação de Propriedade';
+      else if (bodyLower.includes('cancelamento')) natureza = 'Cancelamento de Gravame';
+
+      extractedAtos.push({
+        tipo: atoCode,
+        data: dateMatch ? dateMatch[0] : 'Averbado',
+        valor: valMatch ? valMatch[0] : undefined,
+        descricao: atoTitle.replace(/\*\*/g, '') || atoSectionBody.slice(0, 150).replace(/\*\*/g, ''),
+        partes: partyMatch ? partyMatch[1].trim() : undefined,
+        natureza,
+        impacto: 'Constante da Certidão'
+      });
+    }
+
+    // 8.3 Extract from Bullet points or lines like "**R-1 (10/05/2010)**: Compra e Venda..."
+    const lineAtoRegex = /(?:^|\n)\s*(?:[\*\-\•]\s*)?(?:\*\*)?(R[\.\-\s]?\d+(?:\/[\w\.\-]+)?|AV[\.\-\s]?\d+(?:\/[\w\.\-]+)?|Registro\s*\d+|Averbação\s*\d+)(?:\*\*)?\s*[:\-\(\—\–]\s*([^\n\r]+)/gi;
     let lMatch;
     while ((lMatch = lineAtoRegex.exec(text)) !== null) {
       const atoCode = lMatch[1].trim().toUpperCase();

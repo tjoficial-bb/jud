@@ -14,7 +14,7 @@ import {
 
 interface SmartResetPanelProps {
   tabName: string;
-  tabKey: 'edital' | 'matricula' | 'processos' | 'dossier' | 'smart_analysis' | 'assessoria' | 'report' | 'cnj' | 'documents' | 'simulations' | 'investors' | 'instagram';
+  tabKey: 'edital' | 'matricula' | 'processos' | 'dossier' | 'smart_analysis' | 'assessoria' | 'report' | 'cnj' | 'documents' | 'simulations' | 'investors' | 'instagram' | 'unified_summary' | 'regional_map';
   hasAnalysis: boolean;
   onResetTab: () => void;
   onResetAll: () => void;

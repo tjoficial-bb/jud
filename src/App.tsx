@@ -55,7 +55,11 @@ import {
   Star,
   Instagram,
   Video,
-  Copy
+  Copy,
+  Layers,
+  Compass,
+  MapPin,
+  Ruler
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import ReactMarkdown from 'react-markdown';
@@ -71,6 +75,8 @@ import { MatriculaReport } from './components/MatriculaReport';
 import { EditalReport } from './components/EditalReport';
 import { ProcessoReport, detectCityAndStateFromText } from './components/ProcessoReport';
 import { SmartResetPanel } from './components/SmartResetPanel';
+import { UnifiedSummaryHub } from './components/UnifiedSummaryHub';
+import { RegionalIntelligenceMap } from './components/RegionalIntelligenceMap';
 import { User, Property, Process, AIConfig, StrategicBrainItem } from './types';
 import { SYSTEM_PROMPT } from './constants';
 import { analyzeAuctionDocuments, generateProcessStory, sendChatMessage } from './services/aiService';
@@ -11486,6 +11492,8 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
               <AnalysisTab active={activeSubTab === 'report'} onClick={() => updateState({ activeSubTab: 'report' })} icon={<Brain size={16} />} label="Relatório" />
               <AnalysisTab active={activeSubTab === 'smart_analysis'} onClick={() => updateState({ activeSubTab: 'smart_analysis' })} icon={<Cpu size={16} />} label="Análise Smart" />
               <AnalysisTab active={activeSubTab === 'assessoria'} onClick={() => updateState({ activeSubTab: 'assessoria' })} icon={<Scale size={16} />} label="Análise de Assessoria" />
+              <AnalysisTab active={activeSubTab === 'unified_summary'} onClick={() => updateState({ activeSubTab: 'unified_summary' })} icon={<Layers size={16} />} label="Resumão Unificado" />
+              <AnalysisTab active={activeSubTab === 'regional_map'} onClick={() => updateState({ activeSubTab: 'regional_map' })} icon={<Compass size={16} />} label="Região & Mapas" />
               <AnalysisTab active={activeSubTab === 'dossier'} onClick={() => updateState({ activeSubTab: 'dossier' })} icon={<Clipboard size={16} />} label="Dossiê de Arrematação" />
               <AnalysisTab active={activeSubTab === 'edital'} onClick={() => updateState({ activeSubTab: 'edital' })} icon={<FileText size={16} />} label="Edital" />
               <AnalysisTab active={activeSubTab === 'matricula'} onClick={() => updateState({ activeSubTab: 'matricula' })} icon={<BookOpen size={16} />} label="Matrícula" />
@@ -11514,6 +11522,56 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
                     tabKey="report"
                     hasAnalysis={!!state.report}
                     onResetTab={() => handleResetSubTab('report')}
+                    onResetAll={handleResetAllPropertyData}
+                    onApplySettings={(settings) => updateState({ aiDepth: settings.depth, aiFocus: settings.focus })}
+                  />
+                </div>
+              )}
+              {activeSubTab === 'unified_summary' && (
+                <div className="space-y-6">
+                  <UnifiedSummaryHub 
+                    property={selectedProperty}
+                    state={state}
+                    updateState={updateState}
+                    token={token}
+                    selectedModel={selectedModel}
+                    userApiKey={resolveApiKey(state.selectedKeySource, state.aiConfig, selectedModel)}
+                    metrics={metrics}
+                    tir={tir}
+                    roi={roi}
+                    regionalData={state.regionalData}
+                  />
+                  <SmartResetPanel
+                    tabName="Resumão Unificado"
+                    tabKey="unified_summary"
+                    hasAnalysis={!!state.unifiedSummaryText}
+                    onResetTab={() => handleResetSubTab('unified_summary')}
+                    onResetAll={handleResetAllPropertyData}
+                    onApplySettings={(settings) => updateState({ aiDepth: settings.depth, aiFocus: settings.focus })}
+                  />
+                </div>
+              )}
+              {activeSubTab === 'regional_map' && (
+                <div className="space-y-6">
+                  <RegionalIntelligenceMap
+                    property={selectedProperty}
+                    initialData={state.regionalData}
+                    onSave={(data) => updateState({ regionalData: data })}
+                    onAddToSummary={(text, title) => {
+                      updateState({
+                        unifiedSummaryText: (state.unifiedSummaryText ? state.unifiedSummaryText + '\n\n' : '') + text,
+                        regionalData: { ...(state.regionalData || {}), address: selectedProperty?.address || '' }
+                      });
+                    }}
+                    token={token}
+                    selectedModel={selectedModel}
+                    userApiKey={resolveApiKey(state.selectedKeySource, state.aiConfig, selectedModel)}
+                  />
+                  <SmartResetPanel
+                    tabName="Região & Mapas"
+                    tabKey="regional_map"
+                    hasAnalysis={!!state.regionalData}
+                    onResetTab={() => handleResetSubTab('regional_map')}
                     onResetAll={handleResetAllPropertyData}
                     onApplySettings={(settings) => updateState({ aiDepth: settings.depth, aiFocus: settings.focus })}
                   />
