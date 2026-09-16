@@ -10,7 +10,7 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import http from 'http';
-import { spawn } from 'child_process';
+import { spawn, execSync } from 'child_process';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -35,7 +35,64 @@ let fallbackServer = null;
 function addBuildLog(msg) {
   console.log(`[Build Engine]: ${msg}`);
   buildLogs.push(`[${new Date().toLocaleTimeString('pt-BR')}] ${msg}`);
-  if (buildLogs.length > 50) buildLogs.shift();
+  if (buildLogs.length > 80) buildLogs.shift();
+}
+
+/**
+ * Fixes execution permissions on Linux/Hostinger for node_modules binaries,
+ * specifically targeting esbuild, @esbuild, and vite to prevent EACCES errors.
+ */
+function fixBinaryPermissions() {
+  addBuildLog("Ajustando permissões de execução dos binários (chmod +x)...");
+  
+  try {
+    // Attempt shell chmod first
+    execSync('chmod -R +x node_modules/.bin 2>/dev/null || true', { cwd: __dirname });
+    execSync('chmod -R 755 node_modules/@esbuild 2>/dev/null || true', { cwd: __dirname });
+    execSync('chmod -R 755 node_modules/vite 2>/dev/null || true', { cwd: __dirname });
+    execSync('chmod -R 755 node_modules/esbuild 2>/dev/null || true', { cwd: __dirname });
+  } catch (e) {
+    // ignore shell errors
+  }
+
+  // Node.js direct filesystem walker to guarantee chmod 0o755 even if shell chmod fails
+  const walkAndChmod = (dir, depth = 0) => {
+    if (depth > 6 || !fs.existsSync(dir)) return;
+    try {
+      const entries = fs.readdirSync(dir, { withFileTypes: true });
+      for (const entry of entries) {
+        const full = path.join(dir, entry.name);
+        if (entry.isDirectory()) {
+          walkAndChmod(full, depth + 1);
+        } else if (entry.isFile()) {
+          const lower = entry.name.toLowerCase();
+          if (
+            lower === 'esbuild' || 
+            lower.endsWith('.bin') || 
+            full.includes('/bin/') || 
+            full.includes('/.bin/') || 
+            full.includes('/@esbuild/')
+          ) {
+            try {
+              fs.chmodSync(full, 0o755);
+            } catch (err) {}
+          }
+        }
+      }
+    } catch (err) {}
+  };
+
+  const targetDirs = [
+    path.join(__dirname, 'node_modules', '.bin'),
+    path.join(__dirname, 'node_modules', '@esbuild'),
+    path.join(__dirname, 'node_modules', 'esbuild'),
+    path.join(__dirname, 'node_modules', 'vite'),
+    path.join(__dirname, 'node_modules', '@tailwindcss')
+  ];
+
+  for (const d of targetDirs) {
+    walkAndChmod(d);
+  }
 }
 
 /**
@@ -83,17 +140,49 @@ function runCommand(command, args, cwd) {
  * Builds the frontend and backend using Node directly
  */
 async function performBuild() {
-  addBuildLog("Iniciando compilação direta via Node.js...");
-  const nodeBin = process.execPath;
-  const viteBin = path.join(__dirname, 'node_modules', 'vite', 'bin', 'vite.js');
+  addBuildLog("Iniciando processo de compilação da aplicação...");
+  
+  // Step 0: Fix permissions on all native binaries
+  fixBinaryPermissions();
 
-  // Step 1: Vite build
-  if (fs.existsSync(viteBin)) {
-    addBuildLog("1/2 Compilando frontend com Vite...");
-    await runCommand(nodeBin, [viteBin, 'build'], __dirname);
-  } else {
-    addBuildLog("1/2 Executando npx vite build...");
-    await runCommand('npx', ['vite', 'build'], __dirname);
+  // Ensure dist directory exists
+  const distDir = path.join(__dirname, 'dist');
+  if (!fs.existsSync(distDir)) {
+    fs.mkdirSync(distDir, { recursive: true });
+  }
+
+  // Step 1: Vite build (Try programmatic JavaScript API first, fallback to CLI)
+  addBuildLog("1/2 Compilando frontend com Vite...");
+  let viteSuccess = false;
+
+  try {
+    const viteModule = await import('vite');
+    const viteBuild = viteModule.build || viteModule.default?.build;
+    if (typeof viteBuild === 'function') {
+      addBuildLog("Executando Vite via API JavaScript integrada...");
+      await viteBuild({
+        configFile: path.join(__dirname, 'vite.config.ts'),
+        mode: 'production'
+      });
+      viteSuccess = true;
+      addBuildLog("Frontend compilado com sucesso via Vite JS API!");
+    }
+  } catch (viteApiErr) {
+    addBuildLog(`Vite JS API encontrou: ${viteApiErr.message}. Tentando CLI com permissões liberadas...`);
+  }
+
+  if (!viteSuccess) {
+    const nodeBin = process.execPath;
+    const viteBin = path.join(__dirname, 'node_modules', 'vite', 'bin', 'vite.js');
+
+    if (fs.existsSync(viteBin)) {
+      addBuildLog("Executando node vite.js build...");
+      await runCommand(nodeBin, [viteBin, 'build'], __dirname);
+    } else {
+      addBuildLog("Executando npx vite build...");
+      await runCommand('npx', ['vite', 'build'], __dirname);
+    }
+    addBuildLog("Frontend compilado via CLI com sucesso!");
   }
 
   // Step 2: esbuild compile server.ts
@@ -110,9 +199,10 @@ async function performBuild() {
       sourcemap: true,
       outfile: serverPath
     });
-    addBuildLog("Compilação esbuild concluída com sucesso!");
+    addBuildLog("Compilação esbuild do backend concluída com sucesso!");
   } catch (err) {
     addBuildLog(`Tentando fallback esbuild CLI: ${err.message}`);
+    fixBinaryPermissions();
     await runCommand('npx', ['esbuild', 'server.ts', '--bundle', '--platform=node', '--format=cjs', '--packages=external', '--sourcemap', '--outfile=dist/server.cjs'], __dirname);
   }
 }
