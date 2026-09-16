@@ -22,7 +22,12 @@ import {
   ShieldCheck, 
   AlertTriangle,
   ArrowRight,
-  Maximize2
+  Maximize2,
+  Save,
+  PenTool,
+  Sliders,
+  AlignLeft,
+  Columns
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -66,12 +71,25 @@ export const UnifiedSummaryHub: React.FC<UnifiedSummaryHubProps> = ({
   regionalData
 }) => {
   const [snippets, setSnippets] = useState<ModularSnippet[]>([]);
-  const [customNote, setCustomNote] = useState('');
-  const [customNoteCategory, setCustomNoteCategory] = useState('Observação');
+  
+  // Custom user writing field state
+  const [customUserInput, setCustomUserInput] = useState('');
+  const [customCategory, setCustomCategory] = useState('Parecer do Investidor');
+  const [userWritingSavedNotice, setUserWritingSavedNotice] = useState(false);
+
+  // Main summary text state
   const [unifiedReportText, setUnifiedReportText] = useState<string>(state.unifiedSummaryText || '');
-  const [isEditingRaw, setIsEditingRaw] = useState(false);
+  const [viewMode, setViewMode] = useState<'preview' | 'editor' | 'split'>('editor');
   const [synthesizing, setSynthesizing] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [savedNotice, setSavedNotice] = useState(false);
+
+  // Sync external state changes
+  useEffect(() => {
+    if (state.unifiedSummaryText && state.unifiedSummaryText !== unifiedReportText) {
+      setUnifiedReportText(state.unifiedSummaryText);
+    }
+  }, [state.unifiedSummaryText]);
 
   // Helper to extract clean text from markdown sections
   const extractSection = (markdown: string | null | undefined, keywords: string[]): string => {
@@ -92,7 +110,6 @@ export const UnifiedSummaryHub: React.FC<UnifiedSummaryHubProps> = ({
           captured.push(line);
           continue;
         } else if (capturing && (line.startsWith('# ') || line.startsWith('## '))) {
-          // Stop at next major header
           break;
         }
       }
@@ -205,7 +222,7 @@ export const UnifiedSummaryHub: React.FC<UnifiedSummaryHubProps> = ({
     if (state.processAnalysis) {
       const riscosProcessuais = extractSection(state.processAnalysis, ['risco', 'nulidade', 'recursos', 'intimação', 'citação']);
       const auditoria = extractSection(state.processAnalysis, ['auditoria', 'página a página', 'peças']);
-      const parecerProcesso = extractSection(state.processAnalysis, ['parecer', 'conclusão', 'estratégia', 'desocupação']);
+      const parecerProcesso = extractSection(state.processAnalysis, ['parecer', 'conclusão', 'estratégia', 'desocupação', 'prós e contras']);
 
       if (riscosProcessuais) {
         built.push({
@@ -262,15 +279,15 @@ export const UnifiedSummaryHub: React.FC<UnifiedSummaryHubProps> = ({
       });
     }
 
-    // 5. Inteligência Regional
+    // 5. Inteligência Regional & Medição
     if (regionalData && regionalData.address) {
       built.push({
         id: 'regional-kpis',
         sourceTab: 'regional',
-        sourceTitle: 'Inteligência Regional',
+        sourceTitle: 'Inteligência Regional & Mapas',
         category: 'Território & Demografia',
         title: `Vizinhança, Renda & Riscos (${regionalData.address})`,
-        content: `**Renda & Perfil dos Moradores:** ${regionalData.incomeProfile || 'Pendente'}\n**Risco de Enchentes:** ${regionalData.floodRisk || 'Baixo'}\n**Transporte e Mobilidade:** ${regionalData.transportation || 'Pendente'}\n**Faculdades e Hospitais:** ${regionalData.healthAndEducation || 'Pendente'}\n**Área Medida:** ${regionalData.measuredArea || 0} m² (Matrícula: ${regionalData.registeredArea || 0} m²)`,
+        content: `**Renda & Perfil dos Moradores:** ${regionalData.incomeProfile || 'Mapeado'}\n**Risco de Enchentes:** ${regionalData.floodRisk || 'Baixo'}\n**Transporte e Mobilidade:** ${regionalData.transportation || 'Mapeado'}\n**Faculdades e Hospitais:** ${regionalData.healthAndEducation || 'Mapeado'}\n**Área Medida Automática:** ${regionalData.measuredArea || 0} m² (Matrícula: ${regionalData.registeredArea || 0} m²)`,
         selected: true,
         highlightType: 'neutral'
       });
@@ -322,37 +339,63 @@ export const UnifiedSummaryHub: React.FC<UnifiedSummaryHubProps> = ({
     updateState({ unifiedSummaryText: compiled });
   };
 
-  const handleAddCustomNote = () => {
-    if (!customNote.trim()) return;
+  // Direct append of custom written text into the main summary
+  const handleAppendCustomTextToSummary = () => {
+    if (!customUserInput.trim()) return;
+    
+    const formattedBlock = `\n\n## ✍️ ${customCategory.toUpperCase()}\n${customUserInput.trim()}\n`;
+    const newFullText = (unifiedReportText ? unifiedReportText : '') + formattedBlock;
+    
+    setUnifiedReportText(newFullText);
+    updateState({ unifiedSummaryText: newFullText });
+
+    // Also add to snippets list as an active module
     const newSnippet: ModularSnippet = {
       id: `custom-${Date.now()}`,
       sourceTab: 'custom',
-      sourceTitle: 'Anotações Estratégicas do Investidor',
-      category: customNoteCategory,
-      title: customNoteCategory,
-      content: customNote.trim(),
+      sourceTitle: 'Anotações & Informações do Usuário',
+      category: customCategory,
+      title: customCategory,
+      content: customUserInput.trim(),
       selected: true,
       highlightType: 'positive'
     };
     setSnippets(prev => [...prev, newSnippet]);
-    setCustomNote('');
+
+    setCustomUserInput('');
+    setUserWritingSavedNotice(true);
+    setTimeout(() => setUserWritingSavedNotice(false), 2500);
+  };
+
+  const handleInsertTemplate = (templateName: string) => {
+    let textToInsert = '';
+    if (templateName === 'parecer') {
+      textToInsert = `**Parecer do Investidor:**\n- Viabilidade da Operação: Alta / Recomendada\n- Lance Máximo Sugerido: R$ \n- Expectativa de Desocupação: 60 a 90 dias via acordo amigável\n- Margem de Segurança: `;
+    } else if (templateName === 'estrategia') {
+      textToInsert = `**Estratégia de Entrada e Saída:**\n1. Participar no 2º Leilão com lance teto de R$ \n2. Notificar ocupante em até 48h após expedição da carta de arrematação\n3. Realizar reforma estética rápida (pintura e reparos)\n4. Colocar para revenda abaixo da média de mercado para giro rápido`;
+    } else if (templateName === 'riscos') {
+      textToInsert = `**Pontos de Atenção & Mitigação de Riscos:**\n- Débitos Condominiais: Sub-rogam no preço conforme edital / Negociar diretamente com o síndico\n- Ocupação: Ocupado pelo próprio executado\n- Estado de Conservação: Bom estado apurado via satélite/visita externa`;
+    }
+    setCustomUserInput(prev => (prev ? prev + '\n\n' : '') + textToInsert);
   };
 
   // AI Master Synthesis: "Ligar os Pontos"
   const handleSynthesizeWithAi = async () => {
     const selectedSnippets = snippets.filter(s => s.selected);
-    if (selectedSnippets.length === 0) {
-      alert("Selecione ao menos um bloco de informação para que a IA possa ligar os pontos.");
+    if (selectedSnippets.length === 0 && !customUserInput.trim()) {
+      alert("Selecione ao menos um bloco de informação ou digite suas observações para que a IA possa ligar os pontos.");
       return;
     }
 
     setSynthesizing(true);
     try {
-      const promptText = `Você é o principal estrategista de investimentos imobiliários e perito jurídico em arrematações de leilão.
-Sua missão é LIGAR TODOS OS PONTOS deste imóvel em leilão, cruzando os dados das diversas etapas (Edital, Matrícula, Processo Judicial, Financeiro e Inteligência Territorial) em um ÚNICO RESUMÃO EXECUTIVO CENTRALIZADO.
+      const promptText = `Você é o principal estrategista de investimentos imobiliários e perito jurídico em arrematações de leilão no Brasil.
+Sua missão é LIGAR TODOS OS PONTOS deste imóvel em leilão, cruzando os dados das diversas etapas (Edital, Matrícula, Processo Judicial, Financeiro, Inteligência Territorial e as Informações Escritas pelo Investidor) em um ÚNICO RESUMÃO EXECUTIVO CENTRALIZADO.
 
 DADOS BRUTOS SELECIONADOS PELO INVESTIDOR:
 ${selectedSnippets.map(s => `[FONTE: ${s.sourceTitle} | SEÇÃO: ${s.title}]\n${s.content}`).join('\n\n---\n\n')}
+
+${customUserInput.trim() ? `[INFORMAÇÕES & ANOTAÇÕES ESCRITAS DIRETAMENTE PELO INVESTIDOR]:\n${customUserInput.trim()}` : ''}
 
 DIRETRIZES PARA O RESUMÃO UNIFICADO ("LIGANDO OS PONTOS"):
 1. Veredito Executivo Direto: Vale a pena arrematar? Qual o teto seguro de lance e retorno esperado?
@@ -399,6 +442,12 @@ Formate em Markdown executivo de altíssimo padrão, elegante, direto e com tabe
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const handleManualSave = () => {
+    updateState({ unifiedSummaryText: unifiedReportText });
+    setSavedNotice(true);
+    setTimeout(() => setSavedNotice(false), 2000);
+  };
+
   const handlePrint = () => {
     window.print();
   };
@@ -415,9 +464,9 @@ Formate em Markdown executivo de altíssimo padrão, elegante, direto e com tabe
               <Layers size={24} />
             </div>
             <div>
-              <h3 className="text-2xl font-bold text-brand-primary font-serif">Resumão Unificado & Conexão dos Pontos</h3>
+              <h3 className="text-2xl font-bold text-brand-primary font-serif">Resumão Unificado & Central de Escrita</h3>
               <p className="text-sm text-brand-ink/60 mt-1 max-w-3xl">
-                Reúna, selecione e conecte as conclusões de cada etapa (Edital, Matrícula, Processo, Financeiro e Região) para compor um parecer executivo centralizado.
+                Reúna, escreva suas próprias conclusões e conecte as etapas (Edital, Matrícula, Processo, Financeiro e Região) em um parecer executivo centralizado.
               </p>
             </div>
           </div>
@@ -425,7 +474,7 @@ Formate em Markdown executivo de altíssimo padrão, elegante, direto e com tabe
           <div className="flex items-center gap-3 flex-wrap">
             <button
               onClick={handleSynthesizeWithAi}
-              disabled={synthesizing || snippets.filter(s => s.selected).length === 0}
+              disabled={synthesizing || (snippets.filter(s => s.selected).length === 0 && !customUserInput.trim())}
               className="px-5 py-3 bg-brand-primary text-black font-bold text-xs rounded-xl hover:bg-brand-primary/90 transition-all flex items-center gap-2 shadow-sm disabled:opacity-50 cursor-pointer uppercase tracking-wider"
             >
               {synthesizing ? <Loader2 className="animate-spin" size={16} /> : <Sparkles size={16} />}
@@ -436,10 +485,95 @@ Formate em Markdown executivo de altíssimo padrão, elegante, direto e com tabe
               className="px-4 py-3 bg-brand-bg hover:bg-brand-primary/10 border border-brand-primary/20 text-brand-primary font-bold text-xs rounded-xl transition-all flex items-center gap-2 cursor-pointer uppercase tracking-wider"
             >
               <RefreshCw size={14} />
-              <span>Compilar Selecionados</span>
+              <span>Compilar Blocos Selecionados</span>
             </button>
           </div>
         </div>
+      </div>
+
+      {/* DEDICATED USER WRITING FIELD (Campo de Escrita de Informações do Usuário) */}
+      <div className="bg-brand-paper p-6 sm:p-8 rounded-[2rem] border border-brand-primary/20 shadow-sm space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-brand-primary/10 pb-4">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-brand-primary/10 text-brand-primary flex items-center justify-center">
+              <PenTool size={16} />
+            </div>
+            <div>
+              <h4 className="text-sm font-bold text-brand-primary uppercase tracking-wider">
+                Campo de Escrita & Informações do Investidor
+              </h4>
+              <p className="text-xs text-brand-ink/50">
+                Escreva suas anotações, condições de lance ou parecer próprio para incluir diretamente no Resumão
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {userWritingSavedNotice && (
+              <span className="text-xs font-bold text-emerald-700 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1 rounded-lg flex items-center gap-1.5 animate-in fade-in">
+                <Check size={14} /> Inserido no Resumão!
+              </span>
+            )}
+            <button
+              onClick={handleAppendCustomTextToSummary}
+              disabled={!customUserInput.trim()}
+              className="px-4 py-2 bg-brand-primary text-black font-bold text-xs rounded-xl hover:bg-brand-primary/90 transition-all flex items-center gap-1.5 cursor-pointer uppercase tracking-wider disabled:opacity-40"
+            >
+              <Plus size={14} />
+              <span>Inserir no Resumão</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Categories & Preset Quick Templates */}
+        <div className="flex items-center justify-between gap-4 flex-wrap">
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-bold uppercase tracking-widest text-brand-ink/50">Tipo:</span>
+            <select
+              value={customCategory}
+              onChange={e => setCustomCategory(e.target.value)}
+              className="bg-brand-bg border border-brand-primary/20 rounded-xl px-3 py-1.5 text-xs font-bold text-brand-primary focus:outline-none"
+            >
+              <option value="Parecer do Investidor">Parecer do Investidor</option>
+              <option value="Estratégia de Lance">Estratégia de Lance</option>
+              <option value="Condições de Entrada e Saída">Condições de Entrada e Saída</option>
+              <option value="Alerta de Risco">Alerta de Risco</option>
+              <option value="Observações da Vistoria">Observações da Vistoria</option>
+              <option value="Proposta para o Cliente">Proposta para o Cliente</option>
+            </select>
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-[10px] font-bold uppercase tracking-widest text-brand-ink/40">Modelos Rápidos:</span>
+            <button
+              onClick={() => handleInsertTemplate('parecer')}
+              className="text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-brand-bg hover:bg-brand-primary/10 border border-brand-primary/15 text-brand-ink hover:text-brand-primary transition-all"
+            >
+              + Modelo Parecer
+            </button>
+            <button
+              onClick={() => handleInsertTemplate('estrategia')}
+              className="text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-brand-bg hover:bg-brand-primary/10 border border-brand-primary/15 text-brand-ink hover:text-brand-primary transition-all"
+            >
+              + Modelo Estratégia
+            </button>
+            <button
+              onClick={() => handleInsertTemplate('riscos')}
+              className="text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-brand-bg hover:bg-brand-primary/10 border border-brand-primary/15 text-brand-ink hover:text-brand-primary transition-all"
+            >
+              + Modelo Riscos
+            </button>
+          </div>
+        </div>
+
+        {/* Text Input Area */}
+        <textarea
+          value={customUserInput}
+          onChange={e => setCustomUserInput(e.target.value)}
+          rows={4}
+          placeholder="Digite aqui livremente suas anotações, conclusões, valores combinados com o cliente, estratégias de desocupação ou qualquer informação estratégica para compor o Resumão Unificado..."
+          className="w-full bg-brand-bg border border-brand-primary/20 rounded-2xl p-4 text-sm font-medium text-brand-ink leading-relaxed focus:ring-2 focus:ring-brand-primary focus:outline-none resize-y placeholder:text-brand-ink/30"
+        />
       </div>
 
       {/* Main 2-Column Layout */}
@@ -460,7 +594,7 @@ Formate em Markdown executivo de altíssimo padrão, elegante, direto e com tabe
             </div>
 
             <p className="text-xs text-brand-ink/50 leading-relaxed">
-              Marque os blocos que deseja incluir no Resumão ou adicione apontamentos personalizados:
+              Marque os blocos que deseja incluir no Resumão ou desmarque os que deseja omitir:
             </p>
 
             {/* List of Snippets */}
@@ -468,7 +602,7 @@ Formate em Markdown executivo de altíssimo padrão, elegante, direto e com tabe
               {snippets.length === 0 && (
                 <div className="p-8 text-center bg-brand-bg/50 rounded-2xl border border-dashed border-brand-primary/20 space-y-2">
                   <p className="text-xs text-brand-ink/60 font-medium">Nenhum bloco extraído ainda.</p>
-                  <p className="text-[11px] text-brand-ink/40">Gere as análises nas abas Edital, Matrícula ou Processo para alimentar este painel automaticamente.</p>
+                  <p className="text-[11px] text-brand-ink/40">Gere as análises nas abas Edital, Matrícula, Processo ou Região para alimentar este painel automaticamente.</p>
                 </div>
               )}
 
@@ -509,65 +643,62 @@ Formate em Markdown executivo de altíssimo padrão, elegante, direto e com tabe
                 </div>
               ))}
             </div>
-
-            {/* Custom Snippet Inserter */}
-            <div className="pt-4 border-t border-brand-primary/10 space-y-3">
-              <label className="block text-[10px] font-bold uppercase tracking-widest text-brand-primary flex items-center gap-1.5">
-                <Plus size={12} />
-                Adicionar Ponto Estratégico Personalizado
-              </label>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={customNoteCategory}
-                  onChange={e => setCustomNoteCategory(e.target.value)}
-                  placeholder="Categoria (ex: Estratégia)"
-                  className="w-1/3 bg-brand-bg border border-brand-primary/15 rounded-xl px-3 py-2 text-xs font-bold text-brand-ink focus:outline-none"
-                />
-                <input
-                  type="text"
-                  value={customNote}
-                  onChange={e => setCustomNote(e.target.value)}
-                  placeholder="Digite sua observação estratégica..."
-                  onKeyDown={e => e.key === 'Enter' && handleAddCustomNote()}
-                  className="flex-1 bg-brand-bg border border-brand-primary/15 rounded-xl px-3 py-2 text-xs font-medium text-brand-ink focus:outline-none"
-                />
-                <button
-                  onClick={handleAddCustomNote}
-                  disabled={!customNote.trim()}
-                  className="px-3 py-2 bg-brand-primary text-black font-bold text-xs rounded-xl hover:bg-brand-primary/90 disabled:opacity-40 transition-all cursor-pointer"
-                >
-                  <Plus size={16} />
-                </button>
-              </div>
-            </div>
           </div>
         </div>
 
-        {/* Right Column: Unified Synthesis Canvas */}
+        {/* Right Column: Unified Synthesis Canvas (Live Editor + Formatted Preview) */}
         <div className="lg:col-span-7 space-y-6">
           <div className="bg-brand-paper p-6 sm:p-8 rounded-[2rem] border border-brand-primary/15 shadow-sm space-y-5">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-brand-primary/10 pb-4">
               <div>
                 <h4 className="text-sm font-bold text-brand-primary uppercase tracking-wider flex items-center gap-2">
                   <Sparkles size={18} className="text-brand-primary" />
-                  Parecer & Resumão Executivo Consolidado
+                  Resumão Executivo Consolidado
                 </h4>
-                <p className="text-xs text-brand-ink/50 mt-0.5">Documento mestre pronto para tomada de decisão ou envio ao cliente</p>
+                <p className="text-xs text-brand-ink/50 mt-0.5">Edite diretamente ou visualize a formatação final do documento</p>
               </div>
 
-              <div className="flex items-center gap-2">
+              {/* View Mode & Actions */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <div className="bg-brand-bg p-1 rounded-xl border border-brand-primary/15 flex items-center gap-1">
+                  <button
+                    onClick={() => setViewMode('editor')}
+                    className={cn(
+                      "px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1 transition-all cursor-pointer",
+                      viewMode === 'editor' ? "bg-brand-primary text-black shadow-sm" : "text-brand-ink/70 hover:text-brand-primary"
+                    )}
+                  >
+                    <Edit3 size={13} />
+                    <span>Editor</span>
+                  </button>
+                  <button
+                    onClick={() => setViewMode('preview')}
+                    className={cn(
+                      "px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1 transition-all cursor-pointer",
+                      viewMode === 'preview' ? "bg-brand-primary text-black shadow-sm" : "text-brand-ink/70 hover:text-brand-primary"
+                    )}
+                  >
+                    <AlignLeft size={13} />
+                    <span>Formatado</span>
+                  </button>
+                  <button
+                    onClick={() => setViewMode('split')}
+                    className={cn(
+                      "hidden sm:flex px-2.5 py-1 rounded-lg text-xs font-bold items-center gap-1 transition-all cursor-pointer",
+                      viewMode === 'split' ? "bg-brand-primary text-black shadow-sm" : "text-brand-ink/70 hover:text-brand-primary"
+                    )}
+                  >
+                    <Columns size={13} />
+                    <span>Dividido</span>
+                  </button>
+                </div>
+
                 <button
-                  onClick={() => setIsEditingRaw(!isEditingRaw)}
-                  className={cn(
-                    "px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 border transition-all cursor-pointer",
-                    isEditingRaw 
-                      ? "bg-brand-primary text-black border-brand-primary" 
-                      : "bg-brand-bg border-brand-primary/15 text-brand-ink hover:text-brand-primary"
-                  )}
+                  onClick={handleManualSave}
+                  className="px-3 py-1.5 bg-brand-bg hover:bg-brand-primary/10 border border-brand-primary/20 text-brand-primary rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
                 >
-                  <Edit3 size={13} />
-                  <span>{isEditingRaw ? 'Ver Formatado' : 'Editar Texto'}</span>
+                  {savedNotice ? <Check size={13} className="text-emerald-600" /> : <Save size={13} />}
+                  <span>{savedNotice ? 'Salvo!' : 'Salvar'}</span>
                 </button>
 
                 <button
@@ -588,24 +719,27 @@ Formate em Markdown executivo de altíssimo padrão, elegante, direto e com tabe
               </div>
             </div>
 
-            {/* Document Body */}
-            {isEditingRaw ? (
+            {/* Document Body View Controller */}
+            {viewMode === 'editor' && (
               <div className="space-y-2">
-                <label className="block text-[10px] font-bold uppercase tracking-widest text-brand-ink/40">
-                  Editor Markdown Direto
-                </label>
+                <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-brand-ink/50">
+                  <span>Edição Direta do Texto do Resumão</span>
+                  <span>{unifiedReportText.length} caracteres</span>
+                </div>
                 <textarea
                   value={unifiedReportText}
                   onChange={e => {
                     setUnifiedReportText(e.target.value);
                     updateState({ unifiedSummaryText: e.target.value });
                   }}
-                  rows={20}
-                  className="w-full bg-brand-bg border border-brand-primary/15 rounded-2xl p-5 text-sm font-mono text-brand-ink leading-relaxed focus:ring-2 focus:ring-brand-primary focus:outline-none resize-y"
-                  placeholder="O resumo unificado consolidado aparecerá aqui..."
+                  rows={22}
+                  className="w-full bg-brand-bg border border-brand-primary/20 rounded-2xl p-5 text-sm font-mono text-brand-ink leading-relaxed focus:ring-2 focus:ring-brand-primary focus:outline-none resize-y"
+                  placeholder="O texto unificado aparecerá aqui para você editar livremente..."
                 />
               </div>
-            ) : (
+            )}
+
+            {viewMode === 'preview' && (
               <div className="bg-brand-bg/30 p-6 sm:p-8 rounded-2xl border border-brand-primary/10 min-h-[450px]">
                 {unifiedReportText ? (
                   <div className="markdown-body font-sans text-brand-ink/90 leading-relaxed text-sm antialiased space-y-4">
@@ -619,11 +753,40 @@ Formate em Markdown executivo de altíssimo padrão, elegante, direto e com tabe
                     <div className="space-y-1">
                       <p className="font-bold text-brand-ink/70">Nenhum Resumo Sintetizado</p>
                       <p className="text-xs text-brand-ink/40 max-w-sm mx-auto">
-                        Selecione os blocos desejados na coluna ao lado e clique no botão <strong>"Sintetizar com IA"</strong> ou <strong>"Compilar Selecionados"</strong>.
+                        Escreva suas informações no campo acima ou selecione blocos e clique em <strong>"Sintetizar com IA"</strong>.
                       </p>
                     </div>
                   </div>
                 )}
+              </div>
+            )}
+
+            {viewMode === 'split' && (
+              <div className="grid grid-cols-2 gap-4 min-h-[480px]">
+                <div className="space-y-1">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-brand-ink/50 block mb-1">
+                    Editor Markdown
+                  </span>
+                  <textarea
+                    value={unifiedReportText}
+                    onChange={e => {
+                      setUnifiedReportText(e.target.value);
+                      updateState({ unifiedSummaryText: e.target.value });
+                    }}
+                    rows={22}
+                    className="w-full h-full min-h-[440px] bg-brand-bg border border-brand-primary/20 rounded-2xl p-4 text-xs font-mono text-brand-ink leading-relaxed focus:ring-2 focus:ring-brand-primary focus:outline-none resize-none"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-brand-ink/50 block mb-1">
+                    Prévia em Tempo Real
+                  </span>
+                  <div className="h-full min-h-[440px] max-h-[500px] overflow-y-auto bg-brand-bg/40 p-5 rounded-2xl border border-brand-primary/10 markdown-body text-xs leading-relaxed text-brand-ink/90">
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                      {unifiedReportText || "*Nenhum conteúdo para exibir*"}
+                    </ReactMarkdown>
+                  </div>
+                </div>
               </div>
             )}
           </div>

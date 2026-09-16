@@ -9830,6 +9830,10 @@ Sua resposta deve ser APENAS um objeto JSON válido, sem qualquer bloco de códi
         updates.smartAnalysis = null;
       } else if (tabKey === 'assessoria') {
         updates.assessoriaAnalysis = null;
+      } else if (tabKey === 'unified_summary') {
+        updates.unifiedSummaryText = '';
+      } else if (tabKey === 'regional_map') {
+        updates.regionalData = null;
       } else if (tabKey === 'report') {
         updates.report = null;
         backendPayload.exec_summary = null;
