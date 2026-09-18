@@ -875,10 +875,15 @@ export const runBackendAnalysis = async (
       "\n3. LOCALIZAÇÃO E CARTÓRIO EXATOS (CRÍTICO): Identifique com precisão absoluta o Estado (UF), Comarca, Cidade e o Cartório de Registro de Imóveis do lote específico analisado. Nunca assuma 'São Paulo' ou 'SP' ou qualquer outro local se não estiver expressamente indicado no texto para este lote específico. Erros de localização geográfica são gravíssimos." +
       "\n4. DIMENSÕES E METRAGEM (ÁREAS): Extraia com rigor as metragens (Área Total, Área Útil, Área Construída, Área do Terreno e Fração Ideal) e a descrição física. Não use placeholders ou valores fictícios." +
       "\n5. HISTÓRICO COMPLETO DE PROPRIETÁRIOS: Identifique TODOS os adquirentes, proprietários antigos e atuais mencionados nos registros de Compra e Venda (R-). Extraia: Nome Completo, CPF/CNPJ, Estado Civil, Cônjuge (se houver), Profissão, e Endereço Completo de residência." +
-      "\n6. GARANTIAS E FIDUCIÁRIOS: Mapeie qualquer Alienação Fiduciária (geralmente sob R- ou AV-), apontando claramente quem é o Devedor Fiduciante e quem é o Credor Fiduciário (por exemplo, Banco do Brasil S/A, Bradesco, Caixa, etc.)." +
+      "\n6. GARANTIAS E FIDUCIÁRIOS: Mapeie qualquer Alienação Fiduciária (geralmente sob R- ou AV-), apontando claramente quem é o Devedor Fiduciante e quem é o Credor Fiduciário (por exemplo, Banco do Brasil S/A, Bradesco, Caixa, Itaú, Santander, etc.)." +
       "\n7. CANCELAMENTO DE GARANTIAS E CONSOLIDAÇÃO: Verifique se houve cancelamento de gravames antigos e, crucialmente, se há Averbação de Consolidação da Propriedade (AV-) em nome do banco credor por inadimplemento (o que legitima o leilão). Liste as datas exatas destes atos." +
       "\n8. ÔNUS, BLOQUEIOS E PENHORAS: Liste toda e qualquer penhora ativa, indisponibilidade de bens, hipotecas ou processos averbados com credores, valores e datas." +
+      "\n9. DESTAQUE OBRIGATÓRIO: ÚLTIMOS PROPRIETÁRIOS ANTES DA CONSOLIDAÇÃO DA PROPRIEDADE (CRÍTICO PARA ARREMATANTES):" +
+      "\n   Identifique e DESTAQUE COM MÁXIMA PRIORIDADE quem eram os ÚLTIMOS PROPRIETÁRIOS DO IMÓVEL (devedores fiduciantes / mutuários executados) IMEDIATAMENTE ANTES da averbação da Consolidação da Propriedade em favor do banco/credor fiduciário." +
+      "\n   Extraia detalhadamente: Nome Completo, CPF/CNPJ, Estado Civil, Cônjuge (com CPF se houver), Regime de Bens, Profissão, Endereço registrado, Registro de Aquisição (ex: R-3 Compra e Venda), Registro da Alienação Fiduciária (ex: R-4 Alienação Fiduciária), Averbação da Consolidação (ex: AV-6 Consolidação da Propriedade) e Credor Fiduciário que consolidou." +
+      "\n   Forneça orientação jurídica sobre a importância desses nomes para a pesquisa de ações anulatórias e para a futura Ação de Imissão na Posse / Desocupação (art. 30 da Lei 9.514/97)." +
       "\n\nESTRUTURA DE RETORNO OBRIGATÓRIA:" +
+      "\n- **Apresente uma Seção de Destaque: ÚLTIMOS PROPRIETÁRIOS ANTES DA CONSOLIDAÇÃO DA PROPRIEDADE (DEVEDORES FIDUCIANTES)** com tabela detalhando Nome, CPF/CNPJ, Estado Civil, Cônjuge, R- de Aquisição, R- de Alienação Fiduciária, AV- de Consolidação e orientações práticas de risco processual e posse." +
       "\n- **Apresente uma Tabela Cronológica de Registros e Averbações (R e AV)** contendo: Código (Ex: R-4, AV-7), Ato (Compra e Venda, Alienação, Consolidação), Partes Envolvidas (com todos os CPFs, profissões e endereços identificados) e Detalhes Importantes." +
       "\n- **Apresente uma Segunda Tabela Resumo dos Proprietários Atuais e de Direito**, deixando claro quem é o proprietário fiduciante executado e quem é o credor titular de direito (Ex: Banco do Brasil S/A). Qualquer lacuna de dados devido a digitalização fraca deve ser indicada expressamente em vez de silenciada." +
       "\n\nCRUCIAL - RETORNO DE DADOS ESTRUTURADOS (MANDATÓRIO):" +
@@ -897,6 +902,33 @@ export const runBackendAnalysis = async (
       "\n  \"proprietarios_anteriores\": [" +
       "\n    {\"nome\": \"Nome Anterior\", \"documento\": \"CPF/CNPJ\"}" +
       "\n  ]," +
+      "\n  \"proprietarios_antes_consolidacao\": [" +
+      "\n    {" +
+      "\n      \"nome\": \"Nome do Ex-Proprietário / Devedor Fiduciante\"," +
+      "\n      \"documento\": \"CPF ou CNPJ\"," +
+      "\n      \"tipo\": \"PF|PJ\"," +
+      "\n      \"estado_civil\": \"Casado(a)|Solteiro(a)|Divorciado(a)|etc\"," +
+      "\n      \"conjuge\": \"Nome do Cônjuge\"," +
+      "\n      \"documento_conjuge\": \"CPF do Cônjuge\"," +
+      "\n      \"regime_bens\": \"Comunhão Parcial|Separação Total|etc\"," +
+      "\n      \"profissao\": \"...\"," +
+      "\n      \"endereco\": \"...\"," +
+      "\n      \"ato_aquisicao\": \"R-X (Compra e Venda)\"," +
+      "\n      \"ato_alienacao_fiduciaria\": \"R-Y (Alienação Fiduciária)\"," +
+      "\n      \"ato_consolidacao\": \"AV-Z (Consolidação da Propriedade)\"," +
+      "\n      \"credor_fiduciario\": \"Banco / Credor que consolidou\"," +
+      "\n      \"data_consolidacao\": \"DD/MM/AAAA\"," +
+      "\n      \"observacoes\": \"Devedor fiduciante originário executado extrajudicialmente conforme Lei 9.514/97\"" +
+      "\n    }" +
+      "\n  ]," +
+      "\n  \"consolidacao_propriedade\": {" +
+      "\n    \"houve_consolidacao\": true," +
+      "\n    \"data_consolidacao\": \"DD/MM/AAAA\"," +
+      "\n    \"ato_consolidacao\": \"AV-...\"," +
+      "\n    \"credor_fiduciario\": \"...\"," +
+      "\n    \"devedores_fiduciantes_originais\": [\"...\"]," +
+      "\n    \"resumo_consolidacao\": \"...\"" +
+      "\n  }," +
       "\n  \"valores_transacao\": [" +
       "\n    {\"valor\": \"R$ ...\", \"data\": \"dia-mes-ano\"}" +
       "\n  ]," +

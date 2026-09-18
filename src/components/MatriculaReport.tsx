@@ -28,7 +28,6 @@ import { jsonrepair } from 'jsonrepair';
 import { ReportCustomExporterBar } from './ReportCustomExporterBar';
 import { ExportSectionItem } from '../utils/modularReportExporter';
 import { AssessorPitchAndTipsCard } from './AssessorPitchAndTipsCard';
-import { MatriculaMeasurementCard } from './MatriculaMeasurementCard';
 
 // Robust types for the structured matrícula data
 export interface MatriculaAto {
@@ -51,6 +50,34 @@ export interface MatriculaParte {
   detalhes?: string;
 }
 
+export interface ProprietarioAntesConsolidacao {
+  nome: string;
+  documento?: string;
+  tipo?: string;
+  estado_civil?: string;
+  conjuge?: string;
+  documento_conjuge?: string;
+  regime_bens?: string;
+  profissao?: string;
+  endereco?: string;
+  ato_aquisicao?: string;
+  ato_alienacao_fiduciaria?: string;
+  ato_consolidacao?: string;
+  credor_fiduciario?: string;
+  data_consolidacao?: string;
+  observacoes?: string;
+}
+
+export interface ConsolidacaoPropriedadeInfo {
+  houve_consolidacao: boolean;
+  data_consolidacao?: string;
+  ato_consolidacao?: string;
+  credor_fiduciario?: string;
+  devedores_fiduciantes_originais?: string[];
+  valor_divida_avaliacao?: string;
+  resumo_consolidacao?: string;
+}
+
 export interface MatriculaOnus {
   tipo?: string;
   status?: string;
@@ -71,6 +98,8 @@ export interface MatriculaReportData {
   };
   proprietario_atual: string[];
   proprietarios_anteriores: Array<{ nome: string; documento?: string }>;
+  proprietarios_antes_consolidacao?: ProprietarioAntesConsolidacao[];
+  consolidacao_propriedade?: ConsolidacaoPropriedadeInfo;
   valores_transacao: Array<{ valor: string; data?: string }>;
   imovel_tipo?: string;
   localizacao_resumo?: string;
@@ -155,6 +184,231 @@ interface MatriculaReportProps {
   analysisId?: string | null;
   customDomain?: string;
 }
+
+interface MatriculaConsolidacaoCardProps {
+  proprietariosAntesConsolidacao?: ProprietarioAntesConsolidacao[];
+  consolidacao?: ConsolidacaoPropriedadeInfo;
+  cadeiaRegistral?: MatriculaAto[];
+  onCopy: (text: string, id: string) => void;
+  copiedId: string | null;
+}
+
+export const MatriculaConsolidacaoCard: React.FC<MatriculaConsolidacaoCardProps> = ({
+  proprietariosAntesConsolidacao = [],
+  consolidacao,
+  cadeiaRegistral = [],
+  onCopy,
+  copiedId
+}) => {
+  const [showLegalTips, setShowLegalTips] = useState(false);
+
+  const hasConsolidacao = proprietariosAntesConsolidacao.length > 0 || !!consolidacao?.houve_consolidacao;
+  if (!hasConsolidacao) return null;
+
+  const allDocs = proprietariosAntesConsolidacao
+    .map(p => `${p.nome}${p.documento ? ` (${p.documento})` : ''}`)
+    .join('; ');
+
+  return (
+    <div id="matricula-consolidacao-card" className="bg-gradient-to-br from-amber-500/[0.08] via-amber-500/[0.03] to-transparent dark:from-amber-950/25 dark:via-amber-950/10 border-2 border-amber-500/35 rounded-3xl p-5 sm:p-6 shadow-md shadow-amber-500/5 relative overflow-hidden transition-all">
+      {/* Decorative Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+        <div className="flex items-center gap-2.5">
+          <div className="w-10 h-10 rounded-2xl bg-amber-500/20 text-amber-800 dark:text-amber-300 flex items-center justify-center shrink-0 border border-amber-500/30">
+            <Award size={22} className="text-amber-600 dark:text-amber-400" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-amber-800 dark:text-amber-300 bg-amber-500/15 px-2.5 py-0.5 rounded-full border border-amber-500/25">
+                Destaque Registral · Lei 9.514/97
+              </span>
+            </div>
+            <h3 className="text-base sm:text-lg font-extrabold text-brand-ink leading-tight mt-0.5">
+              Últimos Proprietários Antes da Consolidação da Propriedade
+            </h3>
+            <p className="text-xs text-brand-ink/65 leading-snug">
+              Devedores fiduciantes / mutuários originários executados antes da consolidação em nome do credor
+            </p>
+          </div>
+        </div>
+
+        {allDocs && (
+          <button
+            type="button"
+            onClick={() => onCopy(allDocs, 'copiar_ex_proprietarios')}
+            className="self-start sm:self-auto px-3.5 py-2 bg-amber-500 hover:bg-amber-400 text-black font-bold rounded-xl text-xs transition-all shadow-xs flex items-center gap-1.5"
+            title="Copiar nomes e documentos dos devedores fiduciantes"
+          >
+            {copiedId === 'copiar_ex_proprietarios' ? <Check size={13} /> : <Copy size={13} />}
+            {copiedId === 'copiar_ex_proprietarios' ? 'Copiado!' : 'Copiar Ex-Proprietários'}
+          </button>
+        )}
+      </div>
+
+      {/* Consolidation Context Badges */}
+      {(consolidacao?.ato_consolidacao || consolidacao?.data_consolidacao || consolidacao?.credor_fiduciario) && (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 mb-4 p-3 rounded-2xl bg-amber-500/10 dark:bg-amber-950/30 border border-amber-500/20 text-xs">
+          <div>
+            <span className="text-[10px] font-bold text-amber-800 dark:text-amber-300 uppercase tracking-wider block">Ato de Consolidação</span>
+            <span className="font-bold text-brand-ink">{consolidacao.ato_consolidacao || 'Averbado (AV)'}</span>
+          </div>
+          <div>
+            <span className="text-[10px] font-bold text-amber-800 dark:text-amber-300 uppercase tracking-wider block">Data da Consolidação</span>
+            <span className="font-bold text-brand-ink">{consolidacao.data_consolidacao || 'Conforme Certidão'}</span>
+          </div>
+          <div>
+            <span className="text-[10px] font-bold text-amber-800 dark:text-amber-300 uppercase tracking-wider block">Credor que Consolidou</span>
+            <span className="font-bold text-brand-ink truncate block" title={consolidacao.credor_fiduciario}>
+              {consolidacao.credor_fiduciario || 'Instituição Financeira / Credor'}
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* Owners Cards */}
+      <div className="space-y-3">
+        {proprietariosAntesConsolidacao.length > 0 ? (
+          proprietariosAntesConsolidacao.map((prop, idx) => (
+            <div 
+              key={idx}
+              className="bg-brand-paper dark:bg-neutral-900/60 rounded-2xl border border-amber-500/25 p-4 sm:p-5 shadow-xs space-y-3"
+            >
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2.5 border-b border-brand-border/40">
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 block">
+                    Devedor Fiduciante / Mutuário Originário {proprietariosAntesConsolidacao.length > 1 ? `#${idx + 1}` : ''}
+                  </span>
+                  <p className="text-base font-extrabold text-brand-ink leading-snug">
+                    {prop.nome}
+                  </p>
+                </div>
+                {prop.documento && (
+                  <div className="flex items-center gap-1.5 self-start sm:self-auto">
+                    <span className="font-mono text-xs font-bold px-2.5 py-1 bg-brand-bg/80 text-brand-ink rounded-lg border border-brand-border">
+                      {prop.documento.length > 14 ? 'CNPJ' : 'CPF'}: {prop.documento}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => onCopy(prop.documento || '', `doc_prop_${idx}`)}
+                      className="p-1.5 text-brand-ink/50 hover:text-amber-600 transition-all rounded-lg hover:bg-amber-500/10"
+                      title="Copiar CPF/CNPJ"
+                    >
+                      {copiedId === `doc_prop_${idx}` ? <Check size={14} className="text-emerald-500" /> : <Copy size={14} />}
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Grid of Details */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-4 gap-y-2 text-xs font-sans">
+                {prop.estado_civil && (
+                  <div>
+                    <span className="text-[10px] text-brand-ink/50 block font-semibold">Estado Civil:</span>
+                    <span className="font-bold text-brand-ink">{prop.estado_civil}</span>
+                  </div>
+                )}
+                {prop.conjuge && (
+                  <div>
+                    <span className="text-[10px] text-brand-ink/50 block font-semibold">Cônjuge:</span>
+                    <span className="font-bold text-brand-ink">
+                      {prop.conjuge} {prop.documento_conjuge ? `(Doc: ${prop.documento_conjuge})` : ''}
+                    </span>
+                  </div>
+                )}
+                {prop.regime_bens && (
+                  <div>
+                    <span className="text-[10px] text-brand-ink/50 block font-semibold">Regime de Bens:</span>
+                    <span className="font-bold text-brand-ink">{prop.regime_bens}</span>
+                  </div>
+                )}
+                {prop.profissao && (
+                  <div>
+                    <span className="text-[10px] text-brand-ink/50 block font-semibold">Profissão:</span>
+                    <span className="font-bold text-brand-ink">{prop.profissao}</span>
+                  </div>
+                )}
+                {prop.ato_aquisicao && (
+                  <div>
+                    <span className="text-[10px] text-brand-ink/50 block font-semibold">Registro de Aquisição Originária:</span>
+                    <span className="font-bold text-amber-700 dark:text-amber-300 font-mono">{prop.ato_aquisicao}</span>
+                  </div>
+                )}
+                {prop.ato_alienacao_fiduciaria && (
+                  <div>
+                    <span className="text-[10px] text-brand-ink/50 block font-semibold">Alienação Fiduciária:</span>
+                    <span className="font-bold text-amber-700 dark:text-amber-300 font-mono">{prop.ato_alienacao_fiduciaria}</span>
+                  </div>
+                )}
+                {prop.ato_consolidacao && (
+                  <div>
+                    <span className="text-[10px] text-brand-ink/50 block font-semibold">Consolidação da Propriedade:</span>
+                    <span className="font-bold text-rose-600 dark:text-rose-400 font-mono">{prop.ato_consolidacao}</span>
+                  </div>
+                )}
+                {prop.credor_fiduciario && (
+                  <div className="sm:col-span-2">
+                    <span className="text-[10px] text-brand-ink/50 block font-semibold">Credor Fiduciário (Banco):</span>
+                    <span className="font-bold text-brand-ink">{prop.credor_fiduciario}</span>
+                  </div>
+                )}
+              </div>
+
+              {prop.endereco && (
+                <div className="pt-2 border-t border-brand-border/30 text-xs">
+                  <span className="text-[10px] text-brand-ink/50 block font-semibold">Endereço Registrado:</span>
+                  <span className="text-brand-ink/80">{prop.endereco}</span>
+                </div>
+              )}
+
+              {prop.observacoes && (
+                <div className="pt-2 border-t border-brand-border/30 text-xs">
+                  <span className="text-[10px] text-brand-ink/50 block font-semibold">Observações Registrais:</span>
+                  <span className="text-brand-ink/80 italic">{prop.observacoes}</span>
+                </div>
+              )}
+            </div>
+          ))
+        ) : (
+          <div className="p-4 rounded-2xl bg-brand-bg/40 border border-brand-border text-xs text-brand-ink/70">
+            A averbação de consolidação de propriedade foi indicada na matrícula. Consulte a cadeia registral para verificar o registro originário de compra e venda (R-) e alienação fiduciária.
+          </div>
+        )}
+      </div>
+
+      {/* Strategic Investor Checklist / Legal Tips */}
+      <div className="mt-4 pt-3 border-t border-amber-500/20">
+        <button
+          type="button"
+          onClick={() => setShowLegalTips(!showLegalTips)}
+          className="w-full flex items-center justify-between text-xs font-bold text-amber-800 dark:text-amber-300 hover:text-amber-900 transition-all py-1 cursor-pointer"
+        >
+          <span className="flex items-center gap-1.5">
+            <Scale size={14} className="text-amber-600" />
+            Por que é fundamental saber quem são os proprietários antes da consolidação?
+          </span>
+          <span className="text-[10px] underline">{showLegalTips ? 'Ocultar orientações' : 'Ver orientações jurídicas e posse'}</span>
+        </button>
+
+        {showLegalTips && (
+          <div className="mt-3 p-4 rounded-2xl bg-amber-500/10 dark:bg-amber-950/20 border border-amber-500/20 text-xs text-brand-ink/80 space-y-2.5 leading-relaxed">
+            <div className="flex items-start gap-2">
+              <span className="font-bold text-amber-700 dark:text-amber-400 shrink-0">1. Pesquisa Processual Prévia:</span>
+              <span>Busque pelo CPF/CNPJ destes devedores fiduciantes no Tribunal de Justiça estadual e TRF para certificar se distribuíram <strong>Ação Anulatória de Consolidação / Leilão Extrajudicial</strong> ou pedido de tutela de urgência contra o banco.</span>
+            </div>
+            <div className="flex items-start gap-2">
+              <span className="font-bold text-amber-700 dark:text-amber-400 shrink-0">2. Ação de Imissão na Posse / Desocupação:</span>
+              <span>Se o imóvel permanecer ocupado, a Notificação Extrajudicial de Desocupação e a <strong>Ação de Imissão na Posse (art. 30 da Lei 9.514/97)</strong> com pedido de liminar de desocupação em 60 dias serão ajuizadas em face destes ex-proprietários/ocupantes.</span>
+            </div>
+            <div className="flex items-start gap-2">
+              <span className="font-bold text-amber-700 dark:text-amber-400 shrink-0">3. Notificação da Purgação da Mora:</span>
+              <span>A higidez da consolidação da propriedade perante a Lei 9.514/97 pressupõe a regular notificação prévia dos devedores pelo oficial do Cartório de Registro de Imóveis (art. 26).</span>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
 
 export const MatriculaReport: React.FC<MatriculaReportProps> = ({ 
   rawAnalysis, 
@@ -337,6 +591,31 @@ export const MatriculaReport: React.FC<MatriculaReportProps> = ({
       if (!rawObj.proprietarios_e_partes && (rawObj.proprietariosEPartes || rawObj.proprietarios)) {
         rawObj.proprietarios_e_partes = rawObj.proprietariosEPartes || rawObj.proprietarios;
       }
+      if (!rawObj.proprietarios_antes_consolidacao) {
+        rawObj.proprietarios_antes_consolidacao = rawObj.proprietariosAntesConsolidacao || rawObj.devedores_fiduciantes || rawObj.ultimos_proprietarios_antes_consolidacao || rawObj.proprietarios_fiduciantes || [];
+      }
+      if (Array.isArray(rawObj.proprietarios_antes_consolidacao)) {
+        rawObj.proprietarios_antes_consolidacao = rawObj.proprietarios_antes_consolidacao.map((item: any) => ({
+          nome: item.nome || item.name || item.proprietario || item.devedor || item.mutuario || 'Nome não especificado',
+          documento: item.documento || item.cpf || item.cnpj || item.doc || undefined,
+          tipo: item.tipo || ((item.documento || item.cpf || '').length > 14 ? 'PJ' : 'PF'),
+          estado_civil: item.estado_civil || item.estadoCivil || undefined,
+          conjuge: item.conjuge || item.esposa || item.marido || undefined,
+          documento_conjuge: item.documento_conjuge || item.cpf_conjuge || undefined,
+          regime_bens: item.regime_bens || item.regime || undefined,
+          profissao: item.profissao || undefined,
+          endereco: item.endereco || undefined,
+          ato_aquisicao: item.ato_aquisicao || item.aquisicao || undefined,
+          ato_alienacao_fiduciaria: item.ato_alienacao_fiduciaria || item.alienacao || undefined,
+          ato_consolidacao: item.ato_consolidacao || item.consolidacao || undefined,
+          credor_fiduciario: item.credor_fiduciario || item.banco || item.credor || undefined,
+          data_consolidacao: item.data_consolidacao || undefined,
+          observacoes: item.observacoes || item.detalhes || undefined
+        }));
+      }
+      if (!rawObj.consolidacao_propriedade && (rawObj.consolidacaoPropriedade || rawObj.consolidacao)) {
+        rawObj.consolidacao_propriedade = rawObj.consolidacaoPropriedade || rawObj.consolidacao;
+      }
     }
 
     // If no JSON was found at all, create from heuristic extraction
@@ -354,6 +633,14 @@ export const MatriculaReport: React.FC<MatriculaReportProps> = ({
       }
       if (!data.proprietarios_e_partes || (!data.proprietarios_e_partes.atuais?.length && !data.proprietarios_e_partes.anteriores?.length)) {
         data.proprietarios_e_partes = fallbackExtracted.proprietarios_e_partes;
+      }
+      if (!data.proprietarios_antes_consolidacao || data.proprietarios_antes_consolidacao.length === 0) {
+        if (fallbackExtracted.proprietarios_antes_consolidacao && fallbackExtracted.proprietarios_antes_consolidacao.length > 0) {
+          data.proprietarios_antes_consolidacao = fallbackExtracted.proprietarios_antes_consolidacao;
+        }
+      }
+      if (!data.consolidacao_propriedade && fallbackExtracted.consolidacao_propriedade) {
+        data.consolidacao_propriedade = fallbackExtracted.consolidacao_propriedade;
       }
       if (!data.processos_judiciais || data.processos_judiciais.length === 0) {
         data.processos_judiciais = fallbackExtracted.processos_judiciais;
@@ -447,6 +734,13 @@ export const MatriculaReport: React.FC<MatriculaReportProps> = ({
 
     // 4. Proprietários e Partes
     let partesText = `👥 PROPRIETÁRIOS E PARTES ENVOLVIDAS:\n\n`;
+    if (data.proprietarios_antes_consolidacao && data.proprietarios_antes_consolidacao.length > 0) {
+      partesText += `⭐ ÚLTIMOS PROPRIETÁRIOS ANTES DA CONSOLIDAÇÃO (DEVEDORES FIDUCIANTES):\n`;
+      partesText += data.proprietarios_antes_consolidacao.map(p => 
+        `  - ${p.nome} ${p.documento ? `(Doc: ${p.documento})` : ''}${p.conjuge ? ` - Cônjuge: ${p.conjuge}` : ''}${p.regime_bens ? ` - Regime: ${p.regime_bens}` : ''}${p.ato_alienacao_fiduciaria ? ` - Alienação: ${p.ato_alienacao_fiduciaria}` : ''}${p.ato_consolidacao ? ` - Consolidação: ${p.ato_consolidacao}` : ''}`
+      ).join('\n') + '\n\n';
+    }
+
     partesText += `• Proprietários Atuais:\n`;
     if (data.proprietarios_e_partes?.atuais && data.proprietarios_e_partes.atuais.length > 0) {
       partesText += data.proprietarios_e_partes.atuais.map(p => `  - ${p.nome} ${p.documento ? `(Doc: ${p.documento})` : ''}${p.regime ? ` - Regime: ${p.regime}` : ''}${p.participacao ? ` - Fração: ${p.participacao}` : ''}`).join('\n');
@@ -464,6 +758,30 @@ export const MatriculaReport: React.FC<MatriculaReportProps> = ({
     if (data.proprietarios_e_partes?.credores && data.proprietarios_e_partes.credores.length > 0) {
       partesText += `\n• Credores e Terceiros Interessados:\n`;
       partesText += data.proprietarios_e_partes.credores.map(c => `  - ${c.nome} ${c.documento ? `(Doc: ${c.documento})` : ''}`).join('\n');
+    }
+
+    // 4.1. Seção Exclusiva: Últimos Proprietários Antes da Consolidação
+    let consolidacaoText = `⭐ ÚLTIMOS PROPRIETÁRIOS ANTES DA CONSOLIDAÇÃO DA PROPRIEDADE (LEI 9.514/97):\n\n`;
+    if (data.proprietarios_antes_consolidacao && data.proprietarios_antes_consolidacao.length > 0) {
+      consolidacaoText += data.proprietarios_antes_consolidacao.map((p, idx) => {
+        return [
+          `[Ex-Proprietário ${idx + 1}] ${p.nome}`,
+          p.documento ? `  - CPF/CNPJ: ${p.documento}` : null,
+          p.estado_civil ? `  - Estado Civil: ${p.estado_civil}` : null,
+          p.conjuge ? `  - Cônjuge: ${p.conjuge} ${p.documento_conjuge ? `(Doc: ${p.documento_conjuge})` : ''}` : null,
+          p.regime_bens ? `  - Regime de Bens: ${p.regime_bens}` : null,
+          p.profissao ? `  - Profissão: ${p.profissao}` : null,
+          p.ato_aquisicao ? `  - Registro de Aquisição: ${p.ato_aquisicao}` : null,
+          p.ato_alienacao_fiduciaria ? `  - Registro de Alienação Fiduciária: ${p.ato_alienacao_fiduciaria}` : null,
+          p.ato_consolidacao ? `  - Averbação de Consolidação: ${p.ato_consolidacao}` : null,
+          p.credor_fiduciario ? `  - Credor Fiduciário que Consolidou: ${p.credor_fiduciario}` : null,
+          p.data_consolidacao ? `  - Data da Consolidação: ${p.data_consolidacao}` : null,
+          p.endereco ? `  - Endereço Declarado: ${p.endereco}` : null,
+          p.observacoes ? `  - Observações: ${p.observacoes}` : null,
+        ].filter(Boolean).join('\n');
+      }).join('\n\n');
+    } else {
+      consolidacaoText += `Informações sobre consolidação da propriedade disponíveis na cadeia registral.`;
     }
 
     // 5. Identificação e Cartório
@@ -487,17 +805,7 @@ export const MatriculaReport: React.FC<MatriculaReportProps> = ({
       `• Descrição Registral Completa: ${data.caracteristicas_fisicas?.descricao_completa || 'Não detalhada'}`,
     ].join('\n');
 
-    // 7. Medição e Confrontações Cartográficas
-    const medicaoText = [
-      `📐 MEDIÇÃO CARTOGRÁFICA E CONFRONTAÇÕES DA MATRÍCULA:`,
-      `• Área Total Registrada: ${data.caracteristicas_fisicas?.area_total || 'Conforme memorial descritivo'}`,
-      `• Endereço: ${data.caracteristicas_fisicas?.endereco || propertyAddress || 'Não informado'}`,
-      `• Inscrição Municipal / IPTU: ${data.identificacao_matricula?.cadastro_imobiliario || data.caracteristicas_fisicas?.cadastro_imobiliario || data.identificacao_matricula?.inscricao_municipal || 'N/I'}`,
-      `• Cartório / Comarca: ${data.identificacao_matricula?.cartorio || 'CRI'} - ${data.identificacao_matricula?.comarca || propertyCity || ''}/${data.identificacao_matricula?.uf || propertyState || ''}`,
-      `• Memorial Descritivo: ${data.caracteristicas_fisicas?.descricao_completa || 'Dimensões regulares apuradas.'}`
-    ].join('\n');
-
-    // 8. Painel do Assessor & Dicas
+    // 7. Painel do Assessor & Dicas
     const painelText = [
       `🎯 PAINEL DO ASSESSOR - RESUMO & DICAS DA MATRÍCULA:`,
       `• Síntese Registral: A cadeia de domínio foi conferida. Todos os gravames e penhoras anteriores são baixados com a Carta de Arrematação.`,
@@ -507,7 +815,7 @@ export const MatriculaReport: React.FC<MatriculaReportProps> = ({
 
     return [
       { id: 'resumo', title: 'Resumo Geral & Indicadores', text: resumoText },
-      { id: 'medicao_matricula', title: 'Medição Cartográfica & Perimetral', text: medicaoText },
+      { id: 'proprietarios_consolidacao', title: '⭐ Últimos Proprietários Antes da Consolidação (Devedores Fiduciantes)', text: consolidacaoText },
       { id: 'painel_assessor', title: 'Painel do Assessor (Resumo & Pitch Comercial)', text: painelText },
       { id: 'cadeia_registral', title: 'Cadeia Registral Completa (R- e AV-)', text: cadeiaText },
       { id: 'onus_gravames', title: 'Ônus, Penhoras e Gravames Ativos', text: onusText },
@@ -518,7 +826,7 @@ export const MatriculaReport: React.FC<MatriculaReportProps> = ({
   }, [data, propertyAddress, propertyCity, propertyState]);
 
   const [selectedSectionIds, setSelectedSectionIds] = useState<string[]>([
-    'resumo', 'medicao_matricula', 'painel_assessor', 'cadeia_registral', 'onus_gravames', 'proprietarios', 'identificacao', 'caracteristicas'
+    'resumo', 'proprietarios_consolidacao', 'painel_assessor', 'cadeia_registral', 'onus_gravames', 'proprietarios', 'identificacao', 'caracteristicas'
   ]);
 
   const handleToggleSection = (id: string) => {
@@ -661,6 +969,43 @@ export const MatriculaReport: React.FC<MatriculaReportProps> = ({
 
             {/* Quick Summary Grid */}
             <div className="space-y-4 pt-2 border-t border-brand-border/40">
+              {/* Highlight: Últimos Proprietários Antes da Consolidação (Devedores Fiduciantes) */}
+              {data.proprietarios_antes_consolidacao && data.proprietarios_antes_consolidacao.length > 0 && (
+                <div className="p-3.5 rounded-2xl bg-amber-500/10 dark:bg-amber-950/25 border-2 border-amber-500/35">
+                  <div className="flex items-center justify-between gap-2 mb-1.5">
+                    <span className="text-[10px] font-extrabold text-amber-800 dark:text-amber-300 uppercase tracking-widest flex items-center gap-1">
+                      <Award size={13} className="text-amber-600 dark:text-amber-400" />
+                      Últimos Proprietários Antes da Consolidação (Devedores Fiduciantes)
+                    </span>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-900 dark:text-amber-200">
+                      Lei 9.514/97
+                    </span>
+                  </div>
+                  <div className="space-y-1">
+                    {data.proprietarios_antes_consolidacao.map((p, idx) => (
+                      <div key={idx} className="flex flex-wrap items-center gap-x-2 text-xs font-bold text-brand-ink">
+                        <span className="text-sm font-extrabold text-amber-900 dark:text-amber-200">{p.nome}</span>
+                        {p.documento && (
+                          <span className="font-mono text-[11px] px-1.5 py-0.5 bg-amber-200/50 dark:bg-amber-900/40 rounded border border-amber-500/20 text-brand-ink">
+                            Doc: {p.documento}
+                          </span>
+                        )}
+                        {p.conjuge && (
+                          <span className="text-[11px] text-brand-ink/70 font-normal">
+                            (Cônjuge: {p.conjuge})
+                          </span>
+                        )}
+                        {p.ato_alienacao_fiduciaria && (
+                          <span className="text-[10px] text-amber-800 dark:text-amber-300 font-mono">
+                            [{p.ato_alienacao_fiduciaria}]
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {data.proprietario_atual && data.proprietario_atual.length > 0 && (
                 <div>
                   <span className="text-[10px] font-bold text-brand-ink/40 uppercase tracking-wider block mb-1">Proprietário Atual</span>
@@ -733,16 +1078,13 @@ export const MatriculaReport: React.FC<MatriculaReportProps> = ({
             </div>
           </div>
 
-          {/* 1.1. MEDIÇÃO CARTOGRÁFICA & CONFRONTAÇÕES DA MATRÍCULA (INTERATIVO COM GERAÇÃO DE LINK E IMAGEM) */}
-          <MatriculaMeasurementCard
-            matriculaData={data}
-            rawAnalysis={rawAnalysis}
-            propertyAddress={propertyAddress}
-            propertyCity={propertyCity}
-            propertyState={propertyState}
-            propertyId={propertyId}
-            analysisId={analysisId}
-            customDomain={customDomain}
+          {/* 1.1. DESTAQUE ESPECIAL: ÚLTIMOS PROPRIETÁRIOS ANTES DA CONSOLIDAÇÃO (CARD DEDICADO) */}
+          <MatriculaConsolidacaoCard
+            proprietariosAntesConsolidacao={data.proprietarios_antes_consolidacao}
+            consolidacao={data.consolidacao_propriedade}
+            cadeiaRegistral={data.cadeia_registral}
+            onCopy={handleCopyText}
+            copiedId={copiedData}
           />
 
           <h3 className="text-xs font-bold text-brand-ink/40 uppercase tracking-widest pl-1">detalhamento completo</h3>
@@ -1188,15 +1530,67 @@ export const MatriculaReport: React.FC<MatriculaReportProps> = ({
             {/* Sec: Proprietários e partes */}
             <AccordionSection 
               id="partes" 
-              title="Proprietários e partes" 
+              title="Proprietários, Partes e Devedores Fiduciantes" 
               icon={<Users size={18} className="text-orange-500" />} 
               isOpen={accordionState.partes} 
               onToggle={() => toggleAccordion('partes')}
             >
-              {data.proprietarios_e_partes ? (
+              {(data.proprietarios_e_partes || (data.proprietarios_antes_consolidacao && data.proprietarios_antes_consolidacao.length > 0)) ? (
                 <div className="space-y-6 font-sans">
+                  {/* ⭐ DESTAQUE: Últimos Proprietários Antes da Consolidação (Devedores Fiduciantes) */}
+                  {data.proprietarios_antes_consolidacao && data.proprietarios_antes_consolidacao.length > 0 && (
+                    <div className="space-y-2 bg-amber-500/[0.07] dark:bg-amber-950/20 border-2 border-amber-500/30 rounded-2xl p-4">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <Award size={16} className="text-amber-600 dark:text-amber-400" />
+                          <h4 className="text-xs font-extrabold text-amber-900 dark:text-amber-300 uppercase tracking-wider">
+                            Últimos Proprietários Antes da Consolidação (Devedores Fiduciantes)
+                          </h4>
+                        </div>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-900 dark:text-amber-200">
+                          Lei 9.514/97
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-brand-ink/70">
+                        Mutuários originários executados antes da consolidação do imóvel em favor do credor fiduciário.
+                      </p>
+                      <div className="space-y-2.5 pt-2">
+                        {data.proprietarios_antes_consolidacao.map((p, i) => (
+                          <div key={i} className="bg-brand-paper dark:bg-neutral-900/70 rounded-xl border border-amber-500/20 p-3.5 space-y-1.5">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                              <p className="font-extrabold text-sm text-brand-ink">{p.nome}</p>
+                              {p.documento && (
+                                <span className="font-mono text-xs font-bold px-2 py-0.5 bg-amber-200/50 dark:bg-amber-900/40 text-brand-ink rounded border border-amber-500/20 self-start sm:self-auto">
+                                  {p.documento.length > 14 ? 'CNPJ' : 'CPF'}: {p.documento}
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-brand-ink/70">
+                              {p.estado_civil && <span>Estado Civil: <strong>{p.estado_civil}</strong></span>}
+                              {p.conjuge && <span>Cônjuge: <strong>{p.conjuge}</strong> {p.documento_conjuge ? `(${p.documento_conjuge})` : ''}</span>}
+                              {p.regime_bens && <span>Regime: <strong>{p.regime_bens}</strong></span>}
+                              {p.profissao && <span>Profissão: <strong>{p.profissao}</strong></span>}
+                              {p.ato_alienacao_fiduciaria && <span className="text-amber-800 dark:text-amber-300 font-mono">Alienação: <strong>{p.ato_alienacao_fiduciaria}</strong></span>}
+                              {p.ato_consolidacao && <span className="text-rose-600 dark:text-rose-400 font-mono">Consolidação: <strong>{p.ato_consolidacao}</strong></span>}
+                            </div>
+                            {p.credor_fiduciario && (
+                              <p className="text-xs text-brand-ink/80 pt-1 border-t border-brand-border/30">
+                                Credor Fiduciário: <strong>{p.credor_fiduciario}</strong>
+                              </p>
+                            )}
+                            {p.observacoes && (
+                              <p className="text-[11px] text-brand-ink/60 italic pt-1 border-t border-brand-border/20">
+                                {p.observacoes}
+                              </p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   {/* Atuais */}
-                  {data.proprietarios_e_partes.atuais && data.proprietarios_e_partes.atuais.length > 0 && (
+                  {data.proprietarios_e_partes?.atuais && data.proprietarios_e_partes.atuais.length > 0 && (
                     <div className="space-y-2">
                       <h4 className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider pl-1">Proprietários Atuais</h4>
                       <div className="space-y-2">
@@ -2193,6 +2587,93 @@ function parseHeuristics(
           detalhes: line
         });
       }
+    }
+
+    // 11. DEEP EXTRACTION: PROPRIETÁRIOS ANTES DA CONSOLIDAÇÃO DA PROPRIEDADE (DEVEDORES FIDUCIANTES)
+    const proprietariosAntesConsolidacao: ProprietarioAntesConsolidacao[] = [];
+    let houveConsolidacao = false;
+    let dataConsolidacao: string | undefined;
+    let atoConsolidacao: string | undefined;
+    let credorFiduciarioConsolidacao: string | undefined;
+
+    // Pattern A: Match explicit labels in markdown or text
+    const antesConsolidacaoRegex = /(?:Últimos Proprietários Antes da Consolidação|Proprietário(?:s)? Antes da Consolidação|Devedor(?:es)? Fiduciante(?:s)?|Mutuário(?:s)? Originário(?:s)?|Titular(?:es)? Anterior(?:es)? à Consolidação|Ex-Proprietário(?:s)? Fiduciante(?:s)?)[\s:]+([^\n\r]+)/gi;
+    let acMatch;
+    while ((acMatch = antesConsolidacaoRegex.exec(text)) !== null) {
+      const line = acMatch[1].trim();
+      const docMatch = line.match(/(?:CPF|CNPJ)[\s:\.]*([0-9\.\-\/]+)/i);
+      const conjugeMatch = line.match(/(?:cônjuge|conjuge|casado com|casada com|esposa|marido)[\s:]+([^,\.\;\(]+)/i);
+      const regimeMatch = line.match(/(?:comunhão parcial|comunhão universal|separação total|separação obrigatória|participação final)/i);
+      const nameOnly = line.split(/[,;\(]|\bCPF\b|\bCNPJ\b|\bcônjuge\b|\bcasado\b/i)[0].trim();
+      if (nameOnly.length > 3 && !proprietariosAntesConsolidacao.some(p => p.nome.toLowerCase() === nameOnly.toLowerCase())) {
+        proprietariosAntesConsolidacao.push({
+          nome: nameOnly,
+          documento: docMatch ? docMatch[1].trim() : undefined,
+          conjuge: conjugeMatch ? conjugeMatch[1].trim() : undefined,
+          regime_bens: regimeMatch ? regimeMatch[0] : undefined,
+          tipo: line.toLowerCase().includes('cnpj') || line.toLowerCase().includes('s/a') || line.toLowerCase().includes('ltda') ? 'PJ' : 'PF',
+          observacoes: line
+        });
+      }
+    }
+
+    // Pattern B: Scan cadeia_registral for consolidation acts and preceding Alienação Fiduciária / Compra e Venda
+    if (extractedAtos.length > 0) {
+      const consolidacaoAto = extractedAtos.find(a => 
+        (a.natureza || '').toLowerCase().includes('consolidação') || 
+        (a.natureza || '').toLowerCase().includes('consolidacao') ||
+        (a.descricao || '').toLowerCase().includes('consolidação da propriedade') ||
+        (a.descricao || '').toLowerCase().includes('consolidacao da propriedade')
+      );
+      if (consolidacaoAto) {
+        houveConsolidacao = true;
+        atoConsolidacao = consolidacaoAto.tipo;
+        dataConsolidacao = consolidacaoAto.data;
+        const credorMatch = (consolidacaoAto.descricao + ' ' + (consolidacaoAto.partes || '')).match(/(?:em favor d[eoa]|a favor d[eoa]|consolidada em nome d[eoa]|credor[a]?:?|banco)\s*([A-Za-z0-9\s\.\,\/]{4,50})/i);
+        if (credorMatch) {
+          credorFiduciarioConsolidacao = credorMatch[1].trim();
+        }
+
+        if (proprietariosAntesConsolidacao.length === 0) {
+          const alienacaoAto = extractedAtos.find(a => 
+            (a.natureza || '').toLowerCase().includes('alienação fiduciária') || 
+            (a.natureza || '').toLowerCase().includes('alienacao fiduciaria') ||
+            (a.descricao || '').toLowerCase().includes('devedor fiduciante') ||
+            (a.descricao || '').toLowerCase().includes('fiduciante')
+          );
+          if (alienacaoAto) {
+            const devMatch = (alienacaoAto.descricao + ' ' + (alienacaoAto.partes || '')).match(/(?:devedor(?:es)?(?:\s+fiduciante(?:s)?)?|fiduciante(?:s)?|adquirente(?:s)?)[\s:]+([^\n\r,\.;\(]{3,60})/i);
+            const docMatch = (alienacaoAto.descricao + ' ' + (alienacaoAto.partes || '')).match(/(?:CPF|CNPJ)[\s:\.]*([0-9\.\-\/]+)/i);
+            const nameFound = devMatch ? devMatch[1].trim() : (alienacaoAto.partes ? alienacaoAto.partes.split(/[,;\(]/)[0].trim() : '');
+            if (nameFound && nameFound.length > 3) {
+              proprietariosAntesConsolidacao.push({
+                nome: nameFound,
+                documento: docMatch ? docMatch[1].trim() : undefined,
+                ato_alienacao_fiduciaria: alienacaoAto.tipo,
+                ato_consolidacao: consolidacaoAto.tipo,
+                credor_fiduciario: credorFiduciarioConsolidacao,
+                data_consolidacao: dataConsolidacao,
+                tipo: 'PF',
+                observacoes: 'Identificado a partir do registro de Alienação Fiduciária anterior à consolidação.'
+              });
+            }
+          }
+        }
+      }
+    }
+
+    if (proprietariosAntesConsolidacao.length > 0) {
+      result.proprietarios_antes_consolidacao = proprietariosAntesConsolidacao;
+    }
+    if (houveConsolidacao || proprietariosAntesConsolidacao.length > 0) {
+      result.consolidacao_propriedade = {
+        houve_consolidacao: true,
+        data_consolidacao: dataConsolidacao,
+        ato_consolidacao: atoConsolidacao,
+        credor_fiduciario: credorFiduciarioConsolidacao,
+        devedores_fiduciantes_originais: proprietariosAntesConsolidacao.map(p => p.nome),
+        resumo_consolidacao: `Propriedade consolidada em favor do credor fiduciário nos termos da Lei 9.514/97.`
+      };
     }
 
     if (proprietariosAtuais.length > 0 || proprietariosAnteriores.length > 0 || credoresList.length > 0) {

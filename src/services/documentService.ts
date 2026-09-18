@@ -9,7 +9,7 @@ export async function uploadDocuments(
   onProgress?: (status: string) => void
 ) {
   const allResults: any[] = [];
-  const MAX_FILE_SIZE = 30 * 1024 * 1024; // 30MB (GCP Cloud Run hard limit is 32MB)
+  const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB limit
   const activeToken = token || (typeof window !== 'undefined' ? localStorage.getItem('token') || '' : '');
 
   for (const file of files) {
@@ -39,8 +39,8 @@ export async function uploadDocuments(
 
     if (file.size > MAX_FILE_SIZE) {
       throw new Error(
-        `O arquivo "${file.name}" possui ${(file.size / (1024 * 1024)).toFixed(1)}MB e excede o limite de 30MB da infraestrutura.\n\n` +
-        `Para arquivos maiores que 30MB, utilize ferramentas gratuitas para comprimir o arquivo ou dividir em partes menores.`
+        `O arquivo "${file.name}" possui ${(file.size / (1024 * 1024)).toFixed(1)}MB e excede o limite de 100MB.\n\n` +
+        `Para arquivos maiores que 100MB, divida o arquivo em partes menores ou utilize ferramentas para compactar.`
       );
     }
 
@@ -71,7 +71,7 @@ export async function uploadDocuments(
         }
       } catch (e: any) {
         if (res.status === 413) {
-          errorMsg = `O anexo "${file.name}" excede o tamanho máximo suportado (30MB).`;
+          errorMsg = `O anexo "${file.name}" excede o tamanho máximo suportado (100MB).`;
         } else if (res.status === 504 || res.status === 502) {
           errorMsg = `O servidor demorou para processar o anexo "${file.name}". Experimente reenviar ou dividir o arquivo.`;
         }

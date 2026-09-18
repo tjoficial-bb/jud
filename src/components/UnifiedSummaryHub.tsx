@@ -279,15 +279,15 @@ export const UnifiedSummaryHub: React.FC<UnifiedSummaryHubProps> = ({
       });
     }
 
-    // 5. Inteligência Regional & Medição
+    // 5. Inteligência Regional & Localização
     if (regionalData && regionalData.address) {
       built.push({
         id: 'regional-kpis',
         sourceTab: 'regional',
-        sourceTitle: 'Inteligência Regional & Mapas',
+        sourceTitle: 'Inteligência Regional & Localização',
         category: 'Território & Demografia',
         title: `Vizinhança, Renda & Riscos (${regionalData.address})`,
-        content: `**Renda & Perfil dos Moradores:** ${regionalData.incomeProfile || 'Mapeado'}\n**Risco de Enchentes:** ${regionalData.floodRisk || 'Baixo'}\n**Transporte e Mobilidade:** ${regionalData.transportation || 'Mapeado'}\n**Faculdades e Hospitais:** ${regionalData.healthAndEducation || 'Mapeado'}\n**Área Medida Automática:** ${regionalData.measuredArea || 0} m² (Matrícula: ${regionalData.registeredArea || 0} m²)`,
+        content: `**Renda & Perfil dos Moradores:** ${regionalData.incomeProfile || 'Mapeado'}\n**Risco de Enchentes:** ${regionalData.floodRisk || 'Baixo'}\n**Transporte e Mobilidade:** ${regionalData.transportation || 'Mapeado'}\n**Faculdades e Hospitais:** ${regionalData.healthAndEducation || 'Mapeado'}`,
         selected: true,
         highlightType: 'neutral'
       });

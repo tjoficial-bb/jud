@@ -20,8 +20,8 @@ import { runBackendAnalysis, runBackendProcessStory, runBackendChatMessage, extr
 const upload = multer({ 
   storage: multer.memoryStorage(),
   limits: {
-    fileSize: 35 * 1024 * 1024,  // 35MB
-    fieldSize: 50 * 1024 * 1024, // 50MB so large extracted_text never triggers LIMIT_FIELD_VALUE
+    fileSize: 100 * 1024 * 1024,  // 100MB
+    fieldSize: 100 * 1024 * 1024, // 100MB so large extracted_text never triggers LIMIT_FIELD_VALUE
     fields: 100,
     files: 30
   }
@@ -33,7 +33,7 @@ const handleMulterUpload = (uploadMiddleware: any) => (req: any, res: any, next:
       console.error("[Upload Multer Error]:", err);
       if (err instanceof multer.MulterError) {
         if (err.code === 'LIMIT_FILE_SIZE') {
-          return res.status(413).json({ error: "O anexo excede o limite máximo permitido de 35MB." });
+          return res.status(413).json({ error: "O anexo excede o limite máximo permitido de 100MB." });
         }
         if (err.code === 'LIMIT_FIELD_VALUE') {
           return res.status(413).json({ error: "O conteúdo do anexo é muito grande para o formulário." });
@@ -87,7 +87,7 @@ async function extractTextFromBuffer(
   const isPdf = mimeType === 'application/pdf' || lowerFn.endsWith('.pdf');
   
   if (isPdf) {
-    if (buffer.length <= 35 * 1024 * 1024) {
+    if (buffer.length <= 100 * 1024 * 1024) {
       try {
         console.log(`[PDF] Iniciando extração rápida de texto em "${filename}". Buffer: ${(buffer.length / 1024).toFixed(1)} KB`);
         let pdfParser = pdf;
