@@ -17,6 +17,14 @@ dotenv.config();
 import { runBackendAnalysis, runBackendProcessStory, runBackendChatMessage, extractProcessDetailsFromText, transcribeDocumentToMarkdown, validateProviderApiKey } from "./server/aiRunner";
 
 
+// Global Process Error Handlers to prevent server crashes
+process.on('uncaughtException', (err) => {
+  console.error('[Server UncaughtException]:', err);
+});
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('[Server UnhandledRejection]:', reason);
+});
+
 const upload = multer({ 
   storage: multer.memoryStorage(),
   limits: {
@@ -99,6 +107,15 @@ async function extractTextFromBuffer(
           const data = await pdfParser(buffer);
           extractedText = data.text || "";
           console.log(`[PDF] Extração rápida via pdf-parse em "${filename}": ${extractedText.length} caracteres.`);
+        } else if (pdf && typeof (pdf as any).PDFParse === 'function') {
+          try {
+            const parser = new (pdf as any).PDFParse(new Uint8Array(buffer));
+            await parser.load();
+            extractedText = await parser.getText();
+            console.log(`[PDF] Extração rápida via PDFParse em "${filename}": ${extractedText?.length || 0} caracteres.`);
+          } catch (pe: any) {
+            console.warn(`[PDF] Leitura via PDFParse class em "${filename}":`, pe.message);
+          }
         }
       } catch (err: any) {
         console.warn(`[PDF] Leitura via pdf-parse em "${filename}":`, err.message);
@@ -1887,11 +1904,23 @@ async function startServer() {
         console.log(`[Chunk Upload] Salvando anexo concatenado "${entry.filename}" (${(fullBuffer.length / (1024 * 1024)).toFixed(1)}MB) para a IA.`);
       }
 
-      let final_property_id = entry.property_id || null;
+      let propId = (entry.property_id && typeof entry.property_id === 'string' && entry.property_id !== 'undefined' && entry.property_id !== 'null' && entry.property_id.trim().length > 0) ? entry.property_id.trim() : null;
+      let final_property_id = propId;
       let temp_property_id = null;
-      if (entry.property_id && entry.property_id.startsWith('temp_')) {
-        temp_property_id = entry.property_id;
+      if (propId && propId.startsWith('temp_')) {
+        temp_property_id = propId;
         final_property_id = null;
+      } else if (final_property_id) {
+        try {
+          const propExists = db.prepare("SELECT id FROM properties WHERE id = ?").get(final_property_id);
+          if (!propExists) {
+            temp_property_id = final_property_id;
+            final_property_id = null;
+          }
+        } catch {
+          temp_property_id = final_property_id;
+          final_property_id = null;
+        }
       }
 
       const safeDocType = entry.doc_type || "Outro";
@@ -1958,11 +1987,23 @@ async function startServer() {
           console.warn(`[Document Server] Arquivo "${filename}" (${(file.buffer.length / (1024 * 1024)).toFixed(1)}MB) excede limite de 100MB para base64.`);
         }
         
-        let final_property_id = property_id || null;
+        let propId = (property_id && typeof property_id === 'string' && property_id !== 'undefined' && property_id !== 'null' && property_id.trim().length > 0) ? property_id.trim() : null;
+        let final_property_id = propId;
         let temp_property_id = null;
-        if (property_id && property_id.startsWith('temp_')) {
-          temp_property_id = property_id;
+        if (propId && propId.startsWith('temp_')) {
+          temp_property_id = propId;
           final_property_id = null;
+        } else if (final_property_id) {
+          try {
+            const propExists = db.prepare("SELECT id FROM properties WHERE id = ?").get(final_property_id);
+            if (!propExists) {
+              temp_property_id = final_property_id;
+              final_property_id = null;
+            }
+          } catch {
+            temp_property_id = final_property_id;
+            final_property_id = null;
+          }
         }
 
         const safeDocType = doc_type || "Outro";
