@@ -8821,24 +8821,43 @@ Sua resposta deve ser APENAS um objeto JSON válido, sem qualquer bloco de códi
       });
       const selectedProperty = properties.find(p => p.id === selectedPropertyId);
       const propertyContext = selectedProperty ? `\n\nIMÓVEL EM LEILÃO: ${selectedProperty.title}` : "\n\nIMÓVEL EM LEILÃO: Não especificado.";
-      const processesPrompt = `Analise detalhadamente cada documento ou peça do processo judicial anexado para identificar e resumir quaisquer riscos relacionados à arrematação do imóvel.
+      const processesPrompt = `Você é um Advogado e Juiz Sênior Especialista em Leilões Imobiliários Judiciais e Extrajudiciais.
+Realize uma AUDITORIA JURÍDICA FORENSE COMPLETA E INTELIGENTE de todas as peças e folhas do processo judicial anexado, focada na TOMADA DE DECISÃO DE INVESTIMENTO DO ARREMATANTE.
 
-      ${propertyContext}
+${propertyContext}
 
-      Para cada documento analisado, identifique os seguintes pontos de impacto:
-      1. NOME DETALHADO DO DOCUMENTO (Petição, Decisão, Recurso, Certidão, etc.).
-      2. OBJETIVO PRINCIPAL: Qual a pretensão da peça ou o teor da decisão?
-      3. DISCUSSÕES SOBRE NULIDADES: Há alguma alegação de falta de intimação regular (de cônjuge, coproprietário, credor hipotecário, etc.), preço vil ou irregularidade processual?
-      4. RECURSOS PENDENTES: Quais recursos estão tramitando ou podem ser interpostos? Há pedidos de suspensão do leilão em andamento?
-      5. IMPACTO POTENCIAL NA POSSE: Qual o efeito da peça na imissão/obtenção da posse pelo arrematante (ex: resistência activa dos ocupantes, embargos à adjudicação ou à execução)?
+Sua análise DEVE responder com precisão cirúrgica:
 
-      Ao final, apresente um PARECER CONSOLIDADO DE RISCO PROCESSUAL:
-      - Classificação Geral de Risco (Baixo, Médio ou Alto).
-      - Risco de Anulação do Leilão (Sim/Não - Justificado).
-      - Estimativa de Tempo de Desocupação / Ganho de Posse.
-      - Recomendação Estratégica Executiva (Se vale a pena arrematar e quais cautelas adotar).
+1. MATRIZ DE DECISÃO EXECUTIVA DE INVESTIMENTO:
+   - Recomendação objetiva: 'ARREMATAR (GO)', 'ARREMATAR COM CAUTELA / CONDICIONAL' ou 'NÃO ARREMATAR / ALTO RISCO (NO GO)'.
+   - Score de Segurança Jurídica da Arrematação (0 a 100).
+   - Termômetro de Risco de Anulação do Leilão (Baixo, Médio ou Alto com fundamentação legal).
+   - Risco de Suspensão Liminar da Praça (Baixo, Médio ou Alto).
+   - Síntese Executiva de Tomada de Decisão (orientação direta e prática para o investidor).
 
-      Formate toda a resposta em português do Brasil, utilizando uma estrutura visual rica e limpa em Markdown, destacando os alertas cruciais.` + getCustomInstructionsPrompt(state);
+2. CHECKLIST FORENSE DE VALIDADE DO LEILÃO (Art. 889 CPC / Lei 9.514/97):
+   - Citação do Executado (Pessoal, por hora certa ou edital - atestar validade e fls.).
+   - Intimação de Cônjuge / Coproprietário (se há meação resguardada ou vício de intimação).
+   - Intimação de Credores com Garantia Real (Credor fiduciário/hipotecário/penhora anterior - prazo de 10 dias úteis).
+   - Avaliação e Preço Vil (Data do laudo, conformidade com o mercado e piso do 2º leilão).
+   - Recursos e Efeito Suspensivo (Agravos, apelações ou embargos - verificar se há liminar suspensiva ativa).
+   - Bem de Família (Lei 8.009/90) (se arguido, se rejeitado ou inaplicável por ser débito propter rem).
+   - Publicidade e Prazos do Edital (Juntada tempestiva nos autos e ampla publicidade).
+
+3. CENÁRIOS DE IMISSÃO NA POSSE E CUSTOS DE DESOCUPAÇÃO:
+   - Cenário Otimista (amigável): prazo estimado em dias e probabilidade.
+   - Cenário Realista (mandado de imissão na posse com oficial): prazo e probabilidade.
+   - Cenário Conservador / Adverso (resistência/recursos protelatórios): prazo e contingência.
+   - Planilha de Custos Estimados de Desocupação (honorários advocatícios, diligências do oficial de justiça, chaveiro e transporte/depósito).
+
+4. AUDITORIA PEÇA A PEÇA / FOLHA A FOLHA:
+   - Tabela cronológica com Fls., Peça/Documento, Resumo, Impacto no Leilão (Favorável, Alerta, Ponto de Risco ou Neutro) e Recomendação ao Arrematante.
+
+5. PRÓS E CONTRAS PROCESSUAIS:
+   - Prós (Blindagens e pontos fortes do processo).
+   - Contras (Riscos reais) acompanhados da respectiva SOLUÇÃO TÁTICA DE MITIGAÇÃO.
+
+Formate em português do Brasil, em Markdown elegante e profissional, e inclua no final o bloco JSON obrigatório <analysis_data>...</analysis_data>.` + getCustomInstructionsPrompt(state);
       
       const userApiKey = resolveApiKey(state.selectedKeySource, state.aiConfig, state.selectedModel || 'gemini-3.7-flash') || "";
       const analysis = await analyzeAuctionDocuments(fileParts, processesPrompt, state.selectedModel || 'gemini-3.7-flash', userApiKey || undefined, [], 'processo');
@@ -8997,24 +9016,43 @@ Sua resposta deve ser APENAS um objeto JSON válido, sem qualquer bloco de códi
       
       const selectedProperty = properties.find(p => p.id === selectedPropertyId);
       const propertyContext = selectedProperty ? `\n\nIMÓVEL EM LEILÃO: ${selectedProperty.title}` : "\n\nIMÓVEL EM LEILÃO: Não especificado.";
-      const prompt = `Analise detalhadamente cada documento ou peça do processo judicial anexado para identificar e resumir quaisquer riscos relacionados à arrematação do imóvel.
+      const prompt = `Você é um Advogado e Juiz Sênior Especialista em Leilões Imobiliários Judiciais e Extrajudiciais.
+Realize uma AUDITORIA JURÍDICA FORENSE COMPLETA E INTELIGENTE de todas as peças e folhas do processo judicial anexado, focada na TOMADA DE DECISÃO DE INVESTIMENTO DO ARREMATANTE.
 
-      ${propertyContext}
+${propertyContext}
 
-      Para cada documento analisado, identifique os seguintes pontos de impacto:
-      1. NOME DETALHADO DO DOCUMENTO (Petição, Decisão, Recurso, Certidão, etc.).
-      2. OBJETIVO PRINCIPAL: Qual a pretensão da peça ou o teor da decisão?
-      3. DISCUSSÕES SOBRE NULIDADES: Há alguma alegação de falta de intimação regular (de cônjuge, coproprietário, credor hipotecário, etc.), preço vil ou irregularidade processual?
-      4. RECURSOS PENDENTES: Quais recursos estão tramitando ou podem ser interpostos? Há pedidos de suspensão do leilão em andamento?
-      5. IMPACTO POTENCIAL NA POSSE: Qual o efeito da peça na imissão/obtenção da posse pelo arrematante (ex: resistência ativa dos ocupantes, embargos à adjudicação ou à execução)?
+Sua análise DEVE responder com precisão cirúrgica:
 
-      Ao final, apresente um PARECER CONSOLIDADO DE RISCO PROCESSUAL:
-      - Classificação Geral de Risco (Baixo, Médio ou Alto).
-      - Risco de Anulação do Leilão (Sim/Não - Justificado).
-      - Estimativa de Tempo de Desocupação / Ganho de Posse.
-      - Recomendação Estratégica Executiva (Se vale a pena arrematar e quais cautelas adotar).
+1. MATRIZ DE DECISÃO EXECUTIVA DE INVESTIMENTO:
+   - Recomendação objetiva: 'ARREMATAR (GO)', 'ARREMATAR COM CAUTELA / CONDICIONAL' ou 'NÃO ARREMATAR / ALTO RISCO (NO GO)'.
+   - Score de Segurança Jurídica da Arrematação (0 a 100).
+   - Termômetro de Risco de Anulação do Leilão (Baixo, Médio ou Alto com fundamentação legal).
+   - Risco de Suspensão Liminar da Praça (Baixo, Médio ou Alto).
+   - Síntese Executiva de Tomada de Decisão (orientação direta e prática para o investidor).
 
-      Formate toda a resposta em português do Brasil, utilizando uma estrutura visual rica e limpa em Markdown, destacando os alertas cruciais.` + getCustomInstructionsPrompt(state);
+2. CHECKLIST FORENSE DE VALIDADE DO LEILÃO (Art. 889 CPC / Lei 9.514/97):
+   - Citação do Executado (Pessoal, por hora certa ou edital - atestar validade e fls.).
+   - Intimação de Cônjuge / Coproprietário (se há meação resguardada ou vício de intimação).
+   - Intimação de Credores com Garantia Real (Credor fiduciário/hipotecário/penhora anterior - prazo de 10 dias úteis).
+   - Avaliação e Preço Vil (Data do laudo, conformidade com o mercado e piso do 2º leilão).
+   - Recursos e Efeito Suspensivo (Agravos, apelações ou embargos - verificar se há liminar suspensiva ativa).
+   - Bem de Família (Lei 8.009/90) (se arguido, se rejeitado ou inaplicável por ser débito propter rem).
+   - Publicidade e Prazos do Edital (Juntada tempestiva nos autos e ampla publicidade).
+
+3. CENÁRIOS DE IMISSÃO NA POSSE E CUSTOS DE DESOCUPAÇÃO:
+   - Cenário Otimista (amigável): prazo estimado em dias e probabilidade.
+   - Cenário Realista (mandado de imissão na posse com oficial): prazo e probabilidade.
+   - Cenário Conservador / Adverso (resistência/recursos protelatórios): prazo e contingência.
+   - Planilha de Custos Estimados de Desocupação (honorários advocatícios, diligências do oficial de justiça, chaveiro e transporte/depósito).
+
+4. AUDITORIA PEÇA A PEÇA / FOLHA A FOLHA:
+   - Tabela cronológica com Fls., Peça/Documento, Resumo, Impacto no Leilão (Favorável, Alerta, Ponto de Risco ou Neutro) e Recomendação ao Arrematante.
+
+5. PRÓS E CONTRAS PROCESSUAIS:
+   - Prós (Blindagens e pontos fortes do processo).
+   - Contras (Riscos reais) acompanhados da respectiva SOLUÇÃO TÁTICA DE MITIGAÇÃO.
+
+Formate em português do Brasil, em Markdown elegante e profissional, e inclua no final o bloco JSON obrigatório <analysis_data>...</analysis_data>.` + getCustomInstructionsPrompt(state);
       
       const userApiKey = resolveApiKey(state.selectedKeySource, state.aiConfig, state.selectedModel || 'gemini-3.7-flash') || "";
       const analysis = await analyzeAuctionDocuments(fileParts, prompt, state.selectedModel || 'gemini-3.7-flash', userApiKey || undefined, [], 'processo');

@@ -58,32 +58,41 @@ export async function extractTextFromPdfClientSide(
   file: File,
   onProgress?: (progress: number, currentPage: number, totalPages: number) => void
 ): Promise<string> {
-  // Fast safety timeout: never let client-side extraction hang the upload (max 3 seconds)
+  // If file is very large (> 15MB), skip heavy browser parsing to avoid UI freeze and memory bloat
+  if (file.size > 15 * 1024 * 1024) {
+    console.log(`[PDFjs client-side] Arquivo ${file.name} tem ${(file.size / (1024 * 1024)).toFixed(1)}MB (>15MB). Pulando extração no navegador e enviando direto ao servidor.`);
+    return "";
+  }
+
+  let isAborted = false;
+
   const extractionPromise = (async () => {
     try {
       const pdfjsLib = await loadPdfJs();
-      if (!pdfjsLib) {
+      if (!pdfjsLib || isAborted) {
         return "";
       }
       const arrayBuffer = await file.arrayBuffer();
+      if (isAborted) return "";
       
       const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
       
-      let isPasswordProtected = false;
-      loadingTask.onPassword = (updatePassword: any, reason: number) => {
-        isPasswordProtected = true;
+      loadingTask.onPassword = (updatePassword: any) => {
         console.warn("[PDFjs client-side] Senha requerida pelo PDF");
         updatePassword(""); // signal empty/invalid to trigger PasswordException
       };
 
       const pdf = await loadingTask.promise;
+      if (isAborted) return "";
+
       const numPages = pdf.numPages;
       let fullText = "";
 
-      // Extract up to 30 pages in browser quickly
-      const maxPagesToRead = Math.min(numPages, 30);
+      // Extract up to 15 pages in browser quickly for fast preview
+      const maxPagesToRead = Math.min(numPages, 15);
 
       for (let i = 1; i <= maxPagesToRead; i++) {
+        if (isAborted) break;
         try {
           const page = await pdf.getPage(i);
           const textContent = await page.getTextContent();
@@ -95,8 +104,8 @@ export async function extractTextFromPdfClientSide(
           console.warn(`Erro ao extrair página ${i} do PDF:`, pageErr);
         }
         
-        if (onProgress) {
-          onProgress(Math.round((i / numPages) * 100), i, numPages);
+        if (onProgress && !isAborted) {
+          onProgress(Math.round((i / maxPagesToRead) * 100), i, maxPagesToRead);
         }
       }
 
@@ -116,9 +125,16 @@ export async function extractTextFromPdfClientSide(
 
   const timeoutPromise = new Promise<string>((resolve) => {
     setTimeout(() => {
+      isAborted = true;
       resolve("");
-    }, 3000);
+    }, 4000);
   });
 
-  return Promise.race([extractionPromise, timeoutPromise]);
+  try {
+    const result = await Promise.race([extractionPromise, timeoutPromise]);
+    isAborted = true;
+    return result;
+  } finally {
+    isAborted = true;
+  }
 }

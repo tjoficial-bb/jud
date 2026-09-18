@@ -1794,6 +1794,132 @@ async function startServer() {
     }
   });
 
+  // In-memory store for chunked uploads
+  const pendingChunkUploads = new Map<string, {
+    chunks: Buffer[];
+    receivedIndices: Set<number>;
+    totalChunks: number;
+    filename: string;
+    doc_type: string;
+    property_id: string;
+    mimeType: string;
+    extracted_text?: string;
+    lastActivity: number;
+  }>();
+
+  // Cleanup stale chunk uploads (> 30 mins old)
+  setInterval(() => {
+    const now = Date.now();
+    for (const [key, val] of pendingChunkUploads.entries()) {
+      if (now - val.lastActivity > 30 * 60 * 1000) {
+        pendingChunkUploads.delete(key);
+      }
+    }
+  }, 5 * 60 * 1000);
+
+  app.post("/api/documents/upload-chunk", authenticateToken, handleMulterUpload(upload.single('chunk')), async (req, res) => {
+    try {
+      const { uploadId, filename, doc_type, property_id, mimeType, extracted_text } = req.body;
+      const chunkIndex = parseInt(req.body.chunkIndex, 10);
+      const totalChunks = parseInt(req.body.totalChunks, 10);
+
+      if (!uploadId || isNaN(chunkIndex) || isNaN(totalChunks) || !req.file) {
+        return res.status(400).json({ error: "Parâmetros inválidos para upload em partes (chunk)." });
+      }
+
+      let entry = pendingChunkUploads.get(uploadId);
+      if (!entry) {
+        entry = {
+          chunks: new Array(totalChunks),
+          receivedIndices: new Set<number>(),
+          totalChunks,
+          filename: filename || req.file.originalname || "documento.pdf",
+          doc_type: doc_type || "Outro",
+          property_id: property_id || "",
+          mimeType: mimeType || req.file.mimetype || "application/pdf",
+          extracted_text: extracted_text || "",
+          lastActivity: Date.now()
+        };
+        pendingChunkUploads.set(uploadId, entry);
+      }
+
+      entry.chunks[chunkIndex] = req.file.buffer;
+      entry.receivedIndices.add(chunkIndex);
+      entry.lastActivity = Date.now();
+      if (extracted_text && !entry.extracted_text) {
+        entry.extracted_text = extracted_text;
+      }
+
+      // Check if all chunks have been received
+      if (entry.receivedIndices.size < totalChunks) {
+        return res.json({
+          status: "in_progress",
+          uploadId,
+          chunkIndex,
+          totalChunks,
+          received: entry.receivedIndices.size
+        });
+      }
+
+      // All chunks received! Concatenate full buffer
+      console.log(`[Chunk Upload] Todos os ${totalChunks} chunks recebidos para "${entry.filename}". Concatenando...`);
+      const fullBuffer = Buffer.concat(entry.chunks);
+      pendingChunkUploads.delete(uploadId);
+
+      const id = Math.random().toString(36).substring(7);
+      const activeGeminiKey = getResolvedGeminiKey();
+      let finalText = entry.extracted_text || "";
+
+      if (!finalText || finalText.trim().length === 0) {
+        try {
+          const serverText = await extractTextFromBuffer(fullBuffer, entry.mimeType, entry.filename, entry.doc_type, activeGeminiKey, false);
+          if (serverText && serverText.trim().length > 0) {
+            finalText = serverText;
+          }
+        } catch (e: any) {
+          console.warn(`[Chunk Upload] Aviso na extração de texto para ${entry.filename}:`, e.message);
+        }
+      }
+
+      let data = "";
+      if (fullBuffer.length <= 100 * 1024 * 1024) {
+        data = fullBuffer.toString('base64');
+        console.log(`[Chunk Upload] Salvando anexo concatenado "${entry.filename}" (${(fullBuffer.length / (1024 * 1024)).toFixed(1)}MB) para a IA.`);
+      }
+
+      let final_property_id = entry.property_id || null;
+      let temp_property_id = null;
+      if (entry.property_id && entry.property_id.startsWith('temp_')) {
+        temp_property_id = entry.property_id;
+        final_property_id = null;
+      }
+
+      const safeDocType = entry.doc_type || "Outro";
+      const safeExtractedText = typeof finalText === 'string' ? finalText : "";
+
+      db.prepare("INSERT INTO documents (id, filename, doc_type, property_id, temp_property_id, data, extracted_text) VALUES (?, ?, ?, ?, ?, ?, ?)").run(
+        id, 
+        entry.filename, 
+        safeDocType, 
+        final_property_id, 
+        temp_property_id, 
+        data, 
+        safeExtractedText
+      );
+
+      console.log(`[Chunk Upload] Documento salvo com sucesso no banco: ID ${id}, arquivo: ${entry.filename}`);
+      res.json([{
+        id,
+        filename: entry.filename,
+        doc_type: safeDocType,
+        extracted_text: safeExtractedText
+      }]);
+    } catch (error: any) {
+      console.error("[Chunk Upload] Erro ao processar chunk:", error.message);
+      res.status(500).json({ error: "Erro ao processar parte do arquivo: " + error.message });
+    }
+  });
+
   app.post("/api/documents", authenticateToken, handleMulterUpload(upload.array('files')), async (req, res) => {
     try {
       const { doc_type, property_id } = req.body;
@@ -1823,13 +1949,13 @@ async function startServer() {
           }
         }
 
-        // Store base64 data for multimodal AI models (Gemini) up to 30MB
+        // Store base64 data for multimodal AI models (Gemini) up to 100MB
         let data = "";
-        if (file.buffer && file.buffer.length <= 30 * 1024 * 1024) {
+        if (file.buffer && file.buffer.length <= 100 * 1024 * 1024) {
           data = file.buffer.toString('base64');
           console.log(`[Document Server] Salvando anexo "${filename}" (${(file.buffer.length / (1024 * 1024)).toFixed(1)}MB) para a IA.`);
         } else if (file.buffer) {
-          console.warn(`[Document Server] Arquivo "${filename}" (${(file.buffer.length / (1024 * 1024)).toFixed(1)}MB) excede limite de 30MB para base64.`);
+          console.warn(`[Document Server] Arquivo "${filename}" (${(file.buffer.length / (1024 * 1024)).toFixed(1)}MB) excede limite de 100MB para base64.`);
         }
         
         let final_property_id = property_id || null;

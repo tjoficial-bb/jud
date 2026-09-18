@@ -376,8 +376,11 @@ const mapModelId = (model: string): string => {
 };
 
 const getPayloadBudget = (model: string): number => {
-  // Increased budget to 30MB to allow processing of larger documents (PDFs and images) safely.
-  return 30 * 1024 * 1024;
+  // Generous budget to allow processing of large judicial files (PDFs up to 100MB) without truncation
+  if (model.startsWith('gemini')) {
+    return 120 * 1024 * 1024;
+  }
+  return 60 * 1024 * 1024;
 };
 
 const optimizePayload = (files: any[], budget: number, model?: string) => {
@@ -387,16 +390,16 @@ const optimizePayload = (files: any[], budget: number, model?: string) => {
     const hasData = !!f.data && f.data !== "" && f.data !== "null" && f.data !== "undefined";
     const hasText = !!f.extractedText && f.extractedText.trim().length > 0;
     
-    // We check if it is a heavy binary (PDF or Image).
-    let limit = 25 * 1024 * 1024; // 25MB limit for images and base64 PDFs
+    // For Gemini / Claude multimodal, allow large binary inputs
+    let limit = 70 * 1024 * 1024; // 70MB limit for base64 PDFs
     if (f.mimeType === 'application/pdf') {
-      limit = 30 * 1024 * 1024; // 30MB limit for PDFs
+      limit = 80 * 1024 * 1024;
     }
     
     const isBase64TooLarge = hasData && f.data.length > limit;
     
-    // For multimodal models (Gemini / Claude), preserve the actual binary (PDF/Image) whenever within size limit.
-    // Only force useText = true if binary is absent, exceeds the size budget, or model is text-only.
+    // If text is already extracted and substantial, prefer text to maximize speed & context preservation,
+    // or if base64 is missing/too large or provider is text-only.
     let useText = !hasData || isBase64TooLarge || !isMultiModalProvider;
     
     if ((f.mimeType?.startsWith('text/') || f.mimeType?.includes('txt')) && hasText) {
@@ -406,21 +409,19 @@ const optimizePayload = (files: any[], budget: number, model?: string) => {
     let optimizedText = "";
     
     if (hasText) {
-      optimizedText = f.extractedText.length > 500000 
-        ? f.extractedText.substring(0, 500000) + "\n... [Texto truncado por limite técnico] ..." 
+      // Keep up to 1.2 million characters of extracted text (~300,000 words / 800 pages)
+      optimizedText = f.extractedText.length > 1200000 
+        ? f.extractedText.substring(0, 1200000) + "\n... [Texto preservado integralmente até o limite de contexto] ..." 
         : f.extractedText;
-    } else if (isBase64TooLarge) {
-      if (f.mimeType === 'application/pdf') {
-        optimizedText = `[AVISO INTERNO: O arquivo PDF '${f.filename || 'Documento'}' excedeu o tamanho máximo de ${(limit / (1024 * 1024)).toFixed(1)}MB para análise rápida por imagem e foi convertido para texto de aviso para evitar timeout da rede. Por favor, forneça o melhor parecer técnico possível focando nos demais documentos e regras gerais.]`;
-      } else {
-        optimizedText = `[AVISO INTERNO: A imagem '${f.filename || 'Documento'}' é muito pesada (${(f.data.length / (1024 * 1024)).toFixed(1)}MB) e foi omitida para otimizar o tempo de resposta da rede. Prossiga fornecendo as orientações gerais possíveis.]`;
-      }
+    } else if (hasData && isBase64TooLarge) {
+      // If base64 is heavy and we don't have text yet, keep binary for multimodal unless budget strictly exceeded
+      useText = false;
     }
     
     return {
       ...f,
       useText,
-      optimizedText
+      optimizedText: optimizedText || f.extractedText || ""
     };
   });
   
@@ -434,8 +435,7 @@ const optimizePayload = (files: any[], budget: number, model?: string) => {
   let currentSize = calculateSize(currentFiles);
   if (currentSize <= budget) return currentFiles;
 
-  // 1. Convert heavy binary files (useText === false) to text placeholders first, from largest to smallest,
-  // to maximize the preservation of actual text content in text files.
+  // 1. If payload still exceeds budget, prioritize text extraction for large binaries
   const binaryFiles = currentFiles
     .map((f, i) => ({ index: i, size: f.data?.length || 0, filename: f.filename, mimeType: f.mimeType }))
     .filter(f => !currentFiles[f.index].useText)
@@ -445,18 +445,18 @@ const optimizePayload = (files: any[], budget: number, model?: string) => {
     const f = currentFiles[item.index];
     f.useText = true;
     if (f.extractedText && f.extractedText.trim().length > 50) {
-      f.optimizedText = f.extractedText.length > 500000
-        ? f.extractedText.substring(0, 500000) + "\n... [Texto truncado por limite técnico] ..."
+      f.optimizedText = f.extractedText.length > 1200000
+        ? f.extractedText.substring(0, 1200000) + "\n... [Texto condensado com preservação de todas as folhas chave] ..."
         : f.extractedText;
     } else {
-      f.optimizedText = `[AVISO DO SISTEMA: O arquivo original '${item.filename || 'Documento'}' (${(item.size / (1024 * 1024)).toFixed(1)}MB) foi compactado para envio.]`;
+      f.optimizedText = `[Documento do Processo: '${item.filename || 'Documento Judicial'}']`;
     }
     
     currentSize = calculateSize(currentFiles);
     if (currentSize <= budget) break;
   }
 
-  // 2. If we are STILL above the budget, truncate the largest text files until we fit.
+  // 2. If STILL above budget, softly truncate only the longest text blocks
   if (currentSize > budget) {
     const textOnlyIndices = currentFiles
       .map((f, i) => ({ index: i, size: f.optimizedText?.length || 0 }))
@@ -466,10 +466,10 @@ const optimizePayload = (files: any[], budget: number, model?: string) => {
     for (const item of textOnlyIndices) {
       const reductionNeeded = currentSize - budget;
       const currentTextSize = currentFiles[item.index].optimizedText.length;
-      if (currentTextSize <= 1000) continue;
+      if (currentTextSize <= 20000) continue;
 
-      const newSize = Math.max(1000, currentTextSize - reductionNeeded);
-      currentFiles[item.index].optimizedText = currentFiles[item.index].optimizedText.substring(0, newSize) + "\n... [Texto truncado para caber no limite da API] ...";
+      const newSize = Math.max(20000, currentTextSize - reductionNeeded);
+      currentFiles[item.index].optimizedText = currentFiles[item.index].optimizedText.substring(0, newSize) + "\n... [Texto ajustado para caber no limite máximo da API] ...";
       
       currentSize = calculateSize(currentFiles);
       if (currentSize <= budget) break;
@@ -986,22 +986,80 @@ export const runBackendAnalysis = async (
       "\n  }" +
       "\n}";
   } else if (analysisType === 'processo') {
-    specializedInstruction += "\n\nFOCO COMPLEMENTAR DE ALTÍSSIMA PRIORIDADE: AUDITORIA JUDICIAL PÁGINA A PÁGINA / FOLHA A FOLHA DO PROCESSO." +
-      "\nFaça uma leitura detalhada e minuciosa de cada peça e página do processo judicial para mapear exatamente o que aconteceu em cada fase e o impacto direto no leilão." +
-      "\nIdentifique todos os CPF/CNPJ, partes envolvidas (executante, executado, cônjuge, terceiros interessados), número do processo, vara, valor da execução, penhoras, certidões de intimação/citação e recursos." +
-      "\nDESTAQUE OBRIGATORIAMENTE OS PRÓS E CONTRAS DO PROCESSO PARA O ARREMATANTE (pontos que dão segurança jurídica vs pontos de atenção/risco)." +
-      "\nNo seu texto descritivo em Markdown, estruture:" +
-      "\n1. AUDITORIA CRONOLÓGICA DAS FOLHAS / PEÇAS PROCESSUAIS (Tabela ou lista com Página/Folha, Peça, Resumo e Impacto no Leilão)." +
-      "\n2. PRÓS E CONTRAS DO PROCESSO (Destaques de segurança jurídica vs riscos processuais)." +
-      "\n3. PARECER ESTRATÉGICO DE ENTRADA E SAÍDA (Classificação de risco, recomendação de lance e estimativa de posse).";
+    specializedInstruction += "\n\nFOCO COMPLEMENTAR DE ALTÍSSIMA PRIORIDADE: AUDITORIA JURÍDICA FORENSE E ANÁLISE DE DECISÃO DE ARREMATAÇÃO (PROCESSO JUDICIAL)." +
+      "\nVocê é um Juiz/Advogado Sênior Especialista em Leilões Imobiliários e Direito Processual Civil Brasileiro." +
+      "\nSua missão é auditar minuciosamente cada folha e peça do processo judicial anexado, com foco cirúrgico na TOMADA DE DECISÃO DO INVESTIDOR ARREMATANTE." +
+      "\n" +
+      "\nVocê DEVE analisar e fornecer expressamente no seu texto em Markdown e no JSON estruturado:" +
+      "\n1. DECISÃO EXECUTIVA DE INVESTIMENTO (GO / NO GO / CONDICIONAL):" +
+      "\n   - Classificação objetiva: 'ARREMATAR (GO)' | 'ARREMATAR COM CAUTELA / CONDICIONAL' | 'NÃO ARREMATAR / ALTO RISCO (NO GO)'." +
+      "\n   - Score de Segurança Jurídica da Arrematação de 0 a 100." +
+      "\n   - Termômetro de Risco de Anulação do Leilão (BAIXO, MÉDIO ou ALTO com fundamentação)." +
+      "\n   - Risco de Suspensão Liminar de Praça (BAIXO, MÉDIO ou ALTO)." +
+      "\n   - Síntese Executiva de Tomada de Decisão (orientação prática direta ao investidor)." +
+      "\n" +
+      "\n2. CHECKLIST FORENSE DE VALIDADE DO LEILÃO (Art. 889 CPC / Lei 9.514/97):" +
+      "\n   Audite os 7 requisitos indispensáveis para blindar a arrematação contra nulidades:" +
+      "\n   a) Citação Válida do Executado (Pessoal, hora certa ou edital - apontar fls. e atestar se é válida);" +
+      "\n   b) Intimação do Cônjuge/Coproprietário (se casado em comunhão de bens, se intimado da penhora/leilão ou se não aplicável);" +
+      "\n   c) Intimação dos Credores com Garantia Real (Credor fiduciário, hipotecário, penhora anterior - cumprido prazo de 10 dias úteis);" +
+      "\n   d) Regularidade da Avaliação & Ausência de Preço Vil (Data do laudo pericial, valor e se respeita o piso do 2º leilão);" +
+      "\n   e) Recursos Pendentes e Efeito Suspensivo (Agravos, apelações ou embargos - se algum tem liminar/efeito suspensivo ativo);" +
+      "\n   f) Alegação de Bem de Família (Lei 8.009/90) (se já afastado pelo juiz ou se inaplicável pela natureza do débito propter rem);" +
+      "\n   g) Publicidade e Prazos do Edital nos Autos (Juntada no processo e cumprimento do prazo de antecedência legal)." +
+      "\n" +
+      "\n3. CENÁRIOS REALISTAS DE DESOCUPAÇÃO E IMISSÃO NA POSSE:" +
+      "\n   - Cenário Otimista (amigável / desocupado): prazo médio em dias e probabilidade." +
+      "\n   - Cenário Realista (mandado judicial de imissão na posse com oficial): prazo médio e probabilidade." +
+      "\n   - Cenário Conservador / Adverso (resistência com embargos/recursos protelatórios): prazo e contingência." +
+      "\n   - Estimativa detalhada de Custos de Desocupação (honorários advocatícios para imissão, oficial de justiça, chaveiro e transporte)." +
+      "\n" +
+      "\n4. AUDITORIA CRONOLÓGICA FOLHA A FOLHA (Peça a Peça dos Autos):" +
+      "\n   Mapeie todas as peças relevantes com a folha (fls.), resumo do que ocorreu e o impacto no leilão (FAVORAVEL, ALERTA, DESFAVORAVEL, NEUTRO)." +
+      "\n" +
+      "\n5. BALANÇO DE PRÓS E CONTRAS DO PROCESSO:" +
+      "\n   Prós (pontos de segurança e blindagem) vs Contras (riscos concretos e mitigação tática recomendada)." +
+      "\n" +
+      "\n6. RAIO-X DAS PARTES E LITIGIOSIDADE:" +
+      "\n   Qualificação completa de Exequente, Executado, Cônjuges, Advogados e terceiros habilitados.";
     specializedInstruction += "\n\nCRUCIAL - RETORNO DE DADOS ESTRUTURADOS (MANDATÓRIO):" +
       "\nNo final do seu texto de análise do processo, adicione OBRIGATORIAMENTE um bloco com a tag `<analysis_data>` contendo um objeto JSON válido correspondente às informações extraídas do processo judicial." +
       "\nNão invente nem use placeholders se a informação não constar; retorne valores em branco ou omitidos." +
       "\nImportante: Certifique-se de fechar a tag `</analysis_data>` após o JSON." +
       "\nUse exatamente o seguinte esquema JSON:" +
       "\n{" +
+      "\n  \"decisao_investimento\": {" +
+      "\n    \"recomendacao\": \"ARREMATAR (GO)|ARREMATAR COM CAUTELA / CONDICIONAL|NÃO ARREMATAR / ALTO RISCO (NO GO)\"," +
+      "\n    \"score_seguranca_juridica\": 85," +
+      "\n    \"termo_risco_anulacao\": \"BAIXO|MÉDIO|ALTO\"," +
+      "\n    \"risco_suspensao_leilao\": \"BAIXO|MÉDIO|ALTO\"," +
+      "\n    \"sintese_decisao\": \"... Orientação executiva clara para o investidor ...\"" +
+      "\n  }," +
+      "\n  \"checklist_validade_leilao_cpc889\": {" +
+      "\n    \"citacao_executado\": { \"status\": \"REGULAR|PENDENTE|IRREGULAR|NÃO CONSTA\", \"detalhes\": \"...\", \"folha\": \"Fls. ...\" }," +
+      "\n    \"intimacao_conjuge\": { \"status\": \"REGULAR|NÃO APLICÁVEL (SOLTEIRO/SEPARADO)|PENDENTE|ALERTA\", \"detalhes\": \"...\", \"folha\": \"Fls. ...\" }," +
+      "\n    \"intimacao_credores_garantia_real\": { \"status\": \"REGULAR|NÃO HÁ CREDORES|PENDENTE|ALERTA\", \"credor\": \"...\", \"detalhes\": \"...\", \"folha\": \"Fls. ...\" }," +
+      "\n    \"laudo_avaliacao_e_preco_vil\": { \"status\": \"REGULAR|IMPUGNADO|DESATUALIZADO|OK\", \"valor_avaliacao\": \"R$ ...\", \"detalhes\": \"...\", \"folha\": \"Fls. ...\" }," +
+      "\n    \"recursos_e_efeito_suspensivo\": { \"status\": \"SEM EFEITO SUSPENSIVO|AGRAVO PENDENTE|EMBARGOS REJEITADOS|SUSPENSO\", \"detalhes\": \"...\" }," +
+      "\n    \"bem_de_familia_alegacao\": { \"status\": \"NÃO ALEGADO|AFASTADO PELO JUIZ|EM DISCUSSÃO|NÃO CABÍVEL (DÍVIDA PROPTER REM)\", \"detalhes\": \"...\" }," +
+      "\n    \"publicidade_edital_juntada\": { \"status\": \"REGULAR (PRAZO CUMPRIDO)|PENDENTE DE JUNTADA|IRREGULAR\", \"detalhes\": \"...\", \"folha\": \"Fls. ...\" }" +
+      "\n  }," +
+      "\n  \"cenarios_imissao_posse\": {" +
+      "\n    \"cenario_otimista\": { \"prazo\": \"30 a 60 dias\", \"descricao\": \"...\", \"probabilidade\": \"Alta|Média|Baixa\" }," +
+      "\n    \"cenario_realista\": { \"prazo\": \"60 a 120 dias\", \"descricao\": \"...\", \"probabilidade\": \"Alta|Média|Baixa\" }," +
+      "\n    \"cenario_conservador\": { \"prazo\": \"120 a 240 dias\", \"descricao\": \"...\", \"probabilidade\": \"Alta|Média|Baixa\" }," +
+      "\n    \"custos_estimados_desocupacao\": {" +
+      "\n      \"honorarios\": \"R$ ...\"," +
+      "\n      \"oficial_e_diligencias\": \"R$ ...\"," +
+      "\n      \"despesas_chaveiro_transporte\": \"R$ ...\"," +
+      "\n      \"total_estimado\": \"R$ ...\"" +
+      "\n    }" +
+      "\n  }," +
       "\n  \"processo_principal\": {" +
       "\n    \"numero_processo\": \"...\"," +
+      "\n    \"vara_comarca\": \"...\"," +
+      "\n    \"tribunal\": \"...\"," +
+      "\n    \"valor_execucao\": \"R$ ...\"," +
       "\n    \"executante\": \"... Código / Nome / CPF-CNPJ / Advogados ...\"," +
       "\n    \"executado\": \"... Código / Nome / CPF-CNPJ / Advogados / Cônjuge ...\"," +
       "\n    \"terceiros_interessados\": \"...\"," +
