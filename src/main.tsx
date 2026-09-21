@@ -87,9 +87,13 @@ if (typeof window !== 'undefined') {
         const isApiRequest = urlStr.includes('/api/');
 
         while (attempts < maxAttempts) {
-          // If aborted by user, don't retry
+          // If aborted by caller, return standard aborted fetch or exit cleanly
           if (init?.signal?.aborted) {
-            return originalFetch(input, init);
+            try {
+              return await originalFetch(input, init);
+            } catch (abortErr: any) {
+              throw abortErr;
+            }
           }
 
           try {

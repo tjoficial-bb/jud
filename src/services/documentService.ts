@@ -87,43 +87,40 @@ async function uploadSingleChunkWithRetry(
         headers['Authorization'] = `Bearer ${token}`;
       }
 
-      // Use robustFetch with abort timeout controller for resilience
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 90000); // 90 seconds timeout
+      // Safe fetch with race timeout to avoid unhandled AbortSignal errors
+      let timerId: any = null;
+      const timeoutPromise = new Promise<Response>((_, reject) => {
+        timerId = setTimeout(() => {
+          const timeoutErr: any = new Error("Tempo limite excedido na transmissão do pacote.");
+          timeoutErr.isTimeout = true;
+          reject(timeoutErr);
+        }, 90000); // 90 seconds timeout
+      });
 
-      try {
-        const res = await robustFetch('/api/documents/upload-chunk', {
-          method: 'POST',
-          headers,
-          body: formData,
-          signal: controller.signal
-        }, 2, 800 * attempt);
+      const fetchPromise = robustFetch('/api/documents/upload-chunk', {
+        method: 'POST',
+        headers,
+        body: formData,
+      }, 2, 800 * attempt);
 
-        clearTimeout(timeoutId);
+      const res = await Promise.race([fetchPromise, timeoutPromise]);
+      if (timerId) clearTimeout(timerId);
 
-        const data = await parseJsonResponse(res);
-        if (!res.ok) {
-          const errorMsg = data?.error || `Erro no envio de pacote (${res.status})`;
-          const err: any = new Error(errorMsg);
-          err.status = res.status;
-          throw err;
-        }
-
-        return data;
-      } catch (fetchErr: any) {
-        clearTimeout(timeoutId);
-        throw fetchErr;
-      }
-    } catch (err: any) {
-      lastError = err;
-      const isClientCancel = err?.name === 'AbortError' && !err?.isTimeout;
-      if (isClientCancel) {
+      const data = await parseJsonResponse(res);
+      if (!res.ok) {
+        const errorMsg = data?.error || `Erro no envio de pacote (${res.status})`;
+        const err: any = new Error(errorMsg);
+        err.status = res.status;
         throw err;
       }
 
+      return data;
+    } catch (err: any) {
+      lastError = err;
+
       if (attempt < maxRetries) {
         const delay = Math.min(1000 * Math.pow(1.5, attempt), 5000);
-        console.warn(`[documentService] Tentativa ${attempt}/${maxRetries} no envio de pacote. Reenviando em ${Math.round(delay)}ms...`, err?.message);
+        console.warn(`[documentService] Tentativa ${attempt}/${maxRetries} no envio de pacote falhou (${err?.message || 'erro'}). Reenviando em ${Math.round(delay)}ms...`);
         await new Promise(res => setTimeout(res, delay));
       }
     }
