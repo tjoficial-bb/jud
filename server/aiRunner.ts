@@ -938,7 +938,6 @@ export const runBackendAnalysis = async (
       "\n    \"numero_matricula\": \"...\", " +
       "\n    \"cadastro_imobiliario\": \"... (Inscrição Imobiliária, Cadastro Municipal ou SQL para busca de IPTU) ...\", " +
       "\n    \"inscricao_municipal\": \"...\", " +
-      "\n    \"codigo_cartografico\": \"...\", " +
       "\n    \"cartorio\": \"...\", " +
       "\n    \"comarca\": \"...\", " +
       "\n    \"uf\": \"...\", " +

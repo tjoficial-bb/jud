@@ -471,7 +471,7 @@ Formate em Markdown executivo de altíssimo padrão, elegante, direto e com tabe
             <div>
               <h3 className="text-2xl font-bold text-brand-primary font-serif">Resumão Unificado & Central de Escrita</h3>
               <p className="text-sm text-brand-ink/60 mt-1 max-w-3xl">
-                Reúna, escreva suas próprias conclusões e conecte as etapas (Edital, Matrícula, Processo, Financeiro e Região) em um parecer executivo centralizado.
+                Reúna, escreva suas próprias conclusões e conecte as etapas (Edital, Matrícula, Processo e Financeiro) em um parecer executivo centralizado.
               </p>
             </div>
           </div>
@@ -629,7 +629,7 @@ Formate em Markdown executivo de altíssimo padrão, elegante, direto e com tabe
               {snippets.length === 0 && (
                 <div className="p-8 text-center bg-brand-bg/50 rounded-2xl border border-dashed border-brand-primary/20 space-y-2">
                   <p className="text-xs text-brand-ink/60 font-medium">Nenhum bloco extraído ainda.</p>
-                  <p className="text-[11px] text-brand-ink/40">Gere as análises nas abas Edital, Matrícula, Processo ou Região para alimentar este painel automaticamente.</p>
+                  <p className="text-[11px] text-brand-ink/40">Gere as análises nas abas Edital, Matrícula ou Processo para alimentar este painel automaticamente.</p>
                 </div>
               )}
 

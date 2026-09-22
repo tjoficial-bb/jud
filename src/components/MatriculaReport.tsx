@@ -19,8 +19,7 @@ import {
   Building,
   Activity,
   Award,
-  DollarSign,
-  Ruler
+  DollarSign
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -107,7 +106,6 @@ export interface MatriculaReportData {
     numero_matricula?: string;
     cadastro_imobiliario?: string;
     inscricao_municipal?: string;
-    codigo_cartografico?: string;
     cartorio?: string;
     comarca?: string;
     uf?: string;
@@ -1107,9 +1105,6 @@ export const MatriculaReport: React.FC<MatriculaReportProps> = ({
                     label="Inscrição Imobiliária / Cadastro IPTU" 
                     value={data.identificacao_matricula.cadastro_imobiliario || data.caracteristicas_fisicas?.cadastro_imobiliario || data.identificacao_matricula.inscricao_municipal || 'Não identificada na matrícula (verificar edital)'} 
                   />
-                  {data.identificacao_matricula.codigo_cartografico && (
-                    <GridRow label="Código Cartográfico / SQL" value={data.identificacao_matricula.codigo_cartografico} />
-                  )}
                   <GridRow label="Cartório" value={data.identificacao_matricula.cartorio} />
                   <GridRow label="Comarca" value={data.identificacao_matricula.comarca} />
                   <GridRow label="UF" value={data.identificacao_matricula.uf} />
