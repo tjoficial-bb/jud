@@ -24,7 +24,6 @@ import {
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { Property } from '../types';
-import { GeneratedLinksHub } from './GeneratedLinksHub';
 
 export interface NamedPoiItem {
   name: string;
@@ -92,7 +91,7 @@ export const RegionalIntelligenceMap: React.FC<RegionalIntelligenceMapProps> = (
   userApiKey
 }) => {
   // Main Navigation / View tabs
-  const [activeMainTab, setActiveMainTab] = useState<'links' | 'map_view' | 'socioeconomic'>('links');
+  const [activeMainTab, setActiveMainTab] = useState<'map_view' | 'socioeconomic'>('map_view');
   
   // Address & Map input states
   const [addressInput, setAddressInput] = useState('');
@@ -375,19 +374,6 @@ Responda de forma direta, técnica, fundamentada e prática para tomada de decis
       <div className="flex flex-wrap items-center justify-between gap-4 border-b border-brand-primary/10 pb-4">
         <div className="flex items-center gap-2 overflow-x-auto pb-1">
           <button
-            onClick={() => setActiveMainTab('links')}
-            className={cn(
-              "px-5 py-3 rounded-2xl text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2 cursor-pointer shadow-sm",
-              activeMainTab === 'links'
-                ? "bg-brand-primary text-black"
-                : "bg-brand-paper hover:bg-brand-primary/10 text-brand-ink/70 border border-brand-primary/10"
-            )}
-          >
-            <LinkIcon size={16} />
-            <span>Central de Links & Acessos</span>
-          </button>
-
-          <button
             onClick={() => setActiveMainTab('map_view')}
             className={cn(
               "px-5 py-3 rounded-2xl text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2 cursor-pointer shadow-sm",
@@ -425,22 +411,6 @@ Responda de forma direta, técnica, fundamentada e prática para tomada de decis
           </button>
         </div>
       </div>
-
-      {/* ========================================== */}
-      {/* TAB 1: CENTRAL DE LINKS ORGANIZADOS */}
-      {/* ========================================== */}
-      {activeMainTab === 'links' && (
-        <GeneratedLinksHub
-          property={property}
-          customDomain={customDomain}
-          shareToken={shareToken}
-          matriculaAnalysis={matriculaAnalysis || ''}
-          editalAnalysis={editalAnalysis || ''}
-          processoAnalysis={processoAnalysis || ''}
-          address={addressInput}
-          mapsUrl={mapsUrlInput}
-        />
-      )}
 
       {/* ========================================== */}
       {/* TAB 2: SATÉLITE & MAPA AO VIVO */}

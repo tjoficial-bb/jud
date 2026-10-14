@@ -78,7 +78,6 @@ import { ProcessoReport, detectCityAndStateFromText } from './components/Process
 import { SmartResetPanel } from './components/SmartResetPanel';
 import { UnifiedSummaryHub } from './components/UnifiedSummaryHub';
 import { RegionalIntelligenceMap } from './components/RegionalIntelligenceMap';
-import { GeneratedLinksHub } from './components/GeneratedLinksHub';
 import { User, Property, Process, AIConfig, StrategicBrainItem } from './types';
 import { SYSTEM_PROMPT } from './constants';
 import { analyzeAuctionDocuments, generateProcessStory, sendChatMessage } from './services/aiService';
@@ -732,7 +731,7 @@ export default function App() {
       });
       setIsLoggedIn(true); // Bypass login for public view
       setActiveTab('ai-analysis');
-      setAiAnalysisState(prev => ({ ...prev, activeSubTab: 'report' }));
+      setAiAnalysisState(prev => ({ ...prev, activeSubTab: 'smart_analysis' }));
     } catch (err: any) {
       if (!(err instanceof SessionException)) console.warn(formatErrorMessage(err));
       window.location.href = '/';
@@ -743,7 +742,7 @@ export default function App() {
 
   // AI Analysis Persistent State
   const [aiAnalysisState, setAiAnalysisState] = useState<{
-    activeSubTab: 'report' | 'processos' | 'documents' | 'simulations' | 'cnj' | 'investors' | 'edital' | 'matricula' | 'dossier' | 'instagram' | 'smart_analysis' | 'assessoria';
+    activeSubTab: 'smart_analysis' | 'report' | 'processos' | 'documents' | 'simulations' | 'cnj' | 'investors' | 'edital' | 'matricula' | 'dossier' | 'instagram' | 'assessoria';
     selectedPropertyId: string;
     report: string | null;
     editalAnalysis: string | null;
@@ -781,7 +780,7 @@ export default function App() {
   }>(() => {
     const masterDefaults = getMasterBudgetConfigs();
     return {
-      activeSubTab: 'report',
+      activeSubTab: 'smart_analysis',
       selectedPropertyId: '',
       customSaleValue: '',
       customBidValue: '',
@@ -8309,10 +8308,29 @@ Você deve responder APENAS com um objeto JSON válido, sem texto explicativo an
   "conjuge_ex_mutuario": "Nome e CPF/CNPJ do cônjuge, companheiro(a) ou outros coproprietários devedores, se houver",
   "endereco_ex_mutuario": "Endereço completo e detalhado do ex-mutuário / devedor mencionado nos documentos (ex: residência anterior, endereço citado no processo judicial ou notificação)",
   "observacoes_ex_mutuario": "Histórico e anotações adicionais sobre os ex-mutuários e devedores (ex: herdeiros, óbito, processos relacionados, tentativas de intimação)",
+
+  "valor_avaliacao": 350000.00,
+  "primeiro_leilao_valor": 350000.00,
+  "segundo_leilao_valor": 175000.00,
+  "desconto_segundo_leilao": 50,
+  "data_primeiro_leilao": "Data/hora da 1ª praça",
+  "data_segundo_leilao": "Data/hora da 2ª praça",
+  "leiloeiro": "Nome do leiloeiro oficial ou portal",
+  "comarca": "Comarca da execução judicial",
+  "vara": "Vara Cível ou Vara de Família/Falências",
+  "numero_processo": "Número do processo ou CNJ",
+  "lance_planejado": 175000.00,
+  "valor_mercado_venda": 350000.00,
+  "tempo_estimado_retorno": "6 a 12 meses",
+  "financiamento_sac_primeira_parcela": 2100.00,
+  "financiamento_price_parcela_fixa": 1950.00,
+  "renda_minima_familiar": 6500.00,
+  "grau_atratividade": "Excelente" | "Bom" | "Moderado" | "Alto Risco",
+
   "comentarios_importantes": "Cruzamento minucioso de dados entre todas as fontes (Edital/Página do Leiloeiro, Matrícula, IPTU e Processo Judicial). Formate OBRIGATORIAMENTE como lista numerada com títulos destacados em negrito seguindo este padrão exato:\n1. **Regularidade da Notificação:** [Análise de intimações prévias, purgação da mora, comprovantes no 1º CRI/RTD, assinaturas e Eventos/Folhas].\n2. **Decisão Judicial:** [Despachos, tutela de urgência/liminar, decisões com datas e Eventos/Folhas, situação jurídica do leilão].\n3. **Divergência de Área:** [Confronto de metragens entre Edital x Matrícula x Prefeitura/IPTU].\n4. **Aspecto Social e Desocupação:** [Estado fático do ocupante, vulnerabilidade, prazo estimado de desocupação (6 a 12 meses), acordo amigável e imissão de posse (art. 30 da Lei 9.514/97)].\n(Adicione outros tópicos numerados se houver outras divergências relevantes nos autos)."
 }
 
-Importante: se uma informação não for encontrada nos documentos, use o valor correspondente neutro (como false para booleanos, 0 para números, "Não avaliado"/"Selecione"/"Não verificado" para dropdowns, ou texto vazio/explicando que não foi encontrado para campos de texto). Seja extremamente técnico e preciso em suas observações legais baseadas no Direito brasileiro.`;
+Importante: É OBRIGATÓRIO preencher todos os campos sem exceção. Se um dado numérico não constar expressamente, estime com base nas regras do Direito imobiliário e nas práticas de mercado (ex: lance de 2º leilão = 50% a 60% da avaliação; comissão do leiloeiro = 5%; ITBI = 3%). Se um campo booleano não for aplicável, preencha false. Se for texto não encontrado, informe tecnicamente 'Não constatado nas peças juntadas'.`;
       
       const rawResult = await analyzeAuctionDocuments(
         fileParts, 
@@ -8323,7 +8341,7 @@ Importante: se uma informação não for encontrada nos documentos, use o valor 
         'smart_analysis'
       );
       
-      let parsedData: SmartAnalysisData;
+      let parsedData: any;
       try {
         parsedData = robustParseJSON(rawResult || "");
       } catch (err) {
@@ -8331,11 +8349,12 @@ Importante: se uma informação não for encontrada nos documentos, use o valor 
         throw new Error("A IA não retornou um formato JSON estruturado compatível. Tente novamente.");
       }
       
-      const mergedData = { 
+      const mergedData = normalizeSmartAnalysis({ 
         ...getEmptySmartAnalysis(), 
+        ...state.smartAnalysis,
         justificativa_pessoal: state.smartAnalysis?.justificativa_pessoal || '',
         ...parsedData 
-      };
+      });
       await handleSaveSmartAnalysis(mergedData);
       
     } catch (err: any) {
@@ -9708,16 +9727,16 @@ Formate em português do Brasil, em Markdown elegante e profissional, e inclua n
         }
       }
 
-      // Automatically detect if this upload is a Matrícula
-      const isMatriculaUpload = effectiveDocType === 'Matrícula' || 
-        effectiveDocType.toLowerCase().includes('matr') ||
-        files.some(f => f.name.toLowerCase().includes('matr') || f.name.toLowerCase().includes('certidao') || f.name.toLowerCase().includes('registro'));
+      // Switch immediately to Análise Smart (aba principal) and auto-trigger extraction
+      updateState({ activeSubTab: 'smart_analysis' });
 
-      // Notify user that the document was successfully uploaded and is ready for analysis
-      if (isMatriculaUpload) {
+      if (updatedDocs && updatedDocs.length > 0) {
         if ((window as any).customToast) {
-          (window as any).customToast("Certidão de Matrícula enviada e salva com sucesso! Clique em 'Analisar Matrícula' para iniciar a extração.", "success");
+          (window as any).customToast("Documento(s) recebido(s)! Preenchendo Análise Smart automaticamente...", "info");
         }
+        setTimeout(() => {
+          handleAnalyzeSmart(updatedDocs);
+        }, 350);
       } else {
         if ((window as any).customToast) {
           (window as any).customToast("Documento enviado e salvo com sucesso!", "success");
@@ -11558,10 +11577,9 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
           <div className="bg-brand-paper rounded-[2.5rem] border border-brand-primary/10 shadow-sm overflow-hidden flex flex-col min-h-[600px]">
             {/* Tabs Header */}
             <div className="flex border-b border-brand-primary/10 bg-brand-bg/30 overflow-x-auto no-print">
+              <AnalysisTab active={activeSubTab === 'smart_analysis'} onClick={() => updateState({ activeSubTab: 'smart_analysis' })} icon={<Cpu size={16} />} label="Análise Smart (Principal)" />
               <AnalysisTab active={activeSubTab === 'report'} onClick={() => updateState({ activeSubTab: 'report' })} icon={<Brain size={16} />} label="Relatório" />
-              <AnalysisTab active={activeSubTab === 'smart_analysis'} onClick={() => updateState({ activeSubTab: 'smart_analysis' })} icon={<Cpu size={16} />} label="Análise Smart" />
               <AnalysisTab active={activeSubTab === 'unified_summary'} onClick={() => updateState({ activeSubTab: 'unified_summary' })} icon={<Layers size={16} />} label="Resumão Unificado" />
-              <AnalysisTab active={activeSubTab === 'links_hub'} onClick={() => updateState({ activeSubTab: 'links_hub' })} icon={<LinkIcon size={16} />} label="Central de Links" />
               <AnalysisTab active={activeSubTab === 'edital'} onClick={() => updateState({ activeSubTab: 'edital' })} icon={<FileText size={16} />} label="Edital" />
               <AnalysisTab active={activeSubTab === 'matricula'} onClick={() => updateState({ activeSubTab: 'matricula' })} icon={<BookOpen size={16} />} label="Matrícula" />
               <AnalysisTab active={activeSubTab === 'processos'} onClick={() => updateState({ activeSubTab: 'processos' })} icon={<Search size={16} />} label="Processos" />
@@ -11612,20 +11630,6 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
                     onResetTab={() => handleResetSubTab('unified_summary')}
                     onResetAll={handleResetAllPropertyData}
                     onApplySettings={(settings) => updateState({ aiDepth: settings.depth, aiFocus: settings.focus })}
-                  />
-                </div>
-              )}
-              {activeSubTab === 'links_hub' && (
-                <div className="space-y-6">
-                  <GeneratedLinksHub
-                    property={selectedProperty}
-                    customDomain={state.aiConfig?.custom_domain}
-                    shareToken={selectedProperty?.share_token}
-                    matriculaAnalysis={state.matriculaAnalysis}
-                    editalAnalysis={state.editalAnalysis}
-                    processoAnalysis={state.processoAnalysis}
-                    address={state.regionalData?.address || selectedProperty?.address}
-                    mapsUrl={state.regionalData?.mapsUrl}
                   />
                 </div>
               )}

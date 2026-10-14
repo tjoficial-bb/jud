@@ -383,12 +383,36 @@ const getPayloadBudget = (model: string): number => {
   return 60 * 1024 * 1024;
 };
 
+export const cleanCourtBoilerplate = (text: string): string => {
+  if (!text) return "";
+  return text
+    // Remove repeated court digital signature boilerplate
+    .replace(/Este documento é cópia do original, assinado digitalmente por [^\n]+/gi, '')
+    .replace(/Para conferir o original, acesse o site [^\n]+/gi, '')
+    .replace(/fls\.\s*\d+\s*TRIBUNAL DE JUSTIÇA DO ESTADO DE [^\n]+/gi, '')
+    .replace(/Documento assinado digitalmente nos termos da Lei [^\n]+/gi, '')
+    .replace(/Código de validação: [A-Z0-9\-]+/gi, '')
+    .replace(/Autenticação mecânica[^\n]+/gi, '')
+    .replace(/Assinado digitalmente por:[^\n]+/gi, '')
+    .replace(/Impresso por ordem judicial[^\n]+/gi, '')
+    .replace(/Certifico e dou fé que esta cópia confere com o original[^\n]+/gi, '')
+    .replace(/Tribunal de Justiça do Estado de São Paulo - Processo [^\n]+/gi, '')
+    // Remove long repetitive separators and border lines
+    .replace(/[-=_*~]{10,}/g, '---')
+    // Remove repeated page numbers on blank lines
+    .replace(/^\s*\d+\s*$/gm, '')
+    // Replace 3+ consecutive newlines with 2
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+};
+
 const optimizePayload = (files: any[], budget: number, model?: string) => {
   const isMultiModalProvider = model ? (model.startsWith('gemini') || model.startsWith('claude')) : true;
 
   let currentFiles = files.map(f => {
     const hasData = !!f.data && f.data !== "" && f.data !== "null" && f.data !== "undefined";
-    const hasText = !!f.extractedText && f.extractedText.trim().length > 0;
+    const rawText = f.extractedText ? cleanCourtBoilerplate(f.extractedText) : "";
+    const hasText = rawText.trim().length > 60;
     
     // For Gemini / Claude multimodal, allow large binary inputs
     let limit = 70 * 1024 * 1024; // 70MB limit for base64 PDFs
@@ -398,9 +422,9 @@ const optimizePayload = (files: any[], budget: number, model?: string) => {
     
     const isBase64TooLarge = hasData && f.data.length > limit;
     
-    // If text is already extracted and substantial, prefer text to maximize speed & context preservation,
-    // or if base64 is missing/too large or provider is text-only.
-    let useText = !hasData || isBase64TooLarge || !isMultiModalProvider;
+    // Token Economy & Speed: When clean extracted text is already available,
+    // prioritize text to avoid sending heavy base64 strings that consume thousands of extra tokens.
+    let useText = hasText || !hasData || isBase64TooLarge || !isMultiModalProvider;
     
     if ((f.mimeType?.startsWith('text/') || f.mimeType?.includes('txt')) && hasText) {
       useText = true;
@@ -410,18 +434,19 @@ const optimizePayload = (files: any[], budget: number, model?: string) => {
     
     if (hasText) {
       // Keep up to 1.2 million characters of extracted text (~300,000 words / 800 pages)
-      optimizedText = f.extractedText.length > 1200000 
-        ? f.extractedText.substring(0, 1200000) + "\n... [Texto preservado integralmente até o limite de contexto] ..." 
-        : f.extractedText;
+      optimizedText = rawText.length > 1200000 
+        ? rawText.substring(0, 1200000) + "\n... [Texto preservado integralmente até o limite de contexto] ..." 
+        : rawText;
     } else if (hasData && isBase64TooLarge) {
-      // If base64 is heavy and we don't have text yet, keep binary for multimodal unless budget strictly exceeded
-      useText = false;
+      // Fallback: If base64 is too large and has no text, truncate or use what's safe
+      useText = true;
+      optimizedText = "[Documento binário excede o limite máximo permitido para transmissão]";
     }
     
     return {
       ...f,
       useText,
-      optimizedText: optimizedText || f.extractedText || ""
+      optimizedText: optimizedText || rawText || f.extractedText || ""
     };
   });
   
@@ -523,29 +548,26 @@ const analyzeWithGemini = async (files: any[], systemInstruction: string, model:
   const parts = optimizedFiles.flatMap(file => {
     const fileParts: any[] = [];
     
-    // 1. If extracted / transcribed text is available, always include it as full rich text part
-    if (file.extractedText && file.extractedText.trim().length > 0) {
+    // If useText is flagged (text is extracted and high quality), send pure text
+    // This saves massive input tokens and prevents timeouts/quota limits
+    if (file.useText && (file.optimizedText || file.extractedText)) {
       fileParts.push({
-        text: `[DOCUMENTO COMPLETO ANEXADO: "${file.filename || 'Edital / Documento de Leilão'}"]\n${file.optimizedText || file.extractedText}`
+        text: `[DOCUMENTO ANEXADO: "${file.filename || 'Edital / Documento de Leilão'}"]\n${file.optimizedText || file.extractedText}`
       });
-    } else if (file.useText && file.optimizedText) {
-      fileParts.push({
-        text: `[DOCUMENTO: "${file.filename || file.mimeType}"]\n${file.optimizedText}`
-      });
-    }
-
-    // 2. If base64 binary is available and within size limits, ALWAYS include visual file binary for multimodal vision
-    // (Crucial for Matrículas, Editais, Certidões, and scanned documents so Gemini visual model inspects pages, stamps, and signatures)
-    if (file.data && !file.useText) {
+    } else if (file.data && !file.useText) {
+      // If binary is needed (scanned document / images), send binary
       fileParts.push({
         inlineData: {
           data: file.data.includes(',') ? file.data.split(',')[1] : file.data,
           mimeType: file.mimeType || 'application/pdf'
         }
       });
+    } else if (file.extractedText) {
+      fileParts.push({
+        text: `[DOCUMENTO: "${file.filename || 'Arquivo'}"]\n${file.extractedText}`
+      });
     }
 
-    // Fallback if neither was added
     if (fileParts.length === 0) {
       fileParts.push({
         text: `[Arquivo: ${file.filename || file.mimeType}]`

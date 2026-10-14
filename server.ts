@@ -2539,7 +2539,7 @@ async function startServer() {
   if (process.env.NODE_ENV !== "production") {
     console.log("Iniciando Vite em modo middleware...");
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      server: { middlewareMode: true, hmr: false },
       appType: "spa"
     });
     app.use(vite.middlewares);
@@ -2604,16 +2604,18 @@ async function startServer() {
     });
   }
 
+  const isProduction = process.env.NODE_ENV === "production";
   const rawPort = process.env.PORT;
   let server: any;
-  if (rawPort && isNaN(Number(rawPort))) {
+  if (isProduction && rawPort && isNaN(Number(rawPort))) {
     server = app.listen(rawPort, () => {
       console.log(`Server running on socket ${rawPort}`);
     });
   } else {
-    const port = rawPort ? parseInt(rawPort, 10) : 3000;
+    // In dev mode, always bind to 3000 as required by AI Studio environment
+    const port = isProduction && rawPort ? parseInt(rawPort, 10) : 3000;
     server = app.listen(port, "0.0.0.0", () => {
-      console.log(`Server running on http://localhost:${port}`);
+      console.log(`Server running on http://0.0.0.0:${port} (NODE_ENV: ${process.env.NODE_ENV || 'development'})`);
     });
   }
   server.keepAliveTimeout = 120000;
