@@ -91,6 +91,7 @@ import { DynamicFinancialMetricsBar } from './components/DynamicFinancialMetrics
 import { ReportCustomExporterBar } from './components/ReportCustomExporterBar';
 import { parseMarkdownToSections } from './utils/modularReportExporter';
 import { PublicSharedReportView } from './components/PublicSharedReportView';
+import { ViabilidadeEstudoTab } from './components/ViabilidadeEstudoTab';
 
 const SimulationContext = React.createContext<{ 
   simulationData: any, 
@@ -742,7 +743,7 @@ export default function App() {
 
   // AI Analysis Persistent State
   const [aiAnalysisState, setAiAnalysisState] = useState<{
-    activeSubTab: 'smart_analysis' | 'report' | 'processos' | 'documents' | 'simulations' | 'cnj' | 'investors' | 'edital' | 'matricula' | 'dossier' | 'instagram' | 'assessoria';
+    activeSubTab: 'smart_analysis' | 'viabilidade' | 'report' | 'processos' | 'documents' | 'simulations' | 'cnj' | 'investors' | 'edital' | 'matricula' | 'dossier' | 'instagram' | 'assessoria' | 'unified_summary';
     selectedPropertyId: string;
     report: string | null;
     editalAnalysis: string | null;
@@ -9904,7 +9905,7 @@ Formate em português do Brasil, em Markdown elegante e profissional, e inclua n
       } else if (tabKey === 'dossier') {
         updates.dossierAnalysis = null;
         backendPayload.dossier_analysis = null;
-      } else if (tabKey === 'smart_analysis') {
+      } else if (tabKey === 'smart_analysis' || tabKey === 'viabilidade') {
         updates.smartAnalysis = null;
       } else if (tabKey === 'assessoria') {
         updates.assessoriaAnalysis = null;
@@ -10994,7 +10995,7 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
     }
   };
 
-  const handleSendTabChat = async (tab: 'edital' | 'matricula' | 'processos' | 'dossier' | 'documents' | 'smart_analysis' | 'assessoria' | 'cnj' | 'investors' | 'instagram' | 'simulations') => {
+  const handleSendTabChat = async (tab: 'edital' | 'matricula' | 'processos' | 'dossier' | 'documents' | 'smart_analysis' | 'viabilidade' | 'assessoria' | 'cnj' | 'investors' | 'instagram' | 'simulations') => {
     let input = "";
     let chatMsgs: ChatMessage[] = [];
     let setInput: any = null;
@@ -11041,13 +11042,13 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
         return `[Documento ${i+1}: ${doc.filename} (Tipo: ${doc.doc_type})]\n${(doc.extracted_text || "").substring(0, 8000)}`;
       }).join("\n\n");
       promptContext = `Resumo dos documentos do Dossiê:\n${filesSummary || "Nenhum documento anexado ao dossiê."}`;
-    } else if (tab === 'smart_analysis') {
+    } else if (tab === 'smart_analysis' || tab === 'viabilidade') {
       input = smartAnalysisChatInput;
       chatMsgs = smartAnalysisChatMessages;
       setInput = setSmartAnalysisChatInput;
       setMsgs = setSmartAnalysisChatMessages;
       setSending = setSendingSmartAnalysisChat;
-      promptContext = `Análise Smart de Riscos Atual (Dados Estruturados):\n${state.smartAnalysis ? JSON.stringify(state.smartAnalysis, null, 2) : "Nenhuma análise smart de risco executada ainda."}`;
+      promptContext = `Análise Smart & Estudo de Viabilidade Atual (Dados Estruturados):\n${state.smartAnalysis ? JSON.stringify(state.smartAnalysis, null, 2) : "Nenhuma análise smart ou de viabilidade executada ainda."}`;
     } else if (tab === 'assessoria') {
       input = assessoriaChatInput;
       chatMsgs = assessoriaChatMessages;
@@ -11150,7 +11151,7 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
     }
   };
 
-  const renderTabChat = (tab: 'edital' | 'matricula' | 'processos' | 'dossier' | 'documents' | 'smart_analysis' | 'assessoria' | 'cnj' | 'investors' | 'instagram' | 'simulations') => {
+  const renderTabChat = (tab: 'edital' | 'matricula' | 'processos' | 'dossier' | 'documents' | 'smart_analysis' | 'viabilidade' | 'assessoria' | 'cnj' | 'investors' | 'instagram' | 'simulations') => {
     let title = "";
     let placeholder = "";
     let inputVal = "";
@@ -11193,6 +11194,13 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
       setInputVal = setDocumentsChatInput;
       msgs = documentsChatMessages;
       sending = sendingDocumentsChat;
+    } else if (tab === 'viabilidade') {
+      title = "Debate sobre o Estudo de Viabilidade";
+      placeholder = "Tire dúvidas sobre ROI, custos de aquisição, TIR, prazos ou financiamento SAC/PRICE...";
+      inputVal = smartAnalysisChatInput;
+      setInputVal = setSmartAnalysisChatInput;
+      msgs = smartAnalysisChatMessages;
+      sending = sendingSmartAnalysisChat;
     } else if (tab === 'smart_analysis') {
       title = "Debate sobre a Análise Smart";
       placeholder = "Discuta os fatores de risco preenchidos, ocupação, desocupação e ex-mutuários...";
@@ -11578,6 +11586,7 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
             {/* Tabs Header */}
             <div className="flex border-b border-brand-primary/10 bg-brand-bg/30 overflow-x-auto no-print">
               <AnalysisTab active={activeSubTab === 'smart_analysis'} onClick={() => updateState({ activeSubTab: 'smart_analysis' })} icon={<Cpu size={16} />} label="Análise Smart (Principal)" />
+              <AnalysisTab active={activeSubTab === 'viabilidade'} onClick={() => updateState({ activeSubTab: 'viabilidade' })} icon={<TrendingUp size={16} />} label="Estudo de Viabilidade" />
               <AnalysisTab active={activeSubTab === 'report'} onClick={() => updateState({ activeSubTab: 'report' })} icon={<Brain size={16} />} label="Relatório" />
               <AnalysisTab active={activeSubTab === 'unified_summary'} onClick={() => updateState({ activeSubTab: 'unified_summary' })} icon={<Layers size={16} />} label="Resumão Unificado" />
               <AnalysisTab active={activeSubTab === 'edital'} onClick={() => updateState({ activeSubTab: 'edital' })} icon={<FileText size={16} />} label="Edital" />
@@ -12476,6 +12485,31 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
                     tabKey="smart_analysis"
                     hasAnalysis={!!state.smartAnalysis}
                     onResetTab={() => handleResetSubTab('smart_analysis')}
+                    onResetAll={handleResetAllPropertyData}
+                    onApplySettings={(settings) => updateState({ aiDepth: settings.depth, aiFocus: settings.focus })}
+                  />
+                </div>
+              )}
+
+              {activeSubTab === 'viabilidade' && (
+                <div className="space-y-12">
+                  <ViabilidadeEstudoTab 
+                    data={state.smartAnalysis}
+                    property={selectedProperty}
+                    onSave={handleSaveSmartAnalysis}
+                    onTriggerAI={handleAnalyzeSmart}
+                    isAnalyzing={analyzingSmart}
+                    onNavigateToSmart={() => updateState({ activeSubTab: 'smart_analysis' })}
+                  />
+                  <div className="mt-8 no-print border-t border-brand-primary/10 pt-8">
+                    <LegalGlossaryForLaypeople />
+                  </div>
+                  {renderTabChat('viabilidade')}
+                  <SmartResetPanel
+                    tabName="Estudo de Viabilidade"
+                    tabKey="viabilidade"
+                    hasAnalysis={!!state.smartAnalysis}
+                    onResetTab={() => handleResetSubTab('viabilidade')}
                     onResetAll={handleResetAllPropertyData}
                     onApplySettings={(settings) => updateState({ aiDepth: settings.depth, aiFocus: settings.focus })}
                   />

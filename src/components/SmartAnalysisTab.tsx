@@ -5,15 +5,14 @@ import {
   TrendingUp, Scale, Gavel, User, Home, DollarSign, Calendar,
   Download, Edit3, Info, ChevronDown, ChevronUp, ChevronsUpDown,
   Maximize2, Minimize2, CheckCircle2, Copy, Plus, Trash2,
-  GitCompare, FileCheck2, MessageSquare, Check, Sparkle
+  GitCompare, FileCheck2, MessageSquare, Check, Sparkle, ArrowRight
 } from 'lucide-react';
 import { DocumentManager } from './DocumentManager';
 import { AnalysisPremisesCard } from './AnalysisPremisesCard';
-import { exportElementToPDF, exportViabilidadeReportToPDF } from '../utils/pdfExporter';
+import { exportElementToPDF } from '../utils/pdfExporter';
 import { ReportCustomExporterBar } from './ReportCustomExporterBar';
 import { ExportSectionItem } from '../utils/modularReportExporter';
 import { AssessorPitchAndTipsCard } from './AssessorPitchAndTipsCard';
-import { ViabilidadeLiquidezCard } from './ViabilidadeLiquidezCard';
 
 export interface SmartAnalysisData {
   risco_geral: 'Não avaliado' | 'Baixo' | 'Médio' | 'Alto';
@@ -665,6 +664,7 @@ interface SmartAnalysisTabProps {
     customAnalysisNotes?: string;
   }) => void;
   selectedProperty?: any;
+  onNavigateToViabilidade?: () => void;
 }
 
 // Collapsible Section Wrapper Card
@@ -762,7 +762,8 @@ export default function SmartAnalysisTab({
   customBidValue,
   customAnalysisNotes,
   onUpdatePremises,
-  selectedProperty
+  selectedProperty,
+  onNavigateToViabilidade
 }: SmartAnalysisTabProps) {
   const [localData, setLocalData] = React.useState<SmartAnalysisData>(normalizeSmartAnalysis(data));
   const [isSaving, setIsSaving] = React.useState(false);
@@ -1112,20 +1113,6 @@ export default function SmartAnalysisTab({
           </button>
 
           <button
-            onClick={() => exportViabilidadeReportToPDF({
-              property: selectedProperty || undefined,
-              smartAnalysis: localData,
-              advisorName: "Assessoria Especializada TJ INVEST"
-            })}
-            className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-3 rounded-xl text-xs font-bold transition-all shadow-md shadow-emerald-700/20 cursor-pointer"
-            id="btn-export-viabilidade-pdf"
-            title="Baixar Relatório Executivo de Viabilidade e Liquidez em PDF"
-          >
-            <FileCheck2 size={16} />
-            <span>Baixar Dossiê de Viabilidade (PDF)</span>
-          </button>
-
-          <button
             onClick={() => exportElementToPDF('smart-analysis-tab-container', 'Analise_Smart_Leilao_TJ_INVEST.pdf', 'Análise Smart - Parecer do Investidor')}
             className="flex items-center gap-2 bg-brand-bg hover:bg-black/5 text-brand-ink px-4 py-3 rounded-xl text-xs font-bold transition-all border border-brand-border no-print shadow-xs cursor-pointer"
             id="btn-export-smart-pdf"
@@ -1211,14 +1198,42 @@ export default function SmartAnalysisTab({
       </div>
 
       {/* ======================================================== */}
-      {/* PAINEL EXECUTIVO DE VIABILIDADE & LIQUIDEZ IMOBILIÁRIA  */}
+      {/* ATALHO E NOTIFICAÇÃO DA NOVA ABA DE VIABILIDADE         */}
       {/* ======================================================== */}
-      <ViabilidadeLiquidezCard
-        data={localData}
-        property={selectedProperty}
-        onChange={handleChange}
-        onSave={handleLocalSave}
-      />
+      <div className="bg-gradient-to-r from-emerald-500/10 via-brand-bg/50 to-brand-bg/20 p-5 rounded-[2rem] border border-emerald-500/25 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-xs">
+        <div className="flex items-center gap-3.5">
+          <div className="p-3 bg-emerald-500/20 text-emerald-600 rounded-2xl shrink-0">
+            <TrendingUp size={22} />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/20">
+                Aba Exclusiva Criada
+              </span>
+              <span className="text-[10px] text-brand-ink/50 font-semibold">
+                Dossiê Completo em PDF
+              </span>
+            </div>
+            <h5 className="font-serif font-bold text-base text-brand-ink mt-0.5">
+              Estudo de Viabilidade Econômica & Liquidez
+            </h5>
+            <p className="text-xs text-brand-ink/65 leading-relaxed">
+              Os demonstrativos de custos, fluxo de desembolso real, margem líquida e simulação habitacional (SAC/PRICE) agora possuem uma <strong>aba dedicada exclusiva</strong>.
+            </p>
+          </div>
+        </div>
+        
+        {onNavigateToViabilidade && (
+          <button
+            type="button"
+            onClick={onNavigateToViabilidade}
+            className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-emerald-700/20 flex items-center gap-2 cursor-pointer shrink-0 hover:scale-[1.02] active:scale-[0.98]"
+          >
+            <span>Acessar Estudo de Viabilidade</span>
+            <ArrowRight size={14} />
+          </button>
+        )}
+      </div>
 
       {/* Top Banner: Parecer do Investidor (Collapsible) */}
       <div className="bg-brand-paper rounded-[2rem] border border-brand-border shadow-sm overflow-hidden" id="smart-analysis-parecer-banner">

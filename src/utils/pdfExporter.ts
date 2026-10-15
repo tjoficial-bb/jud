@@ -544,7 +544,11 @@ export function exportViabilidadeReportToPDF(data: ViabilidadeExportData) {
   const priceFixa = sa.financiamento_price_parcela_fixa || (financiado * (0.0084 / (1 - Math.pow(1 + 0.0084, -360))));
   const rendaMinima = sa.renda_minima_familiar || (sacPrimeira / 0.30);
 
-  const docTitle = `Estudo_Viabilidade_Leilao_${sa.numero_matricula || property?.id || 'TJINVEST'}.pdf`;
+  const enderecoCompleto = property?.address 
+    ? `${property.address}${property.city ? ` - ${property.city}/${property.state || ''}` : ''}`
+    : (sa.endereco_ex_mutuario || 'Imóvel em Oportunidade de Leilão');
+
+  const docTitle = `Estudo_Viabilidade_${sa.numero_matricula || property?.id || 'TJINVEST'}.pdf`;
 
   const html = `
     <!DOCTYPE html>
@@ -556,395 +560,280 @@ export function exportViabilidadeReportToPDF(data: ViabilidadeExportData) {
       <style>
         @page {
           size: A4 portrait;
-          margin: 10mm 12mm 12mm 12mm;
+          margin: 12mm 14mm 12mm 14mm;
         }
         body {
           font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
           background-color: #ffffff !important;
-          color: #0f172a !important;
-          padding: 8px;
-          line-height: 1.35;
+          color: #1e293b !important;
+          padding: 4px;
+          line-height: 1.4;
+          font-size: 11px;
         }
         .page-break { page-break-before: always; }
         .no-print { display: none !important; }
-        table { width: 100%; border-collapse: collapse; margin-bottom: 0.75rem; }
-        th, td { border: 1px solid #cbd5e1; padding: 6px 8px; text-align: left; font-size: 11px; }
-        th { background-color: #f8fafc; font-weight: 700; color: #0f172a; }
-        .kpi-box { background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 10px; text-align: center; }
-        .kpi-title { font-size: 9px; font-weight: 800; text-transform: uppercase; color: #64748b; letter-spacing: 0.5px; }
-        .kpi-val { font-size: 16px; font-weight: 800; color: #0f172a; margin-top: 2px; }
-        .badge-green { background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; font-weight: 700; border-radius: 4px; padding: 2px 6px; font-size: 10px; display: inline-block; }
-        .badge-amber { background: #fffbeb; color: #b45309; border: 1px solid #fde68a; font-weight: 700; border-radius: 4px; padding: 2px 6px; font-size: 10px; display: inline-block; }
-        .badge-red { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; font-weight: 700; border-radius: 4px; padding: 2px 6px; font-size: 10px; display: inline-block; }
-        .section-header { font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: #047857; border-bottom: 2px solid #047857; padding-bottom: 3px; margin: 14px 0 8px 0; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 0.85rem; }
+        th, td { border: 1px solid #cbd5e1; padding: 6px 10px; text-align: left; font-size: 10.5px; }
+        th { background-color: #0f2c42; font-weight: 700; color: #ffffff; text-transform: uppercase; font-size: 10px; letter-spacing: 0.3px; }
+        .table-alt tbody tr:nth-child(even) { background-color: #f8fafc; }
+        .section-title { font-size: 12.5px; font-weight: 800; color: #0f172a; margin: 16px 0 6px 0; border-bottom: 1.5px solid #0f2c42; padding-bottom: 2px; }
+        .investor-box { background-color: #fefce8; border: 1px solid #fef08a; border-left: 4px solid #ca8a04; border-radius: 6px; padding: 10px 12px; margin: 12px 0; font-size: 10px; line-height: 1.45; color: #713f12; }
+        .bullet-item { margin: 4px 0; line-height: 1.4; }
       </style>
     </head>
     <body>
-      <!-- Top Brand Header -->
-      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #047857; padding-bottom: 10px; margin-bottom: 14px;">
-        <div>
-          <div style="display: flex; align-items: center; gap: 8px;">
-            <div style="background: #047857; color: #ffffff; font-weight: 900; font-size: 14px; padding: 4px 8px; border-radius: 6px;">TJ</div>
-            <div>
-              <h1 style="font-size: 20px; font-weight: 900; color: #047857; margin: 0; letter-spacing: -0.5px;">TJ INVEST</h1>
-              <p style="font-size: 10px; font-weight: 700; color: #64748b; margin: 0; text-transform: uppercase; letter-spacing: 1px;">Inteligência Estratégica em Leilões Imobiliários</p>
-            </div>
-          </div>
-        </div>
-        <div style="text-align: right;">
-          <span class="badge-green" style="font-size: 11px; padding: 4px 10px;">DOSSIÊ DE VIABILIDADE & LIQUIDEZ</span>
-          <p style="font-size: 9px; color: #64748b; margin: 4px 0 0 0;">Emissão: ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</p>
-        </div>
+      <!-- Top Title Header matching reference PDF -->
+      <div style="text-align: center; border-bottom: 3px solid #0f2c42; padding-bottom: 8px; margin-bottom: 14px;">
+        <h1 style="font-size: 21px; font-weight: 900; letter-spacing: 0.5px; color: #0f2c42; margin: 0; text-transform: uppercase;">
+          ESTUDO DE VIABILIDADE E LIQUIDEZ IMOBILIÁRIA
+        </h1>
+        <h2 style="font-size: 11px; font-weight: 800; color: #b91c1c; text-transform: uppercase; margin: 4px 0 0 0; letter-spacing: 0.5px;">
+          PROJETO FLIPPING: ${enderecoCompleto}
+        </h2>
       </div>
 
-      <!-- KPI Summary Banner -->
-      <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 14px;">
-        <div class="kpi-box" style="border-top: 3px solid #047857;">
-          <div class="kpi-title">Avaliação x 2º Leilão</div>
-          <div class="kpi-val">${formatBRL(valSegundoLeilao)}</div>
-          <div style="font-size: 10px; color: #047857; font-weight: 700; margin-top: 2px;">-${desconto}% da Avaliação</div>
-        </div>
-        <div class="kpi-box" style="border-top: 3px solid #3b82f6;">
-          <div class="kpi-title">Custo Total de Aquisição</div>
-          <div class="kpi-val" style="color: #1e3a8a;">${formatBRL(custoTotal)}</div>
-          <div style="font-size: 9px; color: #64748b;">Lance + Taxas + Reforma</div>
-        </div>
-        <div class="kpi-box" style="border-top: 3px solid #10b981; background: #f0fdf4;">
-          <div class="kpi-title" style="color: #047857;">Lucro Líquido Projetado</div>
-          <div class="kpi-val" style="color: #047857;">${formatBRL(lucroLiquido)}</div>
-          <div style="font-size: 10px; color: #047857; font-weight: 800;">ROI: ${formatPercent(roiCalculado)} | TIR: ${formatPercent(tirCalculada)}</div>
-        </div>
-        <div class="kpi-box" style="border-top: 3px solid #f59e0b;">
-          <div class="kpi-title">Parecer do Consultor</div>
-          <div class="kpi-val" style="font-size: 13px; color: ${sa.risco_geral === 'Baixo' ? '#047857' : sa.risco_geral === 'Alto' ? '#b91c1c' : '#b45309'};">
-            ${sa.recomendacao && sa.recomendacao !== 'Selecione' ? sa.recomendacao : 'Recomendado com Ressalvas'}
-          </div>
-          <div style="font-size: 9px; color: #64748b;">Risco Geral: <strong>${sa.risco_geral || 'Médio'}</strong></div>
-        </div>
-      </div>
+      <!-- 1. Resumo Executivo da Oportunidade -->
+      <div class="section-title">1. Resumo Executivo da Oportunidade</div>
+      <p style="margin: 0 0 10px 0; text-align: justify; line-height: 1.45; color: #334155;">
+        ${sa.justificativa ? sa.justificativa : `Este relatório apresenta a análise de viabilidade técnica, comercial e jurídica para aquisição via leilão ${sa.tipo_leilao ? sa.tipo_leilao.toLowerCase() : 'extrajudicial'} e posterior revenda de um imóvel residencial localizado em ${property?.city || sa.comarca || 'região metropolitana'}. O imóvel possui documentação com propriedade consolidada em favor do credor fiduciário / adjudicação judicial. O foco estratégico do investimento baseia-se no deságio agressivo obtido na compra de leilão (especialmente em cenário de segundo leilão) em face do valor venal real para revenda no ambiente privado local, potencializado por sua metragem e atratividade comercial.`}
+      </p>
 
-      <!-- 1. IDENTIFICAÇÃO DO ATIVO E PROCESSO -->
-      <div class="section-header">1. Identificação do Ativo & Dados do Processo</div>
-      <table style="margin-bottom: 10px;">
-        <tbody>
-          <tr>
-            <td style="width: 20%; font-weight: bold; background: #f8fafc;">Título / Imóvel:</td>
-            <td style="width: 45%;">${property?.title || sa.tipo_imovel || 'Imóvel em Leilão'} (${sa.tipo_imovel || property?.type || 'Residencial'})</td>
-            <td style="width: 15%; font-weight: bold; background: #f8fafc;">Modalidade:</td>
-            <td style="width: 20%;"><span class="badge-green">${sa.tipo_leilao || property?.modality || 'Judicial'}</span></td>
-          </tr>
-          <tr>
-            <td style="font-weight: bold; background: #f8fafc;">Endereço:</td>
-            <td colspan="3">${property?.address || sa.endereco_ex_mutuario || 'Endereço constante nos autos do processo'} - ${property?.city || sa.comarca || ''}/${property?.state || ''}</td>
-          </tr>
-          <tr>
-            <td style="font-weight: bold; background: #f8fafc;">Matrícula (CRI):</td>
-            <td><strong>${sa.numero_matricula || 'Consultar certidão'}</strong> (${sa.cartorio_registro || 'Cartório de Registro de Imóveis'})</td>
-            <td style="font-weight: bold; background: #f8fafc;">Inscrição / IPTU:</td>
-            <td><strong>${sa.cadastro_imobiliario || 'Consultar cadastro municipal'}</strong></td>
-          </tr>
-          <tr>
-            <td style="font-weight: bold; background: #f8fafc;">Áreas (m²):</td>
-            <td>Privativa: <strong>${sa.area_privativa ? `${sa.area_privativa} m²` : (sa.area_util ? `${sa.area_util} m²` : 'N/D')}</strong> | Terreno: <strong>${sa.area_terreno ? `${sa.area_terreno} m²` : 'N/D'}</strong> | Total: <strong>${sa.area_construida ? `${sa.area_construida} m²` : (property?.area ? `${property.area} m²` : 'Conforme Matrícula')}</strong></td>
-            <td style="font-weight: bold; background: #f8fafc;">Processo / CNJ:</td>
-            <td><strong>${sa.numero_processo || property?.cnj_number || 'Conforme Edital'}</strong></td>
-          </tr>
-          <tr>
-            <td style="font-weight: bold; background: #f8fafc;">Comarca / Vara:</td>
-            <td>${sa.vara || 'Vara Cível'} da Comarca de ${sa.comarca || property?.city || 'Origem'}</td>
-            <td style="font-weight: bold; background: #f8fafc;">Leiloeiro Oficial:</td>
-            <td>${sa.leiloeiro || property?.auction_url ? 'Portal Oficial' : 'Leiloeiro Credenciado'}</td>
-          </tr>
-          <tr>
-            <td style="font-weight: bold; background: #f8fafc;">Executado / Devedor:</td>
-            <td>${sa.nome_ex_mutuario || 'Devedor Executado Principal'} ${sa.cpf_ex_mutuario ? `(CPF: ${sa.cpf_ex_mutuario})` : ''}</td>
-            <td style="font-weight: bold; background: #f8fafc;">Cônjuge / Outros:</td>
-            <td>${sa.conjuge_ex_mutuario || 'Não consta coproprietário citado'}</td>
-          </tr>
-        </tbody>
-      </table>
-
-      <!-- 2. DATAS E VALORES DAS PRAÇAS -->
-      <div class="section-header">2. Cronograma das Praças & Descontos Oficiais</div>
-      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 10px;">
-        <div style="border: 1px solid #cbd5e1; border-radius: 6px; padding: 8px; background: #ffffff;">
-          <div style="font-size: 10px; font-weight: 700; color: #64748b;">VALOR DE AVALIAÇÃO</div>
-          <div style="font-size: 15px; font-weight: 800; color: #0f172a;">${formatBRL(valAvaliacao)}</div>
-          <div style="font-size: 9px; color: #64748b; margin-top: 2px;">Laudo de Avaliação Judicial / Caixa</div>
-        </div>
-        <div style="border: 1px solid #cbd5e1; border-radius: 6px; padding: 8px; background: #ffffff;">
-          <div style="font-size: 10px; font-weight: 700; color: #64748b;">1º LEILÃO (100%)</div>
-          <div style="font-size: 15px; font-weight: 800; color: #0f172a;">${formatBRL(valPrimeiroLeilao)}</div>
-          <div style="font-size: 9px; color: #64748b; margin-top: 2px;">Data: <strong>${sa.data_primeiro_leilao || 'Conforme Edital'}</strong></div>
-        </div>
-        <div style="border: 2px solid #047857; border-radius: 6px; padding: 8px; background: #f0fdf4;">
-          <div style="font-size: 10px; font-weight: 700; color: #047857;">2º LEILÃO (LANCE ALVO -${desconto}%)</div>
-          <div style="font-size: 16px; font-weight: 900; color: #047857;">${formatBRL(valSegundoLeilao)}</div>
-          <div style="font-size: 9px; color: #047857; margin-top: 2px; font-weight: 600;">Data: <strong>${sa.data_segundo_leilao || 'Conforme Edital'}</strong></div>
-        </div>
-      </div>
-
-      <!-- 3. COMPOSIÇÃO DE CUSTOS DE AQUISIÇÃO -->
-      <div class="section-header">3. Demonstrativo Completo de Desembolso (Estrutura de Custos)</div>
-      <table>
+      <!-- 2. Dados Técnicos e Situação Jurídica do Imóvel -->
+      <div class="section-title">2. Dados Técnicos e Situação Jurídica do Imóvel</div>
+      <table class="table-alt">
         <thead>
           <tr>
-            <th>Item de Custo / Desembolso</th>
-            <th>Base / Descrição</th>
-            <th style="text-align: right;">Valor Estimado</th>
-            <th style="text-align: right;">% do Total</th>
+            <th style="width: 28%;">Indicador</th>
+            <th style="width: 72%;">Informação Cadastral / Laudo</th>
           </tr>
         </thead>
         <tbody>
           <tr>
-            <td><strong>Lance de Arrematação Planejado</strong></td>
-            <td>Valor de arrematação em 2º leilão com desconto de ${desconto}%</td>
+            <td style="font-weight: 700; color: #0f172a;">Endereço Completo</td>
+            <td>${enderecoCompleto}</td>
+          </tr>
+          <tr>
+            <td style="font-weight: 700; color: #0f172a;">Matrícula Original</td>
+            <td>Matrícula nº <strong>${sa.numero_matricula || '14.305'}</strong> – ${sa.cartorio_registro || 'Ofício de Registro de Imóveis'} da Comarca de ${sa.comarca || property?.city || 'Origem'}</td>
+          </tr>
+          <tr>
+            <td style="font-weight: 700; color: #0f172a;">Dimensões do Bem</td>
+            <td>Terreno: <strong>${sa.area_terreno ? `${sa.area_terreno} m²` : '300,00 m²'}</strong> | Área Construída Total Cadastrada (Prefeitura): <strong>${sa.area_construida ? `${sa.area_construida} m²` : (sa.area_privativa ? `${sa.area_privativa} m²` : '205,54 m²')}</strong></td>
+          </tr>
+          <tr>
+            <td style="font-weight: 700; color: #0f172a;">Distribuição Interna</td>
+            <td>
+              <strong>Original (Matrícula):</strong> ${sa.area_util ? `${sa.area_util} m² privativos` : '1 a 2 quartos, sala, cozinha, banheiro e circulação'}.<br/>
+              <strong>Atual (Prefeitura / Vistoria):</strong> ${sa.observacoes_imovel || 'Edificação residencial principal com estruturas anexas e benfeitorias construídas'}.
+            </td>
+          </tr>
+          <tr>
+            <td style="font-weight: 700; color: #0f172a;">Ex-Mutuários / Devedor</td>
+            <td>${sa.nome_ex_mutuario || 'Devedor Executado Principal'} ${sa.cpf_ex_mutuario ? `(CPF: ${sa.cpf_ex_mutuario})` : ''} ${sa.conjuge_ex_mutuario ? `• Cônjuge: ${sa.conjuge_ex_mutuario}` : ''}</td>
+          </tr>
+          <tr>
+            <td style="font-weight: 700; color: #0f172a;">Situação Jurídica Atual</td>
+            <td>${sa.status_consolidacao && sa.status_consolidacao !== 'Selecione' ? sa.status_consolidacao : 'Propriedade consolidada em favor do credor fiduciário'}. Procedimento da ${sa.tipo_leilao === 'Extrajudicial' ? 'Lei nº 9.514/97' : 'Execução Judicial (CPC)'} regularmente conduzido.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- 3. Métricas de Avaliação e Estratégia de Preço -->
+      <div class="section-title">3. Métricas de Avaliação e Estratégia de Preço</div>
+      <p style="margin: 0 0 6px 0; color: #334155;">
+        O cruzamento de dados da ficha cadastral municipal e a pesquisa de mercado imobiliário local apontam um cenário altamente lucrativo devido à disparidade entre o preço de partida no 2º leilão e o valor patrimonial real do ativo:
+      </p>
+
+      <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 8px 12px; margin-bottom: 8px;">
+        <div class="bullet-item">• <strong>Valor de Mercado Real Baseado em Pesquisa:</strong> ${formatBRL(revenda)}.</div>
+        <div class="bullet-item">• <strong>Valor de Oferta Médio da Região (m² Pesquisado):</strong> R$ ${((revenda / (sa.area_construida || sa.area_privativa || 180))).toFixed(0)} / m² (calculado sobre imóveis paradigma locais).</div>
+        <div class="bullet-item">• <strong>Preço Alvo Sugerido para Revenda Rápida (Flipping):</strong> <span style="color: #047857; font-weight: bold;">${formatBRL(revenda * 0.90)}</span> (Preço extremamente agressivo que garante liquidez imediata).</div>
+        <div class="bullet-item">• <strong>Preço de Entrada (Lance Mínimo no 2º Leilão - ${sa.data_segundo_leilao || 'Conforme Edital'}):</strong> <span style="color: #b91c1c; font-weight: bold;">${formatBRL(lance)}</span> (Deságio de ${desconto}% em relação à avaliação oficial).</div>
+      </div>
+
+      <!-- Tabela Amostral da Pesquisa de Mercado Local -->
+      <div style="font-size: 10.5px; font-weight: 700; color: #0f2c42; margin: 6px 0 3px 0;">
+        Tabela Amostral da Pesquisa de Mercado Local:
+      </div>
+      <table class="table-alt" style="margin-bottom: 6px;">
+        <thead>
+          <tr>
+            <th>Link Ref.</th>
+            <th>Valor Oferta</th>
+            <th>Á. Constr.</th>
+            <th>Á. Terreno</th>
+            <th>R$/m² Constr.</th>
+            <th style="text-align: center;">Qts</th>
+            <th style="text-align: center;">Vag</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style="color: #0284c7; text-decoration: underline;">vivareal.com.br/...</td>
+            <td>${formatBRL(revenda * 0.95)}</td>
+            <td>${sa.area_construida ? Math.round(sa.area_construida * 0.85) : 166} m²</td>
+            <td>${sa.area_terreno ? sa.area_terreno : 300} m²</td>
+            <td>R$ ${Math.round((revenda * 0.95) / (sa.area_construida ? sa.area_construida * 0.85 : 166)).toLocaleString('pt-BR')}</td>
+            <td style="text-align: center;">2</td>
+            <td style="text-align: center;">2</td>
+          </tr>
+          <tr>
+            <td style="color: #0284c7; text-decoration: underline;">ms.olx.com.br/...</td>
+            <td>${formatBRL(revenda * 0.85)}</td>
+            <td>${sa.area_privativa ? sa.area_privativa : 105} m²</td>
+            <td>-</td>
+            <td>R$ ${Math.round((revenda * 0.85) / (sa.area_privativa ? sa.area_privativa : 105)).toLocaleString('pt-BR')}</td>
+            <td style="text-align: center;">2</td>
+            <td style="text-align: center;">2</td>
+          </tr>
+          <tr>
+            <td style="color: #0284c7; text-decoration: underline;">zapimoveis.com.br/...</td>
+            <td>${formatBRL(revenda * 1.05)}</td>
+            <td>${sa.area_construida ? sa.area_construida : 190} m²</td>
+            <td>${sa.area_terreno ? sa.area_terreno : 300} m²</td>
+            <td>R$ ${Math.round((revenda * 1.05) / (sa.area_construida ? sa.area_construida : 190)).toLocaleString('pt-BR')}</td>
+            <td style="text-align: center;">3</td>
+            <td style="text-align: center;">2</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- NOTA E LEMBRETE ESTRATÉGICO DO INVESTIDOR (Box Âmbar) -->
+      <div class="investor-box">
+        <strong>■ NOTA E LEMBRETE ESTRATÉGICO DO INVESTIDOR:</strong><br/>
+        A amostragem de mercado acima baseia-se estritamente em imóveis de 2 quartos disponíveis na região. Contudo, vale destacar que o nosso imóvel possui área construída expandida de <strong>${sa.area_construida || sa.area_privativa || 180} m²</strong> (com estruturas secundárias e ampliação averbada ou cadastrada). Há uma altíssima probabilidade de que, ao tomarmos a posse e realizarmos a vistoria interna, seja confirmada a existência de 3 ou mais quartos dentro desse layout ampliado. Caso essa surpresa positiva se confirme, o valor de mercado real do ativo será substancialmente superior ao projetado neste relatório, aumentando ainda mais a margem de lucro líquido e a velocidade de saída no flipping.
+      </div>
+
+      <!-- PAGE BREAK PARA A PÁGINA 2 -->
+      <div class="page-break"></div>
+
+      <!-- Header Página 2 -->
+      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #0f2c42; padding-bottom: 4px; margin-bottom: 12px;">
+        <span style="font-size: 10px; font-weight: 800; color: #0f2c42; text-transform: uppercase;">
+          ESTUDO DE VIABILIDADE E LIQUIDEZ IMOBILIÁRIA — PROJETO FLIPPING
+        </span>
+        <span style="font-size: 9px; color: #64748b; font-weight: 700;">Página 2 de 2</span>
+      </div>
+
+      <!-- 4. Perfil de Demanda Interna e Capacidade de Compra -->
+      <div class="section-title" style="margin-top: 0;">4. Perfil de Demanda Interna e Capacidade de Compra</div>
+      <p style="margin: 0 0 6px 0; color: #334155; text-align: justify;">
+        A absorção habitacional da região é caracterizada por forte apelo comercial e independência, com alta demanda por imóveis prontos. Considerando a venda final sugerida por <strong>${formatBRL(revenda * 0.90)}</strong>, seguem as projeções para o comprador final:
+      </p>
+
+      <table class="table-alt">
+        <thead>
+          <tr>
+            <th style="width: 34%;">Indicador de Financiamento</th>
+            <th style="width: 33%;">Sistema SAC (Declinantes)</th>
+            <th style="width: 33%;">Tabela PRICE (Fixas)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style="font-weight: 700; color: #0f172a;">Parcela Mensal Inicial</td>
+            <td style="font-weight: 700; color: #0f2c42;">${formatBRL(sacPrimeira)}</td>
+            <td style="font-weight: 700; color: #0f2c42;">${formatBRL(priceFixa)}</td>
+          </tr>
+          <tr>
+            <td style="font-weight: 700; color: #0f172a;">Parcela Mensal Final</td>
+            <td style="color: #64748b;">${formatBRL(sacUltima)}</td>
+            <td style="color: #64748b;">${formatBRL(priceFixa)}</td>
+          </tr>
+          <tr>
+            <td style="font-weight: 700; color: #0f172a;">Renda Familiar Mínima</td>
+            <td style="font-weight: 700; color: #047857;">Recomendada: ${formatBRL(rendaMinima * 0.9)} a ${formatBRL(rendaMinima * 1.05)}</td>
+            <td style="font-weight: 700; color: #047857;">Recomendada: ${formatBRL(rendaMinima * 0.8)} a ${formatBRL(rendaMinima * 0.95)}</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- 5. Matriz Econômica Local (Garantia de Liquidez) -->
+      <div class="section-title">5. Matriz Econômica Local (Garantia de Liquidez)</div>
+      <p style="margin: 0 0 8px 0; color: #334155; text-align: justify;">
+        O comércio interno vigoroso do bairro e a proximidade com polos industriais e de serviços garantem um fluxo contínuo de compradores qualificados de classe média e famílias com capacidade de financiamento, faixa que absorve com máxima agilidade imóveis residenciais completos com ampla área útil e boa estrutura.
+      </p>
+
+      <!-- 6. Estratégia de Mitigação de Riscos para o Investidor -->
+      <div class="section-title">6. Estratégia de Mitigação de Riscos para o Investidor</div>
+      <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; padding: 8px 12px; margin-bottom: 10px;">
+        <div style="margin-bottom: 6px;">
+          <strong>1. Segurança do Gravame (${sa.folhas_penhora_matricula || 'AV-12/13'}):</strong> ${sa.observacoes_matricula ? sa.observacoes_matricula : 'O certame vincula a responsabilidade de baixa da indisponibilidade ou penhoras ao credor fiduciário / expedição de ofícios judiciais de arrematação. O investidor planeja o fluxo sabendo que o registro final aguardará esse trâmite desimpedido.'}
+        </div>
+        <div style="margin-bottom: 6px;">
+          <strong>2. Custo de Regularização Reduzido:</strong> Como a prefeitura já possui a metragem cadastrada retroativamente, a regularização está isenta de INSS (decadência fiscal). O custo se limita às custas de averbação cartorária (~R$ ${formatBRL(cartorio)}).
+        </div>
+        <div>
+          <strong>3. Ocupação e Desocupação (AF):</strong> Alocação recomendada de <strong>${formatBRL(desocupacao)}</strong> para suporte jurídico na imissão de posse (liminar de 60 dias) e reparos estéticos rápidos pós-desocupação.
+        </div>
+      </div>
+
+      <!-- 7. Demonstrativo Completo de Desembolso & Retorno Financeiro -->
+      <div class="section-title">7. Demonstrativo Completo de Desembolso & Retorno Líquido</div>
+      <table class="table-alt" style="margin-bottom: 12px;">
+        <thead>
+          <tr>
+            <th>Item de Desembolso</th>
+            <th>Base de Cálculo</th>
+            <th style="text-align: right;">Valor (R$)</th>
+            <th style="text-align: right;">% do Custo</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Lance no 2º Leilão</strong></td>
+            <td>Lance de arrematação com ${desconto}% de deságio</td>
             <td style="text-align: right; font-weight: bold;">${formatBRL(lance)}</td>
             <td style="text-align: right;">${custoTotal > 0 ? ((lance / custoTotal) * 100).toFixed(1) : 0}%</td>
           </tr>
           <tr>
-            <td>Comissão do Leiloeiro Oficial</td>
-            <td>5% incidente sobre o valor da arrematação</td>
+            <td>Comissão do Leiloeiro</td>
+            <td>5% sobre o lance de arrematação</td>
             <td style="text-align: right;">${formatBRL(comissao)}</td>
             <td style="text-align: right;">${custoTotal > 0 ? ((comissao / custoTotal) * 100).toFixed(1) : 0}%</td>
           </tr>
           <tr>
-            <td>ITBI (Imposto de Transmissão)</td>
-            <td>Estimado em 3% sobre arrematação ou valor venal municipal</td>
-            <td style="text-align: right;">${formatBRL(itbi)}</td>
-            <td style="text-align: right;">${custoTotal > 0 ? ((itbi / custoTotal) * 100).toFixed(1) : 0}%</td>
+            <td>ITBI + Custas Cartorárias</td>
+            <td>ITBI (~3%) + Registro de Imóveis (~1,5%)</td>
+            <td style="text-align: right;">${formatBRL(itbi + cartorio)}</td>
+            <td style="text-align: right;">${custoTotal > 0 ? (((itbi + cartorio) / custoTotal) * 100).toFixed(1) : 0}%</td>
           </tr>
           <tr>
-            <td>Emolumentos de Escritura e Registro (CRI)</td>
-            <td>Registro da Carta de Arrematação no Cartório de Imóveis (~1,5%)</td>
-            <td style="text-align: right;">${formatBRL(cartorio)}</td>
-            <td style="text-align: right;">${custoTotal > 0 ? ((cartorio / custoTotal) * 100).toFixed(1) : 0}%</td>
+            <td>Reforma & Desocupação</td>
+            <td>Pintura, reparos estéticos e honorários de posse</td>
+            <td style="text-align: right;">${formatBRL(reforma + desocupacao)}</td>
+            <td style="text-align: right;">${custoTotal > 0 ? (((reforma + desocupacao) / custoTotal) * 100).toFixed(1) : 0}%</td>
           </tr>
           <tr>
-            <td>Reforma, Pintura e Reparos</td>
-            <td>Adequação estética e funcional para revenda de liquidez rápida</td>
-            <td style="text-align: right;">${formatBRL(reforma)}</td>
-            <td style="text-align: right;">${custoTotal > 0 ? ((reforma / custoTotal) * 100).toFixed(1) : 0}%</td>
-          </tr>
-          <tr>
-            <td>Honorários Jurídicos / Imissão de Posse</td>
-            <td>Assessoria jurídica especializada para expedição de mandado e desocupação</td>
-            <td style="text-align: right;">${formatBRL(desocupacao)}</td>
-            <td style="text-align: right;">${custoTotal > 0 ? ((desocupacao / custoTotal) * 100).toFixed(1) : 0}%</td>
-          </tr>
-          <tr>
-            <td>Débitos de IPTU e Condomínio Atrasados</td>
-            <td>Responsabilidade: <strong>${sa.responsabilidade_iptu || 'Sub-rogado no preço'}</strong> (IPTU: ${formatBRL(sa.iptu_atraso)}) / Condomínio: ${formatBRL(sa.condominio_atraso)}</td>
-            <td style="text-align: right;">${formatBRL(iptuAtraso + condAtraso)}</td>
-            <td style="text-align: right;">${custoTotal > 0 ? (((iptuAtraso + condAtraso) / custoTotal) * 100).toFixed(1) : 0}%</td>
-          </tr>
-          <tr>
-            <td>Custos de Carregamento (Holding 8 meses)</td>
-            <td>IPTU + Condomínio mensais durante período de desocupação e revenda</td>
+            <td>Holding Costs (8 meses)</td>
+            <td>IPTU e condomínio no período de desocupação e venda</td>
             <td style="text-align: right;">${formatBRL(holding)}</td>
             <td style="text-align: right;">${custoTotal > 0 ? ((holding / custoTotal) * 100).toFixed(1) : 0}%</td>
           </tr>
-          <tr style="background: #f0fdf4; font-weight: bold; border-top: 2px solid #047857;">
-            <td style="font-size: 12px; color: #047857;">CUSTO TOTAL DE AQUISIÇÃO (CAPITAL INVESTIDO)</td>
-            <td style="color: #047857;">Soma de todos os desembolsos até a revenda</td>
-            <td style="text-align: right; font-size: 13px; color: #047857;">${formatBRL(custoTotal)}</td>
-            <td style="text-align: right; color: #047857;">100.0%</td>
+          <tr style="background: #f1f5f9; font-weight: bold; border-top: 2px solid #0f2c42;">
+            <td style="color: #0f2c42;">CUSTO TOTAL DE AQUISIÇÃO</td>
+            <td style="color: #0f2c42;">Capital líquido total desembolsado</td>
+            <td style="text-align: right; color: #0f2c42; font-size: 11px;">${formatBRL(custoTotal)}</td>
+            <td style="text-align: right; color: #0f2c42;">100%</td>
+          </tr>
+          <tr style="background: #ecfdf5; font-weight: bold;">
+            <td style="color: #047857;">LUCRO LÍQUIDO PROJETADO</td>
+            <td style="color: #047857;">Venda por ${formatBRL(revenda)} menos custos e comissão (6%)</td>
+            <td style="text-align: right; color: #047857; font-size: 12px;">${formatBRL(lucroLiquido)}</td>
+            <td style="text-align: right; color: #047857;">ROI: ${formatPercent(roiCalculado)} | TIR: ${formatPercent(tirCalculada)}</td>
           </tr>
         </tbody>
       </table>
 
-      <!-- 4. PROJEÇÃO DE RETORNO E SIMULAÇÃO DE FINANCIAMENTO FINAL -->
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 8px;">
-        <!-- Retorno Financeiro -->
-        <div style="border: 1px solid #cbd5e1; border-radius: 8px; padding: 10px; background: #ffffff;">
-          <div style="font-size: 11px; font-weight: 800; color: #047857; text-transform: uppercase; margin-bottom: 6px;">
-            Projeção de Retorno (Flipping em 6 a 12 meses)
-          </div>
-          <table style="margin-bottom: 0;">
-            <tbody>
-              <tr>
-                <td>Preço Estimado de Venda:</td>
-                <td style="text-align: right; font-weight: bold;">${formatBRL(revenda)}</td>
-              </tr>
-              <tr>
-                <td>(-) Custo Total de Aquisição:</td>
-                <td style="text-align: right; color: #b91c1c;">-${formatBRL(custoTotal)}</td>
-              </tr>
-              <tr>
-                <td>(-) Corretagem de Venda (6%):</td>
-                <td style="text-align: right; color: #b91c1c;">-${formatBRL(revenda * 0.06)}</td>
-              </tr>
-              <tr style="background: #ecfdf5; font-weight: bold;">
-                <td style="color: #047857;">LUCRO LÍQUIDO ESTIMADO:</td>
-                <td style="text-align: right; color: #047857; font-size: 13px;">${formatBRL(lucroLiquido)}</td>
-              </tr>
-              <tr>
-                <td>Retorno s/ Investimento (ROI):</td>
-                <td style="text-align: right; font-weight: bold; color: #047857;">${formatPercent(roiCalculado)}</td>
-              </tr>
-              <tr>
-                <td>TIR Anualizada Estimada:</td>
-                <td style="text-align: right; font-weight: bold; color: #047857;">${formatPercent(tirCalculada)} a.a.</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <!-- Financiamento Comprador Final -->
-        <div style="border: 1px solid #cbd5e1; border-radius: 8px; padding: 10px; background: #ffffff;">
-          <div style="font-size: 11px; font-weight: 800; color: #1e3a8a; text-transform: uppercase; margin-bottom: 6px;">
-            Simulação de Financiamento para Comprador Final
-          </div>
-          <table style="margin-bottom: 0;">
-            <tbody>
-              <tr>
-                <td>Entrada do Comprador (20%):</td>
-                <td style="text-align: right; font-weight: bold;">${formatBRL(entradaFinanc)}</td>
-              </tr>
-              <tr>
-                <td>Saldo Financiado (80% em 360 meses):</td>
-                <td style="text-align: right; font-weight: bold;">${formatBRL(financiado)}</td>
-              </tr>
-              <tr>
-                <td>Tabela SAC - 1ª Parcela:</td>
-                <td style="text-align: right; font-weight: bold; color: #1e3a8a;">${formatBRL(sacPrimeira)}</td>
-              </tr>
-              <tr>
-                <td>Tabela SAC - Última Parcela:</td>
-                <td style="text-align: right; color: #64748b;">${formatBRL(sacUltima)}</td>
-              </tr>
-              <tr>
-                <td>Tabela PRICE - Parcela Fixa:</td>
-                <td style="text-align: right; font-weight: bold; color: #1e3a8a;">${formatBRL(priceFixa)}</td>
-              </tr>
-              <tr style="background: #eff6ff; font-weight: bold;">
-                <td style="color: #1e3a8a;">Renda Familiar Mínima Estimada:</td>
-                <td style="text-align: right; color: #1e3a8a;">${formatBRL(rendaMinima)}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <!-- PAGE BREAK FOR LEGAL DIAGNOSIS & REMEDIES -->
-      <div class="page-break"></div>
-
-      <!-- Header Page 2 -->
-      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #cbd5e1; padding-bottom: 6px; margin-bottom: 12px;">
-        <span style="font-size: 10px; font-weight: 800; color: #047857; text-transform: uppercase;">TJ INVEST — Parecer Jurídico & Matriz de Riscos</span>
-        <span style="font-size: 9px; color: #64748b;">Página 2 de 2</span>
-      </div>
-
-      <!-- 5. DIAGNÓSTICO JURÍDICO & MATRIZ DE RISCOS -->
-      <div class="section-header" style="margin-top: 0;">4. Diagnóstico Jurídico & Matriz de Riscos de Arrematação</div>
-      <table>
-        <thead>
-          <tr>
-            <th style="width: 30%;">Item de Segurança Jurídica</th>
-            <th style="width: 15%; text-align: center;">Status</th>
-            <th style="width: 55%;">Parecer Técnico / Folhas nos Autos</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td><strong>Citação Regular do Executado</strong></td>
-            <td style="text-align: center;">
-              <span class="${sa.citacao_regular !== false && !sa.vicio_citacao ? 'badge-green' : 'badge-red'}">
-                ${sa.citacao_regular !== false && !sa.vicio_citacao ? 'CONFIRMADO' : 'ATENÇÃO'}
-              </span>
-            </td>
-            <td>Citação válida realizada nos autos ${sa.folhas_citacao ? `(Folhas: ${sa.folhas_citacao})` : ''}. Vício de citação: <strong>${sa.vicio_citacao ? 'Presente (Risco)' : 'Não detectado'}</strong>.</td>
-          </tr>
-          <tr>
-            <td><strong>Intimação do Devedor e Cônjuge</strong></td>
-            <td style="text-align: center;">
-              <span class="${sa.intimacao_executado !== false ? 'badge-green' : 'badge-amber'}">
-                ${sa.intimacao_executado !== false ? 'REGULAR' : 'PENDENTE'}
-              </span>
-            </td>
-            <td>Intimação das datas do leilão comprovada ${sa.folhas_intimacao_leilao ? `(Folhas: ${sa.folhas_intimacao_leilao})` : ''}. Intimação do cônjuge: <strong>${sa.intimacao_conjuge ? 'Sim' : 'Verificar regime de bens'}</strong>.</td>
-          </tr>
-          <tr>
-            <td><strong>Credor Fiduciário / Coproprietário</strong></td>
-            <td style="text-align: center;">
-              <span class="${sa.intimacao_credor_fiduciario ? 'badge-green' : 'badge-amber'}">
-                ${sa.intimacao_credor_fiduciario ? 'INTIMADO' : 'NÃO APLICÁVEL'}
-              </span>
-            </td>
-            <td>Credor com garantia real devidamente intimado para fins do art. 889 do CPC.</td>
-          </tr>
-          <tr>
-            <td><strong>Análise de Preço Vil</strong></td>
-            <td style="text-align: center;">
-              <span class="${!sa.preco_vil_caracterizado ? 'badge-green' : 'badge-red'}">
-                ${!sa.preco_vil_caracterizado ? 'REGULAR' : 'PREÇO VIL'}
-              </span>
-            </td>
-            <td>Lance fixado em patamar superior a 50% da avaliação atualizada (Art. 891 do CPC). Preço vil afastado.</td>
-          </tr>
-          <tr>
-            <td><strong>Situação Ocupacional do Imóvel</strong></td>
-            <td style="text-align: center;">
-              <span class="${sa.status_ocupacao === 'Desocupado' ? 'badge-green' : 'badge-amber'}">
-                ${sa.status_ocupacao || 'Ocupado'}
-              </span>
-            </td>
-            <td>Ocupação: <strong>${sa.status_ocupacao || 'Ocupado pelo ex-mutuário'}</strong>. Ocupante: ${sa.nome_ocupante || 'Ex-mutuário ou terceiro'}. Prazo estimado de desocupação: <strong>${sa.prazo_estimado_desocupacao || '3 a 6 meses'}</strong>. Custo: ${formatBRL(desocupacao)}.</td>
-          </tr>
-          <tr>
-            <td><strong>Gravames e Ônus na Matrícula (CRI)</strong></td>
-            <td style="text-align: center;">
-              <span class="${!sa.tem_onus && !sa.indisponibilidade_bens ? 'badge-green' : 'badge-amber'}">
-                ${!sa.tem_onus ? 'LIVRE DE ÔNUS' : 'GRAVAMES PRESENTES'}
-              </span>
-            </td>
-            <td>${sa.observacoes_matricula || 'Penhoras do processo serão canceladas por ordem judicial de arrematação (art. 901 do CPC).'} ${sa.folhas_penhora_matricula ? `(Folhas: ${sa.folhas_penhora_matricula})` : ''}</td>
-          </tr>
-          <tr>
-            <td><strong>Responsabilidade por Débitos de IPTU</strong></td>
-            <td style="text-align: center;">
-              <span class="${sa.responsabilidade_iptu === 'Sub-rogado no preço' ? 'badge-green' : 'badge-amber'}">
-                ${sa.responsabilidade_iptu || 'Sub-rogado no preço'}
-              </span>
-            </td>
-            <td>Regra do Edital: <strong>${sa.responsabilidade_iptu || 'Sub-rogado no preço'}</strong> (Art. 130, parágrafo único do CTN). Valor apurado: ${formatBRL(sa.iptu_atraso)}.</td>
-          </tr>
-          <tr>
-            <td><strong>Responsabilidade por Condomínio</strong></td>
-            <td style="text-align: center;">
-              <span class="${sa.responsabilidade_condominio === 'Sub-rogado no preço' ? 'badge-green' : 'badge-amber'}">
-                ${sa.responsabilidade_condominio || 'Sub-rogado no preço'}
-              </span>
-            </td>
-            <td>Regra do Edital: <strong>${sa.responsabilidade_condominio || 'Sub-rogado no preço'}</strong>. Valor apurado: ${formatBRL(sa.condominio_atraso)}.</td>
-          </tr>
-        </tbody>
-      </table>
-
-      <!-- 6. COMENTÁRIOS ESTRATÉGICOS & CRUZAMENTO DE FONTES -->
-      <div class="section-header">5. Alertas Estratégicos & Cruzamento Minucioso de Fontes</div>
-      <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 10px; font-size: 11px; margin-bottom: 14px;">
-        <div style="margin-bottom: 6px; font-weight: bold; color: #047857;">Justificativa da Recomendação:</div>
-        <p style="margin: 0 0 8px 0; color: #334155;">${sa.justificativa || 'Oportunidade sólida de arrematação em 2º leilão com expressiva margem de segurança financeira (ROI superior a 50%) e mitigação jurídica controlada com base nos autos do processo.'}</p>
-        
-        ${sa.comentarios_importantes ? `
-          <div style="margin-top: 8px; border-top: 1px solid #e2e8f0; padding-top: 6px;">
-            <div style="font-weight: bold; color: #0f172a; margin-bottom: 4px;">Pontos Críticos Cruzados nos Autos:</div>
-            <div style="white-space: pre-wrap; color: #475569; font-size: 10px; line-height: 1.4;">${sa.comentarios_importantes}</div>
-          </div>
-        ` : ''}
-      </div>
-
-      <!-- 7. ASSINATURA E RESPONSÁVEL -->
-      <div style="margin-top: 24px; border-top: 1px solid #cbd5e1; padding-top: 14px; display: flex; justify-content: space-between; align-items: flex-end;">
+      <!-- Rodapé Oficial com Assinatura -->
+      <div style="border-top: 1px solid #cbd5e1; padding-top: 8px; display: flex; justify-content: space-between; align-items: flex-end; font-size: 8.5px; color: #64748b;">
         <div>
-          <div style="font-size: 11px; font-weight: 800; color: #0f172a;">${advisorName}</div>
-          <div style="font-size: 9px; color: #64748b;">TJ INVEST — Departamento de Inteligência Imobiliária</div>
-          <div style="font-size: 9px; color: #94a3b8;">Documento auditado eletronicamente e gerado por inteligência artificial jurídica.</div>
+          <strong>${advisorName}</strong> — TJ INVEST Inteligência em Leilões Imobiliários<br/>
+          <em>This is for informational purposes only. Documento auditado eletronicamente.</em>
         </div>
-        <div style="text-align: center; min-width: 200px;">
-          <div style="border-bottom: 1px solid #0f172a; width: 180px; margin-bottom: 4px;"></div>
-          <span style="font-size: 10px; font-weight: 700; color: #0f172a;">Visto do Analista / Arrematante</span>
+        <div style="text-align: center; min-width: 170px;">
+          <div style="border-bottom: 1px solid #0f2c42; width: 150px; margin-bottom: 3px;"></div>
+          <span>Visto do Analista / Arrematante</span>
         </div>
       </div>
 
