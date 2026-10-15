@@ -2,19 +2,28 @@
 <img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
 </div>
 
-# Run and deploy your AI Studio app
+# TJ INVEST - Central de Inteligência de Leilões
 
-This contains everything you need to run your app locally.
+Sistema especialista em análise de viabilidade e auditoria jurídica para leilões imobiliários judiciais e extrajudiciais.
 
-View your app in AI Studio: https://ai.studio/apps/bf2b9c67-85df-4143-bc9c-4ff16e833746
+Visualizar no AI Studio: https://ai.studio/apps/495aa091-3cc5-4ae1-bbaf-d976e6d0e5d1
 
-## Run Locally
+## Como Executar Localmente ou em Servidor
 
-**Prerequisites:**  Node.js
+**Requisitos:** Node.js 18+
 
+1. Instalar dependências:
+   ```bash
+   npm install
+   ```
+2. Compilar aplicação para produção:
+   ```bash
+   npm run build
+   ```
+3. Iniciar servidor:
+   ```bash
+   npm run start
+   ```
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+*Última atualização: Estudo de Viabilidade modularizado em aba dedicada com exportação oficial em PDF e análise de liquidez.*
+
