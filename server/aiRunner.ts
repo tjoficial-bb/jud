@@ -31,8 +31,8 @@ const fetchUrlContent = async (url: string): Promise<string> => {
   try {
     console.log(`[Crawler] Iniciando captura rápida de URL do leilão: ${cleanedUrl}`);
     const res = await axios.get(cleanedUrl, {
-      timeout: 8000,
-      maxRedirects: 5, // Prevent slow infinite redirect loops
+      timeout: 3500,
+      maxRedirects: 3, // Prevent slow infinite redirect loops
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',

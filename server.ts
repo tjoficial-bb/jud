@@ -208,8 +208,10 @@ function initDbWithRetry() {
       conn.close();
       
       db = new Database(DB_NAME);
-      db.pragma("busy_timeout = 5000");
-      console.log("Database initialized successfully with busy_timeout=5000.");
+      db.pragma("journal_mode = WAL");
+      db.pragma("synchronous = NORMAL");
+      db.pragma("busy_timeout = 10000");
+      console.log("Database initialized successfully with WAL mode, synchronous=NORMAL, and busy_timeout=10000.");
       return;
     } catch (err: any) {
       const errMsg = err.message || "";
