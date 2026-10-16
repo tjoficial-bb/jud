@@ -25,5 +25,4 @@ Visualizar no AI Studio: https://ai.studio/apps/495aa091-3cc5-4ae1-bbaf-d976e6d0
    npm run start
    ```
 
-*Última atualização: Estudo de Viabilidade modularizado em aba dedicada com exportação oficial em PDF e análise de liquidez.*
-
+*Última atualização: Versão 1.0.2 - Aba dedicada 'Estudo de Viabilidade' integrada com exportação em PDF e métricas de liquidez.*
