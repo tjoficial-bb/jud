@@ -189,39 +189,37 @@ export const SmartResetPanel: React.FC<SmartResetPanelProps> = ({
 
           <div className="space-y-3 pt-4">
             {/* Botão Resetar Aba Atual */}
-            {tabKey !== 'report' && hasAnalysis && (
-              <div className="space-y-2">
-                {!showConfirmResetTab ? (
-                  <button
-                    onClick={() => setShowConfirmResetTab(true)}
-                    className="w-full bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 border border-rose-500/20 font-bold py-2.5 px-4 rounded-xl text-xs transition-all flex items-center justify-center gap-2"
-                  >
-                    <RotateCcw size={14} /> Limpar Análise de {tabName}
-                  </button>
-                ) : (
-                  <div className="bg-rose-500/5 p-3 rounded-xl border border-rose-500/20 space-y-2">
-                    <p className="text-[11px] text-rose-500 font-semibold text-center">Tem certeza? Isso apagará o relatório gerado nesta aba.</p>
-                    <div className="grid grid-cols-2 gap-2">
-                      <button
-                        onClick={() => setShowConfirmResetTab(false)}
-                        className="bg-brand-bg/40 text-brand-ink/70 font-semibold py-1.5 px-3 rounded-lg text-[10px] hover:bg-brand-bg/60 border border-brand-border/20"
-                      >
-                        Cancelar
-                      </button>
-                      <button
-                        onClick={() => {
-                          onResetTab();
-                          setShowConfirmResetTab(false);
-                        }}
-                        className="bg-rose-500 text-white font-bold py-1.5 px-3 rounded-lg text-[10px] hover:bg-rose-600 transition-all"
-                      >
-                        Confirmar Reset
-                      </button>
-                    </div>
+            <div className="space-y-2">
+              {!showConfirmResetTab ? (
+                <button
+                  onClick={() => setShowConfirmResetTab(true)}
+                  className="w-full bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 border border-rose-500/20 font-bold py-2.5 px-4 rounded-xl text-xs transition-all flex items-center justify-center gap-2"
+                >
+                  <RotateCcw size={14} /> Limpar Análise de {tabName}
+                </button>
+              ) : (
+                <div className="bg-rose-500/5 p-3 rounded-xl border border-rose-500/20 space-y-2">
+                  <p className="text-[11px] text-rose-500 font-semibold text-center">Tem certeza? Isso apagará as análises desta aba.</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      onClick={() => setShowConfirmResetTab(false)}
+                      className="bg-brand-bg/40 text-brand-ink/70 font-semibold py-1.5 px-3 rounded-lg text-[10px] hover:bg-brand-bg/60 border border-brand-border/20"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      onClick={() => {
+                        onResetTab();
+                        setShowConfirmResetTab(false);
+                      }}
+                      className="bg-rose-500 text-white font-bold py-1.5 px-3 rounded-lg text-[10px] hover:bg-rose-600 transition-all"
+                    >
+                      Confirmar Reset
+                    </button>
                   </div>
-                )}
-              </div>
-            )}
+                </div>
+              )}
+            </div>
 
             {/* Botão Resetar Tudo */}
             <div className="space-y-2">

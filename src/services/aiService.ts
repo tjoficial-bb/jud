@@ -55,8 +55,8 @@ export const analyzeAuctionDocuments = async (
                         errMessage.includes('resource_exhausted');
 
     if (isOverloaded) {
-      // For quota errors (429, TPM limits), fallback to gemini-3.1-flash-lite or gemini-2.5-flash which have massive quotas
-      const fallbackTarget = activeModel === 'gemini-3.1-flash-lite' ? 'gemini-2.5-flash' : 'gemini-3.1-flash-lite';
+      // For quota errors (429, TPM limits), fallback to gemini-3.1-flash-lite or gemini-3.8-flash which have massive quotas
+      const fallbackTarget = activeModel === 'gemini-3.1-flash-lite' ? 'gemini-3.8-flash' : 'gemini-3.1-flash-lite';
         
       console.warn(`[AI SERVICE FALLBACK] Model ${activeModel} failed with overloading/quota. Retrying automatically with ${fallbackTarget}...`);
       
@@ -154,7 +154,7 @@ export const sendChatMessage = async (
                         errMessage.includes('resource_exhausted');
 
     if (isOverloaded) {
-      const fallbackTarget = activeModel === 'gemini-3.1-flash-lite' ? 'gemini-2.5-flash' : 'gemini-3.1-flash-lite';
+      const fallbackTarget = activeModel === 'gemini-3.1-flash-lite' ? 'gemini-3.8-flash' : 'gemini-3.1-flash-lite';
         
       console.warn(`[AI SERVICE FALLBACK] Chat model ${activeModel} failed with overloading/quota. Retrying with ${fallbackTarget}...`);
       

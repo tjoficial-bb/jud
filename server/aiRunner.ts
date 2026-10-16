@@ -143,12 +143,12 @@ const generateContentWithFallback = async (
   ai: any,
   primaryModel: string,
   requestPayload: any,
-  retries = 2,
-  delayMs = 1500
+  retries = 3,
+  delayMs = 2000
 ): Promise<any> => {
   const initialModel = mapModelId(primaryModel);
-  // Prioritized list of valid Gemini models for graceful degradation
-  const fallbackModelPool = ['gemini-3.8-flash', 'gemini-flash-latest', 'gemini-3.1-flash-lite', 'gemini-3.1-pro-preview', 'gemini-3.7-flash'];
+  // Prioritized list of valid Gemini models for graceful degradation: flash-lite has massive 4M TPM quota
+  const fallbackModelPool = ['gemini-3.8-flash', 'gemini-3.1-flash-lite', 'gemini-flash-latest', 'gemini-3.7-flash', 'gemini-3.1-pro-preview'];
   
   // Build a distinct sequence starting with the requested model
   const modelQueue: string[] = [initialModel];
@@ -350,14 +350,14 @@ const mapModelId = (model: string): string => {
     'gemini-3.1-pro-preview': 'gemini-3.1-pro-preview',
     'gemini-3.1-flash-preview': 'gemini-3.1-flash-lite',
     'gemini-3-flash-preview': 'gemini-3.8-flash',
-    'gemini-2.5-flash': 'gemini-2.5-flash',
+    'gemini-2.5-flash': 'gemini-3.8-flash',
     'gemini-2.5-flash-lite': 'gemini-3.1-flash-lite',
-    'gemini-2.5-pro': 'gemini-2.5-pro',
+    'gemini-2.5-pro': 'gemini-3.1-pro-preview',
     'gemini-flash-latest': 'gemini-flash-latest',
     'gemini-pro-latest': 'gemini-3.1-pro-preview',
-    'gemini-2.0-flash': 'gemini-2.5-flash',
-    'gemini-1.5-flash': 'gemini-2.5-flash',
-    'gemini-1.5-pro': 'gemini-2.5-pro',
+    'gemini-2.0-flash': 'gemini-3.8-flash',
+    'gemini-1.5-flash': 'gemini-3.8-flash',
+    'gemini-1.5-pro': 'gemini-3.1-pro-preview',
     
     'claude-4-6-opus': 'claude-3-5-sonnet-20241022', 
     'claude-4-6-sonnet': 'claude-3-5-sonnet-20241022',

@@ -372,8 +372,8 @@ const formatErrorMessage = (err: any) => {
   }
 
   // Detect 429 / Quota errors
-  if (msg.includes('429') || msg.includes('RESOURCE_EXHAUSTED') || msg.includes('quota')) {
-    return "A cota de requisições da sua chave Gemini foi atingida temporariamente (Erro 429). Aguarde alguns instantes para a cota recarregar, ou experimente alterar o modelo de IA nas configurações.";
+  if (msg.includes('429') || msg.includes('RESOURCE_EXHAUSTED') || msg.includes('quota') || msg.includes('excedeu')) {
+    return "Limite temporário de requisições por minuto atingido (Rate Limit 429). Suas cotas gerais e saldo permanecem ativos — aguarde cerca de 10 a 20 segundos para a cota por minuto recarregar, ou selecione o modelo Flash Lite com maior capacidade.";
   }
 
   // Extract message from raw JSON error if present
@@ -387,8 +387,8 @@ const formatErrorMessage = (err: any) => {
           if (parsed.error.code === 503 || parsed.error.status === 'UNAVAILABLE' || errMsg.includes('high demand')) {
             return "Os servidores do Google Gemini estão com alta demanda temporária (Erro 503). Sua chave é válida, mas a infraestrutura da Google está momentaneamente sobrecarregada. Tente novamente em alguns segundos.";
           }
-          if (parsed.error.code === 429 || parsed.error.status === 'RESOURCE_EXHAUSTED' || errMsg.includes('quota')) {
-            return "A cota de requisições da sua chave Gemini foi atingida temporariamente (Erro 429). Aguarde alguns instantes para a cota recarregar, ou experimente alterar o modelo de IA nas configurações.";
+          if (parsed.error.code === 429 || parsed.error.status === 'RESOURCE_EXHAUSTED' || errMsg.includes('quota') || errMsg.includes('excedeu')) {
+            return "Limite temporário de requisições por minuto atingido (Rate Limit 429). Suas cotas gerais e saldo permanecem ativos — aguarde cerca de 10 a 20 segundos para a cota por minuto recarregar, ou selecione o modelo Flash Lite com maior capacidade.";
           }
           return parsed.error.message;
         }
@@ -1571,9 +1571,11 @@ function PropertiesView({ properties, onRefresh, token, onSelectProperty }: { pr
         action
       );
     } else {
-      if (confirm("Tem certeza que deseja excluir este imóvel e todos os seus dados relacionados? Esta ação não pode ser desfeita.")) {
-        action();
-      }
+      (window as any).customConfirm(
+        "Excluir Imóvel",
+        "Tem certeza que deseja excluir este imóvel e todos os seus dados relacionados? Esta ação não pode ser desfeita.",
+        action
+      );
     }
   };
 
@@ -1909,30 +1911,35 @@ function BrainView({ token, onRefresh }: { token: string, onRefresh: () => void 
   };
 
   const handleRestoreDefaults = async () => {
-    if (!confirm('Deseja restaurar/recarregar a Base de Conhecimento Padrão? Todos os manuais, leis, jurisprudência e materiais do acervo serão restaurados.')) return;
-    setLoading(true);
-    try {
-      const res = await fetch('/api/strategic-brain/restore-defaults', {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (res.ok) {
-        const data = await parseJsonResponse(res);
-        if (data.items) {
-          setItems(data.items);
-        } else {
-          fetchBrain();
+    (window as any).customConfirm(
+      "Restaurar Base de Conhecimento",
+      "Deseja restaurar/recarregar a Base de Conhecimento Padrão? Todos os manuais, leis, jurisprudência e materiais do acervo serão restaurados.",
+      async () => {
+        setLoading(true);
+        try {
+          const res = await fetch('/api/strategic-brain/restore-defaults', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          if (res.ok) {
+            const data = await parseJsonResponse(res);
+            if (data.items) {
+              setItems(data.items);
+            } else {
+              fetchBrain();
+            }
+            onRefresh();
+            if ((window as any).customToast) (window as any).customToast('Base de Conhecimento restaurada com sucesso!', 'success');
+          } else {
+            if ((window as any).customToast) (window as any).customToast('Erro ao restaurar base de conhecimento.', 'error');
+          }
+        } catch (err: any) {
+          if ((window as any).customToast) (window as any).customToast('Erro de conexão ao restaurar base de conhecimento.', 'error');
+        } finally {
+          setLoading(false);
         }
-        onRefresh();
-        alert('Base de Conhecimento restaurada com sucesso com todos os conteúdos atualizados!');
-      } else {
-        alert('Erro ao restaurar base de conhecimento.');
       }
-    } catch (err: any) {
-      alert('Erro de conexão ao restaurar base de conhecimento.');
-    } finally {
-      setLoading(false);
-    }
+    );
   };
 
   return (
@@ -7572,6 +7579,14 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
   const [isPasteModalOpen, setIsPasteModalOpen] = useState(false);
   const [pasteText, setPasteText] = useState('');
 
+  // Confirm dialog state for resets and actions within AIAnalysisView
+  const [confirmDialog, setConfirmDialog] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+  }>({ isOpen: false, title: '', message: '', onConfirm: () => {} });
+
   // Sub-tab chats states
   const [editalChatMessages, setEditalChatMessages] = useState<ChatMessage[]>([
     { role: 'assistant', content: 'Olá! Compartilhe suas dúvidas sobre as cláusulas, datas, condições de pagamento ou regras estabelecidas no edital deste leilão.' }
@@ -7785,16 +7800,18 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
     exportElementToPDF("ai-analysis-tab-content", `Relatorio_Integrado_${selectedProperty?.title?.replace(/\s+/g, '_') || 'Geral'}.pdf`, "Relatório Integrado de Análise de Leilão - TJ INVEST");
   };
 
-  const handleResetAnalysis = (fullReset: boolean) => {
-    const message = fullReset 
-      ? "Tem certeza que deseja limpar todos os relatórios, análises, chats e documentos enviados? Esta ação não pode ser desfeita."
-      : "Tem certeza que deseja apagar as análises geradas por IA? Os arquivos enviados serão mantidos, mas os relatórios serão limpos.";
-      
-    if (confirm(message)) {
+  const executeResetAnalysis = async (fullReset: boolean) => {
+    try {
       if (fullReset) {
+        const currentDocs = selectedPropertyId ? propertyDocs : state.adHocDocs;
+        
+        // Optimistic UI updates immediately so UI never lags
+        setPropertyDocs([]);
+
         const masterDefaults = getMasterBudgetConfigs();
         updateState({
           selectedPropertyId: '',
+          analysisId: null,
           report: null,
           editalAnalysis: null,
           matriculaAnalysis: null,
@@ -7843,13 +7860,50 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
           },
           activeSubTab: 'report'
         });
+
+        // Parallel background deletion of documents
+        if (currentDocs && currentDocs.length > 0) {
+          Promise.allSettled(
+            currentDocs.map((doc: any) =>
+              fetch(`/api/documents/${doc.id}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${token}` }
+              })
+            )
+          ).catch(e => console.warn("Aviso ao deletar documentos:", e));
+        }
+
+        // Reset backend analysis record if analysisId was set
+        if (state.analysisId) {
+          fetch(`/api/ai-analyses/${state.analysisId}`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+              edital_analysis: null,
+              matricula_analysis: null,
+              process_analysis: null,
+              dossier_analysis: null,
+              exec_summary: null,
+              smart_analysis_json: null,
+              assessoria_analysis_json: null
+            })
+          }).catch(e => console.warn("Aviso ao resetar análise no backend:", e));
+        }
+
         setEditalChatMessages([{ role: 'assistant', content: 'Olá! Compartilhe suas dúvidas sobre as cláusulas, datas, condições de pagamento ou regras estabelecidas no edital deste leilão.' }]);
         setMatriculaChatMessages([{ role: 'assistant', content: 'Olá! Compartilhe suas dúvidas sobre o registro da matrícula, proprietários anteriores, gravames e indisponibilidades deste imóvel.' }]);
         setProcessosChatMessages([{ role: 'assistant', content: 'Olá! Estudo processual iniciado. Pergunte sobre os prazos de recursos, penhoras no processo ou riscos de suspensão do leilão.' }]);
         setDossierChatMessages([{ role: 'assistant', content: 'Olá! Este é o chat do Dossiê de Arrematação Inteligente. Vamos debater as conclusões consolidadas do laudo, finanças e aspectos de segurança jurídica.' }]);
         setDocumentsChatMessages([{ role: 'assistant', content: 'Olá! Sou seu assistente de gestão documental. Pergunte qualquer informação de dados ou incoerências nas peças enviadas.' }]);
         setSmartAnalysisChatMessages([{ role: 'assistant', content: 'Olá! Este é o chat da Análise Smart de Riscos. Você pode perguntar sobre a pontuação de risco geral, ocupação do imóvel, histórico de ex-mutuários e mais.' }]);
-        setAssessoriaChatMessages([{ role: 'assistant', content: 'Olá! Este é o chat de Assessoria Jurídica Avançada. Fique à voltar para debater o parecer estratégico, riscos, ressalvas de evicção ou recomendações finais.' }]);
+        setAssessoriaChatMessages([{ role: 'assistant', content: 'Olá! Este é o chat de Assessoria Jurídica Avançada. Fique à vontade para debater o parecer estratégico, riscos, ressalvas de evicção ou recomendações finais.' }]);
+
+        if ((window as any).customToast) {
+          (window as any).customToast("Todos os dados foram limpos com sucesso. Novo leilão pronto para início!", "success");
+        }
       } else {
         updateState({
           report: null,
@@ -7864,6 +7918,26 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
           chatMessages: [],
           activeSubTab: 'report'
         });
+
+        if (state.analysisId) {
+          fetch(`/api/ai-analyses/${state.analysisId}`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+              edital_analysis: null,
+              matricula_analysis: null,
+              process_analysis: null,
+              dossier_analysis: null,
+              exec_summary: null,
+              smart_analysis_json: null,
+              assessoria_analysis_json: null
+            })
+          }).catch(e => console.warn("Aviso ao resetar análise no backend:", e));
+        }
+
         setEditalChatMessages([{ role: 'assistant', content: 'Olá! Compartilhe suas dúvidas sobre as cláusulas, datas, condições de pagamento ou regras estabelecidas no edital deste leilão.' }]);
         setMatriculaChatMessages([{ role: 'assistant', content: 'Olá! Compartilhe suas dúvidas sobre o registro da matrícula, proprietários anteriores, gravames e indisponibilidades deste imóvel.' }]);
         setProcessosChatMessages([{ role: 'assistant', content: 'Olá! Estudo processual iniciado. Pergunte sobre os prazos de recursos, penhoras no processo ou riscos de suspensão do leilão.' }]);
@@ -7871,8 +7945,31 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
         setDocumentsChatMessages([{ role: 'assistant', content: 'Olá! Sou seu assistente de gestão documental. Pergunte qualquer informação de dados ou incoerências nas peças enviadas.' }]);
         setSmartAnalysisChatMessages([{ role: 'assistant', content: 'Olá! Este é o chat da Análise Smart de Riscos. Você pode perguntar sobre a pontuação de risco geral, ocupação do imóvel, histórico de ex-mutuários e mais.' }]);
         setAssessoriaChatMessages([{ role: 'assistant', content: 'Olá! Este é o chat de Assessoria Jurídica Avançada. Fique à vontade para debater o parecer estratégico, riscos, ressalvas de evicção ou recomendações finais.' }]);
+
+        if ((window as any).customToast) {
+          (window as any).customToast("Relatórios resetados com sucesso! Seus documentos foram mantidos prontos para uma nova análise.", "info");
+        }
       }
+    } catch (err: any) {
+      console.error("Erro ao resetar análise:", err);
     }
+  };
+
+  const handleResetAnalysis = (fullReset: boolean) => {
+    const title = fullReset ? "Limpar Tudo (Novo Leilão)" : "Refazer Análise Atual";
+    const message = fullReset 
+      ? "Tem certeza que deseja limpar todos os relatórios, análises, chats e documentos enviados? Esta ação não pode ser desfeita."
+      : "Tem certeza que deseja apagar as análises geradas por IA? Os arquivos enviados serão mantidos, mas os relatórios serão limpos para você executar uma nova análise.";
+      
+    setConfirmDialog({
+      isOpen: true,
+      title,
+      message,
+      onConfirm: () => {
+        setConfirmDialog(prev => ({ ...prev, isOpen: false }));
+        executeResetAnalysis(fullReset);
+      }
+    });
   };
 
   const { 
@@ -7968,63 +8065,15 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
   }, [analysisDocs]);
 
   const handleNewAnalysis = () => {
-    if (window.confirm("Deseja iniciar uma nova análise? Todos os dados da análise atual serão redefinidos.")) {
-      const masterDefaults = getMasterBudgetConfigs();
-      setState(prev => ({
-        ...prev,
-        activeSubTab: 'report',
-        selectedPropertyId: '',
-        report: null,
-        adHocDocs: [],
-        smartAnalysis: null,
-        cnjNumber: '',
-        cnjResult: null,
-        chatMessages: [],
-        simulationData: {
-          valuation: { value: 0, type: 'BRL' },
-          bid: { value: 0, type: 'BRL' },
-          saleValue: { value: 0, type: 'BRL' },
-          holdingMonths: 12,
-          strategy: 'venda',
-          expectedReturn: 15,
-          customExpenses: [],
-          assessoria: { value: masterDefaults.assessoria?.value ?? 6, type: masterDefaults.assessoria?.type ?? 'PERCENT', base: 'bid' },
-          entrada: { value: masterDefaults.entrada?.value ?? 1500, type: masterDefaults.entrada?.type ?? 'BRL' },
-          desocupacaoAcordo: { value: masterDefaults.desocupacaoAcordo?.value ?? 0, type: masterDefaults.desocupacaoAcordo?.type ?? 'BRL' },
-          desocupacaoDespesas: { value: 0, type: 'BRL' },
-          reformaMin: { value: masterDefaults.reforma?.value ?? 0, type: masterDefaults.reforma?.type ?? 'BRL' },
-          iptuAtraso: { value: 0, type: 'BRL' },
-          condominioAtraso: { value: 0, type: 'BRL' },
-          outrosAtraso: { value: 0, type: 'BRL' },
-          itbi: { value: masterDefaults.itbi?.value ?? 3, type: masterDefaults.itbi?.type ?? 'PERCENT', base: 'bid' },
-          escritura: { value: 1000, type: 'BRL' },
-          registro: { value: masterDefaults.transfRegistro?.value ?? 1.5, type: masterDefaults.transfRegistro?.type ?? 'PERCENT', base: 'bid' },
-          comissaoVenda: { value: 5, type: 'PERCENT', base: 'saleValue' },
-          outrosCustos: { value: masterDefaults.extraFees?.value ?? 0, type: masterDefaults.extraFees?.type ?? 'BRL' },
-          vendaHoldingMonths: { value: 0, type: 'BRL' },
-          vendaCondominioMonths: { value: 0, type: 'BRL' },
-          vendaIptuMonths: { value: 0, type: 'BRL' },
-          vendaOutrosMonths: { value: 0, type: 'BRL' },
-          downPaymentPercent: 100,
-          installments: 1,
-          interestRate: 0,
-          comparisonData: {
-            tesouro: { tir: 11.5, roi: 11.5 },
-            cdb: { tir: 12.0, roi: 12.0 },
-            poupanca: { tir: 6.5, roi: 6.5 }
-          }
-        },
-        analysisId: null,
-        processStory: null,
-        processAnalysis: null,
-        editalAnalysis: undefined,
-        matriculaAnalysis: undefined,
-        manualAuctionType: 'auto',
-        auctionUrls: [],
-        isEditingReport: false,
-        isEditingStory: false
-      }));
-    }
+    setConfirmDialog({
+      isOpen: true,
+      title: "Nova Análise",
+      message: "Deseja iniciar uma nova análise? Todos os dados da análise atual serão redefinidos para você começar um novo estudo.",
+      onConfirm: () => {
+        setConfirmDialog(prev => ({ ...prev, isOpen: false }));
+        executeResetAnalysis(true);
+      }
+    });
   };
 
   const [analyzingSmart, setAnalyzingSmart] = useState(false);
@@ -9896,19 +9945,28 @@ Formate em português do Brasil, em Markdown elegante e profissional, e inclua n
       if (tabKey === 'edital') {
         updates.editalAnalysis = null;
         backendPayload.edital_analysis = null;
+        setEditalChatMessages([{ role: 'assistant', content: 'Olá! Compartilhe suas dúvidas sobre as cláusulas, datas, condições de pagamento ou regras estabelecidas no edital deste leilão.' }]);
       } else if (tabKey === 'matricula') {
         updates.matriculaAnalysis = null;
         backendPayload.matricula_analysis = null;
+        setMatriculaChatMessages([{ role: 'assistant', content: 'Olá! Compartilhe suas dúvidas sobre o registro da matrícula, proprietários anteriores, gravames e indisponibilidades deste imóvel.' }]);
       } else if (tabKey === 'processos') {
         updates.processAnalysis = null;
+        updates.processStory = null;
         backendPayload.process_analysis = null;
+        setProcessosChatMessages([{ role: 'assistant', content: 'Olá! Estudo processual iniciado. Pergunte sobre os prazos de recursos, penhoras no processo ou riscos de suspensão do leilão.' }]);
       } else if (tabKey === 'dossier') {
         updates.dossierAnalysis = null;
         backendPayload.dossier_analysis = null;
+        setDossierChatMessages([{ role: 'assistant', content: 'Olá! Este é o chat do Dossiê de Arrematação Inteligente. Vamos debater as conclusões consolidadas do laudo, finanças e aspectos de segurança jurídica.' }]);
       } else if (tabKey === 'smart_analysis' || tabKey === 'viabilidade') {
         updates.smartAnalysis = null;
+        backendPayload.smart_analysis_json = null;
+        setSmartAnalysisChatMessages([{ role: 'assistant', content: 'Olá! Este é o chat da Análise Smart de Riscos. Você pode perguntar sobre a pontuação de risco geral, ocupação do imóvel, histórico de ex-mutuários e mais.' }]);
       } else if (tabKey === 'assessoria') {
         updates.assessoriaAnalysis = null;
+        backendPayload.assessoria_analysis_json = null;
+        setAssessoriaChatMessages([{ role: 'assistant', content: 'Olá! Este é o chat de Assessoria Jurídica Avançada. Fique à vontade para debater o parecer estratégico, riscos, ressalvas de evicção ou recomendações finais.' }]);
       } else if (tabKey === 'unified_summary') {
         updates.unifiedSummaryText = '';
       } else if (tabKey === 'regional_map') {
@@ -9921,6 +9979,7 @@ Formate em português do Brasil, em Markdown elegante e profissional, e inclua n
         updates.cnjNumber = '';
       } else if (tabKey === 'documents') {
         updates.adHocDocs = [];
+        setDocumentsChatMessages([{ role: 'assistant', content: 'Olá! Sou seu assistente de gestão documental. Pergunte qualquer informação de dados ou incoerências nas peças enviadas.' }]);
       } else if (tabKey === 'simulations') {
         updates.simulationData = {
           valuation: { value: 0, type: 'BRL' },
@@ -9966,25 +10025,23 @@ Formate em português do Brasil, em Markdown elegante e profissional, e inclua n
         };
       }
 
-      // 1. Update state locally
+      // 1. Update state locally immediately
       updateState(updates);
 
       // 2. Persist to database if we have an active analysisId
       if (state.analysisId && Object.keys(backendPayload).length > 0) {
-        await fetch(`/api/ai-analyses/${state.analysisId}`, {
+        fetch(`/api/ai-analyses/${state.analysisId}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`
           },
           body: JSON.stringify(backendPayload)
-        });
+        }).catch(e => console.warn("Aviso ao salvar reset no backend:", e));
       }
 
       if ((window as any).customToast) {
-        (window as any).customToast(`Análise de ${tabKey} limpa com sucesso.`);
-      } else {
-        alert(`Análise de ${tabKey} limpa com sucesso.`);
+        (window as any).customToast(`Análise de ${tabKey} limpa com sucesso.`, "info");
       }
     } catch (error) {
       console.error("Erro ao resetar análise da aba:", error);
@@ -9993,22 +10050,48 @@ Formate em português do Brasil, em Markdown elegante e profissional, e inclua n
 
   const handleResetAllPropertyData = async () => {
     try {
-      // 1. Delete all documents for this property
       const currentDocs = selectedPropertyId ? propertyDocs : state.adHocDocs;
-      for (const doc of currentDocs) {
-        await fetch(`/api/documents/${doc.id}`, {
-          method: 'DELETE',
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-      }
       
-      // Clear docs state
+      // 1. Optimistic clear state and docs immediately
       setPropertyDocs([]);
-      updateState({ adHocDocs: [] });
+      updateState({
+        adHocDocs: [],
+        report: null,
+        editalAnalysis: null,
+        matriculaAnalysis: null,
+        dossierAnalysis: null,
+        smartAnalysis: null,
+        assessoriaAnalysis: null,
+        processAnalysis: null,
+        processStory: null,
+        unifiedSummaryText: '',
+        regionalData: null
+      });
 
-      // 2. Clear all analyses in database if analysisId exists
+      // 2. Reset chat messages
+      setEditalChatMessages([{ role: 'assistant', content: 'Olá! Compartilhe suas dúvidas sobre as cláusulas, datas, condições de pagamento ou regras estabelecidas no edital deste leilão.' }]);
+      setMatriculaChatMessages([{ role: 'assistant', content: 'Olá! Compartilhe suas dúvidas sobre o registro da matrícula, proprietários anteriores, gravames e indisponibilidades deste imóvel.' }]);
+      setProcessosChatMessages([{ role: 'assistant', content: 'Olá! Estudo processual iniciado. Pergunte sobre os prazos de recursos, penhoras no processo ou riscos de suspensão do leilão.' }]);
+      setDossierChatMessages([{ role: 'assistant', content: 'Olá! Este é o chat do Dossiê de Arrematação Inteligente. Vamos debater as conclusões consolidadas do laudo, finanças e aspectos de segurança jurídica.' }]);
+      setDocumentsChatMessages([{ role: 'assistant', content: 'Olá! Sou seu assistente de gestão documental. Pergunte qualquer informação de dados ou incoerências nas peças enviadas.' }]);
+      setSmartAnalysisChatMessages([{ role: 'assistant', content: 'Olá! Este é o chat da Análise Smart de Riscos. Você pode perguntar sobre a pontuação de risco geral, ocupação do imóvel, histórico de ex-mutuários e mais.' }]);
+      setAssessoriaChatMessages([{ role: 'assistant', content: 'Olá! Este é o chat de Assessoria Jurídica Avançada. Fique à vontade para debater o parecer estratégico, riscos, ressalvas de evicção ou recomendações finais.' }]);
+
+      // 3. Delete all documents for this property in parallel
+      if (currentDocs && currentDocs.length > 0) {
+        Promise.allSettled(
+          currentDocs.map((doc: any) =>
+            fetch(`/api/documents/${doc.id}`, {
+              method: 'DELETE',
+              headers: { 'Authorization': `Bearer ${token}` }
+            })
+          )
+        ).catch(e => console.warn("Aviso ao deletar documentos:", e));
+      }
+
+      // 4. Clear all analyses in database if analysisId exists
       if (state.analysisId) {
-        await fetch(`/api/ai-analyses/${state.analysisId}`, {
+        fetch(`/api/ai-analyses/${state.analysisId}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -10019,31 +10102,18 @@ Formate em português do Brasil, em Markdown elegante e profissional, e inclua n
             matricula_analysis: null,
             process_analysis: null,
             dossier_analysis: null,
-            exec_summary: null
+            exec_summary: null,
+            smart_analysis_json: null,
+            assessoria_analysis_json: null
           })
-        });
+        }).catch(e => console.warn("Aviso ao resetar análise no backend:", e));
       }
 
-      // 3. Clear all state values
-      updateState({
-        report: null,
-        editalAnalysis: null,
-        matriculaAnalysis: null,
-        dossierAnalysis: null,
-        smartAnalysis: null,
-        assessoriaAnalysis: null,
-        processAnalysis: null,
-        processStory: null
-      });
-
       if ((window as any).customToast) {
-        (window as any).customToast("Todos os documentos e análises foram excluídos com sucesso.");
-      } else {
-        alert("Todos os documentos e análises foram excluídos com sucesso.");
+        (window as any).customToast("Todos os documentos e análises foram excluídos com sucesso.", "success");
       }
     } catch (error) {
       console.error("Erro no reset master do imóvel:", error);
-      alert("Ocorreu um erro ao realizar a limpeza completa.");
     }
   };
 
@@ -12992,6 +13062,34 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
           <div>
             <h5 className="text-sm font-bold text-brand-primary">Processando Documento</h5>
             <p className="text-xs font-semibold text-brand-ink/60 mt-1">{uploadProgressText}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Custom Confirm Dialog Modal for AIAnalysisView */}
+      {confirmDialog.isOpen && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[9999] p-4 no-print animate-in fade-in">
+          <div className="bg-brand-paper border border-brand-primary/30 p-8 rounded-3xl max-w-md w-full space-y-6 shadow-2xl">
+            <h3 className="text-xl font-serif font-bold text-brand-primary">
+              {confirmDialog.title}
+            </h3>
+            <p className="text-sm font-medium text-brand-ink/70 leading-relaxed">
+              {confirmDialog.message}
+            </p>
+            <div className="flex gap-4 justify-end pt-2">
+              <button 
+                onClick={() => setConfirmDialog(prev => ({ ...prev, isOpen: false }))}
+                className="px-5 py-3 bg-brand-bg hover:bg-brand-ink/5 border border-brand-primary/20 rounded-xl text-xs font-bold uppercase tracking-widest text-brand-ink cursor-pointer transition-all"
+              >
+                Cancelar
+              </button>
+              <button 
+                onClick={confirmDialog.onConfirm}
+                className="px-5 py-3 bg-red-600 hover:bg-red-700 rounded-xl text-xs font-bold uppercase tracking-widest text-white cursor-pointer transition-all shadow-lg shadow-red-900/30"
+              >
+                Confirmar
+              </button>
+            </div>
           </div>
         </div>
       )}

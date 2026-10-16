@@ -1395,8 +1395,12 @@ async function startServer() {
 
   // --- AI Analysis Routes ---
   app.get("/api/ai-analyses", authenticateToken, (req, res) => {
-    const analyses = db.prepare("SELECT * FROM ai_analyses").all();
-    res.json(analyses);
+    try {
+      const analyses = db.prepare("SELECT id, property_id, roi, tir, recommended_bid, ia_used, created_at FROM ai_analyses ORDER BY created_at DESC").all();
+      res.json(analyses);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
   });
 
   app.get("/api/ai-analyses/:propertyId", authenticateToken, (req, res) => {
@@ -2304,7 +2308,8 @@ async function startServer() {
               // If text is not present, attempt fast local extraction via pdf-parse
               if ((!extText || extText.trim().length === 0) && dbDoc.data && mimeType === 'application/pdf') {
                 try {
-                  const cleanBase64 = dbDoc.data.replace(/^data:[^;]+;base64,/, '').replace(/\s+/g, '');
+                  const commaIdx = dbDoc.data.indexOf(',');
+                  const cleanBase64 = commaIdx !== -1 && dbDoc.data.startsWith('data:') ? dbDoc.data.substring(commaIdx + 1) : dbDoc.data;
                   const buffer = Buffer.from(cleanBase64, 'base64');
                   let pdfParser = pdf;
                   if (typeof pdf !== 'function' && pdf && typeof (pdf as any).default === 'function') {
@@ -2397,7 +2402,8 @@ async function startServer() {
 
               if ((!extText || extText.trim().length === 0) && dbDoc.data && mimeType === 'application/pdf') {
                 try {
-                  const cleanBase64 = dbDoc.data.replace(/^data:[^;]+;base64,/, '').replace(/\s+/g, '');
+                  const commaIdx = dbDoc.data.indexOf(',');
+                  const cleanBase64 = commaIdx !== -1 && dbDoc.data.startsWith('data:') ? dbDoc.data.substring(commaIdx + 1) : dbDoc.data;
                   const buffer = Buffer.from(cleanBase64, 'base64');
                   let pdfParser = pdf;
                   if (typeof pdf !== 'function' && pdf && typeof (pdf as any).default === 'function') {
