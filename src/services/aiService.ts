@@ -15,7 +15,7 @@ export const analyzeAuctionDocuments = async (
   model: string = "gemini-3.8-flash", 
   apiKey?: string,
   auctionUrls?: string[],
-  analysisType?: 'geral' | 'edital' | 'matricula' | 'processo' | 'dossier' | 'smart_analysis' | 'assessoria_analysis'
+  analysisType?: 'geral' | 'edital' | 'matricula' | 'processo' | 'laudo' | 'dossier' | 'smart_analysis' | 'assessoria_analysis'
 ) => {
   const token = localStorage.getItem("token") || "";
   const activeModel = model;
@@ -39,6 +39,18 @@ export const analyzeAuctionDocuments = async (
     return data.result;
   } catch (err: any) {
     const errMessage = (err.message || "").toLowerCase();
+    const isAuth = errMessage.includes('account_state_invalid') ||
+                   errMessage.includes('401') ||
+                   errMessage.includes('unauthenticated') ||
+                   errMessage.includes('service account') ||
+                   errMessage.includes('não autorizada') ||
+                   errMessage.includes('chave de api') ||
+                   errMessage.includes('desativada');
+
+    if (isAuth) {
+      throw err;
+    }
+
     const isOverloaded = errMessage.includes('503') || 
                         errMessage.includes('unavailable') || 
                         errMessage.includes('indisponível') || 
@@ -50,7 +62,6 @@ export const analyzeAuctionDocuments = async (
                         errMessage.includes('timeout') ||
                         errMessage.includes('quota') ||
                         errMessage.includes('excedeu') ||
-                        errMessage.includes('limite') ||
                         errMessage.includes('exhausted') ||
                         errMessage.includes('resource_exhausted');
 

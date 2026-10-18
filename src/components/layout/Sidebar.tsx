@@ -9,6 +9,7 @@ export const Sidebar = ({ activeTab, setActiveTab, isSidebarOpen, setIsSidebarOp
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'properties', label: 'Gestão de Imóveis', icon: Home },
     { id: 'ai-analysis', label: 'Análise IA', icon: Brain },
+    { id: 'ai-config', label: 'Configurações de IA', icon: Cpu },
     { id: 'brain', label: 'Cérebro Estratégico', icon: Lightbulb },
     { id: 'users', label: 'Usuários', icon: Users },
     { id: 'settings', label: 'Configurações', icon: Settings },

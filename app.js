@@ -312,15 +312,15 @@ function startFallbackServer(error) {
           </head>
           <body>
             <div class="card">
-              <span id="badge" class="badge">Preparando Servidor</span>
+              <span id="badge" class="badge">⚙️ Atualização em Andamento</span>
               <h1>Compilação da Aplicação</h1>
-              <p>O arquivo compilado <code>dist/server.cjs</code> está sendo gerado automaticamente.</p>
+              <p>O servidor está finalizando a compilação dos novos arquivos. Este processo leva cerca de 20 a 30 segundos e a página será <strong>recarregada automaticamente</strong> assim que concluir.</p>
               
               <div id="terminal" class="terminal">${buildLogs.join('\n') || error?.message || 'Aguardando compilação...'}</div>
               
               <div style="display: flex; gap: 12px;">
-                <button id="btnBuild" class="btn" onclick="triggerBuild()">⚡ Executar Compilação Agora</button>
-                <button class="btn" style="background: #334155;" onclick="location.reload()">🔄 Atualizar Página</button>
+                <button id="btnBuild" class="btn" onclick="triggerBuild()">⚡ Forçar Recompilação</button>
+                <button class="btn" style="background: #334155;" onclick="location.reload()">🔄 Atualizar Página Agora</button>
               </div>
 
               <div class="instructions">

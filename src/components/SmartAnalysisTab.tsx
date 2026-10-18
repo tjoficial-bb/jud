@@ -105,6 +105,12 @@ export interface SmartAnalysisData {
   area_privativa: number;
   area_util: number;
   area_construida: number;
+  quartos?: string;
+  suites?: string;
+  banheiros?: string;
+  vagas_garagem?: string;
+  padrao_construtivo?: string;
+  estado_conservacao?: string;
   observacoes_imovel: string;
 
   // Dados dos Ex-Mutuários
@@ -271,7 +277,8 @@ export function normalizeSmartAnalysis(raw: any): SmartAnalysisData {
     'data_consolidacao', 'observacoes_consolidacao', 'folhas_consolidacao', 'observacoes_nulidade',
     'folhas_citacao', 'folhas_intimacao_leilao', 'nome_ocupante', 'cpf_ocupante', 'telefone_ocupante',
     'tempo_ocupacao', 'relacao_ex_mutuario', 'observacoes_ocupacao', 'numero_matricula',
-    'cadastro_imobiliario', 'cartorio_registro', 'observacoes_imovel', 'nome_ex_mutuario',
+    'cadastro_imobiliario', 'cartorio_registro', 'quartos', 'suites', 'banheiros', 'vagas_garagem',
+    'padrao_construtivo', 'estado_conservacao', 'observacoes_imovel', 'nome_ex_mutuario',
     'cpf_ex_mutuario', 'estado_civil_ex_mutuario', 'profissao_ex_mutuario', 'conjuge_ex_mutuario',
     'endereco_ex_mutuario', 'observacoes_ex_mutuario', 'comentarios_importantes',
     'data_primeiro_leilao', 'data_segundo_leilao', 'leiloeiro', 'comarca', 'vara', 'numero_processo',
@@ -590,6 +597,12 @@ export const getEmptySmartAnalysis = (): SmartAnalysisData => ({
   area_privativa: 0,
   area_util: 0,
   area_construida: 0,
+  quartos: '',
+  suites: '',
+  banheiros: '',
+  vagas_garagem: '',
+  padrao_construtivo: '',
+  estado_conservacao: '',
   observacoes_imovel: '',
 
   // Dados dos Ex-Mutuários
@@ -1182,7 +1195,7 @@ export default function SmartAnalysisTab({
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {['Edital', 'Matrícula', 'Processo Judicial', 'Outros'].map(category => (
+          {['Edital', 'Matrícula', 'Laudo Técnico', 'Processo Judicial', 'Outros'].map(category => (
             <div key={category} className="bg-brand-bg/10 p-5 rounded-2xl border border-brand-border/30">
               <DocumentManager 
                 label={category} 
@@ -2438,12 +2451,81 @@ export default function SmartAnalysisTab({
             </div>
           </div>
 
+          {/* Características Físicas / Cômodos (Laudo Técnico / Matrícula / Edital) */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 pt-1">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Quartos / Dorm.</label>
+              <input
+                type="text"
+                value={localData.quartos || ''}
+                onChange={e => handleChange('quartos', e.target.value)}
+                placeholder="Ex: 3"
+                className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium focus:border-brand-primary"
+              />
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Suítes</label>
+              <input
+                type="text"
+                value={localData.suites || ''}
+                onChange={e => handleChange('suites', e.target.value)}
+                placeholder="Ex: 1"
+                className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium focus:border-brand-primary"
+              />
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Banheiros</label>
+              <input
+                type="text"
+                value={localData.banheiros || ''}
+                onChange={e => handleChange('banheiros', e.target.value)}
+                placeholder="Ex: 2"
+                className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium focus:border-brand-primary"
+              />
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Vagas Garagem</label>
+              <input
+                type="text"
+                value={localData.vagas_garagem || ''}
+                onChange={e => handleChange('vagas_garagem', e.target.value)}
+                placeholder="Ex: 2 cobertas"
+                className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium focus:border-brand-primary"
+              />
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Padrão Construtivo</label>
+              <input
+                type="text"
+                value={localData.padrao_construtivo || ''}
+                onChange={e => handleChange('padrao_construtivo', e.target.value)}
+                placeholder="Ex: Normal / Alto"
+                className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium focus:border-brand-primary"
+              />
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Conservação (Laudo)</label>
+              <input
+                type="text"
+                value={localData.estado_conservacao || ''}
+                onChange={e => handleChange('estado_conservacao', e.target.value)}
+                placeholder="Ex: Bom / Regular"
+                className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium focus:border-brand-primary"
+              />
+            </div>
+          </div>
+
           <div className="flex flex-col gap-1.5">
-            <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Descrição / Observações do Imóvel</label>
+            <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Descrição / Observações do Imóvel (Matrícula / Edital / Laudo Técnico)</label>
             <textarea
               value={localData.observacoes_imovel || ''}
               onChange={e => handleChange('observacoes_imovel', e.target.value)}
-              placeholder="Descreva as características físicas do imóvel, divisões internas, vagas de garagem, etc. constantes da matrícula ou edital..."
+              placeholder="Descreva as características físicas do imóvel, divisões internas, vagas de garagem, estado de conservação e benfeitorias constantes da matrícula, edital ou laudo técnico..."
               rows={2}
               className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium resize-none focus:border-brand-primary"
             />

@@ -548,6 +548,7 @@ try {
     edital_analysis TEXT,
     matricula_analysis TEXT,
     process_analysis TEXT,
+    laudo_analysis TEXT,
     dossier_analysis TEXT,
     smart_analysis_json TEXT,
     assessoria_analysis_json TEXT,
@@ -696,6 +697,10 @@ try {
     if (!columns.includes('assessoria_analysis_json')) {
       console.log("Adicionando coluna 'assessoria_analysis_json' em ai_analyses...");
       db.prepare("ALTER TABLE ai_analyses ADD COLUMN assessoria_analysis_json TEXT").run();
+    }
+    if (!columns.includes('laudo_analysis')) {
+      console.log("Adicionando coluna 'laudo_analysis' em ai_analyses...");
+      db.prepare("ALTER TABLE ai_analyses ADD COLUMN laudo_analysis TEXT").run();
     }
   } catch (err: any) {
     console.error("Erro ao aplicar migrações em ai_analyses:", err.message);
@@ -1413,7 +1418,7 @@ async function startServer() {
       const { 
         property_id, exec_summary, legal_analysis, financial_analysis, 
         legal_risks, operational_risks, recommended_bid, roi, tir, 
-        estimated_profit, ia_used, edital_analysis, matricula_analysis, process_analysis, dossier_analysis,
+        estimated_profit, ia_used, edital_analysis, matricula_analysis, process_analysis, laudo_analysis, dossier_analysis,
         smart_analysis_json, assessoria_analysis_json
       } = req.body;
 
@@ -1433,7 +1438,7 @@ async function startServer() {
           exec_summary, legal_analysis, financial_analysis, 
           legal_risks, operational_risks, recommended_bid, roi, tir, 
           estimated_profit, ia_used, edital_analysis, matricula_analysis, 
-          process_analysis, dossier_analysis, smart_analysis_json, assessoria_analysis_json
+          process_analysis, laudo_analysis, dossier_analysis, smart_analysis_json, assessoria_analysis_json
         };
 
         for (const [key, val] of Object.entries(fieldsToUpdate)) {
@@ -1457,15 +1462,15 @@ async function startServer() {
         INSERT INTO ai_analyses (
           id, property_id, exec_summary, legal_analysis, financial_analysis, 
           legal_risks, operational_risks, recommended_bid, roi, tir, 
-          estimated_profit, ia_used, edital_analysis, matricula_analysis, process_analysis, dossier_analysis,
+          estimated_profit, ia_used, edital_analysis, matricula_analysis, process_analysis, laudo_analysis, dossier_analysis,
           smart_analysis_json, assessoria_analysis_json
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
         id, property_id, exec_summary || null, legal_analysis || null, financial_analysis || null, 
         legal_risks || null, operational_risks || null, recommended_bid || null, roi || null, tir || null, 
         estimated_profit || null, ia_used || "gemini-2.5-flash", edital_analysis || null, matricula_analysis || null, 
-        process_analysis || null, dossier_analysis || null, smart_analysis_json || null, assessoria_analysis_json || null
+        process_analysis || null, laudo_analysis || null, dossier_analysis || null, smart_analysis_json || null, assessoria_analysis_json || null
       );
       
       res.json({ id });
@@ -1489,7 +1494,7 @@ async function startServer() {
     try {
       const { 
         exec_summary, financial_analysis, recommended_bid, roi, tir, 
-        estimated_profit, edital_analysis, matricula_analysis, process_analysis, dossier_analysis,
+        estimated_profit, edital_analysis, matricula_analysis, process_analysis, laudo_analysis, dossier_analysis,
         smart_analysis_json, assessoria_analysis_json
       } = req.body;
       
@@ -1531,6 +1536,10 @@ async function startServer() {
       if (process_analysis !== undefined) {
         fields.push("process_analysis = ?");
         values.push(process_analysis);
+      }
+      if (laudo_analysis !== undefined) {
+        fields.push("laudo_analysis = ?");
+        values.push(laudo_analysis);
       }
       if (dossier_analysis !== undefined) {
         fields.push("dossier_analysis = ?");
@@ -2347,7 +2356,9 @@ async function startServer() {
       res.json({ result });
     } catch (error: any) {
       console.error("Erro na API de análise server-side:", error);
-      res.status(500).json({ error: error.message || "Erro desconhecido na análise." });
+      const errStr = (error?.message || String(error)).toLowerCase();
+      const isAuth = errStr.includes("401") || errStr.includes("account_state_invalid") || errStr.includes("unauthenticated") || errStr.includes("chave de api");
+      res.status(isAuth ? 401 : 500).json({ error: error.message || "Erro desconhecido na análise.", isAuthError: isAuth });
     }
   });
 

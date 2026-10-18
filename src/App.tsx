@@ -74,6 +74,7 @@ import { TIRCalculator } from './components/TIRCalculator';
 import { CashFlowChart } from './components/CashFlowChart';
 import { MatriculaReport } from './components/MatriculaReport';
 import { EditalReport } from './components/EditalReport';
+import { LaudoReport, LaudoReportData, parseLaudoAnalysisData } from './components/LaudoReport';
 import { ProcessoReport, detectCityAndStateFromText } from './components/ProcessoReport';
 import { SmartResetPanel } from './components/SmartResetPanel';
 import { UnifiedSummaryHub } from './components/UnifiedSummaryHub';
@@ -104,6 +105,7 @@ const SimulationContext = React.createContext<{
   editalAnalysis?: string | null,
   matriculaAnalysis?: string | null,
   processAnalysis?: string | null,
+  laudoAnalysis?: string | null,
   dossierAnalysis?: string | null,
   properties?: Property[],
   handleSaveAsProperty?: () => Promise<void>
@@ -366,6 +368,19 @@ const formatErrorMessage = (err: any) => {
     return "Erro de conexão com o servidor. Por favor, tente novamente em instantes.";
   }
 
+  const lowerMsg = msg.toLowerCase();
+
+  // Detect and format 401 / Account State / Invalid Service Account / Auth errors
+  if (
+    lowerMsg.includes('account_state_invalid') ||
+    lowerMsg.includes('service account is deleted or disabled') ||
+    lowerMsg.includes('service account bound') ||
+    lowerMsg.includes('unauthenticated') ||
+    (lowerMsg.includes('401') && (lowerMsg.includes('chave') || lowerMsg.includes('key') || lowerMsg.includes('unauthorized') || lowerMsg.includes('auth')))
+  ) {
+    return "A chave de API Gemini do sistema está indisponível ou vinculada a uma conta desativada/excluída pelo Google (Erro 401: ACCOUNT_STATE_INVALID). Por favor, acesse o menu 'Configurações de IA' no menu lateral e cadastre sua chave de API ativa (Google Gemini gerada no Google AI Studio, ou provedores alternativos como OpenAI, Claude ou DeepSeek).";
+  }
+
   // Detect and format 503 / high demand spikes in Gemini API
   if (msg.includes('503') || msg.includes('UNAVAILABLE') || msg.includes('high demand') || msg.includes('experiencing high demand')) {
     return "Os servidores do Google Gemini estão com alta demanda temporária (Erro 503). O sistema continuará automaticamente com modelos alternativos de contingência. Se persistir, tente novamente em alguns segundos.";
@@ -384,6 +399,15 @@ const formatErrorMessage = (err: any) => {
         const parsed = JSON.parse(match[0]);
         if (parsed?.error?.message) {
           const errMsg = parsed.error.message.toLowerCase();
+          if (
+            parsed.error.code === 401 ||
+            parsed.error.status === 'UNAUTHENTICATED' ||
+            errMsg.includes('account_state_invalid') ||
+            errMsg.includes('service account is deleted') ||
+            errMsg.includes('service account bound')
+          ) {
+            return "A chave de API Gemini do sistema está indisponível ou vinculada a uma conta desativada/excluída pelo Google (Erro 401: ACCOUNT_STATE_INVALID). Por favor, acesse o menu 'Configurações de IA' no menu lateral e cadastre sua chave de API ativa (Google Gemini gerada no Google AI Studio, ou provedores alternativos como OpenAI, Claude ou DeepSeek).";
+          }
           if (parsed.error.code === 503 || parsed.error.status === 'UNAVAILABLE' || errMsg.includes('high demand')) {
             return "Os servidores do Google Gemini estão com alta demanda temporária (Erro 503). Sua chave é válida, mas a infraestrutura da Google está momentaneamente sobrecarregada. Tente novamente em alguns segundos.";
           }
@@ -408,7 +432,11 @@ const resolveApiKey = (
   
   let key = "";
   if (keySource === 'system_default') {
-    key = "";
+    if (model.startsWith('gemini') && config.gemini_key?.trim()) key = config.gemini_key.trim();
+    else if (model.startsWith('claude') && config.claude_key?.trim()) key = config.claude_key.trim();
+    else if ((model.startsWith('gpt') || model.startsWith('o1')) && config.openai_key?.trim()) key = config.openai_key.trim();
+    else if (model.startsWith('deepseek') && config.deepseek_key?.trim()) key = config.deepseek_key.trim();
+    else key = "";
   } else if (keySource === 'openai_custom') {
     key = config.openai_key?.trim() || "";
   } else if (keySource === 'gemini_custom') {
@@ -628,9 +656,10 @@ export default function App() {
 
     (window as any).customToast = (message: string, type: 'success' | 'error' = 'success') => {
       setToast({ message, type });
+      const duration = type === 'error' ? 9000 : 4000;
       setTimeout(() => {
         setToast(null);
-      }, 4000);
+      }, duration);
     };
   }, []);
 
@@ -743,11 +772,12 @@ export default function App() {
 
   // AI Analysis Persistent State
   const [aiAnalysisState, setAiAnalysisState] = useState<{
-    activeSubTab: 'smart_analysis' | 'viabilidade' | 'report' | 'processos' | 'documents' | 'simulations' | 'cnj' | 'investors' | 'edital' | 'matricula' | 'dossier' | 'instagram' | 'assessoria' | 'unified_summary';
+    activeSubTab: 'smart_analysis' | 'viabilidade' | 'report' | 'processos' | 'documents' | 'simulations' | 'cnj' | 'investors' | 'edital' | 'matricula' | 'laudo' | 'dossier' | 'instagram' | 'assessoria' | 'unified_summary';
     selectedPropertyId: string;
     report: string | null;
     editalAnalysis: string | null;
     matriculaAnalysis: string | null;
+    laudoAnalysis: string | null;
     dossierAnalysis: string | null;
     smartAnalysis: SmartAnalysisData | null;
     assessoriaAnalysis: AssessoriaAnalysisData | null;
@@ -789,6 +819,7 @@ export default function App() {
       report: null,
       editalAnalysis: null,
       matriculaAnalysis: null,
+      laudoAnalysis: null,
       dossierAnalysis: null,
       smartAnalysis: null,
       assessoriaAnalysis: null,
@@ -1489,7 +1520,19 @@ export default function App() {
             {toast.type === 'success' ? '✓' : '✗'}
           </div>
           <div className="flex-1 text-xs font-medium text-brand-ink">
-            {toast.message}
+            <div>{toast.message}</div>
+            {toast.message.includes('Configurações de IA') && (
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab('ai-config');
+                  setToast(null);
+                }}
+                className="mt-2.5 inline-flex items-center gap-1.5 px-3 py-1.5 bg-brand-primary text-black rounded-lg text-[11px] font-bold hover:bg-brand-primary/90 transition-all cursor-pointer shadow-sm"
+              >
+                Abrir Configurações de IA →
+              </button>
+            )}
           </div>
         </div>
       )}
@@ -2463,30 +2506,44 @@ function AIConfigView({ token, aiConfig, onConfigUpdate }: { token: string, aiCo
         <p className="text-brand-ink/40 max-w-lg mx-auto text-lg">Configure os motores de inteligência artificial que alimentarão suas análises.</p>
       </div>
 
-      {window.location.hostname.includes('run.app') && (
-        <div className="bg-brand-primary/5 border border-brand-primary/20 p-8 rounded-[2rem] space-y-4">
-          <div className="flex items-center gap-3 text-brand-primary">
-            <Info size={20} />
-            <h4 className="font-bold uppercase tracking-widest text-xs">Diagnóstico de Erro 403</h4>
-          </div>
-          <p className="text-sm text-brand-ink/60 leading-relaxed">
-            Vimos que sua chave não tem restrições de site (conforme seu print). Isso confirma que o problema é a <strong>API Desativada</strong>.
-          </p>
-          <div className="p-6 bg-brand-paper rounded-2xl border border-brand-primary/10 space-y-4">
-            <p className="text-sm font-bold text-brand-primary">Passo Final para Corrigir:</p>
-            <p className="text-xs text-brand-ink/60">
-              Clique no link abaixo e verifique se o botão azul diz <strong>"ATIVAR"</strong>. Se disser, clique nele.
+      <div className="bg-brand-primary/5 border border-brand-primary/20 p-6 sm:p-8 rounded-[2rem] space-y-5">
+        <div className="flex items-center gap-3 text-brand-primary">
+          <Sparkles size={22} />
+          <h4 className="font-bold uppercase tracking-widest text-xs">Ativação e Gestão de Chaves de IA</h4>
+        </div>
+        <p className="text-sm text-brand-ink/70 leading-relaxed">
+          Se o sistema informar que a chave do sistema está indisponível ou desativada (<strong>Erro 401: ACCOUNT_STATE_INVALID</strong>) ou se desejar usar sua própria cota pessoal, você pode cadastrar sua chave gratuita do <strong>Google Gemini</strong> ou de provedores alternativos (<strong>OpenAI ChatGPT, Claude Anthropic ou DeepSeek</strong>).
+        </p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+          <div className="p-5 bg-brand-paper rounded-2xl border border-brand-primary/15 space-y-3">
+            <div className="flex items-center gap-2 text-brand-primary font-bold text-xs uppercase tracking-wider">
+              <span>Google Gemini (Recomendado)</span>
+            </div>
+            <p className="text-xs text-brand-ink/60 leading-relaxed">
+              Gere gratuitamente sua chave de API pessoal em menos de 1 minuto diretamente no portal oficial do Google:
             </p>
             <a 
-              href="https://console.cloud.google.com/apis/library/generativelanguage.googleapis.com" 
+              href="https://aistudio.google.com/app/apikey" 
               target="_blank"
-              className="inline-flex items-center gap-2 bg-brand-primary text-black px-6 py-3 rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-brand-primary/90 transition-all"
+              rel="noreferrer"
+              className="inline-flex items-center gap-2 bg-brand-primary text-black px-4 py-2.5 rounded-xl text-xs font-bold hover:bg-brand-primary/90 transition-all cursor-pointer shadow-sm"
             >
-              Ativar Generative Language API <ExternalLink size={14} />
+              Criar Chave no Google AI Studio <ExternalLink size={13} />
             </a>
           </div>
+
+          <div className="p-5 bg-brand-paper rounded-2xl border border-brand-primary/15 space-y-3">
+            <div className="flex items-center gap-2 text-brand-primary font-bold text-xs uppercase tracking-wider">
+              <span>Instruções de Ativação</span>
+            </div>
+            <p className="text-xs text-brand-ink/60 leading-relaxed">
+              1. Cole sua chave no campo abaixo correspondente ao seu provedor.<br />
+              2. Clique em <strong>Testar</strong> para verificar a comunicação com os servidores.<br />
+              3. Clique no botão <strong>Salvar Configurações</strong> no final da página.
+            </p>
+          </div>
         </div>
-      )}
+      </div>
 
       <div className="premium-card p-6 sm:p-12 space-y-12">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-10">
@@ -7612,6 +7669,12 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
   const [dossierChatInput, setDossierChatInput] = useState('');
   const [sendingDossierChat, setSendingDossierChat] = useState(false);
 
+  const [laudoChatMessages, setLaudoChatMessages] = useState<ChatMessage[]>([
+    { role: 'assistant', content: 'Olá! Compartilhe suas dúvidas sobre o Laudo Técnico de Avaliação: metragens, quantidade de quartos/vagas, estado de conservação, metodologia NBR 14.653 ou valores de mercado e liquidação.' }
+  ]);
+  const [laudoChatInput, setLaudoChatInput] = useState('');
+  const [sendingLaudoChat, setSendingLaudoChat] = useState(false);
+
   const [documentsChatMessages, setDocumentsChatMessages] = useState<ChatMessage[]>([
     { role: 'assistant', content: 'Olá! Sou seu assistente de gestão documental. Pergunte qualquer informação de dados ou incoerências nas peças enviadas.' }
   ]);
@@ -7815,6 +7878,7 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
           report: null,
           editalAnalysis: null,
           matriculaAnalysis: null,
+          laudoAnalysis: null,
           dossierAnalysis: null,
           smartAnalysis: null,
           assessoriaAnalysis: null,
@@ -7885,6 +7949,7 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
               edital_analysis: null,
               matricula_analysis: null,
               process_analysis: null,
+              laudo_analysis: null,
               dossier_analysis: null,
               exec_summary: null,
               smart_analysis_json: null,
@@ -7896,6 +7961,7 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
         setEditalChatMessages([{ role: 'assistant', content: 'Olá! Compartilhe suas dúvidas sobre as cláusulas, datas, condições de pagamento ou regras estabelecidas no edital deste leilão.' }]);
         setMatriculaChatMessages([{ role: 'assistant', content: 'Olá! Compartilhe suas dúvidas sobre o registro da matrícula, proprietários anteriores, gravames e indisponibilidades deste imóvel.' }]);
         setProcessosChatMessages([{ role: 'assistant', content: 'Olá! Estudo processual iniciado. Pergunte sobre os prazos de recursos, penhoras no processo ou riscos de suspensão do leilão.' }]);
+        setLaudoChatMessages([{ role: 'assistant', content: 'Olá! Compartilhe suas dúvidas sobre o Laudo Técnico de Avaliação: metragens, quantidade de quartos/vagas, estado de conservação, metodologia NBR 14.653 ou valores de mercado e liquidação.' }]);
         setDossierChatMessages([{ role: 'assistant', content: 'Olá! Este é o chat do Dossiê de Arrematação Inteligente. Vamos debater as conclusões consolidadas do laudo, finanças e aspectos de segurança jurídica.' }]);
         setDocumentsChatMessages([{ role: 'assistant', content: 'Olá! Sou seu assistente de gestão documental. Pergunte qualquer informação de dados ou incoerências nas peças enviadas.' }]);
         setSmartAnalysisChatMessages([{ role: 'assistant', content: 'Olá! Este é o chat da Análise Smart de Riscos. Você pode perguntar sobre a pontuação de risco geral, ocupação do imóvel, histórico de ex-mutuários e mais.' }]);
@@ -7909,6 +7975,7 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
           report: null,
           editalAnalysis: null,
           matriculaAnalysis: null,
+          laudoAnalysis: null,
           dossierAnalysis: null,
           smartAnalysis: null,
           assessoriaAnalysis: null,
@@ -7930,6 +7997,7 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
               edital_analysis: null,
               matricula_analysis: null,
               process_analysis: null,
+              laudo_analysis: null,
               dossier_analysis: null,
               exec_summary: null,
               smart_analysis_json: null,
@@ -7941,6 +8009,7 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
         setEditalChatMessages([{ role: 'assistant', content: 'Olá! Compartilhe suas dúvidas sobre as cláusulas, datas, condições de pagamento ou regras estabelecidas no edital deste leilão.' }]);
         setMatriculaChatMessages([{ role: 'assistant', content: 'Olá! Compartilhe suas dúvidas sobre o registro da matrícula, proprietários anteriores, gravames e indisponibilidades deste imóvel.' }]);
         setProcessosChatMessages([{ role: 'assistant', content: 'Olá! Estudo processual iniciado. Pergunte sobre os prazos de recursos, penhoras no processo ou riscos de suspensão do leilão.' }]);
+        setLaudoChatMessages([{ role: 'assistant', content: 'Olá! Compartilhe suas dúvidas sobre o Laudo Técnico de Avaliação: metragens, quantidade de quartos/vagas, estado de conservação, metodologia NBR 14.653 ou valores de mercado e liquidação.' }]);
         setDossierChatMessages([{ role: 'assistant', content: 'Olá! Este é o chat do Dossiê de Arrematação Inteligente. Vamos debater as conclusões consolidadas do laudo, finanças e aspectos de segurança jurídica.' }]);
         setDocumentsChatMessages([{ role: 'assistant', content: 'Olá! Sou seu assistente de gestão documental. Pergunte qualquer informação de dados ou incoerências nas peças enviadas.' }]);
         setSmartAnalysisChatMessages([{ role: 'assistant', content: 'Olá! Este é o chat da Análise Smart de Riscos. Você pode perguntar sobre a pontuação de risco geral, ocupação do imóvel, histórico de ex-mutuários e mais.' }]);
@@ -8048,6 +8117,24 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
     return cat.includes('processo') || cat.includes('judicial') || fn.includes('processo') || fn.includes('autos') || fn.includes('execuc');
   };
 
+  const isLaudoDoc = (d: any) => {
+    if (isChatAttachmentDoc(d)) return false;
+    const cat = getCleanDocType(d);
+    const fn = getCleanDocFilename(d);
+    return (
+      cat.includes('laudo') ||
+      cat.includes('avaliacao') ||
+      cat.includes('pericia') ||
+      cat.includes('vistoria') ||
+      cat.includes('engenharia') ||
+      fn.includes('laudo') ||
+      fn.includes('avaliacao') ||
+      fn.includes('pericia') ||
+      fn.includes('vistoria') ||
+      fn.includes('engenharia')
+    );
+  };
+
   const editalDocsFiltered = useMemo(() => {
     return analysisDocs.filter(isEditalDoc);
   }, [analysisDocs]);
@@ -8058,6 +8145,10 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
 
   const processDocsFiltered = useMemo(() => {
     return analysisDocs.filter(isProcessoDoc);
+  }, [analysisDocs]);
+
+  const laudoDocsFiltered = useMemo(() => {
+    return analysisDocs.filter(isLaudoDoc);
   }, [analysisDocs]);
 
   const documentsDocsFiltered = useMemo(() => {
@@ -8349,7 +8440,13 @@ Você deve responder APENAS com um objeto JSON válido, sem texto explicativo an
   "area_privativa": 0.00,
   "area_util": 0.00,
   "area_construida": 0.00,
-  "observacoes_imovel": "Descrição física detalhada do imóvel e metragens exatas encontradas na matrícula (ex: número de quartos, garagens, confrontações, etc.)",
+  "quartos": "Quantidade de quartos / dormitórios (ex: '3')",
+  "suites": "Quantidade de suítes (ex: '1')",
+  "banheiros": "Quantidade de banheiros (ex: '2')",
+  "vagas_garagem": "Quantidade e tipo de vagas de garagem (ex: '2 vagas cobertas')",
+  "padrao_construtivo": "Padrão construtivo apurado no laudo/matrícula (ex: 'Normal', 'Médio', 'Alto')",
+  "estado_conservacao": "Estado de conservação do imóvel (ex: 'Bom', 'Regular', 'Novo')",
+  "observacoes_imovel": "Descrição física detalhada do imóvel e metragens exatas encontradas na matrícula, edital ou laudo técnico (ex: número de quartos, suítes, banheiros, garagens, confrontações, benfeitorias, etc.)",
 
   "nome_ex_mutuario": "Nome completo do devedor / ex-mutuário / executado principal",
   "cpf_ex_mutuario": "CPF ou CNPJ do devedor / ex-mutuário / executado principal",
@@ -8449,8 +8546,8 @@ Importante: É OBRIGATÓRIO preencher todos os campos sem exceção. Se um dado 
 
       if (sectionKey === 'imovel') {
         sectionName = "Dados do Imóvel & Registro";
-        targetKeys = ['tipo_imovel', 'numero_matricula', 'cadastro_imobiliario', 'cartorio_registro', 'area_terreno', 'area_privativa', 'area_util', 'area_construida', 'observacoes_imovel'];
-        sectionInstruction = `Sua missão é extrair EXCLUSIVAMENTE os DADOS DO IMÓVEL (tipo_imovel: 'Casa' | 'Apartamento' | 'Terreno' | 'Comercial' | 'Outros', numero_matricula: string, cadastro_imobiliario: string/SQL/Inscrição IPTU, cartorio_registro: string, area_terreno: number, area_privativa: number, area_util: number, area_construida: number, observacoes_imovel: string). Se houver Inscrição Imobiliária/Cadastro Municipal, extraia no campo cadastro_imobiliario.`;
+        targetKeys = ['tipo_imovel', 'numero_matricula', 'cadastro_imobiliario', 'cartorio_registro', 'area_terreno', 'area_privativa', 'area_util', 'area_construida', 'quartos', 'suites', 'banheiros', 'vagas_garagem', 'padrao_construtivo', 'estado_conservacao', 'observacoes_imovel'];
+        sectionInstruction = `Sua missão é extrair EXCLUSIVAMENTE os DADOS E CARACTERÍSTICAS DO IMÓVEL (tipo_imovel: 'Casa' | 'Apartamento' | 'Terreno' | 'Comercial' | 'Outros', numero_matricula: string, cadastro_imobiliario: string/SQL/Inscrição IPTU, cartorio_registro: string, area_terreno: number, area_privativa: number, area_util: number, area_construida: number, quartos: string, suites: string, banheiros: string, vagas_garagem: string, padrao_construtivo: string, estado_conservacao: string, observacoes_imovel: string). Se houver Laudo Técnico, Matrícula ou Edital, extraia com precisão a quantidade de quartos, suítes, banheiros, vagas de garagem e metragens.`;
       } else if (sectionKey === 'ex_mutuario') {
         sectionName = "Dados do Ex-Mutuário / Executado";
         targetKeys = ['nome_ex_mutuario', 'cpf_ex_mutuario', 'estado_civil_ex_mutuario', 'profissao_ex_mutuario', 'conjuge_ex_mutuario', 'endereco_ex_mutuario', 'observacoes_ex_mutuario'];
@@ -9194,6 +9291,216 @@ Formate em português do Brasil, em Markdown elegante e profissional, e inclua n
     }
   };
 
+  const handleSyncLaudoToSystem = async (laudoData: LaudoReportData) => {
+    try {
+      const parseNum = (v?: string | number | null): number => {
+        if (typeof v === 'number') return isNaN(v) ? 0 : v;
+        if (!v) return 0;
+        const clean = String(v).replace(/[^\d.,-]/g, '').trim();
+        if (!clean) return 0;
+        if (clean.includes(',') && clean.includes('.')) {
+          return parseFloat(clean.replace(/\./g, '').replace(',', '.')) || 0;
+        }
+        if (clean.includes(',')) {
+          return parseFloat(clean.replace(',', '.')) || 0;
+        }
+        return parseFloat(clean) || 0;
+      };
+
+      const valMercado =
+        laudoData.kpis?.valor_avaliacao_numerico ||
+        parseNum(laudoData.kpis?.valor_avaliacao_mercado) ||
+        parseNum(laudoData.valores_avaliacao?.valor_mercado);
+
+      const valLiquidacao =
+        laudoData.kpis?.valor_liquidacao_numerico ||
+        parseNum(laudoData.kpis?.valor_liquidacao_forcada) ||
+        parseNum(laudoData.valores_avaliacao?.valor_liquidacao_forcada);
+
+      const reformaEst =
+        laudoData.valores_avaliacao?.custo_estimado_reforma_numerico ||
+        parseNum(laudoData.valores_avaliacao?.custo_estimado_reforma_texto);
+
+      const areaPriv = parseNum(laudoData.quadro_areas?.area_privativa_m2);
+      const areaConst = parseNum(laudoData.quadro_areas?.area_construida_m2);
+      const areaTerr = parseNum(laudoData.quadro_areas?.area_terreno_m2);
+      const areaTotal = parseNum(laudoData.quadro_areas?.area_total_m2);
+
+      const c = laudoData.caracteristicas_imovel;
+      const v = laudoData.padrao_e_vistoria;
+      const cond = laudoData.condominio_e_regiao;
+
+      let mappedTipo: any = state.smartAnalysis?.tipo_imovel || 'Selecione';
+      if (c?.tipo_imovel) {
+        const t = c.tipo_imovel.toLowerCase();
+        if (t.includes('apartamento')) mappedTipo = 'Apartamento';
+        else if (t.includes('casa') || t.includes('sobrado')) mappedTipo = 'Casa';
+        else if (t.includes('terreno') || t.includes('lote')) mappedTipo = 'Terreno';
+        else if (t.includes('comercial') || t.includes('sala') || t.includes('loja') || t.includes('galp')) mappedTipo = 'Comercial';
+        else mappedTipo = 'Outros';
+      }
+
+      const resumoLaudo = [
+        c?.divisao_interna_completa ? `Divisão Interna (Laudo): ${c.divisao_interna_completa}` : '',
+        c?.quartos !== undefined && c?.quartos !== '' ? `Quartos: ${c.quartos}` : '',
+        c?.suites !== undefined && c?.suites !== '' ? `Suítes: ${c.suites}` : '',
+        c?.banheiros !== undefined && c?.banheiros !== '' ? `Banheiros: ${c.banheiros}` : '',
+        c?.vagas_garagem !== undefined && c?.vagas_garagem !== '' ? `Vagas: ${c.vagas_garagem} (${c?.tipo_vaga_garagem || ''})` : '',
+        v?.estado_conservacao ? `Conservação: ${v.estado_conservacao}` : '',
+        v?.padrao_acabamento ? `Padrão: ${v.padrao_acabamento}` : '',
+        laudoData.quadro_areas?.divergencia_area_averbada ? `Averbação de Área: ${laudoData.quadro_areas.divergencia_area_averbada}` : ''
+      ].filter(Boolean).join(' | ');
+
+      const currentSmart = state.smartAnalysis || getEmptySmartAnalysis();
+      const updatedSmart = normalizeSmartAnalysis({
+        ...currentSmart,
+        tipo_imovel: mappedTipo !== 'Selecione' ? mappedTipo : currentSmart.tipo_imovel,
+        numero_matricula: cond?.matricula_referenciada || currentSmart.numero_matricula,
+        cadastro_imobiliario: cond?.inscricao_iptu_sql || currentSmart.cadastro_imobiliario,
+        area_privativa: areaPriv || currentSmart.area_privativa,
+        area_util: areaPriv || currentSmart.area_util,
+        area_construida: areaConst || areaTotal || currentSmart.area_construida,
+        area_terreno: areaTerr || currentSmart.area_terreno,
+        quartos: c?.quartos !== undefined && c?.quartos !== '' ? String(c.quartos) : currentSmart.quartos,
+        suites: c?.suites !== undefined && c?.suites !== '' ? String(c.suites) : currentSmart.suites,
+        banheiros: c?.banheiros !== undefined && c?.banheiros !== '' ? String(c.banheiros) : currentSmart.banheiros,
+        vagas_garagem: c?.vagas_garagem !== undefined && c?.vagas_garagem !== '' ? `${c.vagas_garagem}${c.tipo_vaga_garagem ? ` (${c.tipo_vaga_garagem})` : ''}` : currentSmart.vagas_garagem,
+        padrao_construtivo: v?.padrao_acabamento || laudoData.kpis?.padrao_construtivo_resumo || currentSmart.padrao_construtivo,
+        estado_conservacao: v?.estado_conservacao || laudoData.kpis?.estado_conservacao_resumo || currentSmart.estado_conservacao,
+        observacoes_imovel: resumoLaudo || currentSmart.observacoes_imovel,
+        valor_avaliacao: valMercado > 0 ? valMercado : currentSmart.valor_avaliacao,
+        valor_mercado_venda: valMercado > 0 ? valMercado : currentSmart.valor_mercado_venda,
+        custos_reforma: reformaEst > 0 ? reformaEst : currentSmart.custos_reforma
+      });
+
+      const updatedSimulation = {
+        ...(state.simulationData || {}),
+        ...(valMercado > 0 ? {
+          valuation: { value: valMercado, type: 'BRL' },
+          saleValue: { value: state.customSaleValue ? Number(state.customSaleValue) : valMercado, type: 'BRL' }
+        } : {}),
+        ...(valLiquidacao > 0 && (!state.simulationData?.bid?.value || state.simulationData.bid.value === 0) ? {
+          bid: { value: valLiquidacao, type: 'BRL' }
+        } : {}),
+        ...(reformaEst > 0 ? {
+          reforma: { value: reformaEst, type: 'BRL', base: 'bid' },
+          reformaMin: { value: reformaEst, type: 'BRL' }
+        } : {})
+      };
+
+      updateState({
+        smartAnalysis: updatedSmart,
+        simulationData: updatedSimulation
+      });
+
+      await handleSaveSmartAnalysis(updatedSmart);
+
+      if ((window as any).customToast) {
+        (window as any).customToast("Dados do Laudo Técnico (características, cômodos, metragens e valores de avaliação) sincronizados com a Análise Smart e Viabilidade!", "success");
+      }
+    } catch (err: any) {
+      console.error("Erro ao sincronizar dados do laudo:", err);
+      if ((window as any).customToast) {
+        (window as any).customToast("Erro ao sincronizar dados do laudo: " + err.message, "error");
+      }
+    }
+  };
+
+  const handleAnalyzeLaudo = async (docsOverride?: any[]) => {
+    const sourceDocs = docsOverride && docsOverride.length > 0 ? docsOverride : (selectedPropertyId ? propertyDocs : state.adHocDocs);
+    let docs = sourceDocs.filter(isLaudoDoc);
+    if (docs.length === 0 && sourceDocs.length > 0) {
+      docs = sourceDocs.filter(d => !isChatAttachmentDoc(d));
+    }
+    if (docs.length === 0) {
+      if ((window as any).customToast) {
+        (window as any).customToast("Nenhum Laudo Técnico encontrado nesta aba. Por favor, envie o PDF ou imagem do Laudo de Avaliação primeiro.", "warning");
+      } else {
+        alert("Nenhum Laudo Técnico encontrado nesta aba. Por favor, envie o Laudo de Avaliação primeiro.");
+      }
+      return;
+    }
+
+    setAnalyzing(true);
+    try {
+      const fileParts = docs.map(doc => {
+        let mimeType = 'application/pdf';
+        if (doc.filename?.toLowerCase().endsWith('.jpg') || doc.filename?.toLowerCase().endsWith('.jpeg')) mimeType = 'image/jpeg';
+        else if (doc.filename?.toLowerCase().endsWith('.png')) mimeType = 'image/png';
+        else if (doc.filename?.toLowerCase().endsWith('.webp')) mimeType = 'image/webp';
+
+        return {
+          id: doc.id,
+          filename: doc.filename,
+          data: doc.data ? (doc.data.startsWith('data:') ? doc.data : `data:${mimeType};base64,${doc.data}`) : "",
+          mimeType: mimeType,
+          extractedText: doc.extracted_text || doc.extractedText || ""
+        };
+      });
+
+      const userApiKey = resolveApiKey(state.selectedKeySource, state.aiConfig, state.selectedModel || 'gemini-3.8-flash') || "";
+
+      // Include existing context from Edital, Matrícula, and Smart Analysis so the AI can establish the relation/cross-reference!
+      let crossReferenceContext = "\n\n=== DADOS JÁ CADASTRADOS NO SISTEMA PARA RELAÇÃO E CRUZAMENTO COM O LAUDO ===\n";
+      if (selectedProperty) {
+        crossReferenceContext += `- Imóvel: ${selectedProperty.title} | Endereço: ${selectedProperty.address || 'N/I'} - ${selectedProperty.city || ''}/${selectedProperty.state || ''}\n`;
+        crossReferenceContext += `- Avaliação Cadastrada: R$ ${(selectedProperty.valuation_value || 0).toLocaleString('pt-BR')} | Lance Mínimo: R$ ${(selectedProperty.min_bid || 0).toLocaleString('pt-BR')}\n`;
+      }
+      if (state.smartAnalysis) {
+        crossReferenceContext += `- Resumo Análise Smart Atual: Tipo=${state.smartAnalysis.tipo_imovel}, Matrícula=${state.smartAnalysis.numero_matricula || 'N/I'}, Área Privativa=${state.smartAnalysis.area_privativa || 0}m², Área Construída=${state.smartAnalysis.area_construida || 0}m², Área Terreno=${state.smartAnalysis.area_terreno || 0}m², Avaliação Edital=R$ ${(state.smartAnalysis.valor_avaliacao || 0).toLocaleString('pt-BR')}, 2º Leilão=R$ ${(state.smartAnalysis.segundo_leilao_valor || 0).toLocaleString('pt-BR')}\n`;
+      }
+      if (state.editalAnalysis) {
+        crossReferenceContext += `- Trecho da Análise do Edital: ${state.editalAnalysis.substring(0, 1500)}\n`;
+      }
+      if (state.matriculaAnalysis) {
+        crossReferenceContext += `- Trecho da Análise da Matrícula: ${state.matriculaAnalysis.substring(0, 1500)}\n`;
+      }
+      crossReferenceContext += "================================================================================\n";
+
+      const laudoPrompt = `Analise minuciosamente o Laudo Técnico de Avaliação do Imóvel anexado.
+Extraia obrigatoriamente e com riqueza de detalhes:
+1) Todas as CARACTERÍSTICAS DO IMÓVEL: tipo do imóvel, quantidade exata de QUARTOS (dormitórios), SUÍTES, BANHEIROS, LAVABOS, VAGAS DE GARAGEM (cobertas/descobertas, demarcadas), salas, cozinha, área de serviço, varanda e benfeitorias;
+2) QUADRO DE ÁREAS COMPLETO: área privativa, área construída, área do terreno, área comum, área total, fração ideal, testada/topografia e se há divergência de área construída não averbada na matrícula;
+3) VALORES DE AVALIAÇÃO: valor de mercado, valor de liquidação forçada / venda rápida, valor do m² avaliado, valores mínimo e máximo do intervalo/campo de arbítrio, data base do laudo e estimativa de custo de reforma;
+4) VISTORIA E PADRÃO CONSTRUTIVO: padrão de acabamento, estado de conservação (Ross-Heidecke), idade aparente, vida útil, se a vistoria foi interna ou externa, patologias/avarias;
+5) CONDOMÍNIO E REGIÃO: infraestrutura do condomínio (elevadores, andares, lazer) e infraestrutura urbana da região;
+6) METODOLOGIA (NBR 14.653) E AMOSTRAS COMPARATIVAS utilizadas pelo perito/engenheiro;
+7) RELAÇÃO E CRUZAMENTO: relacione os dados do Laudo Técnico com o Edital, a Matrícula e a Viabilidade do leilão, apontando divergências e oportunidades de margem.` + crossReferenceContext + getCustomInstructionsPrompt(state);
+
+      const analysis = await analyzeAuctionDocuments(
+        fileParts,
+        laudoPrompt,
+        state.selectedModel || 'gemini-3.8-flash',
+        userApiKey || undefined,
+        [],
+        'laudo'
+      );
+
+      setState(prev => ({ ...prev, laudoAnalysis: analysis }));
+
+      if (selectedPropertyId) {
+        await savePartialAnalysisToDb({ laudo_analysis: analysis });
+      }
+
+      // Automatically sync extracted Laudo parameters with Smart Analysis & Viabilidade
+      const { parsedData } = parseLaudoAnalysisData(analysis);
+      if (parsedData) {
+        await handleSyncLaudoToSystem(parsedData);
+      } else if ((window as any).customToast) {
+        (window as any).customToast("Análise do Laudo Técnico concluída com sucesso!", "success");
+      }
+    } catch (err: any) {
+      console.error("Erro ao analisar Laudo Técnico:", err);
+      if ((window as any).customToast) {
+        (window as any).customToast(`Erro ao analisar Laudo Técnico: ${formatErrorMessage(err)}`, "error");
+      } else {
+        alert(`Erro ao analisar Laudo Técnico: ${formatErrorMessage(err)}`);
+      }
+    } finally {
+      setAnalyzing(false);
+    }
+  };
+
   const [pasteTitle, setPasteTitle] = useState('');
 
   // Local state for property-specific data (still fetched on mount/change)
@@ -9432,6 +9739,7 @@ Formate em português do Brasil, em Markdown elegante e profissional, e inclua n
             editalAnalysis: merged.edital_analysis || prev.editalAnalysis,
             matriculaAnalysis: merged.matricula_analysis || prev.matriculaAnalysis,
             processAnalysis: merged.process_analysis || prev.processAnalysis,
+            laudoAnalysis: merged.laudo_analysis || prev.laudoAnalysis,
             dossierAnalysis: merged.dossier_analysis || prev.dossierAnalysis,
             smartAnalysis: normalizeSmartAnalysis(parsedSmartAnalysis || prev.smartAnalysis || getEmptySmartAnalysis()),
             assessoriaAnalysis: parsedAssessoriaAnalysis || prev.assessoriaAnalysis || getEmptyAssessoriaAnalysis(),
@@ -9446,6 +9754,7 @@ Formate em português do Brasil, em Markdown elegante e profissional, e inclua n
               editalAnalysis: null,
               matriculaAnalysis: null,
               processAnalysis: null,
+              laudoAnalysis: null,
               dossierAnalysis: null,
               smartAnalysis: getEmptySmartAnalysis(),
               assessoriaAnalysis: getEmptyAssessoriaAnalysis(),
@@ -9463,6 +9772,7 @@ Formate em português do Brasil, em Markdown elegante e profissional, e inclua n
               editalAnalysis: null,
               matriculaAnalysis: null,
               processAnalysis: null,
+              laudoAnalysis: null,
               dossierAnalysis: null,
               smartAnalysis: getEmptySmartAnalysis(),
               assessoriaAnalysis: getEmptyAssessoriaAnalysis()
@@ -9777,6 +10087,18 @@ Formate em português do Brasil, em Markdown elegante e profissional, e inclua n
         }
       }
 
+      // If uploaded in Laudo Técnico tab or with docType 'Laudo Técnico', run Laudo Analysis + sync automatically
+      if (effectiveDocType === 'Laudo Técnico' || state.activeSubTab === 'laudo') {
+        updateState({ activeSubTab: 'laudo' });
+        if ((window as any).customToast) {
+          (window as any).customToast("Laudo Técnico recebido! Iniciando leitura técnica e extração de características do imóvel...", "info");
+        }
+        setTimeout(() => {
+          handleAnalyzeLaudo(updatedDocs);
+        }, 300);
+        return;
+      }
+
       // Switch immediately to Análise Smart (aba principal) and auto-trigger extraction
       updateState({ activeSubTab: 'smart_analysis' });
 
@@ -9950,6 +10272,10 @@ Formate em português do Brasil, em Markdown elegante e profissional, e inclua n
         updates.matriculaAnalysis = null;
         backendPayload.matricula_analysis = null;
         setMatriculaChatMessages([{ role: 'assistant', content: 'Olá! Compartilhe suas dúvidas sobre o registro da matrícula, proprietários anteriores, gravames e indisponibilidades deste imóvel.' }]);
+      } else if (tabKey === 'laudo') {
+        updates.laudoAnalysis = null;
+        backendPayload.laudo_analysis = null;
+        setLaudoChatMessages([{ role: 'assistant', content: 'Olá! Compartilhe suas dúvidas sobre o Laudo Técnico de Avaliação: metragens, quantidade de quartos/vagas, estado de conservação, metodologia NBR 14.653 ou valores de mercado e liquidação.' }]);
       } else if (tabKey === 'processos') {
         updates.processAnalysis = null;
         updates.processStory = null;
@@ -10059,6 +10385,7 @@ Formate em português do Brasil, em Markdown elegante e profissional, e inclua n
         report: null,
         editalAnalysis: null,
         matriculaAnalysis: null,
+        laudoAnalysis: null,
         dossierAnalysis: null,
         smartAnalysis: null,
         assessoriaAnalysis: null,
@@ -10072,6 +10399,7 @@ Formate em português do Brasil, em Markdown elegante e profissional, e inclua n
       setEditalChatMessages([{ role: 'assistant', content: 'Olá! Compartilhe suas dúvidas sobre as cláusulas, datas, condições de pagamento ou regras estabelecidas no edital deste leilão.' }]);
       setMatriculaChatMessages([{ role: 'assistant', content: 'Olá! Compartilhe suas dúvidas sobre o registro da matrícula, proprietários anteriores, gravames e indisponibilidades deste imóvel.' }]);
       setProcessosChatMessages([{ role: 'assistant', content: 'Olá! Estudo processual iniciado. Pergunte sobre os prazos de recursos, penhoras no processo ou riscos de suspensão do leilão.' }]);
+      setLaudoChatMessages([{ role: 'assistant', content: 'Olá! Compartilhe suas dúvidas sobre o Laudo Técnico de Avaliação: metragens, quantidade de quartos/vagas, estado de conservação, metodologia NBR 14.653 ou valores de mercado e liquidação.' }]);
       setDossierChatMessages([{ role: 'assistant', content: 'Olá! Este é o chat do Dossiê de Arrematação Inteligente. Vamos debater as conclusões consolidadas do laudo, finanças e aspectos de segurança jurídica.' }]);
       setDocumentsChatMessages([{ role: 'assistant', content: 'Olá! Sou seu assistente de gestão documental. Pergunte qualquer informação de dados ou incoerências nas peças enviadas.' }]);
       setSmartAnalysisChatMessages([{ role: 'assistant', content: 'Olá! Este é o chat da Análise Smart de Riscos. Você pode perguntar sobre a pontuação de risco geral, ocupação do imóvel, histórico de ex-mutuários e mais.' }]);
@@ -10101,6 +10429,7 @@ Formate em português do Brasil, em Markdown elegante e profissional, e inclua n
             edital_analysis: null,
             matricula_analysis: null,
             process_analysis: null,
+            laudo_analysis: null,
             dossier_analysis: null,
             exec_summary: null,
             smart_analysis_json: null,
@@ -11012,7 +11341,7 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
     }
   };
 
-  const handleSendTabChat = async (tab: 'edital' | 'matricula' | 'processos' | 'dossier' | 'documents' | 'smart_analysis' | 'viabilidade' | 'assessoria' | 'cnj' | 'investors' | 'instagram' | 'simulations') => {
+  const handleSendTabChat = async (tab: 'edital' | 'matricula' | 'laudo' | 'processos' | 'dossier' | 'documents' | 'smart_analysis' | 'viabilidade' | 'assessoria' | 'cnj' | 'investors' | 'instagram' | 'simulations') => {
     let input = "";
     let chatMsgs: ChatMessage[] = [];
     let setInput: any = null;
@@ -11034,6 +11363,13 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
       setMsgs = setMatriculaChatMessages;
       setSending = setSendingMatriculaChat;
       promptContext = `Análise de Matrícula Atual:\n${state.matriculaAnalysis || "Nenhuma análise de matrícula executada ainda."}`;
+    } else if (tab === 'laudo') {
+      input = laudoChatInput;
+      chatMsgs = laudoChatMessages;
+      setInput = setLaudoChatInput;
+      setMsgs = setLaudoChatMessages;
+      setSending = setSendingLaudoChat;
+      promptContext = `Análise de Laudo Técnico de Avaliação Atual:\n${state.laudoAnalysis || "Nenhuma análise de laudo técnico executada ainda."}`;
     } else if (tab === 'processos') {
       input = processosChatInput;
       chatMsgs = processosChatMessages;
@@ -11168,7 +11504,7 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
     }
   };
 
-  const renderTabChat = (tab: 'edital' | 'matricula' | 'processos' | 'dossier' | 'documents' | 'smart_analysis' | 'viabilidade' | 'assessoria' | 'cnj' | 'investors' | 'instagram' | 'simulations') => {
+  const renderTabChat = (tab: 'edital' | 'matricula' | 'laudo' | 'processos' | 'dossier' | 'documents' | 'smart_analysis' | 'viabilidade' | 'assessoria' | 'cnj' | 'investors' | 'instagram' | 'simulations') => {
     let title = "";
     let placeholder = "";
     let inputVal = "";
@@ -11190,6 +11526,13 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
       setInputVal = setMatriculaChatInput;
       msgs = matriculaChatMessages;
       sending = sendingMatriculaChat;
+    } else if (tab === 'laudo') {
+      title = "Dúvidas sobre o Laudo Técnico de Avaliação";
+      placeholder = "Pergunte sobre metragens, quantidade de quartos/vagas, estado de conservação, amostras de mercado ou valores de avaliação...";
+      inputVal = laudoChatInput;
+      setInputVal = setLaudoChatInput;
+      msgs = laudoChatMessages;
+      sending = sendingLaudoChat;
     } else if (tab === 'processos') {
       title = "Discussão do Processo Judicial";
       placeholder = "Pergunte sobre prazos judiciais, andamento ou incidentes relatados...";
@@ -11608,6 +11951,7 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
               <AnalysisTab active={activeSubTab === 'unified_summary'} onClick={() => updateState({ activeSubTab: 'unified_summary' })} icon={<Layers size={16} />} label="Resumão Unificado" />
               <AnalysisTab active={activeSubTab === 'edital'} onClick={() => updateState({ activeSubTab: 'edital' })} icon={<FileText size={16} />} label="Edital" />
               <AnalysisTab active={activeSubTab === 'matricula'} onClick={() => updateState({ activeSubTab: 'matricula' })} icon={<BookOpen size={16} />} label="Matrícula" />
+              <AnalysisTab active={activeSubTab === 'laudo'} onClick={() => updateState({ activeSubTab: 'laudo' })} icon={<Ruler size={16} />} label="Laudo Técnico" />
               <AnalysisTab active={activeSubTab === 'processos'} onClick={() => updateState({ activeSubTab: 'processos' })} icon={<Search size={16} />} label="Processos" />
               {!isPublicView && <AnalysisTab active={activeSubTab === 'documents'} onClick={() => updateState({ activeSubTab: 'documents' })} icon={<Files size={16} />} label="Documentos" />}
             </div>
@@ -11999,6 +12343,92 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
                     tabKey="matricula"
                     hasAnalysis={!!state.matriculaAnalysis}
                     onResetTab={() => handleResetSubTab('matricula')}
+                    onResetAll={handleResetAllPropertyData}
+                    onApplySettings={(settings) => updateState({ aiDepth: settings.depth, aiFocus: settings.focus })}
+                  />
+                </div>
+              )}
+              {activeSubTab === 'laudo' && (
+                <div className="space-y-6">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                      <h3 className="text-2xl font-bold text-brand-primary font-serif">Leitura e Análise de Laudo Técnico de Avaliação</h3>
+                      <p className="text-sm text-brand-ink/60 mt-1 font-sans">
+                        Extraia automaticamente todas as características físicas do imóvel (quartos, suítes, banheiros, vagas de garagem, áreas privativa/construída/terreno), valores de avaliação (mercado e liquidação forçada), estado de conservação e faça a relação cruzada com o Edital, Matrícula e Viabilidade.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-6">
+                    <Card title="Upload e Gestão do Laudo Técnico de Avaliação">
+                      <p className="text-sm text-brand-ink/60 mb-4 font-sans">
+                        Anexe aqui o PDF ou imagens do Laudo de Avaliação (Caixa, Banco do Brasil, Perícia Judicial ou Engenharia NBR 14.653). Ao enviar, a IA lerá o laudo e relacionará automaticamente as características e valores com o estudo do imóvel.
+                      </p>
+                      <DocumentManager 
+                        label="Laudo Técnico" 
+                        docs={laudoDocsFiltered} 
+                        onUpload={(e, type) => handleAnalysisFileUpload(e, type || 'Laudo Técnico')}
+                        onDelete={handleDeleteDocument}
+                        onTranscribe={handleTranscribeDoc}
+                        uploading={uploading}
+                      />
+                      <div className="mt-6 pt-6 border-t border-brand-primary/10">
+                        <button 
+                          onClick={() => handleAnalyzeLaudo()} 
+                          disabled={analyzing} 
+                          className="w-full bg-brand-primary text-black py-4 rounded-xl font-bold hover:bg-brand-primary/90 transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-md shadow-brand-primary/10 cursor-pointer"
+                        >
+                          {analyzing ? <Loader2 className="animate-spin" size={16} /> : <Ruler size={16} />}
+                          {analyzing ? 'Lendo e Analisando Laudo Técnico...' : 'Executar Leitura e Análise do Laudo Técnico'}
+                        </button>
+                      </div>
+                    </Card>
+
+                    {state.laudoAnalysis && (
+                      <Card title="Resultado da Análise do Laudo Técnico & Relação com o Imóvel">
+                        {!isPublicView && (
+                          <div className="flex justify-end gap-3 mb-4 no-print">
+                            <button
+                              type="button"
+                              onClick={handleShare}
+                              className="flex items-center gap-2 bg-brand-primary text-black px-4 py-2 rounded-xl text-xs font-bold hover:bg-brand-primary/90 transition-all shadow-sm cursor-pointer"
+                            >
+                              <Globe size={14} /> Compartilhar / Gerar Link Público
+                            </button>
+                          </div>
+                        )}
+                        <div className="p-1 sm:p-2 bg-brand-paper rounded-3xl border border-brand-border shadow-lg">
+                          <LaudoReport 
+                            rawAnalysis={state.laudoAnalysis}
+                            propertyTitle={selectedProperty?.title}
+                            propertyAddress={selectedProperty?.address}
+                            propertyCity={selectedProperty?.city}
+                            propertyState={selectedProperty?.state}
+                            valuation={metrics?.valuation}
+                            bidValue={Number(state.customBidValue) || metrics?.bid}
+                            expectedSaleValue={Number(state.customSaleValue) || metrics?.valuation}
+                            estimatedProfit={metrics?.estimatedProfit}
+                            roi={metrics?.roi}
+                            tir={metrics?.tir}
+                            smartAnalysis={state.smartAnalysis}
+                            editalAnalysis={state.editalAnalysis}
+                            matriculaAnalysis={state.matriculaAnalysis}
+                            onSyncToSystem={handleSyncLaudoToSystem}
+                          />
+                        </div>
+                      </Card>
+                    )}
+                  </div>
+
+                  <div className="mt-8 no-print border-t border-brand-primary/10 pt-8">
+                    <LegalGlossaryForLaypeople />
+                  </div>
+                  {renderTabChat('laudo')}
+                  <SmartResetPanel
+                    tabName="Análise de Laudo Técnico"
+                    tabKey="laudo"
+                    hasAnalysis={!!state.laudoAnalysis}
+                    onResetTab={() => handleResetSubTab('laudo')}
                     onResetAll={handleResetAllPropertyData}
                     onApplySettings={(settings) => updateState({ aiDepth: settings.depth, aiFocus: settings.focus })}
                   />
@@ -12825,7 +13255,7 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
                     selectedProperty={selectedProperty}
                   />
                   
-                  {['Edital', 'Matrícula', 'Processo Judicial', 'Outros'].map(category => (
+                  {['Edital', 'Matrícula', 'Laudo Técnico', 'Processo Judicial', 'Outros'].map(category => (
                     <DocumentManager 
                       key={category} 
                       label={category} 
@@ -12965,6 +13395,18 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
                         <span className="font-semibold text-brand-ink/80">Análise de Matrícula</span>
                       </div>
                       {state.matriculaAnalysis ? (
+                        <span className="text-[10px] font-bold px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200/50 rounded-full">Pronto</span>
+                      ) : (
+                        <span className="text-[10px] font-bold px-2 py-0.5 bg-black/5 text-brand-ink/40 rounded-full">Ausente</span>
+                      )}
+                    </div>
+
+                    <div className="flex items-center justify-between text-xs p-3 bg-white/50 rounded-xl border border-brand-border/30">
+                      <div className="flex items-center gap-2">
+                        <Ruler size={14} className={laudoDocsFiltered.length > 0 ? "text-emerald-500" : "text-brand-ink/40"} />
+                        <span className="font-semibold text-brand-ink/80">Laudo Técnico</span>
+                      </div>
+                      {state.laudoAnalysis ? (
                         <span className="text-[10px] font-bold px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200/50 rounded-full">Pronto</span>
                       ) : (
                         <span className="text-[10px] font-bold px-2 py-0.5 bg-black/5 text-brand-ink/40 rounded-full">Ausente</span>
