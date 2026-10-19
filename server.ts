@@ -554,6 +554,7 @@ try {
     dossier_analysis TEXT,
     smart_analysis_json TEXT,
     assessoria_analysis_json TEXT,
+    unified_summary TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY(property_id) REFERENCES properties(id)
   );
@@ -703,6 +704,10 @@ try {
     if (!columns.includes('laudo_analysis')) {
       console.log("Adicionando coluna 'laudo_analysis' em ai_analyses...");
       db.prepare("ALTER TABLE ai_analyses ADD COLUMN laudo_analysis TEXT").run();
+    }
+    if (!columns.includes('unified_summary')) {
+      console.log("Adicionando coluna 'unified_summary' em ai_analyses...");
+      db.prepare("ALTER TABLE ai_analyses ADD COLUMN unified_summary TEXT").run();
     }
   } catch (err: any) {
     console.error("Erro ao aplicar migrações em ai_analyses:", err.message);
@@ -1425,7 +1430,7 @@ async function startServer() {
         property_id, exec_summary, legal_analysis, financial_analysis, 
         legal_risks, operational_risks, recommended_bid, roi, tir, 
         estimated_profit, ia_used, edital_analysis, matricula_analysis, process_analysis, laudo_analysis, dossier_analysis,
-        smart_analysis_json, assessoria_analysis_json
+        smart_analysis_json, assessoria_analysis_json, unified_summary
       } = req.body;
 
       if (!property_id) {
@@ -1444,7 +1449,7 @@ async function startServer() {
           exec_summary, legal_analysis, financial_analysis, 
           legal_risks, operational_risks, recommended_bid, roi, tir, 
           estimated_profit, ia_used, edital_analysis, matricula_analysis, 
-          process_analysis, laudo_analysis, dossier_analysis, smart_analysis_json, assessoria_analysis_json
+          process_analysis, laudo_analysis, dossier_analysis, smart_analysis_json, assessoria_analysis_json, unified_summary
         };
 
         for (const [key, val] of Object.entries(fieldsToUpdate)) {
@@ -1469,14 +1474,15 @@ async function startServer() {
           id, property_id, exec_summary, legal_analysis, financial_analysis, 
           legal_risks, operational_risks, recommended_bid, roi, tir, 
           estimated_profit, ia_used, edital_analysis, matricula_analysis, process_analysis, laudo_analysis, dossier_analysis,
-          smart_analysis_json, assessoria_analysis_json
+          smart_analysis_json, assessoria_analysis_json, unified_summary
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
         id, property_id, exec_summary || null, legal_analysis || null, financial_analysis || null, 
         legal_risks || null, operational_risks || null, recommended_bid || null, roi || null, tir || null, 
         estimated_profit || null, ia_used || "gemini-2.5-flash", edital_analysis || null, matricula_analysis || null, 
-        process_analysis || null, laudo_analysis || null, dossier_analysis || null, smart_analysis_json || null, assessoria_analysis_json || null
+        process_analysis || null, laudo_analysis || null, dossier_analysis || null, smart_analysis_json || null, assessoria_analysis_json || null,
+        unified_summary || null
       );
       
       res.json({ id });
@@ -1501,7 +1507,7 @@ async function startServer() {
       const { 
         exec_summary, financial_analysis, recommended_bid, roi, tir, 
         estimated_profit, edital_analysis, matricula_analysis, process_analysis, laudo_analysis, dossier_analysis,
-        smart_analysis_json, assessoria_analysis_json
+        smart_analysis_json, assessoria_analysis_json, unified_summary
       } = req.body;
       
       const fields: string[] = [];
@@ -1558,6 +1564,10 @@ async function startServer() {
       if (assessoria_analysis_json !== undefined) {
         fields.push("assessoria_analysis_json = ?");
         values.push(assessoria_analysis_json);
+      }
+      if (unified_summary !== undefined) {
+        fields.push("unified_summary = ?");
+        values.push(unified_summary);
       }
       
       if (fields.length > 0) {

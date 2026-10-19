@@ -13,6 +13,7 @@ interface DynamicFinancialMetricsBarProps {
   selectedProperty?: any;
   token?: string;
   onPropertySaved?: () => void;
+  onAutoSaveProperty?: () => Promise<string | null>;
   currentReportText?: string | null;
   onReportUpdated?: (newReportText: string) => void;
   selectedModel?: string;
@@ -29,6 +30,7 @@ export const DynamicFinancialMetricsBar: React.FC<DynamicFinancialMetricsBarProp
   selectedProperty,
   token,
   onPropertySaved,
+  onAutoSaveProperty,
   currentReportText,
   onReportUpdated,
   selectedModel = 'gemini-3.7-flash',
@@ -64,15 +66,31 @@ export const DynamicFinancialMetricsBar: React.FC<DynamicFinancialMetricsBarProp
   };
 
   const handleSaveToProperty = async () => {
-    if (!selectedPropertyId || !token) {
-      alert("Selecione ou vincule um imóvel para salvar estas alterações no banco de dados.");
+    let effectivePropId = selectedPropertyId;
+    if (!effectivePropId && onAutoSaveProperty) {
+      try {
+        setIsSavingProperty(true);
+        const autoId = await onAutoSaveProperty();
+        if (autoId) {
+          effectivePropId = autoId;
+        }
+      } catch (err: any) {
+        setIsSavingProperty(false);
+        alert("Erro ao criar imóvel automaticamente: " + (err.message || err));
+        return;
+      }
+    }
+
+    if (!effectivePropId || !token) {
+      alert("Por favor, faça login ou configure a sessão para salvar as alterações.");
+      setIsSavingProperty(false);
       return;
     }
 
     setIsSavingProperty(true);
     setSaveSuccess(false);
     try {
-      const res = await fetch(`/api/properties/${selectedPropertyId}`, {
+      const res = await fetch(`/api/properties/${effectivePropId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

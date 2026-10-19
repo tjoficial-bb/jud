@@ -60,7 +60,10 @@ import {
   Compass,
   MapPin,
   Ruler,
-  Link as LinkIcon
+  Link as LinkIcon,
+  SaveAll,
+  CheckCheck,
+  BookmarkCheck
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import ReactMarkdown from 'react-markdown';
@@ -3683,10 +3686,19 @@ function InteractiveSimulationTable() {
       return;
     }
     if (!selectedPropertyId && !analysisId) {
+      if (handleSaveAsProperty) {
+        setSaving(true);
+        try {
+          await handleSaveAsProperty();
+        } finally {
+          setSaving(false);
+        }
+        return;
+      }
       if ((window as any).customToast) {
-        (window as any).customToast("Para salvar a simulação, selecione um imóvel ou execute uma Análise IA primeiro.", "error");
+        (window as any).customToast("Para salvar a simulação, execute uma Análise IA ou selecione um imóvel.", "error");
       } else {
-        alert("Para salvar a simulação, selecione um imóvel ou execute uma Análise IA primeiro.");
+        alert("Para salvar a simulação, execute uma Análise IA ou selecione um imóvel.");
       }
       return;
     }
@@ -8169,67 +8181,368 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
 
   const [analyzingSmart, setAnalyzingSmart] = useState(false);
   const [analyzingAssessoria, setAnalyzingAssessoria] = useState(false);
+  const [isSavingAllTabs, setIsSavingAllTabs] = useState(false);
+  const [saveAllSuccess, setSaveAllSuccess] = useState(false);
+
+  const ensureAutoSavedProperty = async (customTitle?: string): Promise<string> => {
+    const effectiveToken = token || (typeof window !== 'undefined' ? localStorage.getItem('token') || '' : '');
+
+    // 1. If property is already selected, return its ID immediately
+    if (state.selectedPropertyId) {
+      return state.selectedPropertyId;
+    }
+
+    // 2. Derive an intelligent, clean title for the property
+    let autoTitle = customTitle?.trim();
+    if (!autoTitle) {
+      if (state.smartAnalysis?.identificacao_imovel?.endereco) {
+        const tipo = state.smartAnalysis.identificacao_imovel.tipo || 'Imóvel';
+        const end = state.smartAnalysis.identificacao_imovel.endereco;
+        autoTitle = `${tipo} - ${end}`;
+      } else if (state.cnjResult?.cnj_number) {
+        autoTitle = `Processo ${state.cnjResult.cnj_number} (${state.cnjResult.court || 'Leilão'})`;
+      } else if (state.adHocDocs && state.adHocDocs.length > 0) {
+        const firstDoc = state.adHocDocs[0];
+        const cleanName = (firstDoc.filename || 'Documento').replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
+        const capitalized = cleanName.charAt(0).toUpperCase() + cleanName.slice(1);
+        autoTitle = `Imóvel: ${capitalized}`;
+      } else if (propertyDocs && propertyDocs.length > 0) {
+        const firstDoc = propertyDocs[0];
+        const cleanName = (firstDoc.filename || 'Documento').replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
+        const capitalized = cleanName.charAt(0).toUpperCase() + cleanName.slice(1);
+        autoTitle = `Imóvel: ${capitalized}`;
+      } else {
+        autoTitle = `Análise de Leilão - ${new Date().toLocaleDateString('pt-BR')} ${new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
+      }
+    }
+
+    // 3. Resolve location
+    let saveCity = 'São Paulo';
+    let saveState = 'SP';
+    let saveAddress = 'Endereço extraído dos autos do leilão';
+
+    if (state.smartAnalysis?.identificacao_imovel) {
+      const ident = state.smartAnalysis.identificacao_imovel;
+      if (ident.cidade) saveCity = ident.cidade;
+      if (ident.uf) saveState = ident.uf;
+      if (ident.endereco) saveAddress = ident.endereco;
+    }
+
+    if ((!saveCity || saveCity === 'São Paulo') && state.cnjResult) {
+      const loc = detectCityAndStateFromText(`${state.cnjResult.chamber || ''} ${state.cnjResult.court || ''}`);
+      if (loc.city) saveCity = loc.city;
+      if (loc.state) saveState = loc.state;
+    }
+
+    if ((!saveCity || saveCity === 'São Paulo') && state.processStory?.full_story) {
+      const loc = detectCityAndStateFromText(state.processStory.full_story);
+      if (loc.city) saveCity = loc.city;
+      if (loc.state) saveState = loc.state;
+    }
+
+    const allDocs = [...(state.adHocDocs || []), ...(propertyDocs || [])];
+    if ((!saveCity || saveCity === 'São Paulo') && allDocs.length > 0) {
+      for (const doc of allDocs) {
+        const text = doc.extracted_text || doc.extractedText;
+        if (text) {
+          const loc = detectCityAndStateFromText(text);
+          if (loc.city) {
+            saveCity = loc.city;
+            if (loc.state) saveState = loc.state;
+            break;
+          }
+        }
+      }
+    }
+
+    const valVal = state.simulationData?.valuation?.value || state.smartAnalysis?.avaliacao_e_mercado?.valor_avaliacao || 0;
+    const bidVal = state.simulationData?.bid?.value || state.smartAnalysis?.avaliacao_e_mercado?.lance_minimo_2_leilao || 0;
+    const saleVal = state.simulationData?.saleValue?.value || state.smartAnalysis?.avaliacao_e_mercado?.valor_mercado_estimado || 0;
+
+    const res = await fetch('/api/properties', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${effectiveToken}` },
+      body: JSON.stringify({
+        title: autoTitle,
+        type: state.smartAnalysis?.identificacao_imovel?.tipo || 'Apartamento',
+        modality: 'Judicial',
+        address: saveAddress,
+        city: saveCity,
+        state: saveState,
+        valuation_value: valVal,
+        min_bid: bidVal,
+        expected_sale_value: saleVal
+      })
+    });
+
+    if (!res.ok) {
+      let errorMsg = 'Erro ao salvar imóvel automaticamente';
+      try {
+        const errText = await res.text();
+        const errData = JSON.parse(errText);
+        errorMsg = errData.error || errorMsg;
+      } catch (e) {}
+      throw new Error(errorMsg);
+    }
+
+    const { id } = await parseJsonResponse(res);
+
+    // Link documents
+    try {
+      await fetch('/api/documents/link', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${effectiveToken}` },
+        body: JSON.stringify({
+          temp_property_id: `temp_${state.sessionId}`,
+          property_id: id
+        })
+      });
+    } catch (e) {
+      console.warn("Aviso ao vincular documentos:", e);
+    }
+
+    // Link processes if CNJ exists
+    if (state.cnjResult) {
+      try {
+        await fetch('/api/processes', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${effectiveToken}` },
+          body: JSON.stringify({
+            cnj_number: state.cnjResult.cnj_number,
+            court: state.cnjResult.court,
+            chamber: state.cnjResult.chamber,
+            action_type: state.cnjResult.class,
+            debt_value: state.simulationData?.debts?.value || 0,
+            parties: state.cnjResult.parties,
+            property_id: id
+          })
+        });
+      } catch (e) {
+        console.warn("Aviso ao salvar processo:", e);
+      }
+    }
+
+    // Save story if exists
+    if (state.processStory) {
+      try {
+        await fetch('/api/process-stories', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${effectiveToken}` },
+          body: JSON.stringify({
+            property_id: id,
+            full_story: state.processStory.full_story,
+            legal_glossary: state.processStory.legal_glossary,
+            timeline_json: JSON.stringify({
+              timeline: state.processStory.timeline || [],
+              instagram_content: state.processStory.instagram_content || null
+            })
+          })
+        });
+      } catch (e) {
+        console.warn("Aviso ao salvar história do processo:", e);
+      }
+    }
+
+    setState((prev: any) => ({ ...prev, selectedPropertyId: id, adHocDocs: [] }));
+    if (onPropertyCreated) onPropertyCreated();
+    return id;
+  };
+
+  const getAnalyzedTabsSummary = useCallback(() => {
+    const list: { key: string; label: string }[] = [];
+    if (state.smartAnalysis) list.push({ key: 'smart_analysis', label: 'Análise Smart' });
+    if (state.simulationData) list.push({ key: 'viabilidade', label: 'Estudo de Viabilidade' });
+    if (state.report) list.push({ key: 'report', label: 'Relatório' });
+    if (state.unifiedSummaryText) list.push({ key: 'unified_summary', label: 'Resumão Unificado' });
+    if (state.editalAnalysis) list.push({ key: 'edital', label: 'Edital' });
+    if (state.matriculaAnalysis) list.push({ key: 'matricula', label: 'Matrícula' });
+    if (state.laudoAnalysis) list.push({ key: 'laudo', label: 'Laudo Técnico' });
+    if (state.processAnalysis || state.processStory || state.cnjResult) list.push({ key: 'processos', label: 'Processos' });
+    if (state.dossierAnalysis) list.push({ key: 'dossier', label: 'Dossiê' });
+    if (state.assessoriaAnalysis) list.push({ key: 'assessoria', label: 'Assessoria Jurídica' });
+    return list;
+  }, [state.smartAnalysis, state.simulationData, state.report, state.unifiedSummaryText, state.editalAnalysis, state.matriculaAnalysis, state.laudoAnalysis, state.processAnalysis, state.processStory, state.cnjResult, state.dossierAnalysis, state.assessoriaAnalysis]);
+
+  const analyzedTabsList = useMemo(() => getAnalyzedTabsSummary(), [getAnalyzedTabsSummary]);
+  const analyzedTabsCount = analyzedTabsList.length;
+
+  const handleSaveAllAnalyzedTabs = async () => {
+    const analyzedTabs = getAnalyzedTabsSummary();
+    if (analyzedTabs.length === 0) {
+      if ((window as any).customToast) {
+        (window as any).customToast("Nenhuma aba com análise realizada até o momento. Execute ao menos uma análise para salvar.", "warning");
+      } else {
+        alert("Nenhuma aba com análise realizada até o momento. Execute ao menos uma análise para salvar.");
+      }
+      return;
+    }
+
+    setIsSavingAllTabs(true);
+    setSaveAllSuccess(false);
+
+    try {
+      const propId = await ensureAutoSavedProperty();
+      const effectiveToken = token || (typeof window !== 'undefined' ? localStorage.getItem('token') || '' : '');
+
+      const sim = state.simulationData || {};
+      const currentMetrics: any = calculateSimulationMetrics(sim);
+      const bidVal = sim.bid?.value || state.smartAnalysis?.avaliacao_e_mercado?.lance_minimo_2_leilao || 0;
+      const saleVal = sim.saleValue?.value || state.smartAnalysis?.avaliacao_e_mercado?.valor_mercado_estimado || 0;
+      const valVal = sim.valuation?.value || state.smartAnalysis?.avaliacao_e_mercado?.valor_avaliacao || 0;
+      const tirVal = calculateTIR(
+        bidVal,
+        saleVal,
+        0,
+        sim.downPaymentPercent || 100,
+        sim.installments || 1,
+        sim.interestRate || 0,
+        sim.holdingMonths || 12,
+        sim
+      );
+
+      // 1. Sync financial values to property
+      await fetch(`/api/properties/${propId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${effectiveToken}` },
+        body: JSON.stringify({
+          valuation_value: valVal,
+          min_bid: bidVal,
+          expected_sale_value: saleVal
+        })
+      });
+
+      // 2. Prepare comprehensive AI Analysis payload
+      const analysisPayload: any = {
+        property_id: propId,
+        exec_summary: state.report || undefined,
+        financial_analysis: JSON.stringify(sim),
+        smart_analysis_json: state.smartAnalysis ? JSON.stringify(state.smartAnalysis) : undefined,
+        assessoria_analysis_json: state.assessoriaAnalysis ? JSON.stringify(state.assessoriaAnalysis) : undefined,
+        edital_analysis: state.editalAnalysis || undefined,
+        matricula_analysis: state.matriculaAnalysis || undefined,
+        laudo_analysis: state.laudoAnalysis || undefined,
+        process_analysis: state.processAnalysis ? (typeof state.processAnalysis === 'string' ? state.processAnalysis : JSON.stringify(state.processAnalysis)) : undefined,
+        dossier_analysis: state.dossierAnalysis || undefined,
+        unified_summary: state.unifiedSummaryText || undefined,
+        recommended_bid: bidVal,
+        roi: currentMetrics?.roi || 0,
+        tir: tirVal || 0,
+        estimated_profit: currentMetrics?.netProfit || 0,
+        ia_used: state.selectedModel || "gemini-3.7-flash"
+      };
+
+      const analysisRes = await fetch(`/api/ai-analyses`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${effectiveToken}` },
+        body: JSON.stringify(analysisPayload)
+      });
+
+      if (analysisRes.ok) {
+        const resData = await parseJsonResponse(analysisRes);
+        if (resData?.id) {
+          setState((prev: any) => ({ ...prev, analysisId: resData.id }));
+        }
+      }
+
+      // 3. Process Story if present
+      if (state.processStory) {
+        try {
+          const checkStory = await fetch(`/api/process-stories/${propId}`, {
+            headers: { 'Authorization': `Bearer ${effectiveToken}` }
+          });
+          let storyExisting = null;
+          if (checkStory.ok) {
+            storyExisting = await parseJsonResponse(checkStory);
+          }
+          if (storyExisting?.id) {
+            await fetch(`/api/process-stories/${storyExisting.id}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${effectiveToken}` },
+              body: JSON.stringify({
+                full_story: state.processStory.full_story,
+                legal_glossary: state.processStory.legal_glossary,
+                timeline_json: JSON.stringify({
+                  timeline: state.processStory.timeline || [],
+                  instagram_content: state.processStory.instagram_content || null
+                })
+              })
+            });
+          } else {
+            await fetch('/api/process-stories', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${effectiveToken}` },
+              body: JSON.stringify({
+                property_id: propId,
+                full_story: state.processStory.full_story,
+                legal_glossary: state.processStory.legal_glossary,
+                timeline_json: JSON.stringify({
+                  timeline: state.processStory.timeline || [],
+                  instagram_content: state.processStory.instagram_content || null
+                })
+              })
+            });
+          }
+        } catch (storyErr) {
+          console.warn("Aviso ao salvar história do processo:", storyErr);
+        }
+      }
+
+      fetchPropertyData(propId);
+      setSaveAllSuccess(true);
+      setTimeout(() => setSaveAllSuccess(false), 4000);
+
+      const tabNames = analyzedTabs.map(t => t.label).join(', ');
+      const successMessage = `Todas as ${analyzedTabs.length} abas analisadas foram salvas com sucesso! (${tabNames})`;
+      if ((window as any).customToast) {
+        (window as any).customToast(successMessage, "success");
+      } else {
+        alert(successMessage);
+      }
+    } catch (err: any) {
+      console.error("Erro ao salvar todas as abas:", err);
+      const errMsg = `Erro ao salvar todas as abas: ${err.message || err}`;
+      if ((window as any).customToast) {
+        (window as any).customToast(errMsg, "error");
+      } else {
+        alert(errMsg);
+      }
+    } finally {
+      setIsSavingAllTabs(false);
+    }
+  };
 
   const handleSaveSmartAnalysis = async (updatedData: SmartAnalysisData) => {
     try {
-      const selectedPropertyId = state.selectedPropertyId;
+      const propId = await ensureAutoSavedProperty();
       const analysisId = state.analysisId;
-      
-      if (!selectedPropertyId) {
-        updateState({ smartAnalysis: updatedData });
-        if ((window as any).customToast) {
-          (window as any).customToast("Análise Smart salva temporariamente (vincule a um imóvel para persistir)!", "info");
-        }
-        return;
-      }
-      
       const smartJson = JSON.stringify(updatedData);
       
-      if (!analysisId) {
-        const createRes = await fetch(`/api/ai-analyses`, {
-          method: 'POST',
-          headers: { 
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({
-            property_id: selectedPropertyId,
-            exec_summary: "Análise Smart - Preenchido pelo Usuário",
-            financial_analysis: JSON.stringify(state.simulationData),
-            smart_analysis_json: smartJson,
-            ia_used: "Manual"
-          })
-        });
+      const payload: any = {
+        property_id: propId,
+        exec_summary: state.report || "Análise Smart - Dados Consolidados",
+        financial_analysis: JSON.stringify(state.simulationData || {}),
+        smart_analysis_json: smartJson,
+        ia_used: state.selectedModel || "Manual"
+      };
 
-        if (createRes.ok) {
-          const createData = await parseJsonResponse(createRes);
-          updateState({ analysisId: createData.id, smartAnalysis: updatedData });
-          fetchPropertyData(selectedPropertyId);
-        } else {
-          throw new Error("Erro ao criar registro da análise.");
+      const res = await fetch(`/api/ai-analyses`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (res.ok) {
+        const createData = await parseJsonResponse(res);
+        setState((prev: any) => ({ ...prev, analysisId: createData.id, smartAnalysis: updatedData }));
+        fetchPropertyData(propId);
+        if ((window as any).customToast) {
+          (window as any).customToast("Análise Smart salva com sucesso!", "success");
         }
       } else {
-        const updateRes = await fetch(`/api/ai-analyses/${analysisId}`, {
-          method: 'PUT',
-          headers: { 
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({
-            smart_analysis_json: smartJson
-          })
-        });
-
-        if (updateRes.ok) {
-          updateState({ smartAnalysis: updatedData });
-          fetchPropertyData(selectedPropertyId);
-        } else {
-          throw new Error("Erro ao atualizar análise.");
-        }
-      }
-      
-      if ((window as any).customToast) {
-        (window as any).customToast("Análise Smart salva com sucesso!", "success");
+        throw new Error("Erro ao criar/atualizar registro da análise.");
       }
     } catch (err: any) {
       console.error(err);
@@ -8239,64 +8552,36 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
 
   const handleSaveAssessoriaAnalysis = async (updatedData: AssessoriaAnalysisData) => {
     try {
-      const selectedPropertyId = state.selectedPropertyId;
+      const propId = await ensureAutoSavedProperty();
       const analysisId = state.analysisId;
-      
-      if (!selectedPropertyId) {
-        updateState({ assessoriaAnalysis: updatedData });
-        if ((window as any).customToast) {
-          (window as any).customToast("Análise de Assessoria salva temporariamente (vincule a um imóvel para persistir)!", "info");
-        }
-        return;
-      }
-      
       const assessoriaJson = JSON.stringify(updatedData);
       
-      if (!analysisId) {
-        const createRes = await fetch(`/api/ai-analyses`, {
-          method: 'POST',
-          headers: { 
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({
-            property_id: selectedPropertyId,
-            exec_summary: "Análise de Assessoria - Preenchido pelo Usuário",
-            financial_analysis: JSON.stringify(state.simulationData),
-            assessoria_analysis_json: assessoriaJson,
-            ia_used: "Manual"
-          })
-        });
+      const payload: any = {
+        property_id: propId,
+        exec_summary: state.report || "Análise de Assessoria - Dados Consolidados",
+        financial_analysis: JSON.stringify(state.simulationData || {}),
+        assessoria_analysis_json: assessoriaJson,
+        ia_used: state.selectedModel || "Manual"
+      };
 
-        if (createRes.ok) {
-          const createData = await parseJsonResponse(createRes);
-          updateState({ analysisId: createData.id, assessoriaAnalysis: updatedData });
-          fetchPropertyData(selectedPropertyId);
-        } else {
-          throw new Error("Erro ao criar registro da análise.");
+      const res = await fetch(`/api/ai-analyses`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (res.ok) {
+        const createData = await parseJsonResponse(res);
+        setState((prev: any) => ({ ...prev, analysisId: createData.id, assessoriaAnalysis: updatedData }));
+        fetchPropertyData(propId);
+        if ((window as any).customToast) {
+          (window as any).customToast("Análise de Assessoria salva com sucesso!", "success");
         }
       } else {
-        const updateRes = await fetch(`/api/ai-analyses/${analysisId}`, {
-          method: 'PUT',
-          headers: { 
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({
-            assessoria_analysis_json: assessoriaJson
-          })
-        });
-
-        if (updateRes.ok) {
-          updateState({ assessoriaAnalysis: updatedData });
-          fetchPropertyData(selectedPropertyId);
-        } else {
-          throw new Error("Erro ao atualizar análise.");
-        }
-      }
-      
-      if ((window as any).customToast) {
-        (window as any).customToast("Análise de Assessoria salva com sucesso!", "success");
+        throw new Error("Erro ao criar/atualizar registro da análise.");
       }
     } catch (err: any) {
       console.error(err);
@@ -8854,14 +9139,20 @@ Sua resposta deve ser APENAS um objeto JSON válido, sem qualquer bloco de códi
   };
 
   const savePartialAnalysisToDb = async (fields: Record<string, any>) => {
-    if (!selectedPropertyId) return;
     try {
+      let propId = state.selectedPropertyId;
+      if (!propId) {
+        propId = await ensureAutoSavedProperty();
+      }
+      if (!propId) return;
+
+      const effectiveToken = token || (typeof window !== 'undefined' ? localStorage.getItem('token') || '' : '');
       if (state.analysisId) {
         await fetch(`/api/ai-analyses/${state.analysisId}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
+            'Authorization': `Bearer ${effectiveToken}`
           },
           body: JSON.stringify(fields)
         });
@@ -8870,17 +9161,19 @@ Sua resposta deve ser APENAS um objeto JSON válido, sem qualquer bloco de códi
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
+            'Authorization': `Bearer ${effectiveToken}`
           },
           body: JSON.stringify({
-            property_id: selectedPropertyId,
+            property_id: propId,
             ia_used: state.selectedModel || "gemini-3.7-flash",
             ...fields
           })
         });
         if (res.ok) {
           const data = await parseJsonResponse(res);
-          updateState({ analysisId: data.id });
+          if (data?.id) {
+            setState((prev: any) => ({ ...prev, analysisId: data.id }));
+          }
         }
       }
     } catch (err) {
@@ -9741,6 +10034,7 @@ Extraia obrigatoriamente e com riqueza de detalhes:
             processAnalysis: merged.process_analysis || prev.processAnalysis,
             laudoAnalysis: merged.laudo_analysis || prev.laudoAnalysis,
             dossierAnalysis: merged.dossier_analysis || prev.dossierAnalysis,
+            unifiedSummaryText: merged.unified_summary || prev.unifiedSummaryText,
             smartAnalysis: normalizeSmartAnalysis(parsedSmartAnalysis || prev.smartAnalysis || getEmptySmartAnalysis()),
             assessoriaAnalysis: parsedAssessoriaAnalysis || prev.assessoriaAnalysis || getEmptyAssessoriaAnalysis(),
             ...(parsedSimulationData ? { simulationData: parsedSimulationData } : {})
@@ -9832,177 +10126,15 @@ Extraia obrigatoriamente e com riqueza de detalhes:
   };
 
   const handleSaveAsProperty = async () => {
-    const defaultTitle = cnjResult ? `Leilão: ${cnjResult.cnj_number}` : `Análise IA: ${new Date().toLocaleDateString('pt-BR')}`;
-    
-    const saveAction = async (titleInput: string) => {
-      const title = titleInput.trim() || defaultTitle;
-      try {
-        let saveCity = 'Cidade extraída';
-        let saveState = 'Estado';
-        if (cnjResult) {
-          const loc = detectCityAndStateFromText(`${cnjResult.chamber || ''} ${cnjResult.court || ''}`);
-          if (loc.city) saveCity = loc.city;
-          if (loc.state) saveState = loc.state;
-        }
-        if ((!saveCity || saveCity === 'Cidade extraída') && state.processStory?.full_story) {
-          const loc = detectCityAndStateFromText(state.processStory.full_story);
-          if (loc.city) saveCity = loc.city;
-          if (loc.state) saveState = loc.state;
-        }
-        if ((!saveCity || saveCity === 'Cidade extraída') && adHocDocs && adHocDocs.length > 0) {
-          for (const doc of adHocDocs) {
-            if (doc.extractedText) {
-              const loc = detectCityAndStateFromText(doc.extractedText);
-              if (loc.city) {
-                saveCity = loc.city;
-                if (loc.state) saveState = loc.state;
-                break;
-              }
-            }
-          }
-        }
-
-        const res = await fetch('/api/properties', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-          body: JSON.stringify({
-            title: title,
-            type: 'Apartamento',
-            modality: 'Judicial',
-            address: 'Endereço extraído do processo...',
-            city: saveCity,
-            state: saveState,
-            valuation_value: simulationData.valuation?.value || 0,
-            min_bid: simulationData.bid?.value || 0,
-            expected_sale_value: simulationData.saleValue?.value || 0
-          })
-        });
-
-        if (!res.ok) {
-          let errorMsg = 'Erro ao salvar imóvel';
-          try {
-            const errText = await res.text();
-            const errData = JSON.parse(errText);
-            errorMsg = errData.error || errorMsg;
-          } catch (e) {}
-          throw new Error(errorMsg);
-        }
-
-        const { id } = await parseJsonResponse(res);
-        
-        // Link documents
-        const linkRes = await fetch('/api/documents/link', {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-            body: JSON.stringify({
-              temp_property_id: `temp_${state.sessionId}`,
-              property_id: id
-            })
-        });
-        if (!linkRes.ok) {
-          console.warn("Erro ao vincular documentos");
-        }
-
-        // Save AI Analysis if exists
-        if (state.report) {
-          const aiRes = await fetch('/api/ai-analyses', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-            body: JSON.stringify({
-              property_id: id,
-              exec_summary: state.report,
-              ia_used: selectedModel,
-              recommended_bid: simulationData.bid?.value || 0,
-              estimated_profit: (() => {
-                const metrics = calculateSimulationMetrics(simulationData);
-                return metrics.netProfit;
-              })()
-            })
-          });
-          if (!aiRes.ok) {
-            console.warn("Erro ao salvar análise de IA associada");
-          }
-        }
-
-        if (cnjResult) {
-          const processRes = await fetch('/api/processes', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-            body: JSON.stringify({
-              cnj_number: cnjResult.cnj_number,
-              court: cnjResult.court,
-              chamber: cnjResult.chamber,
-              action_type: cnjResult.class,
-              debt_value: simulationData.debts?.value || 0,
-              parties: cnjResult.parties,
-              property_id: id
-            })
-          });
-
-          if (!processRes.ok) {
-            let errorMsg = 'Erro ao criar processo';
-            const errorText = await processRes.text();
-            try {
-              const trimmed = errorText.trim().toLowerCase();
-              if (trimmed.includes('<!doctype') || trimmed.includes('<html') || trimmed.includes('<body')) {
-                throw new Error("Resposta do servidor é HTML");
-              }
-              const errorData = JSON.parse(errorText);
-              errorMsg = errorData.error || errorMsg;
-            } catch (e) {
-              // Ignore JSON parse error if response is not JSON
-            }
-            throw new Error(errorMsg);
-          }
-        }
-
-        if (state.processStory) {
-          const storyRes = await fetch('/api/process-stories', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-            body: JSON.stringify({
-              property_id: id,
-              full_story: state.processStory.full_story,
-              legal_glossary: state.processStory.legal_glossary,
-              timeline_json: JSON.stringify({
-                timeline: state.processStory.timeline || [],
-                instagram_content: state.processStory.instagram_content || null
-              })
-            })
-          });
-          if (!storyRes.ok) {
-            console.warn("Erro ao salvar história do processo");
-          }
-        }
-
-        updateState({ selectedPropertyId: id, adHocDocs: [] });
-        if ((window as any).customToast) {
-          (window as any).customToast("Imóvel cadastrado com sucesso! Todos os documentos e relatórios foram vinculados.", "success");
-        } else {
-          alert("Imóvel cadastrado com sucesso! Todos os documentos e relatórios foram vinculados.");
-        }
-        onPropertyCreated();
-      } catch (err: any) {
-        console.error(err);
-        if ((window as any).customToast) {
-          (window as any).customToast(`Erro ao salvar imóvel: ${err.message || err}`, "error");
-        } else {
-          alert(`Erro ao salvar imóvel: ${err.message || err}`);
-        }
+    try {
+      await handleSaveAllAnalyzedTabs();
+    } catch (err: any) {
+      console.error("Erro ao salvar automaticamente:", err);
+      if ((window as any).customToast) {
+        (window as any).customToast(`Erro ao salvar: ${err.message || err}`, "error");
+      } else {
+        alert(`Erro ao salvar: ${err.message || err}`);
       }
-    };
-
-    if ((window as any).customPrompt) {
-      (window as any).customPrompt(
-        "Escolha um nome para salvar a análise:",
-        "Digite o título do imóvel para salvá-lo na sua Gestão de Imóveis.",
-        defaultTitle,
-        saveAction
-      );
-    } else {
-      const titleInput = window.prompt("Escolha um nome para salvar a análise:", defaultTitle);
-      if (titleInput === null) return;
-      saveAction(titleInput);
     }
   };
 
@@ -11943,17 +12075,52 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
         {/* Main Area: Results & Tabs */}
         <div className={cn("space-y-6", isPublicView ? "lg:col-span-4" : "lg:col-span-3")}>
           <div className="bg-brand-paper rounded-[2.5rem] border border-brand-primary/10 shadow-sm overflow-hidden flex flex-col min-h-[600px]">
-            {/* Tabs Header */}
-            <div className="flex border-b border-brand-primary/10 bg-brand-bg/30 overflow-x-auto no-print">
-              <AnalysisTab active={activeSubTab === 'smart_analysis'} onClick={() => updateState({ activeSubTab: 'smart_analysis' })} icon={<Cpu size={16} />} label="Análise Smart (Principal)" />
-              <AnalysisTab active={activeSubTab === 'viabilidade'} onClick={() => updateState({ activeSubTab: 'viabilidade' })} icon={<TrendingUp size={16} />} label="Estudo de Viabilidade" />
-              <AnalysisTab active={activeSubTab === 'report'} onClick={() => updateState({ activeSubTab: 'report' })} icon={<Brain size={16} />} label="Relatório" />
-              <AnalysisTab active={activeSubTab === 'unified_summary'} onClick={() => updateState({ activeSubTab: 'unified_summary' })} icon={<Layers size={16} />} label="Resumão Unificado" />
-              <AnalysisTab active={activeSubTab === 'edital'} onClick={() => updateState({ activeSubTab: 'edital' })} icon={<FileText size={16} />} label="Edital" />
-              <AnalysisTab active={activeSubTab === 'matricula'} onClick={() => updateState({ activeSubTab: 'matricula' })} icon={<BookOpen size={16} />} label="Matrícula" />
-              <AnalysisTab active={activeSubTab === 'laudo'} onClick={() => updateState({ activeSubTab: 'laudo' })} icon={<Ruler size={16} />} label="Laudo Técnico" />
-              <AnalysisTab active={activeSubTab === 'processos'} onClick={() => updateState({ activeSubTab: 'processos' })} icon={<Search size={16} />} label="Processos" />
-              {!isPublicView && <AnalysisTab active={activeSubTab === 'documents'} onClick={() => updateState({ activeSubTab: 'documents' })} icon={<Files size={16} />} label="Documentos" />}
+            {/* Tabs Header with Universal Save All Action */}
+            <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between border-b border-brand-primary/10 bg-brand-bg/30 no-print px-3 py-2 gap-2">
+              <div className="flex overflow-x-auto gap-1 items-center flex-1 scrollbar-none">
+                <AnalysisTab active={activeSubTab === 'smart_analysis'} onClick={() => updateState({ activeSubTab: 'smart_analysis' })} icon={<Cpu size={16} />} label="Análise Smart (Principal)" />
+                <AnalysisTab active={activeSubTab === 'viabilidade'} onClick={() => updateState({ activeSubTab: 'viabilidade' })} icon={<TrendingUp size={16} />} label="Estudo de Viabilidade" />
+                <AnalysisTab active={activeSubTab === 'report'} onClick={() => updateState({ activeSubTab: 'report' })} icon={<Brain size={16} />} label="Relatório" />
+                <AnalysisTab active={activeSubTab === 'unified_summary'} onClick={() => updateState({ activeSubTab: 'unified_summary' })} icon={<Layers size={16} />} label="Resumão Unificado" />
+                <AnalysisTab active={activeSubTab === 'edital'} onClick={() => updateState({ activeSubTab: 'edital' })} icon={<FileText size={16} />} label="Edital" />
+                <AnalysisTab active={activeSubTab === 'matricula'} onClick={() => updateState({ activeSubTab: 'matricula' })} icon={<BookOpen size={16} />} label="Matrícula" />
+                <AnalysisTab active={activeSubTab === 'laudo'} onClick={() => updateState({ activeSubTab: 'laudo' })} icon={<Ruler size={16} />} label="Laudo Técnico" />
+                <AnalysisTab active={activeSubTab === 'processos'} onClick={() => updateState({ activeSubTab: 'processos' })} icon={<Search size={16} />} label="Processos" />
+                {!isPublicView && <AnalysisTab active={activeSubTab === 'documents'} onClick={() => updateState({ activeSubTab: 'documents' })} icon={<Files size={16} />} label="Documentos" />}
+              </div>
+
+              {!isPublicView && (
+                <div className="flex items-center gap-2 shrink-0 self-end lg:self-center pr-1">
+                  <button
+                    type="button"
+                    onClick={handleSaveAllAnalyzedTabs}
+                    disabled={isSavingAllTabs}
+                    className={cn(
+                      "flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer border whitespace-nowrap",
+                      saveAllSuccess
+                        ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/40"
+                        : "bg-brand-primary text-black hover:bg-brand-primary/90 border-brand-primary/60 shadow-brand-primary/20"
+                    )}
+                    title="Salvar todas as abas que foram analisadas de forma automática sem precisar vincular imóvel"
+                  >
+                    {isSavingAllTabs ? (
+                      <Loader2 size={15} className="animate-spin text-black shrink-0" />
+                    ) : saveAllSuccess ? (
+                      <CheckCheck size={15} className="text-emerald-400 shrink-0" />
+                    ) : (
+                      <SaveAll size={15} className="text-black shrink-0" />
+                    )}
+                    <span>
+                      {isSavingAllTabs 
+                        ? "Salvando Abas..." 
+                        : saveAllSuccess 
+                          ? "Todas as Abas Salvas!" 
+                          : `Salvar Todas as Abas Analisadas (${analyzedTabsCount})`
+                      }
+                    </span>
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Tab Content */}
@@ -12624,14 +12791,26 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
                           </button>
                           {!isPublicView && (
                             <>
-                              {!selectedPropertyId && (
-                                <button 
-                                  onClick={handleSaveAsProperty}
-                                  className="flex items-center gap-2 bg-brand-primary text-black px-6 py-3 rounded-xl text-xs font-bold hover:bg-brand-primary/90 transition-all shadow-lg shadow-brand-primary/20"
-                                >
-                                  <Save size={16} /> Salvar
-                                </button>
-                              )}
+                              <button 
+                                onClick={handleSaveAllAnalyzedTabs}
+                                disabled={isSavingAllTabs}
+                                className={cn(
+                                  "flex items-center gap-2 px-6 py-3 rounded-xl text-xs font-bold transition-all shadow-lg cursor-pointer",
+                                  saveAllSuccess
+                                    ? "bg-emerald-500 text-black shadow-emerald-500/20"
+                                    : "bg-brand-primary text-black hover:bg-brand-primary/90 shadow-brand-primary/20"
+                                )}
+                                title="Salva todas as abas analisadas automaticamente no sistema"
+                              >
+                                {isSavingAllTabs ? (
+                                  <Loader2 size={16} className="animate-spin" />
+                                ) : saveAllSuccess ? (
+                                  <CheckCheck size={16} />
+                                ) : (
+                                  <SaveAll size={16} />
+                                )}
+                                <span>{isSavingAllTabs ? "Salvando..." : saveAllSuccess ? "Abas Salvas!" : `Salvar Todas as Abas (${analyzedTabsCount})`}</span>
+                              </button>
                               <button 
                                 onClick={handleShare}
                                 className="flex items-center gap-2 bg-brand-primary text-black px-6 py-3 rounded-xl text-xs font-bold hover:bg-brand-primary/90 transition-all shadow-lg shadow-brand-primary/20"
@@ -12708,9 +12887,10 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
                         selectedPropertyId={selectedPropertyId}
                         selectedProperty={selectedProperty}
                         token={token}
+                        onAutoSaveProperty={ensureAutoSavedProperty}
                         onPropertySaved={() => {
                           if (onPropertyCreated) onPropertyCreated();
-                          fetchPropertyData(selectedPropertyId);
+                          if (selectedPropertyId) fetchPropertyData(selectedPropertyId);
                         }}
                         currentReportText={report}
                         onReportUpdated={(newReportText) => updateState({ report: newReportText })}
@@ -13051,10 +13231,12 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
                           </div>
                         </div>
                         <button 
-                          onClick={handleSaveAsProperty}
-                          className="flex items-center gap-3 bg-brand-primary text-black px-8 py-4 rounded-2xl text-xs font-bold uppercase tracking-widest hover:bg-brand-primary/90 transition-all shadow-xl shadow-brand-primary/20"
+                          onClick={handleSaveAllAnalyzedTabs}
+                          disabled={isSavingAllTabs}
+                          className="flex items-center gap-3 bg-brand-primary text-black px-8 py-4 rounded-2xl text-xs font-bold uppercase tracking-widest hover:bg-brand-primary/90 transition-all shadow-xl shadow-brand-primary/20 cursor-pointer"
                         >
-                          <Save size={18} /> Salvar como Novo Imóvel
+                          {isSavingAllTabs ? <Loader2 size={18} className="animate-spin" /> : <SaveAll size={18} />}
+                          <span>{isSavingAllTabs ? "Salvando..." : "Salvar Todas as Abas"}</span>
                         </button>
                       </div>
 
