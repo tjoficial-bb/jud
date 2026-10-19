@@ -1,5 +1,6 @@
 import React from 'react';
 import { ExternalLink, Home, TrendingUp, DollarSign } from 'lucide-react';
+import { detectCityAndStateFromText } from '../utils/judicialCourts';
 
 interface MarketComparablesProps {
   propertyTitle?: string;
@@ -9,62 +10,6 @@ interface MarketComparablesProps {
   expectedSaleValue?: number;
   valuationValue?: number;
   storyText?: string;
-}
-
-function detectCityAndStateFromText(text: string): { city: string; state: string } {
-  let city = '';
-  let state = '';
-
-  if (!text) return { city, state };
-
-  const lowerText = text.toLowerCase();
-
-  // Special overrides for explicit document context
-  if (lowerText.includes("águas de lindóia") || lowerText.includes("aguas de lindoia") || lowerText.includes("lindoia")) {
-    return { city: "Águas de Lindóia", state: "SP" };
-  }
-
-  // Check state presence in typical comarca or general text
-  const hasSP = /são paulo|águas de lindóia|campinas|santos|guarulhos|osasco|santo andré|são bernardo|sjrp|rib rã|bauru|sorocaba|jundiaí|piracicaba|itú/i.test(text);
-  const hasMG = /belo horizonte|contagem|uberlândia|juiz de fora|betim|montes claros|ribeirão das neves|governador valadares|ipatinga|sete lagoas|divinópolis/i.test(text);
-  const hasRJ = /rio de janeiro|niterói|duque de caxias|nova iguaçu|são gonçalo|campos dos goytacazes|belford roxo|são joão de meriti|petrópolis/i.test(text);
-
-  if (hasSP) state = 'SP';
-  else if (hasMG) state = 'MG';
-  else if (hasRJ) state = 'RJ';
-
-  const cityRegexes = [
-    /comarca\s+de\s+([A-Za-zÀ-ÖØ-öø-ÿ\s'-]{3,40})/i,
-    /município\s+de\s+([A-Za-zÀ-ÖØ-öø-ÿ\s'-]{3,40})/i,
-    /cidade\s+de\s+([A-Za-zÀ-ÖØ-öø-ÿ\s'-]{3,40})/i,
-    /comarca\s*:\s*([A-Za-zÀ-ÖØ-öø-ÿ\s'-]{3,40})/i,
-    /\*\*cidade:\*\*\s*([A-Za-zÀ-ÖØ-öø-ÿ\s'-]{3,40})/i,
-    /cidade:\s*([A-Za-zÀ-ÖØ-öø-ÿ\s'-]{3,40})/i,
-    /vara\s+cível\s+de\s+([A-Za-zÀ-ÖØ-öø-ÿ\s'-]{3,40})/i,
-    /vara\s+única\s+de\s+([A-Za-zÀ-ÖØ-öø-ÿ\s'-]{3,40})/i,
-    /foro\s+de\s+([A-Za-zÀ-ÖØ-öø-ÿ\s'-]{3,40})/i
-  ];
-
-  for (const regex of cityRegexes) {
-    const match = text.match(regex);
-    if (match && match[1]) {
-      const candidate = match[1].trim();
-      const cleanCandidate = candidate.split(/[-\/()\n,;]/)[0].trim();
-      if (cleanCandidate.length > 2 && cleanCandidate.length < 40 && !/tribunal|vara|justiça|artigo|lei|reclamado|autor|requerido|executado/i.test(cleanCandidate)) {
-        city = cleanCandidate;
-        break;
-      }
-    }
-  }
-
-  if (city && !state) {
-    const stateMatch = text.match(new RegExp(`${city}\\s*[-/]\\s*([A-Z]{2})`, 'i')) || text.match(new RegExp(`${city}\\s*\\(?([A-Z]{2})\\)?`, 'i'));
-    if (stateMatch && stateMatch[1]) {
-      state = stateMatch[1].toUpperCase();
-    }
-  }
-
-  return { city, state };
 }
 
 function detectAreaFromText(text: string): number {
@@ -112,8 +57,8 @@ export const MarketComparables: React.FC<MarketComparablesProps> = ({
   }
 
   // Ultimate fallbacks if still empty
-  if (!resolvedCity) resolvedCity = 'Belo Horizonte';
-  if (!resolvedState) resolvedState = 'MG';
+  if (!resolvedState) resolvedState = 'SP';
+  if (!resolvedCity) resolvedCity = resolvedState === 'SP' ? 'São Paulo' : 'Comarca';
 
   // Area detection
   let finalArea = area && area > 0 ? area : 0;

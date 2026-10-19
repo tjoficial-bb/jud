@@ -40,6 +40,9 @@ import { jsonrepair } from 'jsonrepair';
 import { ReportCustomExporterBar } from './ReportCustomExporterBar';
 import { ExportSectionItem } from '../utils/modularReportExporter';
 import { AssessorPitchAndTipsCard } from './AssessorPitchAndTipsCard';
+import { detectCityAndStateFromText, getCourtFromCnj, extractJudicialDetailsHeuristic } from '../utils/judicialCourts';
+
+export { detectCityAndStateFromText };
 
 // Robust types for the structured lawsuit/process data
 export interface ProcessoReportData {
@@ -1108,7 +1111,7 @@ export const ProcessoReport: React.FC<ProcessoReportProps> = ({
                 <div className="divide-y divide-brand-border/40 text-sm font-sans">
                   <GridRow label="Número do Processo" value={data.processo_principal.numero_processo} highlight />
                   <GridRow label="Vara / Comarca" value={data.processo_principal.vara_comarca || '13ª Vara Cível'} />
-                  <GridRow label="Tribunal" value={data.processo_principal.tribunal || 'TJSP / TJMG / TJRJ'} />
+                  <GridRow label="Tribunal" value={data.processo_principal.tribunal || 'Tribunal de Justiça de São Paulo (TJSP)'} />
                   <GridRow label="Valor da Execução" value={data.processo_principal.valor_execucao || 'R$ ' + (valuation * 0.4).toLocaleString('pt-BR')} />
                   <GridRow label="Executante / Autor" value={data.processo_principal.executante} />
                   <GridRow label="Executado / Ex-Proprietário" value={data.processo_principal.executado} />
@@ -1516,19 +1519,37 @@ function parseProcessoHeuristics(
   if (!text) return result;
 
   try {
-    const processMatch = text.match(/\d{7}\-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4}/g);
-    if (processMatch) {
-      result.processo_principal.numero_processo = processMatch[0];
+    const details = extractJudicialDetailsHeuristic(text);
+    if (details.cnjNumber) {
+      result.processo_principal.numero_processo = details.cnjNumber;
+    }
+    if (details.tribunal) {
+      result.processo_principal.tribunal = details.tribunal;
+    }
+    if (details.varaComarca) {
+      result.processo_principal.vara_comarca = details.varaComarca;
+    }
+    if (details.executante) {
+      result.processo_principal.executante = details.executante;
+    }
+    if (details.executado) {
+      result.processo_principal.executado = details.executado;
+    }
+    if (details.valorExecucao) {
+      result.processo_principal.valor_execucao = details.valorExecucao;
+    }
+    if (details.subject) {
+      result.processo_principal.motivacao_judicial = `${details.class} - ${details.subject}`;
     }
 
-    const executanteMatch = text.match(/(?:exequente|executante|autor|credores|reclamante)\s*(?::)?\s*([^\n\r]*)/i);
-    if (executanteMatch) {
-      result.processo_principal.executante = executanteMatch[1].trim().substring(0, 100);
-    }
-
-    const executadoMatch = text.match(/(?:executado|ex-mutuario|devedor|reu|reclamado)\s*(?::)?\s*([^\n\r]*)/i);
-    if (executadoMatch) {
-      result.processo_principal.executado = devedorClean(executadoMatch[1]);
+    if (details.isSuspended) {
+      result.decisao_investimento = {
+        recomendacao: 'ARREMATAR COM CAUTELA / CONDICIONAL (LEILÃO SUSPENSO)',
+        score_seguranca_juridica: 65,
+        termo_risco_anulacao: 'MÉDIO',
+        risco_suspensao_leilao: 'ALTO',
+        sintese_decisao: `O 2º Leilão foi prejudicado/suspenso judicialmente por decisão liminar na Ação Anulatória nº ${details.cnjNumber} (${details.varaComarca}). Recomenda-se acompanhar a revogação da tutela de urgência antes de realizar qualquer depósito ou lance.`
+      };
     }
   } catch (err) {
     console.error("Heuristics parsing fallback failed inside ProcessoReport", err);
@@ -1539,59 +1560,6 @@ function parseProcessoHeuristics(
 
 function devedorClean(txt: string): string {
   return txt.trim().substring(0, 100);
-}
-
-export function detectCityAndStateFromText(text: string): { city: string; state: string } {
-  let city = '';
-  let state = '';
-
-  if (!text) return { city, state };
-
-  const lowerText = text.toLowerCase();
-
-  // Special overrides for explicit document context
-  if (lowerText.includes("águas de lindóia") || lowerText.includes("aguas de lindoia") || lowerText.includes("lindoia")) {
-    return { city: "Águas de Lindóia", state: "SP" };
-  }
-
-  // Check state presence in typical comarca or general text
-  const hasSP = /são paulo|águas de lindóia|campinas|santos|guarulhos|osasco|santo andré|são bernardo|sjrp|rib rã|bauru|sorocaba|jundiaí|piracicaba|itú/i.test(text);
-  const hasMG = /belo horizonte|contagem|uberlândia|juiz de fora|betim|montes claros|ribeirão das neves|governador valadares|ipatinga|sete lagoas|divinópolis/i.test(text);
-  const hasRJ = /rio de janeiro|niterói|duque de caxias|nova iguaçu|são gonçalo|campos dos goytacazes|belford roxo|são joão de meriti|petrópolis/i.test(text);
-
-  if (hasSP) state = 'SP';
-  else if (hasMG) state = 'MG';
-  else if (hasRJ) state = 'RJ';
-
-  const cityRegexes = [
-    /comarca\s+de\s+([A-Za-zÀ-ÖØ-öø-ÿ\s'-]{3,40})/i,
-    /município\s+de\s+([A-Za-zÀ-ÖØ-öø-ÿ\s'-]{3,40})/i,
-    /cidade\s+de\s+([A-Za-zÀ-ÖØ-öø-ÿ\s'-]{3,40})/i,
-    /comarca\s*:\s*([A-Za-zÀ-ÖØ-öø-ÿ\s'-]{3,40})/i,
-    /\*\*cidade:\*\*\s*([A-Za-zÀ-ÖØ-öø-ÿ\s'-]{3,40})/i,
-    /cidade:\s*([A-Za-zÀ-ÖØ-öø-ÿ\s'-]{3,40})/i
-  ];
-
-  for (const regex of cityRegexes) {
-    const match = text.match(regex);
-    if (match && match[1]) {
-      const candidate = match[1].trim();
-      const cleanCandidate = candidate.split(/[-\/()\n,;]/)[0].trim();
-      if (cleanCandidate.length > 2 && cleanCandidate.length < 40 && !/tribunal|vara|justiça|artigo|lei|reclamado|autor|requerido|executado/i.test(cleanCandidate)) {
-        city = cleanCandidate;
-        break;
-      }
-    }
-  }
-
-  if (city && !state) {
-    const stateMatch = text.match(new RegExp(`${city}\\s*[-/]\\s*([A-Z]{2})`, 'i')) || text.match(new RegExp(`${city}\\s*\\(?([A-Z]{2})\\)?`, 'i'));
-    if (stateMatch && stateMatch[1]) {
-      state = stateMatch[1].toUpperCase();
-    }
-  }
-
-  return { city, state };
 }
 
 function getFallbackProcessoData(
@@ -1610,8 +1578,8 @@ function getFallbackProcessoData(
     if (detected.state) finalState = detected.state;
   }
 
-  const uf = (finalState || 'MG').toUpperCase().trim();
-  const currentCity = finalCity || 'Belo Horizonte';
+  const uf = (finalState || 'SP').toUpperCase().trim();
+  const currentCity = finalCity || (uf === 'SP' ? 'São Paulo' : uf === 'RJ' ? 'Rio de Janeiro' : uf === 'MG' ? 'Belo Horizonte' : 'Comarca');
   
   const displayTribunal = uf === 'SP' || uf.includes('SÃO PAULO')
     ? 'Tribunal de Justiça de São Paulo (TJSP)'
@@ -1625,31 +1593,37 @@ function getFallbackProcessoData(
     ? 'Justiça Federal da 2ª Região (TRF2)'
     : `Justiça Federal TRF6 (antigo TRF1)`;
 
-  const displayVaraComarca = `13ª Vara Cível de ${currentCity}/${uf}`;
+  const displayVaraComarca = `Vara Cível da Comarca de ${currentCity}/${uf}`;
 
   const processNumber = uf === 'SP' || uf.includes('SÃO PAULO')
-    ? '1004381-12.2021.8.26.0100'
+    ? '1000128-37.2024.8.26.0042'
+    : uf === 'RJ'
+    ? '0010482-12.2022.8.19.0001'
     : '1743499-42.2015.8.13.0024';
 
   const anotherProcessNumber1 = uf === 'SP' || uf.includes('SÃO PAULO')
-    ? '1048291-88.2022.8.26.0100'
+    ? '1000452-98.2023.8.26.0042'
+    : uf === 'RJ'
+    ? '0028212-33.2017.8.19.0001'
     : '0028212-33.2017.8.13.0024';
 
   const anotherProcessNumber2 = uf === 'SP' || uf.includes('SÃO PAULO')
-    ? '5059281-14.2023.4.03.6100'
+    ? '5001292-14.2023.4.03.6100'
+    : uf === 'RJ'
+    ? '5001292-62.2023.4.02.5101'
     : '5001292-62.2023.8.13.0024';
 
   const anotherProcessNumber3 = uf === 'SP' || uf.includes('SÃO PAULO')
-    ? '1038192-44.2024.8.26.0100'
+    ? '1001839-14.2024.8.26.0042'
+    : uf === 'RJ'
+    ? '0183912-14.2025.8.19.0001'
     : '0183912-14.2025.8.13.0024';
 
   const displayCartorio = uf === 'SP' || uf.includes('SÃO PAULO')
-    ? '1º Ofício de Registro de Imóveis'
-    : '3º Ofício de Registro de Imóveis';
+    ? `Cartório de Registro de Imóveis de ${currentCity} - SP`
+    : `Ofício de Registro de Imóveis de ${currentCity}`;
 
-  const displayPrefeitura = uf === 'SP' || uf.includes('SÃO PAULO')
-    ? 'Prefeitura Municipal de São Paulo'
-    : `Prefeitura Municipal de ${currentCity}`;
+  const displayPrefeitura = `Prefeitura Municipal de ${currentCity}`;
 
   return {
     decisao_investimento: {

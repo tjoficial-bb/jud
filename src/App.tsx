@@ -6782,7 +6782,7 @@ Responda APENAS um objeto JSON válido, sem aspas adicionais, sem bloco de códi
                   value={formCity}
                   onChange={(e) => setFormCity(e.target.value)}
                   className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium focus:border-brand-primary"
-                  placeholder="Ex: Belo Horizonte"
+                  placeholder="Ex: São Paulo"
                 />
               </div>
 
@@ -6793,7 +6793,7 @@ Responda APENAS um objeto JSON válido, sem aspas adicionais, sem bloco de códi
                   value={formState}
                   onChange={(e) => setFormState(e.target.value)}
                   className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium focus:border-brand-primary"
-                  placeholder="Ex: MG"
+                  placeholder="Ex: SP"
                 />
               </div>
 

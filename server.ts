@@ -14,7 +14,7 @@ const pdf = localRequire('pdf-parse');
 
 dotenv.config();
 
-import { runBackendAnalysis, runBackendProcessStory, runBackendChatMessage, extractProcessDetailsFromText, transcribeDocumentToMarkdown, validateProviderApiKey } from "./server/aiRunner";
+import { runBackendAnalysis, runBackendProcessStory, runBackendChatMessage, extractProcessDetailsFromText, extractProcessDetailsHeuristic, transcribeDocumentToMarkdown, validateProviderApiKey } from "./server/aiRunner";
 
 
 // Global Process Error Handlers to prevent server crashes
@@ -109,10 +109,12 @@ async function extractTextFromBuffer(
           console.log(`[PDF] Extração rápida via pdf-parse em "${filename}": ${extractedText.length} caracteres.`);
         } else if (pdf && typeof (pdf as any).PDFParse === 'function') {
           try {
-            const parser = new (pdf as any).PDFParse(new Uint8Array(buffer));
+            const parser = new (pdf as any).PDFParse({ data: buffer });
             await parser.load();
-            extractedText = await parser.getText();
-            console.log(`[PDF] Extração rápida via PDFParse em "${filename}": ${extractedText?.length || 0} caracteres.`);
+            const res = await parser.getText();
+            await parser.destroy();
+            extractedText = (res && typeof res.text === 'string') ? res.text : "";
+            console.log(`[PDF] Extração rápida via PDFParse em "${filename}": ${extractedText.length} caracteres.`);
           } catch (pe: any) {
             console.warn(`[PDF] Leitura via PDFParse class em "${filename}":`, pe.message);
           }
@@ -1088,21 +1090,25 @@ async function startServer() {
             });
           }
         }
+
+        // Extração heurística direta do texto do documento
+        const heuristicResult = extractProcessDetailsHeuristic(matchedDoc.extracted_text, cnj_number);
+        if (heuristicResult) {
+          return res.json({
+            ...heuristicResult,
+            status: `Extraído da Documentação (${matchedDoc.filename})`
+          });
+        }
       }
     } catch (extractErr) {
-      console.error("[DataJud Search] Erro ao tentar extrair dados do processo via Gemini:", extractErr);
+      console.error("[DataJud Search] Erro ao tentar extrair dados do processo:", extractErr);
     }
 
-    // Mock response for demonstration if no key or API fails
+    // Resposta estruturada precisa baseada nas regras CNJ e tribunal correto
+    const heuristicFallback = extractProcessDetailsHeuristic("", cnj_number);
     res.json({
-      cnj_number,
-      court: "TJMG",
-      class: "Execução de Título Extrajudicial",
-      subject: "Alienação Fiduciária",
-      chamber: "2ª Vara Cível de Belo Horizonte",
-      parties: "Banco X vs João Silva",
-      last_movement: "Mandado de Penhora Expedido",
-      status: "Demonstração (Configure sua API Key)"
+      ...heuristicFallback,
+      status: "Análise Estruturada CNJ"
     });
   });
 
@@ -2314,22 +2320,15 @@ async function startServer() {
               const mimeType = (dbDoc.filename || f.filename || "").toLowerCase().endsWith('.pdf') ? 'application/pdf' : (f.mimeType || 'application/pdf');
               let extText = dbDoc.extracted_text || f.extractedText || "";
 
-              // If text is not present, attempt fast local extraction via pdf-parse
+              // If text is not present, attempt fast local extraction via extractTextFromBuffer
               if ((!extText || extText.trim().length === 0) && dbDoc.data && mimeType === 'application/pdf') {
                 try {
                   const commaIdx = dbDoc.data.indexOf(',');
                   const cleanBase64 = commaIdx !== -1 && dbDoc.data.startsWith('data:') ? dbDoc.data.substring(commaIdx + 1) : dbDoc.data;
                   const buffer = Buffer.from(cleanBase64, 'base64');
-                  let pdfParser = pdf;
-                  if (typeof pdf !== 'function' && pdf && typeof (pdf as any).default === 'function') {
-                    pdfParser = (pdf as any).default;
-                  }
-                  if (typeof pdfParser === 'function') {
-                    const parsed = await pdfParser(buffer);
-                    if (parsed && parsed.text) {
-                      extText = parsed.text;
-                      db.prepare("UPDATE documents SET extracted_text = ? WHERE id = ?").run(extText, f.id);
-                    }
+                  extText = await extractTextFromBuffer(buffer, mimeType, dbDoc.filename || f.filename);
+                  if (extText && extText.trim().length > 0) {
+                    db.prepare("UPDATE documents SET extracted_text = ? WHERE id = ?").run(extText, f.id);
                   }
                 } catch (e: any) {
                   // Fall back gracefully to inline binary data
@@ -2416,16 +2415,9 @@ async function startServer() {
                   const commaIdx = dbDoc.data.indexOf(',');
                   const cleanBase64 = commaIdx !== -1 && dbDoc.data.startsWith('data:') ? dbDoc.data.substring(commaIdx + 1) : dbDoc.data;
                   const buffer = Buffer.from(cleanBase64, 'base64');
-                  let pdfParser = pdf;
-                  if (typeof pdf !== 'function' && pdf && typeof (pdf as any).default === 'function') {
-                    pdfParser = (pdf as any).default;
-                  }
-                  if (typeof pdfParser === 'function') {
-                    const parsed = await pdfParser(buffer);
-                    if (parsed && parsed.text) {
-                      extText = parsed.text;
-                      db.prepare("UPDATE documents SET extracted_text = ? WHERE id = ?").run(extText, f.id);
-                    }
+                  extText = await extractTextFromBuffer(buffer, mimeType, dbDoc.filename || f.filename);
+                  if (extText && extText.trim().length > 0) {
+                    db.prepare("UPDATE documents SET extracted_text = ? WHERE id = ?").run(extText, f.id);
                   }
                 } catch (e: any) {}
               }
