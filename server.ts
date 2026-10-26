@@ -555,6 +555,7 @@ try {
     smart_analysis_json TEXT,
     assessoria_analysis_json TEXT,
     unified_summary TEXT,
+    due_diligence_analysis TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY(property_id) REFERENCES properties(id)
   );
@@ -708,6 +709,10 @@ try {
     if (!columns.includes('unified_summary')) {
       console.log("Adicionando coluna 'unified_summary' em ai_analyses...");
       db.prepare("ALTER TABLE ai_analyses ADD COLUMN unified_summary TEXT").run();
+    }
+    if (!columns.includes('due_diligence_analysis')) {
+      console.log("Adicionando coluna 'due_diligence_analysis' em ai_analyses...");
+      db.prepare("ALTER TABLE ai_analyses ADD COLUMN due_diligence_analysis TEXT").run();
     }
   } catch (err: any) {
     console.error("Erro ao aplicar migrações em ai_analyses:", err.message);
@@ -1430,7 +1435,7 @@ async function startServer() {
         property_id, exec_summary, legal_analysis, financial_analysis, 
         legal_risks, operational_risks, recommended_bid, roi, tir, 
         estimated_profit, ia_used, edital_analysis, matricula_analysis, process_analysis, laudo_analysis, dossier_analysis,
-        smart_analysis_json, assessoria_analysis_json, unified_summary
+        smart_analysis_json, assessoria_analysis_json, unified_summary, due_diligence_analysis
       } = req.body;
 
       if (!property_id) {
@@ -1449,7 +1454,7 @@ async function startServer() {
           exec_summary, legal_analysis, financial_analysis, 
           legal_risks, operational_risks, recommended_bid, roi, tir, 
           estimated_profit, ia_used, edital_analysis, matricula_analysis, 
-          process_analysis, laudo_analysis, dossier_analysis, smart_analysis_json, assessoria_analysis_json, unified_summary
+          process_analysis, laudo_analysis, dossier_analysis, smart_analysis_json, assessoria_analysis_json, unified_summary, due_diligence_analysis
         };
 
         for (const [key, val] of Object.entries(fieldsToUpdate)) {
@@ -1474,15 +1479,15 @@ async function startServer() {
           id, property_id, exec_summary, legal_analysis, financial_analysis, 
           legal_risks, operational_risks, recommended_bid, roi, tir, 
           estimated_profit, ia_used, edital_analysis, matricula_analysis, process_analysis, laudo_analysis, dossier_analysis,
-          smart_analysis_json, assessoria_analysis_json, unified_summary
+          smart_analysis_json, assessoria_analysis_json, unified_summary, due_diligence_analysis
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
         id, property_id, exec_summary || null, legal_analysis || null, financial_analysis || null, 
         legal_risks || null, operational_risks || null, recommended_bid || null, roi || null, tir || null, 
         estimated_profit || null, ia_used || "gemini-2.5-flash", edital_analysis || null, matricula_analysis || null, 
         process_analysis || null, laudo_analysis || null, dossier_analysis || null, smart_analysis_json || null, assessoria_analysis_json || null,
-        unified_summary || null
+        unified_summary || null, due_diligence_analysis || null
       );
       
       res.json({ id });
@@ -1507,7 +1512,7 @@ async function startServer() {
       const { 
         exec_summary, financial_analysis, recommended_bid, roi, tir, 
         estimated_profit, edital_analysis, matricula_analysis, process_analysis, laudo_analysis, dossier_analysis,
-        smart_analysis_json, assessoria_analysis_json, unified_summary
+        smart_analysis_json, assessoria_analysis_json, unified_summary, due_diligence_analysis
       } = req.body;
       
       const fields: string[] = [];
@@ -1568,6 +1573,10 @@ async function startServer() {
       if (unified_summary !== undefined) {
         fields.push("unified_summary = ?");
         values.push(unified_summary);
+      }
+      if (due_diligence_analysis !== undefined) {
+        fields.push("due_diligence_analysis = ?");
+        values.push(due_diligence_analysis);
       }
       
       if (fields.length > 0) {

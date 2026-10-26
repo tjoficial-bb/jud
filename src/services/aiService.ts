@@ -15,7 +15,7 @@ export const analyzeAuctionDocuments = async (
   model: string = "gemini-3.8-flash", 
   apiKey?: string,
   auctionUrls?: string[],
-  analysisType?: 'geral' | 'edital' | 'matricula' | 'processo' | 'laudo' | 'dossier' | 'smart_analysis' | 'assessoria_analysis'
+  analysisType?: 'geral' | 'edital' | 'matricula' | 'processo' | 'laudo' | 'dossier' | 'smart_analysis' | 'assessoria_analysis' | 'due_diligence'
 ) => {
   const token = localStorage.getItem("token") || "";
   const activeModel = model;

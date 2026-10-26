@@ -23,6 +23,7 @@ import {
   CheckCircle2, 
   Check,
   Scale,
+  ShieldAlert,
   Loader2, 
   Download,
   Upload,
@@ -775,13 +776,14 @@ export default function App() {
 
   // AI Analysis Persistent State
   const [aiAnalysisState, setAiAnalysisState] = useState<{
-    activeSubTab: 'smart_analysis' | 'viabilidade' | 'report' | 'processos' | 'documents' | 'simulations' | 'cnj' | 'investors' | 'edital' | 'matricula' | 'laudo' | 'dossier' | 'instagram' | 'assessoria' | 'unified_summary';
+    activeSubTab: 'smart_analysis' | 'viabilidade' | 'report' | 'processos' | 'documents' | 'simulations' | 'cnj' | 'investors' | 'edital' | 'matricula' | 'laudo' | 'dossier' | 'instagram' | 'assessoria' | 'unified_summary' | 'due_diligence';
     selectedPropertyId: string;
     report: string | null;
     editalAnalysis: string | null;
     matriculaAnalysis: string | null;
     laudoAnalysis: string | null;
     dossierAnalysis: string | null;
+    dueDiligenceAnalysis: string | null;
     smartAnalysis: SmartAnalysisData | null;
     assessoriaAnalysis: AssessoriaAnalysisData | null;
     adHocDocs: any[];
@@ -824,6 +826,7 @@ export default function App() {
       matriculaAnalysis: null,
       laudoAnalysis: null,
       dossierAnalysis: null,
+      dueDiligenceAnalysis: null,
       smartAnalysis: null,
       assessoriaAnalysis: null,
       adHocDocs: [],
@@ -7705,11 +7708,18 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
   const [assessoriaChatInput, setAssessoriaChatInput] = useState('');
   const [sendingAssessoriaChat, setSendingAssessoriaChat] = useState(false);
 
+  const [dueDiligenceChatMessages, setDueDiligenceChatMessages] = useState<ChatMessage[]>([
+    { role: 'assistant', content: 'Olá! Sou seu Especialista Sênior em Due Diligence Jurídica, Engenharia Financeira e Análise de Riscos (10 Blocos). Pergunte sobre qualquer bloco do relatório, cálculos da Modalidade Tradicional vs. Caixa Forte, evicção ou comparativos de mercado.' }
+  ]);
+  const [dueDiligenceChatInput, setDueDiligenceChatInput] = useState('');
+  const [sendingDueDiligenceChat, setSendingDueDiligenceChat] = useState(false);
+
   // Copy state variables
   const [copiedReport, setCopiedReport] = useState(false);
   const [copiedEdital, setCopiedEdital] = useState(false);
   const [copiedMatricula, setCopiedMatricula] = useState(false);
   const [copiedProcessos, setCopiedProcessos] = useState(false);
+  const [copiedDueDiligence, setCopiedDueDiligence] = useState(false);
 
   const handleUpdateSimulationValue = useCallback((key: string, value: any, subkey?: string) => {
     setState((prev: any) => {
@@ -7863,6 +7873,10 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
       compiled += `## 7. ANÁLISE DE PROCESSOS JUDICIAIS\n\n${typeof state.processAnalysis === 'string' ? state.processAnalysis : JSON.stringify(state.processAnalysis, null, 2)}\n\n`;
     }
 
+    if (state.dueDiligenceAnalysis) {
+      compiled += `## 8. DUE DILIGENCE SÊNIOR & ENGENHARIA FINANCEIRA (10 BLOCOS)\n\n${state.dueDiligenceAnalysis}\n\n`;
+    }
+
     return compiled;
   };
 
@@ -7892,6 +7906,7 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
           matriculaAnalysis: null,
           laudoAnalysis: null,
           dossierAnalysis: null,
+          dueDiligenceAnalysis: null,
           smartAnalysis: null,
           assessoriaAnalysis: null,
           processAnalysis: null,
@@ -8352,6 +8367,7 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
     const list: { key: string; label: string }[] = [];
     if (state.smartAnalysis) list.push({ key: 'smart_analysis', label: 'Análise Smart' });
     if (state.simulationData) list.push({ key: 'viabilidade', label: 'Estudo de Viabilidade' });
+    if (state.dueDiligenceAnalysis) list.push({ key: 'due_diligence', label: 'Due Diligence Sênior (10 Blocos)' });
     if (state.report) list.push({ key: 'report', label: 'Relatório' });
     if (state.unifiedSummaryText) list.push({ key: 'unified_summary', label: 'Resumão Unificado' });
     if (state.editalAnalysis) list.push({ key: 'edital', label: 'Edital' });
@@ -8361,7 +8377,7 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
     if (state.dossierAnalysis) list.push({ key: 'dossier', label: 'Dossiê' });
     if (state.assessoriaAnalysis) list.push({ key: 'assessoria', label: 'Assessoria Jurídica' });
     return list;
-  }, [state.smartAnalysis, state.simulationData, state.report, state.unifiedSummaryText, state.editalAnalysis, state.matriculaAnalysis, state.laudoAnalysis, state.processAnalysis, state.processStory, state.cnjResult, state.dossierAnalysis, state.assessoriaAnalysis]);
+  }, [state.smartAnalysis, state.simulationData, state.dueDiligenceAnalysis, state.report, state.unifiedSummaryText, state.editalAnalysis, state.matriculaAnalysis, state.laudoAnalysis, state.processAnalysis, state.processStory, state.cnjResult, state.dossierAnalysis, state.assessoriaAnalysis]);
 
   const analyzedTabsList = useMemo(() => getAnalyzedTabsSummary(), [getAnalyzedTabsSummary]);
   const analyzedTabsCount = analyzedTabsList.length;
@@ -8424,6 +8440,7 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
         process_analysis: state.processAnalysis ? (typeof state.processAnalysis === 'string' ? state.processAnalysis : JSON.stringify(state.processAnalysis)) : undefined,
         dossier_analysis: state.dossierAnalysis || undefined,
         unified_summary: state.unifiedSummaryText || undefined,
+        due_diligence_analysis: state.dueDiligenceAnalysis || undefined,
         recommended_bid: bidVal,
         roi: currentMetrics?.roi || 0,
         tir: tirVal || 0,
@@ -9563,22 +9580,150 @@ Formate em português do Brasil, em Markdown elegante e profissional, e inclua n
       const analysis = await analyzeAuctionDocuments(fileParts, dossierPrompt, state.selectedModel || 'gemini-3.7-flash', userApiKey || undefined, state.auctionUrls, 'dossier');
       setState(prev => ({ ...prev, dossierAnalysis: analysis }));
 
-      // Auto-save if there's an active analysis and property
-      if (state.selectedPropertyId && state.analysisId) {
-        await fetch(`/api/ai-analyses/${state.analysisId}`, {
-          method: 'PUT',
-          headers: { 
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({
-            dossier_analysis: analysis
-          })
-        });
-      }
+      // Auto-save via savePartialAnalysisToDb (automatically creates property if needed)
+      await savePartialAnalysisToDb({ dossier_analysis: analysis });
     } catch (err) {
       console.error(err);
       alert("Erro ao gerar Dossiê de Arrematação.");
+    } finally {
+      setAnalyzing(false);
+    }
+  };
+
+  const handleAnalyzeDueDiligence = async (docsOverride?: any[]) => {
+    const sourceDocs = docsOverride && docsOverride.length > 0 ? docsOverride : (selectedPropertyId ? propertyDocs : state.adHocDocs);
+    const docs = sourceDocs.filter(d => !isChatAttachmentDoc(d));
+    if (docs.length === 0) {
+      if ((window as any).customToast) {
+        (window as any).customToast("Nenhum documento encontrado para a Due Diligence. Por favor, envie ao menos um documento (Edital, Matrícula, Laudo ou Processo) nesta aba.", "warning");
+      } else {
+        alert("Nenhum documento encontrado. Envie o Edital, Matrícula, Laudo ou Processo para executar a Due Diligence.");
+      }
+      return;
+    }
+
+    setAnalyzing(true);
+    try {
+      const fileParts = docs.map(doc => {
+        let mimeType = 'application/pdf';
+        if (doc.filename?.toLowerCase().endsWith('.jpg') || doc.filename?.toLowerCase().endsWith('.jpeg')) mimeType = 'image/jpeg';
+        else if (doc.filename?.toLowerCase().endsWith('.png')) mimeType = 'image/png';
+        else if (doc.filename?.toLowerCase().endsWith('.webp')) mimeType = 'image/webp';
+
+        return {
+          id: doc.id,
+          filename: doc.filename,
+          data: doc.data ? (doc.data.startsWith('data:') ? doc.data : `data:${mimeType};base64,${doc.data}`) : "",
+          mimeType: mimeType,
+          extractedText: doc.extracted_text || doc.extractedText || ""
+        };
+      });
+
+      const userApiKey = resolveApiKey(state.selectedKeySource, state.aiConfig, state.selectedModel || 'gemini-3.8-flash') || "";
+
+      let crossReferenceContext = "\n\n=== CONTEXTO E PARÂMETROS JÁ IDENTIFICADOS NO SISTEMA ===\n";
+      if (selectedProperty) {
+        crossReferenceContext += `- Imóvel: ${selectedProperty.title} | Endereço: ${selectedProperty.address || 'N/I'} - ${selectedProperty.city || ''}/${selectedProperty.state || ''}\n`;
+        crossReferenceContext += `- Avaliação Cadastrada: R$ ${(selectedProperty.valuation_value || 0).toLocaleString('pt-BR')} | Lance Mínimo: R$ ${(selectedProperty.min_bid || 0).toLocaleString('pt-BR')} | Venda Esperada: R$ ${(selectedProperty.expected_sale_value || 0).toLocaleString('pt-BR')}\n`;
+      }
+      if (state.smartAnalysis) {
+        crossReferenceContext += `- Resumo Análise Smart: Tipo=${state.smartAnalysis.tipo_imovel || 'N/I'}, Matrícula=${state.smartAnalysis.numero_matricula || 'N/I'}, Área Privativa=${state.smartAnalysis.area_privativa || 0}m², Área Construída=${state.smartAnalysis.area_construida || 0}m², Área Terreno=${state.smartAnalysis.area_terreno || 0}m², Quartos=${state.smartAnalysis.quartos || 'N/I'}, Vagas=${state.smartAnalysis.vagas_garagem || 'N/I'}, Avaliação=R$ ${(state.smartAnalysis.valor_avaliacao || 0).toLocaleString('pt-BR')}, 2º Leilão=R$ ${(state.smartAnalysis.segundo_leilao_valor || 0).toLocaleString('pt-BR')}, Ex-Mutuário=${state.smartAnalysis.nome_ex_mutuario || 'N/I'} (CPF: ${state.smartAnalysis.cpf_ex_mutuario || 'N/I'})\n`;
+      }
+      if (state.laudoAnalysis) {
+        crossReferenceContext += `- Síntese do Laudo Técnico: ${state.laudoAnalysis.substring(0, 1200)}\n`;
+      }
+      if (state.editalAnalysis) {
+        crossReferenceContext += `- Síntese do Edital: ${state.editalAnalysis.substring(0, 1200)}\n`;
+      }
+      if (state.matriculaAnalysis) {
+        crossReferenceContext += `- Síntese da Matrícula: ${state.matriculaAnalysis.substring(0, 1200)}\n`;
+      }
+      crossReferenceContext += "=========================================================\n";
+
+      const dueDiligencePrompt = `Atue como um Especialista Sênior em Due Diligence Jurídica, Engenharia Financeira e Análise de Riscos de Leilões de Imóveis (Judiciais e Extrajudiciais). Sua missão é realizar uma varredura cirúrgica nos documentos anexados (Edital, Matrícula, Laudo de Avaliação, Despachos e Peças do Processo) e cruzar esses dados com indicadores reais de mercado da região do imóvel para extrair informações ocultas, blindar a operação e calcular a real lucratividade do negócio.
+
+Organize o seu relatório estritamente nos seguintes blocos, citando sempre que possível o número das páginas, folhas ou IDs dos documentos para conferência:
+
+1. RAIO-X DO DEVEDOR E DO CREDOR (Quem é quem e qual a encrenca?)
+• Identificação Completa do Devedor: Identifique a qualificação completa do devedor/executado (Nome, CPF/CNPJ, RG, estado civil, profissão e endereço completo de origem).
+• Identificação do Credor: Identifique o credor/exequente e qual a origem real da dívida (É condomínio? É briga de família/divórcio? É dívida de banco/consolidação fiduciária? É processo trabalhista?).
+• Intimações Críticas: Verifique se há cônjuge, coproprietário ou ocupantes que precisam ser intimados e se a intimação deles já ocorreu formalmente e sem vícios no processo.
+
+2. A "CAIXA PRETA" DA MATRÍCULA DO IMÓVEL (Gravames e Ônus)
+• Dados Cartorários: Número da matrícula, data de emissão e Cartório de Registro de Imóveis (CRI) competente.
+• Natureza do Direito: Verifique se o leilão é da PROPRIEDADE PLENA ou apenas de DIREITOS AQUISITIVOS (Posse/Contrato).
+• Histórico de Gravames: Liste em ordem cronológica todos os registros (R) e averbações (Av) críticos (Alienação fiduciária ativa, consolidação de propriedade, outras penhoras, hipotecas, usufruto, indisponibilidades pela CNIB, ou cláusulas de impenhorabilidade/inalienabilidade).
+
+3. RADIOGRAFIA FÍSICA DETALHADA (O que estou comprando de verdade?)
+• Medidas de Matrícula: Área total do terreno, área privativa real (principal e acessória), testada, fundos e confrontantes.
+• Área Construída: Área averbada e benfeitorias reais descritas no Laudo do Perito, do Oficial de Justiça ou informações de engenharia da instituição vendedora.
+• Distribuição Interna: Quantidade de quartos, suítes, banheiros, salas, vagas de garagem (especificar restrições cruciais como vagas exclusivas para motos, se são presas ou livres) e se há área comercial integrada.
+• Alerta de "Venda no Escuro": O avaliador entrou no imóvel ou avaliou por estimativa externa/superficial por situação paradigma (imóvel fechado/ocupado)? Se estiver omisso, declare.
+
+4. MAPEAMENTO COMPARATIVO DE MERCADO (Varredura de Portais Realistas)
+• Padrão de Anúncios Locais: Realize uma busca ativa por imóveis assemelhados na mesma rua/bairro utilizando portais de referência (como VivaReal, Zap Imóveis, Imovelweb e OLX) trazendo os hiperlinks de busca e anúncios reais para validação.
+• Disparidade de Preço (Gatilho de Oportunidade): Cruze o valor mínimo de venda do leilão com os anúncios ativos de mercado. Identifique e registre cenários de subavaliação gritantes (Ex: Imóvel em leilão por ~R$ 102.000, mas com anúncios reais de revenda na região por ~R$ 240.000). Calcule o percentual de descolamento entre o preço do leilão e o preço de tela do mercado.
+• Liquidez Estimada: Baseado no volume de anúncios similares encontrados na microrregião, qual o tempo médio estimado de absorção (venda) desse imóvel após a desocupação?
+
+5. DIAGNÓSTICO SOCIOECONÔMICO, COMERCIAL E RISCOS DE ENTORNO
+• Demografia e Renda: População estimada da região/bairro e perfil econômico/per capita da microrregião.
+• Poder de Compra Local: Cruzando a renda da região, o imóvel avaliado está aderente à realidade financeira do bairro para uma revenda rápida?
+• Polo Comercial e Setores de Emprego: Quais são os principais fatores geradores de emprego e infraestrutura urbana na rua ou entorno do imóvel?
+• Segurança Pública e Impacto Comercial: Há histórico de criminalidade, áreas de risco de segurança ou fatores de entorno que prejudiquem a liquidez, desocupação ou visitação para revenda?
+
+6. ANÁLISE CRÍTICA DO EDITAL E REGRAS DO JOGO
+• Datas, Modalidade e Leiloeiro: Data e horário exatos da sessão, modalidade (Disputa Aberta/Fechada), link do portal do leiloeiro oficial e dados de matrícula/cadastro.
+• Condições de Pagamento: Permite parcelamento judicial (Art. 895 CPC), utilização de FGTS ou Financiamento Habitacional (SBPE)? Quais as regras exatas de entrada e prazos de quitação?
+• Custos Extras e Sub-rogação: Comissão do leiloeiro (%). Quem paga o IPTU e condomínio atrasados? Há limite de sub-rogação expressa pela instituição vendedora (Ex: limite máximo de responsabilidade do comprador sobre dívidas anteriores)?
+• Histórico de Fracassos: Há menção se este imóvel já passou por leilões anteriores que restaram negativos ou desertos?
+
+7. POLÍTICA DE EVICÇÃO DE DIREITO E DISTRATO (Blindagem Jurídica)
+• Risco de Evicção: Detalhe as regras expressas do edital caso haja uma decisão judicial transitada em julgado anulando a consolidação da propriedade ou o procedimento do leilão.
+• Regras de Ressarcimento: Em caso de evicção ou distrato por exigência cartorária insanável, o edital garante a devolução de quais valores? (Recursos próprios, FGTS, despesas cartorárias, tributárias ou condominiais pagas?). Há atualização monetária (Ex: pelo índice de poupança)?
+• Benfeitorias e Honorários Judiciais: O edital prevê o reembolso de benfeitorias úteis e necessárias realizadas após o registro? Há previsão ou limite para ressarcimento de honorários advocatícios contratuais gastos pelo arrematante em ações de imissão na posse/defesa da propriedade?
+• Exclusões de Responsabilidade: Quais custos o edital exclui expressamente de reembolso (Ex: custos com assessoria imobiliária particular, consultorias de leilão ou perdas e danos)?
+
+8. MATRIZ DE RISCO SEVERA (Os 3 Maiores Perigos)
+• Aponte os 3 maiores riscos (jurídicos, operacionais, de evicção, de segurança ou financeiros) ocultos ou destacados nesta análise que podem inviabilizar o negócio ou reter o capital do investidor por muito tempo (Ex: restrições físicas de vagas, devedor resistente, etc).
+
+9. PLANILHA FINANCEIRA E PROJEÇÃO DE RETORNO (ROI)
+Faça a conta matemática considerando duas modalidades de Assessoria Jurídica:
+• Modalidade 1 (Tradicional): Honorários de 10% sobre a arrematação (ou mínimo de R$ 20.000,00).
+• Modalidade 2 (Caixa Forte/Sucesso): Honorários de 50% do lucro líquido da venda + adiantamento de R$ 10.000,00 no ato da arrematação (dedutível no final).
+
+Para cada modalidade de assessoria, calcule o custo total e o ROI em dois cenários:
+• Cenário A: Compra À VISTA (Lance Mínimo + 5% Leiloeiro + ITBI/Registro + Assessoria + Reserva de Desocupação/Custos de R$ 15.000).
+• Cenário B: Compra PARCELADA/FINANCIADA (Custo de caixa movimentado até o 12º mês considerando a entrada mínima exigida, comissão do leiloeiro, impostos, taxas e as 12 primeiras parcelas).
+
+Para a projeção de saída, utilize o Valor de Mercado identificado nos portais imobiliários (aplicando um desconto de liquidez/venda forçada condizente com os riscos mapeados) e abata 6% de comissão imobiliária. Calcule o Lucro Líquido final do Investidor e a porcentagem exata de ROI.
+
+10. PARECER E RECOMENDAÇÃO DO ESPECIALISTA
+• Finalize com um veredito direto: O negócio é viável comercialmente e juridicamente? Se sim, qual a melhor estratégia de lance (À vista ou parcelado? Modelo Tradicional ou Caixa Forte?) para maximizar o lucro e proteger o capital diante dos riscos de evicção e mercado mapeados?` + crossReferenceContext + getCustomInstructionsPrompt(state);
+
+      const analysis = await analyzeAuctionDocuments(
+        fileParts,
+        dueDiligencePrompt,
+        state.selectedModel || 'gemini-3.8-flash',
+        userApiKey || undefined,
+        state.auctionUrls,
+        'due_diligence'
+      );
+
+      setState(prev => ({ ...prev, dueDiligenceAnalysis: analysis }));
+
+      // Salva automaticamente no banco sem exigir vinculação manual a um imóvel
+      await savePartialAnalysisToDb({ due_diligence_analysis: analysis });
+
+      if ((window as any).customToast) {
+        (window as any).customToast("Due Diligence Sênior (10 Blocos) concluída e salva automaticamente!", "success");
+      }
+    } catch (err: any) {
+      console.error("Erro ao executar Due Diligence Sênior:", err);
+      if ((window as any).customToast) {
+        (window as any).customToast(`Erro na Due Diligence: ${formatErrorMessage(err)}`, "error");
+      } else {
+        alert(`Erro na Due Diligence: ${formatErrorMessage(err)}`);
+      }
     } finally {
       setAnalyzing(false);
     }
@@ -10034,6 +10179,7 @@ Extraia obrigatoriamente e com riqueza de detalhes:
             processAnalysis: merged.process_analysis || prev.processAnalysis,
             laudoAnalysis: merged.laudo_analysis || prev.laudoAnalysis,
             dossierAnalysis: merged.dossier_analysis || prev.dossierAnalysis,
+            dueDiligenceAnalysis: merged.due_diligence_analysis || prev.dueDiligenceAnalysis,
             unifiedSummaryText: merged.unified_summary || prev.unifiedSummaryText,
             smartAnalysis: normalizeSmartAnalysis(parsedSmartAnalysis || prev.smartAnalysis || getEmptySmartAnalysis()),
             assessoriaAnalysis: parsedAssessoriaAnalysis || prev.assessoriaAnalysis || getEmptyAssessoriaAnalysis(),
@@ -10050,6 +10196,7 @@ Extraia obrigatoriamente e com riqueza de detalhes:
               processAnalysis: null,
               laudoAnalysis: null,
               dossierAnalysis: null,
+              dueDiligenceAnalysis: null,
               smartAnalysis: getEmptySmartAnalysis(),
               assessoriaAnalysis: getEmptyAssessoriaAnalysis(),
               simulationData: {
@@ -10068,6 +10215,7 @@ Extraia obrigatoriamente e com riqueza de detalhes:
               processAnalysis: null,
               laudoAnalysis: null,
               dossierAnalysis: null,
+              dueDiligenceAnalysis: null,
               smartAnalysis: getEmptySmartAnalysis(),
               assessoriaAnalysis: getEmptyAssessoriaAnalysis()
             });
@@ -10417,6 +10565,10 @@ Extraia obrigatoriamente e com riqueza de detalhes:
         updates.dossierAnalysis = null;
         backendPayload.dossier_analysis = null;
         setDossierChatMessages([{ role: 'assistant', content: 'Olá! Este é o chat do Dossiê de Arrematação Inteligente. Vamos debater as conclusões consolidadas do laudo, finanças e aspectos de segurança jurídica.' }]);
+      } else if (tabKey === 'due_diligence') {
+        updates.dueDiligenceAnalysis = null;
+        backendPayload.due_diligence_analysis = null;
+        setDueDiligenceChatMessages([{ role: 'assistant', content: 'Olá! Sou seu Especialista Sênior em Due Diligence Jurídica, Engenharia Financeira e Análise de Riscos (10 Blocos). Pergunte sobre qualquer bloco do relatório, cálculos da Modalidade Tradicional vs. Caixa Forte, evicção ou comparativos de mercado.' }]);
       } else if (tabKey === 'smart_analysis' || tabKey === 'viabilidade') {
         updates.smartAnalysis = null;
         backendPayload.smart_analysis_json = null;
@@ -10519,6 +10671,7 @@ Extraia obrigatoriamente e com riqueza de detalhes:
         matriculaAnalysis: null,
         laudoAnalysis: null,
         dossierAnalysis: null,
+        dueDiligenceAnalysis: null,
         smartAnalysis: null,
         assessoriaAnalysis: null,
         processAnalysis: null,
@@ -10533,6 +10686,7 @@ Extraia obrigatoriamente e com riqueza de detalhes:
       setProcessosChatMessages([{ role: 'assistant', content: 'Olá! Estudo processual iniciado. Pergunte sobre os prazos de recursos, penhoras no processo ou riscos de suspensão do leilão.' }]);
       setLaudoChatMessages([{ role: 'assistant', content: 'Olá! Compartilhe suas dúvidas sobre o Laudo Técnico de Avaliação: metragens, quantidade de quartos/vagas, estado de conservação, metodologia NBR 14.653 ou valores de mercado e liquidação.' }]);
       setDossierChatMessages([{ role: 'assistant', content: 'Olá! Este é o chat do Dossiê de Arrematação Inteligente. Vamos debater as conclusões consolidadas do laudo, finanças e aspectos de segurança jurídica.' }]);
+      setDueDiligenceChatMessages([{ role: 'assistant', content: 'Olá! Sou seu Especialista Sênior em Due Diligence Jurídica, Engenharia Financeira e Análise de Riscos (10 Blocos). Pergunte sobre qualquer bloco do relatório, cálculos da Modalidade Tradicional vs. Caixa Forte, evicção ou comparativos de mercado.' }]);
       setDocumentsChatMessages([{ role: 'assistant', content: 'Olá! Sou seu assistente de gestão documental. Pergunte qualquer informação de dados ou incoerências nas peças enviadas.' }]);
       setSmartAnalysisChatMessages([{ role: 'assistant', content: 'Olá! Este é o chat da Análise Smart de Riscos. Você pode perguntar sobre a pontuação de risco geral, ocupação do imóvel, histórico de ex-mutuários e mais.' }]);
       setAssessoriaChatMessages([{ role: 'assistant', content: 'Olá! Este é o chat de Assessoria Jurídica Avançada. Fique à vontade para debater o parecer estratégico, riscos, ressalvas de evicção ou recomendações finais.' }]);
@@ -10563,6 +10717,7 @@ Extraia obrigatoriamente e com riqueza de detalhes:
             process_analysis: null,
             laudo_analysis: null,
             dossier_analysis: null,
+            due_diligence_analysis: null,
             exec_summary: null,
             smart_analysis_json: null,
             assessoria_analysis_json: null
@@ -11473,7 +11628,7 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
     }
   };
 
-  const handleSendTabChat = async (tab: 'edital' | 'matricula' | 'laudo' | 'processos' | 'dossier' | 'documents' | 'smart_analysis' | 'viabilidade' | 'assessoria' | 'cnj' | 'investors' | 'instagram' | 'simulations') => {
+  const handleSendTabChat = async (tab: 'edital' | 'matricula' | 'laudo' | 'processos' | 'dossier' | 'due_diligence' | 'documents' | 'smart_analysis' | 'viabilidade' | 'assessoria' | 'cnj' | 'investors' | 'instagram' | 'simulations') => {
     let input = "";
     let chatMsgs: ChatMessage[] = [];
     let setInput: any = null;
@@ -11516,6 +11671,13 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
       setMsgs = setDossierChatMessages;
       setSending = setSendingDossierChat;
       promptContext = `Dossiê de Arrematação Inteligente Atual:\n${state.dossierAnalysis || "Nenhum dossiê de arrematação gerado ainda."}`;
+    } else if (tab === 'due_diligence') {
+      input = dueDiligenceChatInput;
+      chatMsgs = dueDiligenceChatMessages;
+      setInput = setDueDiligenceChatInput;
+      setMsgs = setDueDiligenceChatMessages;
+      setSending = setSendingDueDiligenceChat;
+      promptContext = `Due Diligence Sênior & Engenharia Financeira (10 Blocos) Atual:\n${state.dueDiligenceAnalysis || "Nenhuma Due Diligence de 10 blocos executada ainda."}`;
     } else if (tab === 'documents') {
       input = documentsChatInput;
       chatMsgs = documentsChatMessages;
@@ -11636,7 +11798,7 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
     }
   };
 
-  const renderTabChat = (tab: 'edital' | 'matricula' | 'laudo' | 'processos' | 'dossier' | 'documents' | 'smart_analysis' | 'viabilidade' | 'assessoria' | 'cnj' | 'investors' | 'instagram' | 'simulations') => {
+  const renderTabChat = (tab: 'edital' | 'matricula' | 'laudo' | 'processos' | 'dossier' | 'due_diligence' | 'documents' | 'smart_analysis' | 'viabilidade' | 'assessoria' | 'cnj' | 'investors' | 'instagram' | 'simulations') => {
     let title = "";
     let placeholder = "";
     let inputVal = "";
@@ -11679,6 +11841,13 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
       setInputVal = setDossierChatInput;
       msgs = dossierChatMessages;
       sending = sendingDossierChat;
+    } else if (tab === 'due_diligence') {
+      title = "Debate Sênior sobre a Due Diligence (10 Blocos)";
+      placeholder = "Pergunte sobre o Raio-X do devedor, Caixa Preta da Matrícula, evicção ou cálculos Tradicional vs Caixa Forte...";
+      inputVal = dueDiligenceChatInput;
+      setInputVal = setDueDiligenceChatInput;
+      msgs = dueDiligenceChatMessages;
+      sending = sendingDueDiligenceChat;
     } else if (tab === 'documents') {
       title = "Análise de Documentos e Evidências";
       placeholder = "Pergunte sobre contradições de datas, falta de certidões ou termos ocultos...";
@@ -12079,6 +12248,7 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
             <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between border-b border-brand-primary/10 bg-brand-bg/30 no-print px-3 py-2 gap-2">
               <div className="flex overflow-x-auto gap-1 items-center flex-1 scrollbar-none">
                 <AnalysisTab active={activeSubTab === 'smart_analysis'} onClick={() => updateState({ activeSubTab: 'smart_analysis' })} icon={<Cpu size={16} />} label="Análise Smart (Principal)" />
+                <AnalysisTab active={activeSubTab === 'due_diligence'} onClick={() => updateState({ activeSubTab: 'due_diligence' })} icon={<ShieldAlert size={16} />} label="Due Diligence Sênior" />
                 <AnalysisTab active={activeSubTab === 'viabilidade'} onClick={() => updateState({ activeSubTab: 'viabilidade' })} icon={<TrendingUp size={16} />} label="Estudo de Viabilidade" />
                 <AnalysisTab active={activeSubTab === 'report'} onClick={() => updateState({ activeSubTab: 'report' })} icon={<Brain size={16} />} label="Relatório" />
                 <AnalysisTab active={activeSubTab === 'unified_summary'} onClick={() => updateState({ activeSubTab: 'unified_summary' })} icon={<Layers size={16} />} label="Resumão Unificado" />
@@ -12125,6 +12295,220 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
 
             {/* Tab Content */}
             <div className="flex-1 p-4 sm:p-6 md:p-10">
+              {activeSubTab === 'due_diligence' && (
+                <div className="space-y-8">
+                  {/* Header Banner of 10-Block Senior Due Diligence */}
+                  <div className="bg-gradient-to-br from-brand-primary/15 via-brand-bg to-brand-paper p-6 sm:p-8 rounded-[2.5rem] border border-brand-primary/25 shadow-lg space-y-6">
+                    <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+                      <div className="space-y-2 max-w-3xl">
+                        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-lg bg-brand-primary/20 border border-brand-primary/30 text-brand-primary text-[10px] font-bold uppercase tracking-widest">
+                          <ShieldAlert size={13} />
+                          <span>Varredura Cirúrgica • 10 Blocos Estruturados</span>
+                        </div>
+                        <h3 className="text-2xl sm:text-3xl font-serif font-bold text-brand-primary">
+                          Due Diligence Jurídica Sênior, Engenharia Financeira & Matriz de Riscos
+                        </h3>
+                        <p className="text-xs sm:text-sm text-brand-ink/70 leading-relaxed">
+                          Auditoria forense cruzando <strong>Edital, Matrícula, Laudo de Avaliação, Despachos e Peças do Processo</strong> com indicadores de mercado (VivaReal, Zap Imóveis, Imovelweb, OLX), política de evicção e cálculo comparativo de ROI nas modalidades <strong>Tradicional (10% / mín. R$ 20k)</strong> vs. <strong>Caixa Forte (50% do lucro + R$ 10k dedutível)</strong> à vista e parcelado.
+                        </p>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-3 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => handleAnalyzeDueDiligence()}
+                          disabled={analyzing}
+                          className="bg-brand-primary text-black px-6 py-4 rounded-2xl font-bold text-xs uppercase tracking-widest hover:bg-brand-primary/90 transition-all shadow-xl shadow-brand-primary/20 flex items-center gap-2.5 disabled:opacity-50 cursor-pointer"
+                        >
+                          {analyzing ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
+                          <span>{analyzing ? "Executando Varredura (10 Blocos)..." : state.dueDiligenceAnalysis ? "Reexecutar Due Diligence (10 Blocos)" : "Executar Due Diligence (10 Blocos)"}</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Grid of the 10 Mandatory Blocks */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 pt-2">
+                      {[
+                        { num: "01", title: "Raio-X Devedor & Credor", desc: "Qualificação, origem da dívida e intimações críticas" },
+                        { num: "02", title: "Caixa Preta da Matrícula", desc: "CRI, Propriedade Plena vs Direitos e histórico R/Av" },
+                        { num: "03", title: "Radiografia Física", desc: "Medidas, área averbada, vagas e alerta de venda no escuro" },
+                        { num: "04", title: "Mercado & Portais", desc: "VivaReal, Zap, Imovelweb, OLX, descolamento e liquidez" },
+                        { num: "05", title: "Socioeconômico & Entorno", desc: "Demografia, renda, polo comercial e segurança pública" },
+                        { num: "06", title: "Regras Críticas do Edital", desc: "Datas, Art. 895 CPC, FGTS, financiamento e sub-rogação" },
+                        { num: "07", title: "Evicção & Distrato", desc: "Blindagem jurídica, ressarcimento e benfeitorias" },
+                        { num: "08", title: "Matriz de Risco Severa", desc: "Os 3 maiores perigos ocultos ou destacados da operação" },
+                        { num: "09", title: "Engenharia Financeira (ROI)", desc: "Tradicional (10%) vs Caixa Forte (50%) • À Vista e Parcelado" },
+                        { num: "10", title: "Veredito do Especialista", desc: "Recomendação direta de viabilidade e estratégia de lance" }
+                      ].map(block => (
+                        <div key={block.num} className="bg-brand-bg/60 border border-brand-primary/10 rounded-2xl p-3.5 flex flex-col justify-between hover:border-brand-primary/30 transition-all">
+                          <div className="flex items-center justify-between mb-1.5">
+                            <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-brand-primary/15 text-brand-primary">
+                              BLOCO {block.num}
+                            </span>
+                            <CheckCircle2 size={13} className={state.dueDiligenceAnalysis ? "text-emerald-400" : "text-brand-ink/20"} />
+                          </div>
+                          <h5 className="text-xs font-bold text-brand-primary leading-snug">{block.title}</h5>
+                          <p className="text-[10px] text-brand-ink/50 mt-1 leading-relaxed">{block.desc}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Premissas Financeiras e Upload de Documentos para a Due Diligence */}
+                  {!isPublicView && (
+                    <div className="space-y-6 no-print">
+                      <AnalysisPremisesCard
+                        customSaleValue={state.customSaleValue}
+                        customBidValue={state.customBidValue}
+                        customAnalysisNotes={state.customAnalysisNotes}
+                        onUpdate={(fields) => updateState(fields)}
+                        selectedProperty={selectedProperty}
+                        compact={true}
+                      />
+
+                      <Card title="Documentos Base para a Varredura Cirúrgica (Edital, Matrícula, Laudo e Processo)">
+                        <p className="text-xs text-brand-ink/60 mb-4 font-sans">
+                          Envie ou confira abaixo os documentos anexados (Edital, Matrícula, Laudo de Avaliação e Peças do Processo). A Due Diligence Sênior analisa todos os documentos em conjunto citando folhas, páginas e registros.
+                        </p>
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                          {['Edital', 'Matrícula', 'Laudo Técnico', 'Processo Judicial'].map(category => (
+                            <div key={category} className="bg-brand-bg/20 p-4 rounded-2xl border border-brand-border/40">
+                              <DocumentManager
+                                label={category}
+                                docs={selectedPropertyId ? propertyDocs : state.adHocDocs}
+                                onUpload={(e, type) => handleAnalysisFileUpload(e, type || category)}
+                                onDelete={handleDeleteDocument}
+                                onTranscribe={handleTranscribeDoc}
+                                uploading={uploading}
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      </Card>
+                    </div>
+                  )}
+
+                  {analyzing && !state.dueDiligenceAnalysis && (
+                    <div className="py-20 flex flex-col items-center justify-center space-y-4 bg-brand-paper rounded-3xl border border-brand-primary/15">
+                      <Loader2 className="animate-spin text-brand-primary" size={48} />
+                      <div className="text-center max-w-md">
+                        <p className="font-bold text-lg text-brand-primary">Executando Varredura Cirúrgica nos Documentos...</p>
+                        <p className="text-xs text-brand-ink/50 mt-1">
+                          Cruzando Edital, Matrícula, Laudo de Avaliação e Processo Judicial com indicadores de mercado e calculando a planilha financeira (Tradicional vs. Caixa Forte).
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {state.dueDiligenceAnalysis && (
+                    <div className="space-y-6">
+                      {/* Action Bar */}
+                      <div className="flex flex-wrap items-center justify-between gap-4 bg-brand-bg/40 p-4 rounded-2xl border border-brand-primary/15 no-print">
+                        <div className="flex items-center gap-2.5">
+                          <CheckCircle2 size={18} className="text-emerald-400 shrink-0" />
+                          <span className="text-xs font-bold text-brand-primary">
+                            Relatório de Due Diligence Sênior (10 Blocos) Gerado e Salvo Automaticamente
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={handleSaveAllAnalyzedTabs}
+                            disabled={isSavingAllTabs}
+                            className="flex items-center gap-2 bg-brand-primary text-black px-4 py-2.5 rounded-xl text-xs font-bold hover:bg-brand-primary/90 transition-all shadow-sm cursor-pointer"
+                          >
+                            {isSavingAllTabs ? <Loader2 size={14} className="animate-spin" /> : <SaveAll size={14} />}
+                            <span>{isSavingAllTabs ? "Salvando..." : `Salvar Todas as Abas (${analyzedTabsCount})`}</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleCopyText(state.dueDiligenceAnalysis || '', setCopiedDueDiligence)}
+                            className="flex items-center gap-2 bg-brand-paper border border-brand-border text-brand-ink/80 hover:text-brand-primary px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer"
+                          >
+                            {copiedDueDiligence ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} />}
+                            <span>{copiedDueDiligence ? "Copiado!" : "Copiar Relatório"}</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handlePrint}
+                            className="flex items-center gap-2 bg-brand-paper border border-brand-border text-brand-ink/80 hover:text-brand-primary px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer"
+                          >
+                            <Printer size={14} />
+                            <span>Salvar PDF / Imprimir</span>
+                          </button>
+                          {!isPublicView && (
+                            <button
+                              type="button"
+                              onClick={handleShare}
+                              className="flex items-center gap-2 bg-brand-primary/15 border border-brand-primary/30 text-brand-primary hover:bg-brand-primary hover:text-black px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer"
+                            >
+                              <Globe size={14} />
+                              <span>Compartilhar Link</span>
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Dynamic Financial Metrics Bar */}
+                      <DynamicFinancialMetricsBar
+                        metrics={metrics}
+                        tir={tir}
+                        roi={roi}
+                        simulationData={simulationData}
+                        onUpdateSimulationValue={handleUpdateSimulationValue}
+                        selectedPropertyId={selectedPropertyId}
+                        selectedProperty={selectedProperty}
+                        token={token}
+                        onAutoSaveProperty={ensureAutoSavedProperty}
+                        onPropertySaved={() => {
+                          if (onPropertyCreated) onPropertyCreated();
+                          if (selectedPropertyId) fetchPropertyData(selectedPropertyId);
+                        }}
+                        currentReportText={state.dueDiligenceAnalysis}
+                        onReportUpdated={(newText) => {
+                          updateState({ dueDiligenceAnalysis: newText });
+                          savePartialAnalysisToDb({ due_diligence_analysis: newText });
+                        }}
+                        selectedModel={selectedModel}
+                        userApiKey={resolveApiKey(state.selectedKeySource, state.aiConfig, state.selectedModel || 'gemini-3.8-flash') || ""}
+                      />
+
+                      {/* Modular Section Exporter */}
+                      <ReportCustomExporterBar
+                        reportTitle="Due Diligence Jurídica Sênior & Engenharia Financeira (10 Blocos)"
+                        propertyTitle={selectedProperty?.title || 'Auditoria de Leilão Imobiliário'}
+                        propertyAddress={selectedProperty?.address}
+                        propertyCity={selectedProperty?.city ? `${selectedProperty.city} - ${selectedProperty.state || ''}` : undefined}
+                        sections={parseMarkdownToSections(state.dueDiligenceAnalysis)}
+                        propertyId={selectedPropertyId || undefined}
+                        reportType="due_diligence"
+                      />
+
+                      {/* Rendered 10-Block Report */}
+                      <div className="bg-brand-paper rounded-2xl sm:rounded-[2.5rem] border border-brand-border shadow-inner overflow-hidden">
+                        <div className="p-4 sm:p-8 md:p-10 markdown-body max-w-none text-brand-ink break-words">
+                          <ReactMarkdown remarkPlugins={[remarkGfm]} components={reportComponents}>
+                            {state.dueDiligenceAnalysis}
+                          </ReactMarkdown>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="mt-8 no-print border-t border-brand-primary/10 pt-8">
+                    <LegalGlossaryForLaypeople />
+                  </div>
+                  {renderTabChat('due_diligence')}
+                  <SmartResetPanel
+                    tabName="Due Diligence Sênior (10 Blocos)"
+                    tabKey="due_diligence"
+                    hasAnalysis={!!state.dueDiligenceAnalysis}
+                    onResetTab={() => handleResetSubTab('due_diligence')}
+                    onResetAll={handleResetAllPropertyData}
+                    onApplySettings={(settings) => updateState({ aiDepth: settings.depth, aiFocus: settings.focus })}
+                  />
+                </div>
+              )}
               {activeSubTab === 'report' && (
                 <div className="space-y-8">
                   <MasterReportView 
