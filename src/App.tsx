@@ -7949,7 +7949,7 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
               poupanca: { tir: 6.5, roi: 6.5 }
             }
           },
-          activeSubTab: 'report'
+          activeSubTab: 'smart_analysis'
         });
 
         // Parallel background deletion of documents
@@ -8010,7 +8010,7 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
           processStory: null,
           cnjResult: null,
           chatMessages: [],
-          activeSubTab: 'report'
+          activeSubTab: 'smart_analysis'
         });
 
         if (state.analysisId) {
@@ -8366,10 +8366,7 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
   const getAnalyzedTabsSummary = useCallback(() => {
     const list: { key: string; label: string }[] = [];
     if (state.smartAnalysis) list.push({ key: 'smart_analysis', label: 'Análise Smart' });
-    if (state.simulationData) list.push({ key: 'viabilidade', label: 'Estudo de Viabilidade' });
     if (state.dueDiligenceAnalysis) list.push({ key: 'due_diligence', label: 'Due Diligence Sênior (10 Blocos)' });
-    if (state.report) list.push({ key: 'report', label: 'Relatório' });
-    if (state.unifiedSummaryText) list.push({ key: 'unified_summary', label: 'Resumão Unificado' });
     if (state.editalAnalysis) list.push({ key: 'edital', label: 'Edital' });
     if (state.matriculaAnalysis) list.push({ key: 'matricula', label: 'Matrícula' });
     if (state.laudoAnalysis) list.push({ key: 'laudo', label: 'Laudo Técnico' });
@@ -8377,7 +8374,7 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
     if (state.dossierAnalysis) list.push({ key: 'dossier', label: 'Dossiê' });
     if (state.assessoriaAnalysis) list.push({ key: 'assessoria', label: 'Assessoria Jurídica' });
     return list;
-  }, [state.smartAnalysis, state.simulationData, state.dueDiligenceAnalysis, state.report, state.unifiedSummaryText, state.editalAnalysis, state.matriculaAnalysis, state.laudoAnalysis, state.processAnalysis, state.processStory, state.cnjResult, state.dossierAnalysis, state.assessoriaAnalysis]);
+  }, [state.smartAnalysis, state.dueDiligenceAnalysis, state.editalAnalysis, state.matriculaAnalysis, state.laudoAnalysis, state.processAnalysis, state.processStory, state.cnjResult, state.dossierAnalysis, state.assessoriaAnalysis]);
 
   const analyzedTabsList = useMemo(() => getAnalyzedTabsSummary(), [getAnalyzedTabsSummary]);
   const analyzedTabsCount = analyzedTabsList.length;
@@ -10812,7 +10809,7 @@ Extraia obrigatoriamente e com riqueza de detalhes:
     setAnalyzing(true);
     updateState({ 
       report: "### 🔄 Iniciando Análise Estratégica...\n\nO sistema está processando seus documentos e consultando o **Cérebro Estratégico** para gerar um parecer completo.\n\n**Isso pode levar de 30 a 60 segundos.** Por favor, não feche esta aba ou mude de aba para garantir a conclusão.", 
-      activeSubTab: 'report' 
+      activeSubTab: 'smart_analysis' 
     });
     window.scrollTo({ top: 0, behavior: 'smooth' });
     
@@ -12249,9 +12246,6 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
               <div className="flex overflow-x-auto gap-1 items-center flex-1 scrollbar-none">
                 <AnalysisTab active={activeSubTab === 'smart_analysis'} onClick={() => updateState({ activeSubTab: 'smart_analysis' })} icon={<Cpu size={16} />} label="Análise Smart (Principal)" />
                 <AnalysisTab active={activeSubTab === 'due_diligence'} onClick={() => updateState({ activeSubTab: 'due_diligence' })} icon={<ShieldAlert size={16} />} label="Due Diligence Sênior" />
-                <AnalysisTab active={activeSubTab === 'viabilidade'} onClick={() => updateState({ activeSubTab: 'viabilidade' })} icon={<TrendingUp size={16} />} label="Estudo de Viabilidade" />
-                <AnalysisTab active={activeSubTab === 'report'} onClick={() => updateState({ activeSubTab: 'report' })} icon={<Brain size={16} />} label="Relatório" />
-                <AnalysisTab active={activeSubTab === 'unified_summary'} onClick={() => updateState({ activeSubTab: 'unified_summary' })} icon={<Layers size={16} />} label="Resumão Unificado" />
                 <AnalysisTab active={activeSubTab === 'edital'} onClick={() => updateState({ activeSubTab: 'edital' })} icon={<FileText size={16} />} label="Edital" />
                 <AnalysisTab active={activeSubTab === 'matricula'} onClick={() => updateState({ activeSubTab: 'matricula' })} icon={<BookOpen size={16} />} label="Matrícula" />
                 <AnalysisTab active={activeSubTab === 'laudo'} onClick={() => updateState({ activeSubTab: 'laudo' })} icon={<Ruler size={16} />} label="Laudo Técnico" />
