@@ -630,7 +630,7 @@ export default function App() {
     onConfirm: () => {}
   });
 
-  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'warning' | 'info' } | null>(null);
 
   useEffect(() => {
     (window as any).customConfirm = (title: string, message: string, onConfirmAction: () => void) => {
@@ -658,9 +658,9 @@ export default function App() {
       });
     };
 
-    (window as any).customToast = (message: string, type: 'success' | 'error' = 'success') => {
+    (window as any).customToast = (message: string, type: 'success' | 'error' | 'warning' | 'info' = 'success') => {
       setToast({ message, type });
-      const duration = type === 'error' ? 9000 : 4000;
+      const duration = type === 'error' ? 9000 : 4500;
       setTimeout(() => {
         setToast(null);
       }, duration);
@@ -1324,7 +1324,6 @@ export default function App() {
                   properties={properties} 
                   onPropertyCreated={() => {
                     fetchProperties();
-                    setActiveTab('properties');
                   }}
                   state={aiAnalysisState}
                   setState={setAiAnalysisState}
@@ -1520,10 +1519,13 @@ export default function App() {
       {toast && (
         <div className="fixed bottom-6 right-6 z-[250] max-w-sm w-full p-4 bg-brand-paper border border-brand-primary/20 rounded-2xl shadow-2xl flex items-center gap-4">
           <div className={cn(
-            "w-8 h-8 rounded-xl flex items-center justify-center font-bold text-lg",
-            toast.type === 'success' ? "bg-emerald-500/10 text-emerald-500" : "bg-red-500/10 text-red-500"
+            "w-8 h-8 rounded-xl flex items-center justify-center font-bold text-lg shrink-0",
+            toast.type === 'success' ? "bg-emerald-500/10 text-emerald-500" :
+            toast.type === 'warning' ? "bg-amber-500/10 text-amber-500" :
+            toast.type === 'info' ? "bg-brand-primary/10 text-brand-primary" :
+            "bg-red-500/10 text-red-500"
           )}>
-            {toast.type === 'success' ? '✓' : '✗'}
+            {toast.type === 'success' ? '✓' : toast.type === 'warning' ? '!' : toast.type === 'info' ? 'i' : '✗'}
           </div>
           <div className="flex-1 text-xs font-medium text-brand-ink">
             <div>{toast.message}</div>
@@ -8199,6 +8201,8 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
   const [isSavingAllTabs, setIsSavingAllTabs] = useState(false);
   const [saveAllSuccess, setSaveAllSuccess] = useState(false);
 
+  const isAutoSavingPropertyRef = useRef(false);
+
   const ensureAutoSavedProperty = async (customTitle?: string): Promise<string> => {
     const effectiveToken = token || (typeof window !== 'undefined' ? localStorage.getItem('token') || '' : '');
 
@@ -8207,13 +8211,18 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
       return state.selectedPropertyId;
     }
 
+    isAutoSavingPropertyRef.current = true;
+
     // 2. Derive an intelligent, clean title for the property
     let autoTitle = customTitle?.trim();
     if (!autoTitle) {
       if (state.smartAnalysis?.identificacao_imovel?.endereco) {
-        const tipo = state.smartAnalysis.identificacao_imovel.tipo || 'Imóvel';
+        const tipo = state.smartAnalysis.identificacao_imovel.tipo || state.smartAnalysis?.tipo_imovel || 'Imóvel';
         const end = state.smartAnalysis.identificacao_imovel.endereco;
         autoTitle = `${tipo} - ${end}`;
+      } else if (state.smartAnalysis?.numero_matricula && state.smartAnalysis.numero_matricula !== 'Não constatado nas peças juntadas') {
+        const tipo = (state.smartAnalysis.tipo_imovel && state.smartAnalysis.tipo_imovel !== 'Selecione') ? state.smartAnalysis.tipo_imovel : 'Imóvel';
+        autoTitle = `${tipo} - Matrícula ${state.smartAnalysis.numero_matricula}`;
       } else if (state.cnjResult?.cnj_number) {
         autoTitle = `Processo ${state.cnjResult.cnj_number} (${state.cnjResult.court || 'Leilão'})`;
       } else if (state.adHocDocs && state.adHocDocs.length > 0) {
@@ -8232,9 +8241,9 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
     }
 
     // 3. Resolve location
-    let saveCity = 'São Paulo';
+    let saveCity = state.smartAnalysis?.comarca || 'São Paulo';
     let saveState = 'SP';
-    let saveAddress = 'Endereço extraído dos autos do leilão';
+    let saveAddress = state.smartAnalysis?.endereco_ex_mutuario || 'Endereço extraído dos autos do leilão';
 
     if (state.smartAnalysis?.identificacao_imovel) {
       const ident = state.smartAnalysis.identificacao_imovel;
@@ -8270,17 +8279,17 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
       }
     }
 
-    const valVal = state.simulationData?.valuation?.value || state.smartAnalysis?.avaliacao_e_mercado?.valor_avaliacao || 0;
-    const bidVal = state.simulationData?.bid?.value || state.smartAnalysis?.avaliacao_e_mercado?.lance_minimo_2_leilao || 0;
-    const saleVal = state.simulationData?.saleValue?.value || state.smartAnalysis?.avaliacao_e_mercado?.valor_mercado_estimado || 0;
+    const valVal = state.simulationData?.valuation?.value || state.smartAnalysis?.valor_avaliacao || state.smartAnalysis?.avaliacao_e_mercado?.valor_avaliacao || 0;
+    const bidVal = state.simulationData?.bid?.value || state.smartAnalysis?.segundo_leilao_valor || state.smartAnalysis?.avaliacao_e_mercado?.lance_minimo_2_leilao || 0;
+    const saleVal = state.simulationData?.saleValue?.value || state.smartAnalysis?.valor_mercado_venda || state.smartAnalysis?.avaliacao_e_mercado?.valor_mercado_estimado || 0;
 
     const res = await fetch('/api/properties', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${effectiveToken}` },
       body: JSON.stringify({
         title: autoTitle,
-        type: state.smartAnalysis?.identificacao_imovel?.tipo || 'Apartamento',
-        modality: 'Judicial',
+        type: (state.smartAnalysis?.tipo_imovel && state.smartAnalysis.tipo_imovel !== 'Selecione') ? state.smartAnalysis.tipo_imovel : (state.smartAnalysis?.identificacao_imovel?.tipo || 'Apartamento'),
+        modality: state.smartAnalysis?.tipo_leilao || 'Judicial',
         address: saveAddress,
         city: saveCity,
         state: saveState,
@@ -8291,6 +8300,7 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
     });
 
     if (!res.ok) {
+      isAutoSavingPropertyRef.current = false;
       let errorMsg = 'Erro ao salvar imóvel automaticamente';
       try {
         const errText = await res.text();
@@ -8358,21 +8368,54 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
       }
     }
 
+    if (state.adHocDocs && state.adHocDocs.length > 0) {
+      setPropertyDocs((prev: any[]) => (prev && prev.length > 0 ? prev : state.adHocDocs));
+    }
     setState((prev: any) => ({ ...prev, selectedPropertyId: id, adHocDocs: [] }));
     if (onPropertyCreated) onPropertyCreated();
+    setTimeout(() => {
+      isAutoSavingPropertyRef.current = false;
+    }, 2500);
     return id;
   };
 
   const getAnalyzedTabsSummary = useCallback(() => {
     const list: { key: string; label: string }[] = [];
-    if (state.smartAnalysis) list.push({ key: 'smart_analysis', label: 'Análise Smart' });
-    if (state.dueDiligenceAnalysis) list.push({ key: 'due_diligence', label: 'Due Diligence Sênior (10 Blocos)' });
-    if (state.editalAnalysis) list.push({ key: 'edital', label: 'Edital' });
-    if (state.matriculaAnalysis) list.push({ key: 'matricula', label: 'Matrícula' });
-    if (state.laudoAnalysis) list.push({ key: 'laudo', label: 'Laudo Técnico' });
-    if (state.processAnalysis || state.processStory || state.cnjResult) list.push({ key: 'processos', label: 'Processos' });
-    if (state.dossierAnalysis) list.push({ key: 'dossier', label: 'Dossiê' });
-    if (state.assessoriaAnalysis) list.push({ key: 'assessoria', label: 'Assessoria Jurídica' });
+    const isValidText = (t: any) => typeof t === 'string' && t.trim().length > 0 && !t.startsWith('### 🔄') && !t.startsWith('### ⏳');
+
+    const sa = state.smartAnalysis;
+    const hasSmart = Boolean(
+      sa && (
+        (sa.justificativa && sa.justificativa.trim().length > 0) ||
+        (sa.observacoes_edital && sa.observacoes_edital.trim().length > 0) ||
+        (sa.observacoes_matricula && sa.observacoes_matricula.trim().length > 0) ||
+        (sa.comentarios_importantes && sa.comentarios_importantes.trim().length > 0) ||
+        (sa.nome_ex_mutuario && sa.nome_ex_mutuario.trim().length > 0) ||
+        (sa.numero_matricula && sa.numero_matricula.trim().length > 0) ||
+        Number(sa.valor_avaliacao) > 0 ||
+        Number(sa.segundo_leilao_valor) > 0 ||
+        (sa.risco_geral && sa.risco_geral !== 'Não avaliado')
+      )
+    );
+    if (hasSmart) list.push({ key: 'smart_analysis', label: 'Análise Smart' });
+
+    if (isValidText(state.dueDiligenceAnalysis)) list.push({ key: 'due_diligence', label: 'Due Diligence Sênior (10 Blocos)' });
+    if (isValidText(state.editalAnalysis)) list.push({ key: 'edital', label: 'Edital' });
+    if (isValidText(state.matriculaAnalysis)) list.push({ key: 'matricula', label: 'Matrícula' });
+    if (isValidText(state.laudoAnalysis)) list.push({ key: 'laudo', label: 'Laudo Técnico' });
+    if (isValidText(state.processAnalysis) || state.processStory || state.cnjResult) list.push({ key: 'processos', label: 'Processos' });
+    if (isValidText(state.dossierAnalysis)) list.push({ key: 'dossier', label: 'Dossiê' });
+
+    const aa = state.assessoriaAnalysis;
+    const hasAssessoria = Boolean(
+      aa && (
+        (aa.comentarios_recomendacoes_finais && aa.comentarios_recomendacoes_finais.trim().length > 0) ||
+        (aa.comentarios_matricula && aa.comentarios_matricula.trim().length > 0) ||
+        (aa.comentarios_viabilidade && aa.comentarios_viabilidade.trim().length > 0) ||
+        (Array.isArray(aa.itens_matricula) && aa.itens_matricula.length > 0)
+      )
+    );
+    if (hasAssessoria) list.push({ key: 'assessoria', label: 'Assessoria Jurídica' });
     return list;
   }, [state.smartAnalysis, state.dueDiligenceAnalysis, state.editalAnalysis, state.matriculaAnalysis, state.laudoAnalysis, state.processAnalysis, state.processStory, state.cnjResult, state.dossierAnalysis, state.assessoriaAnalysis]);
 
@@ -9221,10 +9264,7 @@ Sua resposta deve ser APENAS um objeto JSON válido, sem qualquer bloco de códi
       const editalPrompt = "Analise o Edital detalhadamente linha por linha, extraindo todas as informações financeiras, datas, leiloeiro, e débitos de IPTU e condomínio." + getCustomInstructionsPrompt(state);
       const analysis = await analyzeAuctionDocuments(fileParts, editalPrompt, state.selectedModel || 'gemini-3.7-flash', userApiKey || undefined, [], 'edital');
       setState(prev => ({ ...prev, editalAnalysis: analysis }));
-      
-      if (selectedPropertyId) {
-        await savePartialAnalysisToDb({ edital_analysis: analysis });
-      }
+      await savePartialAnalysisToDb({ edital_analysis: analysis });
     } catch (err) { 
       console.error("Erro ao analisar Edital automaticamente:", err); 
     } finally { 
@@ -9258,10 +9298,7 @@ Sua resposta deve ser APENAS um objeto JSON válido, sem qualquer bloco de códi
       const matriculaPrompt = "Analise a Matrícula detalhadamente folha por folha. Identifique obrigatoriamente e destaque com máxima prioridade: 1) Últimos Proprietários do Imóvel Antes da Consolidação da Propriedade (devedores fiduciantes / mutuários originários que perderam o imóvel por consolidação para o banco, com Nome, CPF/CNPJ, cônjuge, regime de bens, ato de aquisição e averbação de consolidação); 2) Inscrição Imobiliária / Cadastro Municipal / IPTU / SQL; 3) Cadeia registral completa de R- e AV-; 4) Proprietários atuais e credores fiduciários; 5) Gravames, penhoras, hipotecas e ônus." + getCustomInstructionsPrompt(state);
       const analysis = await analyzeAuctionDocuments(fileParts, matriculaPrompt, state.selectedModel || 'gemini-3.7-flash', userApiKey || undefined, [], 'matricula');
       setState(prev => ({ ...prev, matriculaAnalysis: analysis }));
-      
-      if (selectedPropertyId) {
-        await savePartialAnalysisToDb({ matricula_analysis: analysis });
-      }
+      await savePartialAnalysisToDb({ matricula_analysis: analysis });
     } catch (err) { 
       console.error("Erro ao analisar Matrícula automaticamente:", err); 
     } finally { 
@@ -9335,10 +9372,7 @@ Formate em português do Brasil, em Markdown elegante e profissional, e inclua n
       const userApiKey = resolveApiKey(state.selectedKeySource, state.aiConfig, state.selectedModel || 'gemini-3.7-flash') || "";
       const analysis = await analyzeAuctionDocuments(fileParts, processesPrompt, state.selectedModel || 'gemini-3.7-flash', userApiKey || undefined, [], 'processo');
       setState(prev => ({ ...prev, processAnalysis: analysis }));
-      
-      if (selectedPropertyId) {
-        await savePartialAnalysisToDb({ process_analysis: analysis });
-      }
+      await savePartialAnalysisToDb({ process_analysis: analysis });
     } catch (err) { 
       console.error("Erro ao analisar Processo automaticamente:", err); 
     } finally { 
@@ -9381,9 +9415,7 @@ Formate em português do Brasil, em Markdown elegante e profissional, e inclua n
       const analysis = await analyzeAuctionDocuments(fileParts, editalPrompt, state.selectedModel || 'gemini-3.7-flash', userApiKey || undefined, [], 'edital');
       setState(prev => ({ ...prev, editalAnalysis: analysis }));
 
-      if (selectedPropertyId) {
-        await savePartialAnalysisToDb({ edital_analysis: analysis });
-      }
+      await savePartialAnalysisToDb({ edital_analysis: analysis });
 
       if ((window as any).customToast) {
         (window as any).customToast("Análise de Edital concluída com sucesso!", "success");
@@ -9435,12 +9467,10 @@ Formate em português do Brasil, em Markdown elegante e profissional, e inclua n
       const analysis = await analyzeAuctionDocuments(fileParts, matriculaPrompt, state.selectedModel || 'gemini-3.7-flash', userApiKey || undefined, [], 'matricula');
       setState(prev => ({ ...prev, matriculaAnalysis: analysis }));
 
-      if (selectedPropertyId) {
-        await savePartialAnalysisToDb({ matricula_analysis: analysis });
-      }
+      await savePartialAnalysisToDb({ matricula_analysis: analysis });
 
       if ((window as any).customToast) {
-        (window as any).customToast("Análise de Matrícula concluída com sucesso!", "success");
+        (window as any).customToast("Análise de Matrícula concluída e salva automaticamente!", "success");
       }
     } catch (err: any) {
       console.error("Erro ao analisar Matrícula:", err);
@@ -9531,9 +9561,7 @@ Formate em português do Brasil, em Markdown elegante e profissional, e inclua n
       const analysis = await analyzeAuctionDocuments(fileParts, prompt, state.selectedModel || 'gemini-3.7-flash', userApiKey || undefined, [], 'processo');
       setState(prev => ({ ...prev, processAnalysis: analysis }));
 
-      if (selectedPropertyId) {
-        await savePartialAnalysisToDb({ process_analysis: analysis });
-      }
+      await savePartialAnalysisToDb({ process_analysis: analysis });
 
       if ((window as any).customToast) {
         (window as any).customToast("Análise de Processos concluída com sucesso!", "success");
@@ -9913,9 +9941,7 @@ Extraia obrigatoriamente e com riqueza de detalhes:
 
       setState(prev => ({ ...prev, laudoAnalysis: analysis }));
 
-      if (selectedPropertyId) {
-        await savePartialAnalysisToDb({ laudo_analysis: analysis });
-      }
+      await savePartialAnalysisToDb({ laudo_analysis: analysis });
 
       // Automatically sync extracted Laudo parameters with Smart Analysis & Viabilidade
       const { parsedData } = parseLaudoAnalysisData(analysis);
@@ -10182,7 +10208,7 @@ Extraia obrigatoriamente e com riqueza de detalhes:
             assessoriaAnalysis: parsedAssessoriaAnalysis || prev.assessoriaAnalysis || getEmptyAssessoriaAnalysis(),
             ...(parsedSimulationData ? { simulationData: parsedSimulationData } : {})
           }));
-        } else {
+        } else if (!isAutoSavingPropertyRef.current) {
           const prop = properties.find(p => p.id === id);
           if (prop) {
             updateState((prev: any) => ({
@@ -11379,11 +11405,23 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
         console.error("Erro ao resolver ou parsear Análise de Assessoria em paralelo:", err);
       }
 
-      // Save analysis to database if property is selected
-      if (selectedPropertyId) {
-        try {
-          // Update the property values in the database with the extracted values
-          await fetch(`/api/properties/${selectedPropertyId}`, {
+      updateState({ 
+        report: finalReport,
+        editalAnalysis: editalAnalysis,
+        matriculaAnalysis: matriculaAnalysis,
+        processAnalysis: processAnalysis,
+        dossierAnalysis: dossierAnalysisResult,
+        chatMessages: [{ role: 'assistant', content: "Análise concluída. Como posso ajudar a aprofundar algum ponto?" }],
+        simulationData: extractedData,
+        smartAnalysis: smartAnalysisData || state.smartAnalysis || getEmptySmartAnalysis(),
+        assessoriaAnalysis: assessoriaAnalysisData || state.assessoriaAnalysis || getEmptyAssessoriaAnalysis()
+      });
+
+      // Automatically save analysis and property to database (even if started in Análise Avulsa)
+      try {
+        const targetPropertyId = selectedPropertyId || await ensureAutoSavedProperty();
+        if (targetPropertyId) {
+          await fetch(`/api/properties/${targetPropertyId}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
             body: JSON.stringify({
@@ -11393,10 +11431,9 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
             })
           });
 
-          // Save process story if extracted to prevent it being wiped by background fetches
           if (extractedStoryData) {
             try {
-              const checkRes = await fetch(`/api/process-stories/${selectedPropertyId}`, {
+              const checkRes = await fetch(`/api/process-stories/${targetPropertyId}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
               });
               let existing = null;
@@ -11421,7 +11458,7 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                   body: JSON.stringify({
-                    property_id: selectedPropertyId,
+                    property_id: targetPropertyId,
                     full_story: extractedStoryData.full_story,
                     legal_glossary: extractedStoryData.legal_glossary,
                     timeline_json: JSON.stringify({
@@ -11431,7 +11468,6 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
                   })
                 });
               }
-              console.log("DEBUG: Process story successfully auto-saved to database in handleAnalyze.");
             } catch (storyErr) {
               console.error("Erro ao salvar história do processo:", storyErr);
             }
@@ -11441,7 +11477,7 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
             body: JSON.stringify({
-              property_id: selectedPropertyId,
+              property_id: targetPropertyId,
               exec_summary: finalReport,
               financial_analysis: JSON.stringify(extractedData),
               ia_used: selectedModel,
@@ -11465,25 +11501,13 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
           if (saveRes.ok) {
             const saveData = await parseJsonResponse(saveRes);
             updateState({ analysisId: saveData.id });
-            fetchPropertyData(selectedPropertyId); // Refresh history
-            await generateShareLink(selectedPropertyId);
+            fetchPropertyData(targetPropertyId);
+            await generateShareLink(targetPropertyId);
           }
-        } catch (err) {
-          console.error("Erro ao salvar análise:", err);
         }
+      } catch (err) {
+        console.error("Erro ao salvar análise automaticamente:", err);
       }
-
-      updateState({ 
-        report: finalReport,
-        editalAnalysis: editalAnalysis,
-        matriculaAnalysis: matriculaAnalysis,
-        processAnalysis: processAnalysis,
-        dossierAnalysis: dossierAnalysisResult,
-        chatMessages: [{ role: 'assistant', content: "Análise concluída. Como posso ajudar a aprofundar algum ponto?" }],
-        simulationData: extractedData,
-        smartAnalysis: smartAnalysisData || state.smartAnalysis || getEmptySmartAnalysis(),
-        assessoriaAnalysis: assessoriaAnalysisData || state.assessoriaAnalysis || getEmptyAssessoriaAnalysis()
-      });
       
     } catch (err: any) {
       const errMsg = err?.message || String(err || '');
@@ -12052,44 +12076,80 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
 
   return (
     <div className="space-y-12">
-      <div className="flex items-center justify-between no-print">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 no-print">
         <div>
           <h2 className="text-4xl font-serif font-medium tracking-tight text-brand-primary">Central de Inteligência</h2>
-          <p className="text-brand-ink/40 font-medium text-lg">Fluxo completo: Consulta CNJ, Documentos e Análise de IA.</p>
+          <p className="text-brand-ink/60 font-medium text-lg">Fluxo completo: Consulta CNJ, Documentos e Análise de IA.</p>
         </div>
+
+        {!isPublicView && (
+          <div className="flex items-center gap-3 shrink-0 self-start sm:self-center">
+            <button
+              type="button"
+              onClick={handleSaveAllAnalyzedTabs}
+              disabled={isSavingAllTabs}
+              className={cn(
+                "flex items-center gap-2.5 px-5 py-3 rounded-2xl text-xs font-bold transition-all shadow-md cursor-pointer border whitespace-nowrap",
+                saveAllSuccess
+                  ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border-emerald-500/40"
+                  : "bg-brand-primary text-black hover:bg-brand-primary/90 border-brand-primary/60 shadow-brand-primary/20"
+              )}
+              title="Salvar todas as abas que foram analisadas de forma automática sem precisar vincular imóvel"
+            >
+              {isSavingAllTabs ? (
+                <Loader2 size={16} className="animate-spin text-black shrink-0" />
+              ) : saveAllSuccess ? (
+                <CheckCheck size={16} className="text-emerald-600 dark:text-emerald-400 shrink-0" />
+              ) : (
+                <SaveAll size={16} className="text-black shrink-0" />
+              )}
+              <span>
+                {isSavingAllTabs 
+                  ? "Salvando Abas..." 
+                  : saveAllSuccess 
+                    ? "Todas as Abas Salvas!" 
+                    : `Salvar Todas as Abas Analisadas (${analyzedTabsCount})`
+                }
+              </span>
+            </button>
+          </div>
+        )}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-10">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
         {/* Sidebar: Configuration */}
         {!isPublicView && (
-          <div className="lg:col-span-1 space-y-8 no-print">
+          <div className="lg:col-span-1 space-y-6 no-print">
             <Card title="Contexto da Análise">
-            <div className="space-y-6">
-              <select 
-                className="w-full bg-brand-bg border-none rounded-2xl py-4 px-6 focus:ring-2 focus:ring-brand-primary font-bold text-sm text-brand-primary"
-                value={selectedPropertyId || ''}
-                onChange={e => {
-                  const propId = e.target.value;
-                  const prop = properties.find(p => p.id === propId);
-                  updateState({ 
-                    selectedPropertyId: propId,
-                    report: null,
-                    chatMessages: [],
-                    adHocDocs: propId ? adHocDocs : [],
-                    customSaleValue: prop?.expected_sale_value || '',
-                    customBidValue: prop?.min_bid || ''
-                  });
-                }}
-              >
-                <option value="">Análise Avulsa (Sem Imóvel)</option>
-                {properties.map(p => <option key={p.id} value={p.id}>{p.title}</option>)}
-              </select>
-              
-              
-              <div className="pt-2">
-                <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-brand-ink/30 mb-2 block font-sans">1. Provedor / API Key</label>
+            <div className="space-y-5">
+              <div>
+                <label className="text-[10px] font-bold uppercase tracking-[0.15em] text-brand-ink/50 mb-1.5 block font-sans">Imóvel / Sessão</label>
                 <select 
-                  className="w-full bg-brand-bg border-none rounded-2xl py-4 px-6 focus:ring-2 focus:ring-brand-primary font-bold text-xs text-brand-primary"
+                  className="w-full bg-brand-bg border border-brand-primary/10 rounded-2xl py-3 px-3.5 focus:ring-2 focus:ring-brand-primary font-bold text-xs text-brand-primary truncate"
+                  value={selectedPropertyId || ''}
+                  onChange={e => {
+                    const propId = e.target.value;
+                    const prop = properties.find(p => p.id === propId);
+                    isAutoSavingPropertyRef.current = false;
+                    updateState({ 
+                      selectedPropertyId: propId,
+                      report: null,
+                      chatMessages: [],
+                      adHocDocs: propId ? adHocDocs : [],
+                      customSaleValue: prop?.expected_sale_value || '',
+                      customBidValue: prop?.min_bid || ''
+                    });
+                  }}
+                >
+                  <option value="">Análise Avulsa (Automática)</option>
+                  {properties.map(p => <option key={p.id} value={p.id}>{p.title}</option>)}
+                </select>
+              </div>
+              
+              <div className="pt-1">
+                <label className="text-[10px] font-bold uppercase tracking-[0.15em] text-brand-ink/50 mb-1.5 block font-sans">1. Provedor / API Key</label>
+                <select 
+                  className="w-full bg-brand-bg border border-brand-primary/10 rounded-2xl py-3 px-3.5 focus:ring-2 focus:ring-brand-primary font-bold text-xs text-brand-primary truncate"
                   value={state.selectedKeySource}
                   onChange={e => {
                     const nextSource = e.target.value as any;
@@ -12102,7 +12162,7 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
                     updateState({ selectedKeySource: nextSource, selectedModel: nextModel });
                   }}
                 >
-                  <option value="system_default">Padrão do Sistema (Google AI Studio - Gemini)</option>
+                  <option value="system_default">Padrão do Sistema (Gemini IA)</option>
                   <option value="openai_custom">OpenAI / ChatGPT (Minha Chave)</option>
                   <option value="gemini_custom">Google Gemini (Minha Chave)</option>
                 </select>
@@ -12110,47 +12170,47 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
                   {/* Status Indicator Badge */}
                   <div className="mt-2 ml-1 text-[10px] font-medium transition-all">
                     {state.selectedKeySource === 'system_default' && (
-                      <span className="text-emerald-500 font-bold flex items-center gap-1.5">
-                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> 
-                        Chave Integrada Ativa (Plano Atual Ativo)
+                      <span className="text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0"></span> 
+                        <span>Chave Integrada Ativa</span>
                       </span>
                     )}
                   {state.selectedKeySource === 'openai_custom' && (
                     state.aiConfig?.openai_key?.trim() ? (
-                      <span className="text-emerald-500 font-bold flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-500"></span> Chave OpenAI Cadastrada</span>
+                      <span className="text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></span> Chave OpenAI Cadastrada</span>
                     ) : (
-                      <span className="text-amber-500 font-bold flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span> Chave não cadastrada (Configuração de IA)</span>
+                      <span className="text-amber-600 dark:text-amber-400 font-bold flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse shrink-0"></span> Chave não cadastrada</span>
                     )
                   )}
                   {state.selectedKeySource === 'gemini_custom' && (
                     state.aiConfig?.gemini_key?.trim() ? (
-                      <span className="text-emerald-500 font-bold flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-500"></span> Chave Gemini Cadastrada</span>
+                      <span className="text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></span> Chave Gemini Cadastrada</span>
                     ) : (
-                      <span className="text-amber-500 font-bold flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span> Chave não cadastrada (Configuração de IA)</span>
+                      <span className="text-amber-600 dark:text-amber-400 font-bold flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse shrink-0"></span> Chave não cadastrada</span>
                     )
                   )}
                 </div>
               </div>
 
-              <div className="pt-2">
-                <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-brand-ink/30 mb-2 block font-sans">2. Cérebro de IA (Modelo)</label>
+              <div className="pt-1">
+                <label className="text-[10px] font-bold uppercase tracking-[0.15em] text-brand-ink/50 mb-1.5 block font-sans">2. Cérebro de IA (Modelo)</label>
                 <select 
-                  className="w-full bg-brand-bg border-none rounded-2xl py-4 px-6 focus:ring-2 focus:ring-brand-primary font-bold text-xs text-brand-primary"
+                  className="w-full bg-brand-bg border border-brand-primary/10 rounded-2xl py-3 px-3.5 focus:ring-2 focus:ring-brand-primary font-bold text-xs text-brand-primary truncate"
                   value={selectedModel}
                   onChange={e => updateState({ selectedModel: e.target.value as AIModel })}
                 >
                   {(state.selectedKeySource === 'system_default' || state.selectedKeySource === 'gemini_custom') && (
                     <optgroup label="Google Gemini">
-                      <option value="gemini-3.8-flash">Gemini 3.8 Flash (Recomendado - Veloz e Estável)</option>
+                      <option value="gemini-3.8-flash">Gemini 3.8 Flash (Recomendado)</option>
                       <option value="gemini-3.7-flash">Gemini 3.7 Flash</option>
                       <option value="gemini-3.6-flash">Gemini 3.6 Flash</option>
                       <option value="gemini-3.5-flash">Gemini 3.5 Flash</option>
                       <option value="gemini-3.4-flash">Gemini 3.4 Flash</option>
-                      <option value="gemini-3.1-flash-lite">Gemini 3.1 Flash Lite (Maior Cota de Tokens / Mais Rápido)</option>
+                      <option value="gemini-3.1-flash-lite">Gemini 3.1 Flash Lite (Veloz)</option>
                       <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
                       <option value="gemini-2.5-flash-lite">Gemini 2.5 Flash Lite</option>
                       <option value="gemini-flash-latest">Gemini Flash Latest</option>
-                      <option value="gemini-3.1-pro-preview">Gemini 3.1 Pro (Raciocínio Jurídico)</option>
+                      <option value="gemini-3.1-pro-preview">Gemini 3.1 Pro (Jurídico)</option>
                       <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
                     </optgroup>
                   )}
@@ -12164,14 +12224,14 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
                 </select>
               </div>
 
-              <div className="pt-2">
-                <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-brand-ink/30 mb-4 block">Tipo de Leilão (Precisão)</label>
+              <div className="pt-1">
+                <label className="text-[10px] font-bold uppercase tracking-[0.15em] text-brand-ink/50 mb-2 block">Tipo de Leilão (Precisão)</label>
                 <div className="flex bg-brand-bg rounded-xl p-1 border border-brand-border/50">
                   <button 
                     onClick={() => updateState({ manualAuctionType: 'auto' })}
                     className={cn(
-                      "flex-1 py-2 text-[9px] font-bold uppercase tracking-widest rounded-lg transition-all",
-                      state.manualAuctionType === 'auto' ? "bg-brand-primary text-black shadow-sm" : "text-brand-ink/40 hover:text-brand-primary"
+                      "flex-1 py-2 text-[9px] font-bold uppercase tracking-widest rounded-lg transition-all cursor-pointer",
+                      state.manualAuctionType === 'auto' ? "bg-brand-primary text-black shadow-sm" : "text-brand-ink/60 hover:text-brand-primary"
                     )}
                   >
                     Auto
@@ -12179,8 +12239,8 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
                   <button 
                     onClick={() => updateState({ manualAuctionType: 'judicial' })}
                     className={cn(
-                      "flex-1 py-2 text-[9px] font-bold uppercase tracking-widest rounded-lg transition-all",
-                      state.manualAuctionType === 'judicial' ? "bg-brand-primary text-black shadow-sm" : "text-brand-ink/40 hover:text-brand-primary"
+                      "flex-1 py-2 text-[9px] font-bold uppercase tracking-widest rounded-lg transition-all cursor-pointer",
+                      state.manualAuctionType === 'judicial' ? "bg-brand-primary text-black shadow-sm" : "text-brand-ink/60 hover:text-brand-primary"
                     )}
                   >
                     Judicial
@@ -12188,38 +12248,38 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
                   <button 
                     onClick={() => updateState({ manualAuctionType: 'extrajudicial' })}
                     className={cn(
-                      "flex-1 py-2 text-[9px] font-bold uppercase tracking-widest rounded-lg transition-all",
-                      state.manualAuctionType === 'extrajudicial' ? "bg-brand-primary text-black shadow-sm" : "text-brand-ink/40 hover:text-brand-primary"
+                      "flex-1 py-2 text-[9px] font-bold uppercase tracking-widest rounded-lg transition-all cursor-pointer",
+                      state.manualAuctionType === 'extrajudicial' ? "bg-brand-primary text-black shadow-sm" : "text-brand-ink/60 hover:text-brand-primary"
                     )}
                   >
                     Extra
                   </button>
                 </div>
-                <p className="text-[9px] text-brand-ink/30 italic mt-2 px-1">
+                <p className="text-[10px] text-brand-ink/50 italic mt-2 px-1">
                   {state.manualAuctionType === 'auto' ? 'A IA detectará o tipo automaticamente.' : 
                    state.manualAuctionType === 'judicial' ? 'Força análise para leilão judicial.' : 
                    'Força análise para leilão extrajudicial (Caixa/Bancos).'}
                 </p>
               </div>
 
-              <div className="pt-2">
-                <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-brand-ink/30 mb-2 block font-sans">Foco da Análise (Opcional)</label>
+              <div className="pt-1">
+                <label className="text-[10px] font-bold uppercase tracking-[0.15em] text-brand-ink/50 mb-1.5 block font-sans">Foco da Análise (Opcional)</label>
                 <input 
                   type="text" 
                   placeholder="Ex: Águas de Lindóia, Lote 72" 
-                  className="w-full bg-brand-bg border-none rounded-2xl py-4 px-6 focus:ring-2 focus:ring-brand-primary text-xs text-brand-primary font-bold placeholder-brand-ink/30"
+                  className="w-full bg-brand-bg border border-brand-primary/10 rounded-2xl py-3 px-3.5 focus:ring-2 focus:ring-brand-primary text-xs text-brand-primary font-bold placeholder-brand-ink/40"
                   value={state.analysisFocusKeyword || ''}
                   onChange={e => updateState({ analysisFocusKeyword: e.target.value })}
                 />
-                <p className="text-[9px] text-brand-ink/30 italic mt-2 px-1">
+                <p className="text-[10px] text-brand-ink/50 italic mt-1.5 px-1">
                   Recomendado para editais com múltiplos imóveis para guiar a IA ao lote desejado.
                 </p>
               </div>
 
               {!selectedPropertyId && (
-                <div className="p-5 bg-brand-primary/5 rounded-2xl border border-brand-primary/10">
-                  <p className="text-[10px] font-bold text-brand-primary uppercase tracking-widest leading-relaxed">
-                    Você está em modo de análise avulsa. Suba os documentos abaixo para analisar sem cadastrar um imóvel.
+                <div className="p-4 bg-brand-primary/5 rounded-2xl border border-brand-primary/15">
+                  <p className="text-[10px] font-bold text-brand-primary uppercase tracking-wider leading-relaxed">
+                    Salvamento Automático Ativo: As análises geradas são salvas automaticamente sem precisar cadastrar imóvel antes.
                   </p>
                 </div>
               )}
@@ -12230,7 +12290,7 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
           <button 
             onClick={handleAnalyze}
             disabled={analyzing}
-            className="w-full bg-brand-primary text-black py-5 rounded-2xl font-bold hover:bg-brand-primary/90 transition-all shadow-lg shadow-brand-primary/20 flex items-center justify-center gap-3 disabled:opacity-50"
+            className="w-full bg-brand-primary text-black py-4 rounded-2xl font-bold hover:bg-brand-primary/90 transition-all shadow-lg shadow-brand-primary/20 flex items-center justify-center gap-3 disabled:opacity-50 cursor-pointer"
           >
             {analyzing ? <Loader2 className="animate-spin" size={20} /> : <Cpu size={20} />}
             Executar Análise IA
@@ -12241,50 +12301,17 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
         {/* Main Area: Results & Tabs */}
         <div className={cn("space-y-6", isPublicView ? "lg:col-span-4" : "lg:col-span-3")}>
           <div className="bg-brand-paper rounded-[2.5rem] border border-brand-primary/10 shadow-sm overflow-hidden flex flex-col min-h-[600px]">
-            {/* Tabs Header with Universal Save All Action */}
-            <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between border-b border-brand-primary/10 bg-brand-bg/30 no-print px-3 py-2 gap-2">
-              <div className="flex overflow-x-auto gap-1 items-center flex-1 scrollbar-none">
-                <AnalysisTab active={activeSubTab === 'smart_analysis'} onClick={() => updateState({ activeSubTab: 'smart_analysis' })} icon={<Cpu size={16} />} label="Análise Smart (Principal)" />
-                <AnalysisTab active={activeSubTab === 'due_diligence'} onClick={() => updateState({ activeSubTab: 'due_diligence' })} icon={<ShieldAlert size={16} />} label="Due Diligence Sênior" />
-                <AnalysisTab active={activeSubTab === 'edital'} onClick={() => updateState({ activeSubTab: 'edital' })} icon={<FileText size={16} />} label="Edital" />
-                <AnalysisTab active={activeSubTab === 'matricula'} onClick={() => updateState({ activeSubTab: 'matricula' })} icon={<BookOpen size={16} />} label="Matrícula" />
-                <AnalysisTab active={activeSubTab === 'laudo'} onClick={() => updateState({ activeSubTab: 'laudo' })} icon={<Ruler size={16} />} label="Laudo Técnico" />
-                <AnalysisTab active={activeSubTab === 'processos'} onClick={() => updateState({ activeSubTab: 'processos' })} icon={<Search size={16} />} label="Processos" />
-                {!isPublicView && <AnalysisTab active={activeSubTab === 'documents'} onClick={() => updateState({ activeSubTab: 'documents' })} icon={<Files size={16} />} label="Documentos" />}
+            {/* Tabs Header - Full Width without overlapping action buttons */}
+            <div className="border-b border-brand-primary/10 bg-brand-bg/30 no-print">
+              <div className="flex overflow-x-auto items-stretch w-full [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+                <AnalysisTab active={activeSubTab === 'smart_analysis'} onClick={() => updateState({ activeSubTab: 'smart_analysis' })} icon={<Cpu size={15} />} label="Análise Smart (Principal)" />
+                <AnalysisTab active={activeSubTab === 'due_diligence'} onClick={() => updateState({ activeSubTab: 'due_diligence' })} icon={<ShieldAlert size={15} />} label="Due Diligence Sênior" />
+                <AnalysisTab active={activeSubTab === 'edital'} onClick={() => updateState({ activeSubTab: 'edital' })} icon={<FileText size={15} />} label="Edital" />
+                <AnalysisTab active={activeSubTab === 'matricula'} onClick={() => updateState({ activeSubTab: 'matricula' })} icon={<BookOpen size={15} />} label="Matrícula" />
+                <AnalysisTab active={activeSubTab === 'laudo'} onClick={() => updateState({ activeSubTab: 'laudo' })} icon={<Ruler size={15} />} label="Laudo Técnico" />
+                <AnalysisTab active={activeSubTab === 'processos'} onClick={() => updateState({ activeSubTab: 'processos' })} icon={<Search size={15} />} label="Processos" />
+                {!isPublicView && <AnalysisTab active={activeSubTab === 'documents'} onClick={() => updateState({ activeSubTab: 'documents' })} icon={<Files size={15} />} label="Documentos" />}
               </div>
-
-              {!isPublicView && (
-                <div className="flex items-center gap-2 shrink-0 self-end lg:self-center pr-1">
-                  <button
-                    type="button"
-                    onClick={handleSaveAllAnalyzedTabs}
-                    disabled={isSavingAllTabs}
-                    className={cn(
-                      "flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer border whitespace-nowrap",
-                      saveAllSuccess
-                        ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/40"
-                        : "bg-brand-primary text-black hover:bg-brand-primary/90 border-brand-primary/60 shadow-brand-primary/20"
-                    )}
-                    title="Salvar todas as abas que foram analisadas de forma automática sem precisar vincular imóvel"
-                  >
-                    {isSavingAllTabs ? (
-                      <Loader2 size={15} className="animate-spin text-black shrink-0" />
-                    ) : saveAllSuccess ? (
-                      <CheckCheck size={15} className="text-emerald-400 shrink-0" />
-                    ) : (
-                      <SaveAll size={15} className="text-black shrink-0" />
-                    )}
-                    <span>
-                      {isSavingAllTabs 
-                        ? "Salvando Abas..." 
-                        : saveAllSuccess 
-                          ? "Todas as Abas Salvas!" 
-                          : `Salvar Todas as Abas Analisadas (${analyzedTabsCount})`
-                      }
-                    </span>
-                  </button>
-                </div>
-              )}
             </div>
 
             {/* Tab Content */}
@@ -14104,12 +14131,12 @@ function AnalysisTab({ active, onClick, icon, label }: { active: boolean, onClic
     <button 
       onClick={onClick}
       className={cn(
-        "flex items-center gap-3 px-10 py-6 text-[10px] font-bold uppercase tracking-[0.2em] transition-all border-b-2 shrink-0 whitespace-nowrap",
-        active ? "bg-brand-paper border-brand-primary text-brand-primary" : "border-transparent text-brand-ink/30 hover:text-brand-primary/60"
+        "flex-1 flex items-center justify-center gap-2 px-4 py-4 text-[11px] font-bold uppercase tracking-wider transition-all border-b-2 shrink-0 whitespace-nowrap cursor-pointer",
+        active ? "bg-brand-paper border-brand-primary text-brand-primary shadow-xs" : "border-transparent text-brand-ink/60 hover:text-brand-primary hover:bg-brand-primary/5"
       )}
     >
       {icon}
-      {label}
+      <span>{label}</span>
     </button>
   );
 }

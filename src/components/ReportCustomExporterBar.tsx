@@ -184,15 +184,15 @@ export function ReportCustomExporterBar({
 
   return (
     <>
-      <div className="bg-gradient-to-r from-brand-bg/95 via-brand-paper to-brand-bg/95 border border-brand-primary/20 rounded-2xl p-4 shadow-sm no-print mb-6 transition-all">
+      <div className="bg-gradient-to-r from-brand-bg/95 via-brand-paper to-brand-bg/95 border border-brand-primary/20 rounded-2xl px-4 py-3 shadow-sm no-print mb-6 transition-all">
         {/* Top action row */}
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-          <div className="flex items-center gap-2.5 flex-wrap">
+        <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5 shrink-0">
             <div className="flex items-center gap-2">
-              <span className="p-1.5 bg-brand-primary/10 text-brand-primary rounded-lg">
-                <SlidersHorizontal size={16} />
+              <span className="p-1.5 bg-brand-primary/10 text-brand-primary rounded-lg shrink-0">
+                <SlidersHorizontal size={15} />
               </span>
-              <span className="text-xs font-bold text-brand-ink uppercase tracking-wider">
+              <span className="text-[11px] font-bold text-brand-ink uppercase tracking-wider whitespace-nowrap">
                 Personalizar Relatório:
               </span>
             </div>
@@ -200,24 +200,24 @@ export function ReportCustomExporterBar({
             <button
               type="button"
               onClick={() => setIsExpanded(!isExpanded)}
-              className="text-xs font-bold text-brand-primary hover:text-brand-primary/80 bg-brand-primary/10 hover:bg-brand-primary/15 px-3 py-1.5 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer"
+              className="text-[11px] font-bold text-brand-primary hover:text-brand-primary/80 bg-brand-primary/10 hover:bg-brand-primary/15 px-3 py-1.5 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0"
             >
               <span>{numSelected} de {totalSections} seções</span>
-              {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+              {isExpanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
             </button>
           </div>
 
           {/* Action buttons */}
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
             {/* Custom Link Share Button */}
             <button
               type="button"
               onClick={() => setIsShareModalOpen(true)}
               disabled={numSelected === 0}
-              className="flex items-center gap-1.5 bg-brand-bg hover:bg-brand-primary/15 border border-brand-primary/30 text-brand-primary px-3.5 py-2 rounded-xl text-xs font-bold transition-all disabled:opacity-40 shadow-xs active:scale-95 cursor-pointer"
+              className="flex items-center gap-1.5 bg-brand-bg hover:bg-brand-primary/15 border border-brand-primary/30 text-brand-primary px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all disabled:opacity-40 shadow-xs active:scale-95 cursor-pointer whitespace-nowrap shrink-0"
               title="Gerar um link público personalizável com o seu domínio para compartilhar este relatório"
             >
-              <LinkIcon size={14} />
+              <LinkIcon size={13} />
               <span>Gerar Link Público</span>
             </button>
 
@@ -225,30 +225,30 @@ export function ReportCustomExporterBar({
               type="button"
               onClick={handleCopy}
               disabled={numSelected === 0}
-              className="flex items-center gap-1.5 bg-brand-bg hover:bg-brand-primary/10 border border-brand-primary/20 text-brand-primary px-3.5 py-2 rounded-xl text-xs font-bold transition-all disabled:opacity-40 shadow-xs active:scale-95 cursor-pointer"
+              className="flex items-center gap-1.5 bg-brand-bg hover:bg-brand-primary/10 border border-brand-primary/20 text-brand-primary px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all disabled:opacity-40 shadow-xs active:scale-95 cursor-pointer whitespace-nowrap shrink-0"
               title="Copiar apenas os módulos selecionados com formatação limpa para colar no WhatsApp, Word ou E-mail"
             >
-              {copied ? <Check size={14} className="text-emerald-500" /> : <Copy size={14} />}
-              {copied ? 'Copiado Formatado!' : 'Copiar Selecionados'}
+              {copied ? <Check size={13} className="text-emerald-500" /> : <Copy size={13} />}
+              <span>{copied ? 'Copiado Formatado!' : 'Copiar Selecionados'}</span>
             </button>
 
             <button
               type="button"
               onClick={handlePrint}
               disabled={numSelected === 0}
-              className="flex items-center gap-1.5 bg-brand-primary text-black hover:bg-brand-primary/90 px-3.5 py-2 rounded-xl text-xs font-bold transition-all disabled:opacity-40 shadow-sm shadow-brand-primary/10 active:scale-95 cursor-pointer"
+              className="flex items-center gap-1.5 bg-brand-primary text-black hover:bg-brand-primary/90 px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all disabled:opacity-40 shadow-sm shadow-brand-primary/10 active:scale-95 cursor-pointer whitespace-nowrap shrink-0"
               title="Imprimir ou gerar PDF apenas com as seções selecionadas"
             >
-              <Printer size={14} />
+              <Printer size={13} />
               <span>Imprimir / PDF</span>
             </button>
 
-            <div className="flex items-center gap-1 bg-brand-paper border border-brand-border rounded-xl p-0.5">
+            <div className="flex items-center gap-1 bg-brand-paper border border-brand-border rounded-xl p-0.5 shrink-0">
               <button
                 type="button"
                 onClick={() => handleDownload('doc')}
                 disabled={numSelected === 0 || downloading}
-                className="px-2.5 py-1.5 text-[11px] font-bold text-brand-ink/80 hover:text-brand-primary hover:bg-brand-bg rounded-lg transition-all flex items-center gap-1 cursor-pointer"
+                className="px-2.5 py-1 text-[11px] font-bold text-brand-ink/80 hover:text-brand-primary hover:bg-brand-bg rounded-lg transition-all flex items-center gap-1 cursor-pointer whitespace-nowrap"
                 title="Baixar em formato Word (.doc) com formatação tipográfica e tabelas"
               >
                 <Download size={12} /> Word
@@ -257,7 +257,7 @@ export function ReportCustomExporterBar({
                 type="button"
                 onClick={() => handleDownload('md')}
                 disabled={numSelected === 0 || downloading}
-                className="px-2.5 py-1.5 text-[11px] font-bold text-brand-ink/80 hover:text-brand-primary hover:bg-brand-bg rounded-lg transition-all flex items-center gap-1 cursor-pointer"
+                className="px-2.5 py-1 text-[11px] font-bold text-brand-ink/80 hover:text-brand-primary hover:bg-brand-bg rounded-lg transition-all flex items-center gap-1 cursor-pointer whitespace-nowrap"
                 title="Baixar em formato Markdown (.md)"
               >
                 <FileText size={12} /> MD
