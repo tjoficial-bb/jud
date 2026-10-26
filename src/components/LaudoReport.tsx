@@ -315,8 +315,8 @@ export const LaudoReport: React.FC<LaudoReportProps> = ({
     if (parsedData) {
       sections.push({
         id: 'laudo-kpis',
-        title: '1. Resumo de Avaliação e Valores do Laudo Técnico',
-        text: `Valor de Mercado: ${parsedData.kpis?.valor_avaliacao_mercado || parsedData.valores_avaliacao?.valor_mercado || 'Não informado'}\nValor de Liquidação Forçada: ${parsedData.kpis?.valor_liquidacao_forcada || parsedData.valores_avaliacao?.valor_liquidacao_forcada || 'Não informado'}\nValor por m²: ${parsedData.kpis?.valor_m2_avaliado || parsedData.valores_avaliacao?.valor_unitario_m2 || 'Não informado'}\nData Base do Laudo: ${parsedData.kpis?.data_laudo || parsedData.valores_avaliacao?.data_base_avaliacao || 'Não informada'}`,
+        title: '1. Resumo Técnico e Dados Base do Laudo',
+        text: `Data Base do Laudo: ${parsedData.kpis?.data_laudo || parsedData.valores_avaliacao?.data_base_avaliacao || 'Não informada'}\nEstado de Conservação: ${parsedData.kpis?.estado_conservacao_resumo || parsedData.padrao_e_vistoria?.estado_conservacao || 'Normal'}\nPadrão Construtivo: ${parsedData.padrao_e_vistoria?.padrao_acabamento || 'Normal'}`,
         selected: true
       });
       sections.push({
@@ -440,52 +440,42 @@ export const LaudoReport: React.FC<LaudoReportProps> = ({
           </div>
         </div>
 
-        {/* Linha de KPIs de Avaliação */}
+        {/* Linha de KPIs Técnicos e Físicos */}
         {parsedData && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-8 pt-6 border-t border-brand-primary/10">
             <div className="bg-brand-bg/50 border border-brand-primary/15 rounded-2xl p-5 space-y-1">
               <div className="flex items-center justify-between text-brand-ink/50 text-[11px] font-bold uppercase tracking-wider">
-                <span>Valor de Avaliação (Mercado)</span>
-                <DollarSign size={15} className="text-emerald-500" />
+                <span>Tipologia do Imóvel</span>
+                <Building2 size={15} className="text-brand-primary" />
               </div>
-              <p className="text-xl sm:text-2xl font-bold text-emerald-500 font-mono">
-                {parsedData.kpis?.valor_avaliacao_mercado ||
-                  valores?.valor_mercado ||
-                  'Não informado'}
+              <p className="text-lg sm:text-xl font-bold text-brand-ink font-sans">
+                {caract?.tipo_imovel || 'Imóvel Residencial'}
               </p>
               <p className="text-[11px] text-brand-ink/50">
-                {valores?.valor_minimo_campo_arbitrio && valores?.valor_maximo_campo_arbitrio
-                  ? `Intervalo: ${valores.valor_minimo_campo_arbitrio} a ${valores.valor_maximo_campo_arbitrio}`
-                  : 'Valor central de mercado apurado no laudo'}
+                Vocação: {caract?.uso_vocacao || 'Residencial'}
               </p>
             </div>
 
             <div className="bg-brand-bg/50 border border-brand-primary/15 rounded-2xl p-5 space-y-1">
               <div className="flex items-center justify-between text-brand-ink/50 text-[11px] font-bold uppercase tracking-wider">
-                <span>Valor de Liquidação Forçada</span>
-                <TrendingUp size={15} className="text-amber-500" />
+                <span>Estado de Conservação</span>
+                <Award size={15} className="text-emerald-500" />
               </div>
-              <p className="text-xl sm:text-2xl font-bold text-amber-500 font-mono">
-                {parsedData.kpis?.valor_liquidacao_forcada ||
-                  valores?.valor_liquidacao_forcada ||
-                  (laudoValuationNum > 0
-                    ? `R$ ${(laudoValuationNum * 0.75).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (Est.)`
-                    : 'Não informado')}
+              <p className="text-lg sm:text-xl font-bold text-emerald-500 font-sans">
+                {parsedData.kpis?.estado_conservacao_resumo || vistoria?.estado_conservacao || 'Normal'}
               </p>
               <p className="text-[11px] text-brand-ink/50">
-                Referência de venda rápida / liquidez imediata
+                Padrão: {vistoria?.padrao_acabamento || 'Normal'}
               </p>
             </div>
 
             <div className="bg-brand-bg/50 border border-brand-primary/15 rounded-2xl p-5 space-y-1">
               <div className="flex items-center justify-between text-brand-ink/50 text-[11px] font-bold uppercase tracking-wider">
-                <span>Valor Unitário (R$ / m²)</span>
+                <span>Metragem Principal</span>
                 <Ruler size={15} className="text-brand-primary" />
               </div>
-              <p className="text-xl sm:text-2xl font-bold text-brand-primary font-mono">
-                {parsedData.kpis?.valor_m2_avaliado ||
-                  valores?.valor_unitario_m2 ||
-                  'Não informado'}
+              <p className="text-lg sm:text-xl font-bold text-brand-primary font-mono">
+                {areas?.area_privativa_m2 || areas?.area_construida_m2 || areas?.area_total_m2 || 'Ver quadro'}
               </p>
               <p className="text-[11px] text-brand-ink/50">
                 Data do Laudo: {parsedData.kpis?.data_laudo || valores?.data_base_avaliacao || 'Não consta'}
@@ -494,18 +484,14 @@ export const LaudoReport: React.FC<LaudoReportProps> = ({
 
             <div className="bg-brand-bg/50 border border-brand-primary/15 rounded-2xl p-5 space-y-1">
               <div className="flex items-center justify-between text-brand-ink/50 text-[11px] font-bold uppercase tracking-wider">
-                <span>Deságio do Leilão vs. Laudo</span>
-                <Award size={15} className="text-brand-primary" />
+                <span>Norma Técnica</span>
+                <Compass size={15} className="text-brand-primary" />
               </div>
-              <p className="text-xl sm:text-2xl font-bold text-brand-primary font-mono">
-                {discountVsLaudo !== null
-                  ? `${discountVsLaudo.toFixed(1)}% de Desconto`
-                  : parsedData.kpis?.liquidez_estimada || 'A calcular'}
+              <p className="text-lg sm:text-xl font-bold text-brand-primary font-mono">
+                {metodo?.norma_abnt || 'NBR 14.653'}
               </p>
               <p className="text-[11px] text-brand-ink/50">
-                {effectiveBid > 0
-                  ? `Baseado no lance de R$ ${effectiveBid.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
-                  : `Conservação: ${parsedData.kpis?.estado_conservacao_resumo || vistoria?.estado_conservacao || 'Ver abaixo'}`}
+                Fundamentação: {metodo?.grau_fundamentacao || 'Técnica'}
               </p>
             </div>
           </div>
@@ -754,41 +740,7 @@ export const LaudoReport: React.FC<LaudoReportProps> = ({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-brand-border/40">
-                  <tr>
-                    <td className="py-3.5 px-4 font-bold">Valor de Avaliação</td>
-                    <td className="py-3.5 px-4 font-mono font-bold text-emerald-500">
-                      {parsedData.kpis?.valor_avaliacao_mercado || valores?.valor_mercado || 'N/I'}
-                    </td>
-                    <td className="py-3.5 px-4 font-mono">
-                      {effectiveSystemValuation > 0
-                        ? `R$ ${effectiveSystemValuation.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
-                        : 'Não preenchido no sistema'}
-                    </td>
-                    <td className="py-3.5 px-4 text-xs text-brand-ink/75">
-                      {laudoValuationNum > 0 && effectiveSystemValuation > 0
-                        ? Math.abs(laudoValuationNum - effectiveSystemValuation) < 100
-                          ? 'Valores convergentes entre Laudo e Edital/Sistema'
-                          : `Diferença de R$ ${Math.abs(laudoValuationNum - effectiveSystemValuation).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} entre o Laudo e o valor atual`
-                        : 'Clique em "Aplicar Dados" para adotar o valor do laudo na viabilidade'}
-                    </td>
-                  </tr>
 
-                  <tr>
-                    <td className="py-3.5 px-4 font-bold">Lance Mínimo vs. Laudo</td>
-                    <td className="py-3.5 px-4 font-mono">
-                      Liquidação: {parsedData.kpis?.valor_liquidacao_forcada || valores?.valor_liquidacao_forcada || 'N/I'}
-                    </td>
-                    <td className="py-3.5 px-4 font-mono font-bold text-amber-500">
-                      {effectiveBid > 0
-                        ? `R$ ${effectiveBid.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
-                        : 'Lance não definido'}
-                    </td>
-                    <td className="py-3.5 px-4 text-xs text-brand-ink/75">
-                      {discountVsLaudo !== null
-                        ? `O lance representa ${discountVsLaudo.toFixed(1)}% de deságio sobre a avaliação técnica do laudo`
-                        : 'Defina o lance mínimo para calcular o deságio frente ao laudo'}
-                    </td>
-                  </tr>
 
                   <tr>
                     <td className="py-3.5 px-4 font-bold">Metragens (Privativa / Construída / Terreno)</td>
@@ -934,9 +886,9 @@ export const LaudoReport: React.FC<LaudoReportProps> = ({
                   <span className="font-bold text-brand-ink">{vistoria?.padrao_acabamento || 'Normal'}</span>
                 </div>
                 <div className="p-3 bg-brand-bg/40 rounded-xl">
-                  <span className="text-brand-ink/50 block">Custo Estimado de Reforma:</span>
-                  <span className="font-bold text-brand-primary font-mono">
-                    {valores?.custo_estimado_reforma_texto || 'Conforme vistoria'}
+                  <span className="text-brand-ink/50 block">Tipo de Vistoria:</span>
+                  <span className="font-bold text-brand-primary font-sans">
+                    {vistoria?.tipo_vistoria || 'Externa / Paradigma'}
                   </span>
                 </div>
               </div>
@@ -1074,8 +1026,6 @@ export const LaudoReport: React.FC<LaudoReportProps> = ({
                           <th className="py-2.5 px-3">Amostra</th>
                           <th className="py-2.5 px-3">Endereço / Referência</th>
                           <th className="py-2.5 px-3">Área (m²)</th>
-                          <th className="py-2.5 px-3">Valor Oferta / Homog.</th>
-                          <th className="py-2.5 px-3">Valor R$/m²</th>
                           <th className="py-2.5 px-3">Características / Fonte</th>
                         </tr>
                       </thead>
@@ -1087,8 +1037,6 @@ export const LaudoReport: React.FC<LaudoReportProps> = ({
                             </td>
                             <td className="py-2.5 px-3">{amostra.endereco_referencia || '-'}</td>
                             <td className="py-2.5 px-3 font-mono">{amostra.area_m2 || '-'}</td>
-                            <td className="py-2.5 px-3 font-mono font-semibold">{amostra.valor_total || '-'}</td>
-                            <td className="py-2.5 px-3 font-mono text-emerald-500">{amostra.valor_m2 || '-'}</td>
                             <td className="py-2.5 px-3 text-brand-ink/70">
                               {[amostra.quartos_vagas, amostra.fonte_imobiliaria].filter(Boolean).join(' · ') || '-'}
                             </td>

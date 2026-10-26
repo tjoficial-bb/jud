@@ -282,20 +282,18 @@ export const EditalReport: React.FC<EditalReportProps> = ({
     // 1. Resumo & KPIs
     const resumoText = [
       `📊 INDICADORES DO EDITAL:`,
-      `• Valor de Avaliação: ${data.kpis.avaliacao || 'Não informado'}`,
-      `• Lance Mínimo (2ª Praça): ${data.kpis.lance_minimo || 'Não informado'} ${data.kpis.lance_minimo_subtexto ? `(${data.kpis.lance_minimo_subtexto})` : ''}`,
+      `• Modalidade do Leilão: ${data.valores_lances?.forma_leilao || 'Eletrônico / Presencial'}`,
       `• Comissão do Leiloeiro: ${data.kpis.comissao_leiloeiro || '5%'}`,
       `• 1ª Praça: ${data.kpis.primeira_praca || 'A definir'}`,
       `• 2ª Praça: ${data.kpis.segunda_praca || 'A definir'}`,
     ].join('\n');
 
-    // 2. Valores e Lances
+    // 2. Modalidade e Regras de Praça
     const valoresText = [
-      `💰 VALORES E REGRAS DE LANCE:`,
-      `• Valor de Avaliação Oficial: ${data.valores_lances?.valor_avaliacao || data.kpis.avaliacao || 'Não informado'}`,
-      `• Lance Mínimo 1ª Praça (100%): ${data.valores_lances?.lance_minimo_1a_praca || data.kpis.avaliacao || 'Não informado'}`,
-      `• Lance Mínimo 2ª Praça: ${data.valores_lances?.lance_minimo_2a_praca || data.kpis.lance_minimo || 'Não informado'} (${data.valores_lances?.percentual_minimo_2a_praca || '50%'} da avaliação)`,
+      `⚖️ MODALIDADE E REGRAS DE PRAÇA:`,
       `• Forma do Leilão: ${data.valores_lances?.forma_leilao || 'Eletrônico / Presencial'}`,
+      `• 1ª Praça: ${data.datas_importantes?.primeira_praca || 'Não consta'}`,
+      `• 2ª Praça: ${data.datas_importantes?.segunda_praca || 'Não consta'}`,
     ].join('\n');
 
     // 3. Condições de Pagamento e Parcelamento
@@ -468,52 +466,42 @@ export const EditalReport: React.FC<EditalReportProps> = ({
               <h2 className="text-lg font-bold tracking-tight">Resumo geral</h2>
             </div>
 
-            {/* Four Big Cards (Including Discount for Cash Payment) */}
+            {/* Four Summary Cards (Non-financial rules & schedule) */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-              {/* Avaliação Card */}
+              {/* Modalidade Card */}
               <div className="bg-brand-bg/40 border border-brand-border rounded-2xl p-5 space-y-1">
-                <span className="text-[10px] font-bold text-brand-ink/40 uppercase tracking-widest block">AVALIAÇÃO</span>
-                <span className="text-2xl sm:text-3xl font-extrabold text-brand-ink font-sans tracking-tight">{data.kpis.avaliacao}</span>
+                <span className="text-[10px] font-bold text-brand-ink/40 uppercase tracking-widest block">MODALIDADE</span>
+                <span className="text-lg sm:text-xl font-extrabold text-brand-ink font-sans tracking-tight">{data.valores_lances.forma_leilao || 'Eletrônico'}</span>
               </div>
 
-              {/* Lance Mínimo Card */}
+              {/* Sub-rogação Card */}
               <div className="bg-[#f0fdf4] dark:bg-emerald-950/25 border border-emerald-200/50 dark:border-emerald-900/10 rounded-2xl p-5 space-y-1">
-                <span className="text-[10px] font-bold text-emerald-600/70 dark:text-emerald-400/70 uppercase tracking-widest block">LANCE MÍNIMO</span>
+                <span className="text-[10px] font-bold text-emerald-600/70 dark:text-emerald-400/70 uppercase tracking-widest block">DÍVIDAS PROPTER REM</span>
                 <div className="space-y-0.5">
-                  <span className="text-2xl sm:text-3xl font-extrabold text-[#15803d] dark:text-[#a7f3d0] font-sans tracking-tight block">
-                    {data.kpis.lance_minimo}
+                  <span className="text-lg sm:text-xl font-extrabold text-[#15803d] dark:text-[#a7f3d0] font-sans tracking-tight block">
+                    {data.responsabilidade_dividas.propter_rem_no_edital === 'Sim' ? (data.responsabilidade_dividas.responsabilidade_propter_rem || 'Sub-rogadas') : 'Ver Edital'}
                   </span>
-                  {data.kpis.lance_minimo_subtexto && (
-                    <span className="text-[11px] text-[#166534] dark:text-[#34d399]/85 font-bold font-mono">
-                      -{data.kpis.lance_minimo_subtexto}
-                    </span>
-                  )}
                 </div>
               </div>
 
               {/* Comissão Leiloeiro Card */}
               <div className="bg-brand-bg/40 border border-brand-border rounded-2xl p-5 space-y-1">
                 <span className="text-[10px] font-bold text-brand-ink/40 uppercase tracking-widest block">COMISSÃO DO LEILOEIRO</span>
-                <span className="text-2xl sm:text-3xl font-extrabold text-brand-ink font-sans tracking-tight">{data.kpis.comissao_leiloeiro}</span>
+                <span className="text-lg sm:text-xl font-extrabold text-brand-ink font-sans tracking-tight">{data.kpis.comissao_leiloeiro}</span>
               </div>
 
-              {/* Desconto à Vista Card */}
+              {/* Permite Parcelamento Card */}
               <div className="bg-brand-bg/40 border border-brand-border rounded-2xl p-5 space-y-1">
-                <span className="text-[10px] font-bold text-brand-ink/40 uppercase tracking-widest block">DESCONTO À VISTA</span>
+                <span className="text-[10px] font-bold text-brand-ink/40 uppercase tracking-widest block">PARCELAMENTO</span>
                 <div className="space-y-0.5">
-                  <span className="text-2xl sm:text-3xl font-extrabold text-brand-ink font-sans tracking-tight block text-brand-primary">
-                    {data.condicoes_pagamento.tem_desconto_vista === 'Sim' ? (data.condicoes_pagamento.percentual_desconto_vista || 'Sim') : (data.condicoes_pagamento.tem_desconto_vista || 'Não')}
+                  <span className="text-lg sm:text-xl font-extrabold text-brand-ink font-sans tracking-tight block text-brand-primary">
+                    {data.condicoes_pagamento.permite_parcelamento || 'Consultar'}
                   </span>
-                  {data.condicoes_pagamento.tem_desconto_vista === 'Sim' && (
-                    <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-bold font-sans">
-                      Desconto para pagamento à vista
-                    </span>
-                  )}
                 </div>
               </div>
             </div>
 
-            {/* Detailed Table Grid (Matching exact layout from Image 10) */}
+            {/* Detailed Table Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-4 pt-4 border-t border-brand-border/40 text-xs">
               <div className="flex justify-between items-center py-2 border-b border-brand-border/20">
                 <span className="font-semibold text-brand-ink/45">1ª praça</span>
@@ -524,18 +512,6 @@ export const EditalReport: React.FC<EditalReportProps> = ({
                 <span className="font-bold text-brand-ink font-mono">{data.datas_importantes.segunda_praca || 'Não consta'}</span>
               </div>
               <div className="flex justify-between items-center py-2 border-b border-brand-border/20">
-                <span className="font-semibold text-brand-ink/45">Lance mínimo 1ª praça</span>
-                <span className="font-bold text-brand-ink">{data.valores_lances.lance_minimo_1a_praca}</span>
-              </div>
-              <div className="flex justify-between items-center py-2 border-b border-brand-border/20">
-                <span className="font-semibold text-brand-ink/45">Lance mínimo 2ª praça</span>
-                <span className="font-bold text-brand-ink">{data.valores_lances.lance_minimo_2a_praca}</span>
-              </div>
-              <div className="flex justify-between items-center py-2 border-b border-brand-border/20">
-                <span className="font-semibold text-brand-ink/45">% mínimo na 2ª praça</span>
-                <span className="font-extrabold text-brand-ink font-mono">{data.valores_lances.percentual_minimo_2a_praca || '50%'}</span>
-              </div>
-              <div className="flex justify-between items-center py-2 border-b border-brand-border/20">
                 <span className="font-semibold text-brand-ink/45">Permite parcelamento</span>
                 <span className="font-bold text-brand-ink">{data.condicoes_pagamento.permite_parcelamento}</span>
               </div>
@@ -543,7 +519,7 @@ export const EditalReport: React.FC<EditalReportProps> = ({
                 <span className="font-semibold text-brand-ink/45">Comissão — quem paga</span>
                 <span className="font-bold text-brand-ink">{data.comissao_leiloeiro_detalhe.quem_paga}</span>
               </div>
-              <div className="flex justify-between items-center py-2 border-b border-brand-border/20">
+              <div className="flex justify-between items-center py-2 border-b border-brand-border/20 sm:col-span-2">
                 <span className="font-semibold text-brand-ink/45">Dívidas propter rem</span>
                 <span className="font-bold text-[#15803d] dark:text-[#a7f3d0]">{data.responsabilidade_dividas.propter_rem_no_edital === 'Sim' ? (data.responsabilidade_dividas.responsabilidade_propter_rem || 'Sub-rogadas no preço') : 'Não'}</span>
               </div>
@@ -563,20 +539,18 @@ export const EditalReport: React.FC<EditalReportProps> = ({
           {/* 2. COMPLETENESS COLLAPSIBLE SECTIONS */}
           <div className="space-y-4">
             
-            {/* Sec: Valores e lances */}
+            {/* Sec: Regras e Modalidade do Leilão */}
             <AccordionSection 
               id="valores_lances" 
-              title="Valores e lances" 
-              icon={<DollarSign size={18} className="text-orange-500" />} 
+              title="Modalidade e Regras das Praças" 
+              icon={<FileText size={18} className="text-orange-500" />} 
               isOpen={accordionState.valores_lances} 
               onToggle={() => toggleAccordion('valores_lances')}
             >
               <div className="divide-y divide-brand-border/40 text-sm font-sans">
-                <GridRow label="Valor de avaliação" value={data.valores_lances.valor_avaliacao} />
-                <GridRow label="Lance mínimo 1ª praça" value={data.valores_lances.lance_minimo_1a_praca} />
-                <GridRow label="Lance mínimo 2ª praça" value={data.valores_lances.lance_minimo_2a_praca} />
-                <GridRow label="% mínimo na 2ª praça" value={data.valores_lances.percentual_minimo_2a_praca} />
                 <GridRow label="Forma do leilão" value={data.valores_lances.forma_leilao} />
+                <GridRow label="Data da 1ª praça" value={data.datas_importantes.primeira_praca} />
+                <GridRow label="Data da 2ª praça" value={data.datas_importantes.segunda_praca} />
               </div>
             </AccordionSection>
 
@@ -955,62 +929,9 @@ export const EditalReport: React.FC<EditalReportProps> = ({
                 </div>
               </div>
 
-              {/* NOVO: Simulador de Lance Máximo e Checklist Pré-Leilão */}
+              {/* Checklist Pré-Leilão */}
               <div className="border-t border-brand-primary/10 pt-6 space-y-6">
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {/* Simulador Inteligente de Margem de Lucro */}
-                  <div className="bg-brand-primary/[0.03] rounded-2xl border border-brand-primary/10 p-5 space-y-4">
-                    <div className="flex items-center gap-2">
-                      <Calculator size={16} className="text-brand-primary" />
-                      <h5 className="text-sm font-bold text-brand-ink">Simulador Inteligente de Margem de Lucro</h5>
-                    </div>
-                    <p className="text-xs text-brand-ink/65 leading-relaxed">
-                      Simule o desconto real em relação ao valor de avaliação e veja o custo total estimado de aquisição:
-                    </p>
-
-                    <div className="space-y-3">
-                      <div>
-                        <label className="block text-[10px] font-bold uppercase tracking-wider text-brand-ink/50 mb-1">
-                          Seu Lance Proposto (R$)
-                        </label>
-                        <div className="relative">
-                          <span className="absolute left-3 top-2 text-xs font-bold text-brand-ink/40">R$</span>
-                          <input
-                            type="number"
-                            className="w-full pl-9 pr-3 py-1.5 text-xs font-semibold rounded-xl border border-brand-border bg-brand-bg text-brand-ink focus:outline-none focus:border-brand-primary"
-                            value={customBid}
-                            onChange={(e) => setCustomBid(Number(e.target.value))}
-                          />
-                        </div>
-                      </div>
-
-                      <div className="divide-y divide-brand-border/30 text-xs pt-1">
-                        <div className="py-2 flex justify-between">
-                          <span className="text-brand-ink/60">Avaliação de Mercado:</span>
-                          <span className="font-mono font-medium">R$ {(valuation || 300000).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                        </div>
-                        <div className="py-2 flex justify-between">
-                          <span className="text-brand-ink/60">Lance Simulado:</span>
-                          <span className="font-mono font-medium text-brand-primary font-bold">R$ {customBid.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                        </div>
-                        <div className="py-2 flex justify-between">
-                          <span className="text-brand-ink/60">Desconto Bruto:</span>
-                          <span className="font-mono font-medium text-emerald-500 font-bold">
-                            {valuation ? `${(((valuation - customBid) / valuation) * 100).toFixed(1)}%` : '50.0%'} de desconto
-                          </span>
-                        </div>
-                        <div className="py-2 flex justify-between">
-                          <span className="text-brand-ink/60">Custos Iniciais (Comissão + ITBI + Registro 9.2%):</span>
-                          <span className="font-mono font-medium">R$ {(customBid * 0.092).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                        </div>
-                        <div className="py-3 flex justify-between font-bold text-brand-primary border-t-2 border-brand-primary/20">
-                          <span>INVESTIMENTO TOTAL ESTIMADO:</span>
-                          <span className="font-mono">R$ {(customBid + (customBid * 0.092)).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
+                <div className="grid grid-cols-1 gap-6">
                   {/* Checklist Pré-Arrematação */}
                   <div className="bg-brand-primary/[0.03] rounded-2xl border border-brand-primary/10 p-5 space-y-4">
                     <div className="flex items-center gap-2">
@@ -1018,7 +939,7 @@ export const EditalReport: React.FC<EditalReportProps> = ({
                       <h5 className="text-sm font-bold text-brand-ink">Diligência Pré-Leilão (Checklist de Segurança)</h5>
                     </div>
                     <p className="text-xs text-brand-ink/65 leading-relaxed">
-                      Complete estas etapas de verificação cruciais antes do dia do leilão para evitar surpresas judiciais ou financeiras:
+                      Complete estas etapas de verificação cruciais antes do dia do leilão para evitar surpresas judiciais ou operacionais:
                     </p>
 
                     <div className="space-y-2.5">
@@ -1050,21 +971,6 @@ export const EditalReport: React.FC<EditalReportProps> = ({
                         </div>
                       ))}
                     </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Sugestão Inteligente (Aumentando inteligência da análise) */}
-              <div className="mt-4 pt-4 border-t border-brand-primary/10 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-brand-primary/5 p-4 rounded-2xl border border-brand-primary/10">
-                <div className="flex items-start gap-3">
-                  <div className="mt-1 text-brand-primary">
-                    <Sparkles size={16} />
-                  </div>
-                  <div>
-                    <h5 className="text-xs font-bold text-brand-ink">💡 Sugestão Inteligente de Margem de Lucro</h5>
-                    <p className="text-[11px] text-brand-ink/70 leading-relaxed mt-0.5">
-                      Para uma arrematação segura, some ao valor máximo do seu lance: a comissão do leiloeiro (5%), o custo do ITBI (geralmente 2% a 4%), as taxas de registro cartorário e uma reserva de contingência (cerca de 5% a 10% para eventuais reformas ou desocupação).
-                    </p>
                   </div>
                 </div>
               </div>

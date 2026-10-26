@@ -16,10 +16,11 @@ interface DocumentManagerProps {
   onDelete: (id: string) => void;
   onTranscribe?: (id: string) => void;
   uploading: boolean;
+  showSharedDocs?: boolean;
 }
 
 export const DocumentManager: React.FC<DocumentManagerProps> = ({ 
-  label, docs, onUpload, onDelete, onTranscribe, uploading 
+  label, docs, onUpload, onDelete, onTranscribe, uploading, showSharedDocs = false
 }) => {
   const [docToDelete, setDocToDelete] = useState<string | null>(null);
   const [transcribingId, setTranscribingId] = useState<string | null>(null);
@@ -28,7 +29,18 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({
   const normalize = (str: string) => (str || '').normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
   const normalizedLabel = normalize(label);
 
-  const categoryDocs = docs.filter(d => {
+  const isKnownOtherCat = (normCat: string, normFn: string) => {
+    const isMat = normCat.includes('matricula') || normCat.includes('certidao') || normCat.includes('registro') || normCat.includes('onus') || normCat.includes('vintenaria') || normCat.includes('inteiro') || normCat.includes('rgi') || normCat.includes('cri') || normCat.includes('transcricao') ||
+      normFn.includes('matricula') || normFn.includes('certidao') || normFn.includes('registro') || normFn.includes('onus') || normFn.includes('vintenaria') || normFn.includes('inteiro') || normFn.includes('rgi') || normFn.includes('cri') || normFn.includes('transcricao');
+    const isEdi = normCat.includes('edital') || normFn.includes('edital') || normCat.includes('publicacao') || normFn.includes('publicacao');
+    const isLau = normCat.includes('laudo') || normCat.includes('avaliacao') || normCat.includes('pericia') || normCat.includes('vistoria') || normCat.includes('engenharia') ||
+      normFn.includes('laudo') || normFn.includes('avaliacao') || normFn.includes('pericia') || normFn.includes('vistoria') || normFn.includes('engenharia');
+    const isPro = normCat.includes('processo') || normCat.includes('judicial') || normCat.includes('autos') || normCat.includes('execuc') ||
+      normFn.includes('processo') || normFn.includes('autos') || normFn.includes('execuc') || normFn.includes('judicial') || normFn.includes('peticao') || normFn.includes('sentenca') || normFn.includes('despacho');
+    return { isMat, isEdi, isLau, isPro };
+  };
+
+  const strictCategoryDocs = docs.filter(d => {
     let cat = d.doc_type || '';
     if (cat.includes(':')) {
       const parts = cat.split(':');
@@ -37,46 +49,23 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({
     const normCat = normalize(cat);
     const normFn = normalize(d.filename || '');
     if (normCat === normalizedLabel) return true;
-    if (normalizedLabel.includes('matricula')) {
-      return (
-        normCat.includes('matricula') || 
-        normCat.includes('certidao') || 
-        normCat.includes('registro') || 
-        normCat.includes('onus') || 
-        normCat.includes('vintenaria') || 
-        normCat.includes('inteiro') || 
-        normCat.includes('rgi') || 
-        normCat.includes('cri') || 
-        normCat.includes('transcricao') ||
-        normFn.includes('matricula') || 
-        normFn.includes('certidao') || 
-        normFn.includes('registro') || 
-        normFn.includes('onus') || 
-        normFn.includes('vintenaria') || 
-        normFn.includes('inteiro') || 
-        normFn.includes('rgi') || 
-        normFn.includes('cri') || 
-        normFn.includes('transcricao')
-      );
+    const { isMat, isEdi, isLau, isPro } = isKnownOtherCat(normCat, normFn);
+    if (normalizedLabel.includes('matricula')) return isMat;
+    if (normalizedLabel.includes('edital')) return isEdi;
+    if (normalizedLabel.includes('laudo')) return isLau;
+    if (normalizedLabel.includes('processo')) return isPro;
+    if (normalizedLabel.includes('outro')) {
+      return normCat.includes('outro') || !normCat || (!isMat && !isEdi && !isLau && !isPro);
     }
-    if (normalizedLabel.includes('edital')) {
-      return normCat.includes('edital') || normFn.includes('edital') || normCat.includes('publicacao') || normFn.includes('publicacao');
-    }
-    if (normalizedLabel.includes('processo')) {
-      return (
-        normCat.includes('processo') || 
-        normCat.includes('judicial') || 
-        normCat.includes('autos') || 
-        normCat.includes('execuc') || 
-        normFn.includes('processo') || 
-        normFn.includes('autos') || 
-        normFn.includes('execuc') || 
-        normFn.includes('judicial')
-      );
-    }
-    if (normalizedLabel.includes('outro')) return normCat.includes('outro') || !normCat;
     return false;
   });
+
+  const categoryDocs = showSharedDocs
+    ? [
+        ...strictCategoryDocs,
+        ...docs.filter(d => !strictCategoryDocs.some(sd => sd.id === d.id))
+      ]
+    : strictCategoryDocs;
 
   const uniqueId = React.useId();
   const safeLabelId = normalize(label).replace(/[^a-z0-9]/g, '-');

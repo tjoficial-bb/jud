@@ -9411,7 +9411,7 @@ Formate em português do Brasil, em Markdown elegante e profissional, e inclua n
         };
       });
       const userApiKey = resolveApiKey(state.selectedKeySource, state.aiConfig, state.selectedModel || 'gemini-3.7-flash') || "";
-      const editalPrompt = "Analise o Edital detalhadamente linha por linha, extraindo todas as informações financeiras, datas, leiloeiro, e débitos de IPTU e condomínio." + getCustomInstructionsPrompt(state);
+      const editalPrompt = "Analise o Edital detalhadamente linha por linha, extraindo todas as datas das praças, modalidade, leiloeiro, regras de pagamento/parcelamento, comissão e responsabilidade sobre débitos de IPTU e condomínio. Não inclua planilhas financeiras, ROI ou estimativas financeiras." + getCustomInstructionsPrompt(state);
       const analysis = await analyzeAuctionDocuments(fileParts, editalPrompt, state.selectedModel || 'gemini-3.7-flash', userApiKey || undefined, [], 'edital');
       setState(prev => ({ ...prev, editalAnalysis: analysis }));
 
@@ -9463,7 +9463,7 @@ Formate em português do Brasil, em Markdown elegante e profissional, e inclua n
         };
       });
       const userApiKey = resolveApiKey(state.selectedKeySource, state.aiConfig, state.selectedModel || 'gemini-3.7-flash') || "";
-      const matriculaPrompt = "Analise a Certidão de Matrícula Imobiliária detalhadamente folha por folha. Identifique e extraia com precisão máxima: 1) ÚLTIMOS PROPRIETÁRIOS DO IMÓVEL ANTES DA CONSOLIDAÇÃO DA PROPRIEDADE (devedores fiduciantes / mutuários originários que tiveram a propriedade consolidada pelo banco/credor fiduciário, detalhando Nome, CPF/CNPJ, Cônjuge, Regime de Bens, Profissão, R- de Aquisição originária, R- de Alienação Fiduciária e AV- de Consolidação da Propriedade); 2) Inscrição Imobiliária / Cadastro Municipal / IPTU / SQL / Código Cartográfico; 3) Características físicas e metragens registrais descritas na certidão (Área total, área privativa/construída e memorial descritivo); 4) Identificação do Cartório e Comarca; 5) Proprietários atuais e anteriores com documentos; 6) Ônus, gravames, penhoras, hipotecas, indisponibilidades e alienações fiduciárias ativas; 7) Valores de transações anteriores. Forneça o JSON estruturado conforme o schema e detalhamento técnico completo." + getCustomInstructionsPrompt(state);
+      const matriculaPrompt = "Analise a Certidão de Matrícula Imobiliária detalhadamente folha por folha. Identifique e extraia com precisão máxima: 1) ÚLTIMOS PROPRIETÁRIOS DO IMÓVEL ANTES DA CONSOLIDAÇÃO DA PROPRIEDADE (devedores fiduciantes / mutuários originários que tiveram a propriedade consolidada pelo banco/credor fiduciário, detalhando Nome, CPF/CNPJ, Cônjuge, Regime de Bens, Profissão, R- de Aquisição originária, R- de Alienação Fiduciária e AV- de Consolidação da Propriedade); 2) Inscrição Imobiliária / Cadastro Municipal / IPTU / SQL / Código Cartográfico; 3) Características físicas e metragens registrais descritas na certidão (Área total, área privativa/construída e memorial descritivo); 4) Identificação do Cartório e Comarca; 5) Proprietários atuais e anteriores com documentos; 6) Ônus, gravames, penhoras, hipotecas, indisponibilidades e alienações fiduciárias ativas. Não inclua valores financeiros, ROI ou planilhas financeiras. Forneça o JSON estruturado conforme o schema e detalhamento técnico completo." + getCustomInstructionsPrompt(state);
       const analysis = await analyzeAuctionDocuments(fileParts, matriculaPrompt, state.selectedModel || 'gemini-3.7-flash', userApiKey || undefined, [], 'matricula');
       setState(prev => ({ ...prev, matriculaAnalysis: analysis }));
 
@@ -9542,11 +9542,10 @@ Sua análise DEVE responder com precisão cirúrgica:
    - Bem de Família (Lei 8.009/90) (se arguido, se rejeitado ou inaplicável por ser débito propter rem).
    - Publicidade e Prazos do Edital (Juntada tempestiva nos autos e ampla publicidade).
 
-3. CENÁRIOS DE IMISSÃO NA POSSE E CUSTOS DE DESOCUPAÇÃO:
+3. CENÁRIOS DE IMISSÃO NA POSSE E DESOCUPAÇÃO:
    - Cenário Otimista (amigável): prazo estimado em dias e probabilidade.
    - Cenário Realista (mandado de imissão na posse com oficial): prazo e probabilidade.
    - Cenário Conservador / Adverso (resistência/recursos protelatórios): prazo e contingência.
-   - Planilha de Custos Estimados de Desocupação (honorários advocatícios, diligências do oficial de justiça, chaveiro e transporte/depósito).
 
 4. AUDITORIA PEÇA A PEÇA / FOLHA A FOLHA:
    - Tabela cronológica com Fls., Peça/Documento, Resumo, Impacto no Leilão (Favorável, Alerta, Ponto de Risco ou Neutro) e Recomendação ao Arrematante.
@@ -9555,7 +9554,7 @@ Sua análise DEVE responder com precisão cirúrgica:
    - Prós (Blindagens e pontos fortes do processo).
    - Contras (Riscos reais) acompanhados da respectiva SOLUÇÃO TÁTICA DE MITIGAÇÃO.
 
-Formate em português do Brasil, em Markdown elegante e profissional, e inclua no final o bloco JSON obrigatório <analysis_data>...</analysis_data>.` + getCustomInstructionsPrompt(state);
+IMPORTANTE: NÃO inclua valores financeiros, planilhas de custos, ROI ou estimativas monetárias em nenhuma seção. Formate em português do Brasil, em Markdown elegante e profissional, e inclua no final o bloco JSON obrigatório <analysis_data>...</analysis_data>.` + getCustomInstructionsPrompt(state);
       
       const userApiKey = resolveApiKey(state.selectedKeySource, state.aiConfig, state.selectedModel || 'gemini-3.7-flash') || "";
       const analysis = await analyzeAuctionDocuments(fileParts, prompt, state.selectedModel || 'gemini-3.7-flash', userApiKey || undefined, [], 'processo');
@@ -9649,10 +9648,9 @@ Formate em português do Brasil, em Markdown elegante e profissional, e inclua n
       let crossReferenceContext = "\n\n=== CONTEXTO E PARÂMETROS JÁ IDENTIFICADOS NO SISTEMA ===\n";
       if (selectedProperty) {
         crossReferenceContext += `- Imóvel: ${selectedProperty.title} | Endereço: ${selectedProperty.address || 'N/I'} - ${selectedProperty.city || ''}/${selectedProperty.state || ''}\n`;
-        crossReferenceContext += `- Avaliação Cadastrada: R$ ${(selectedProperty.valuation_value || 0).toLocaleString('pt-BR')} | Lance Mínimo: R$ ${(selectedProperty.min_bid || 0).toLocaleString('pt-BR')} | Venda Esperada: R$ ${(selectedProperty.expected_sale_value || 0).toLocaleString('pt-BR')}\n`;
       }
       if (state.smartAnalysis) {
-        crossReferenceContext += `- Resumo Análise Smart: Tipo=${state.smartAnalysis.tipo_imovel || 'N/I'}, Matrícula=${state.smartAnalysis.numero_matricula || 'N/I'}, Área Privativa=${state.smartAnalysis.area_privativa || 0}m², Área Construída=${state.smartAnalysis.area_construida || 0}m², Área Terreno=${state.smartAnalysis.area_terreno || 0}m², Quartos=${state.smartAnalysis.quartos || 'N/I'}, Vagas=${state.smartAnalysis.vagas_garagem || 'N/I'}, Avaliação=R$ ${(state.smartAnalysis.valor_avaliacao || 0).toLocaleString('pt-BR')}, 2º Leilão=R$ ${(state.smartAnalysis.segundo_leilao_valor || 0).toLocaleString('pt-BR')}, Ex-Mutuário=${state.smartAnalysis.nome_ex_mutuario || 'N/I'} (CPF: ${state.smartAnalysis.cpf_ex_mutuario || 'N/I'})\n`;
+        crossReferenceContext += `- Resumo Análise Smart: Tipo=${state.smartAnalysis.tipo_imovel || 'N/I'}, Matrícula=${state.smartAnalysis.numero_matricula || 'N/I'}, Área Privativa=${state.smartAnalysis.area_privativa || 0}m², Área Construída=${state.smartAnalysis.area_construida || 0}m², Área Terreno=${state.smartAnalysis.area_terreno || 0}m², Quartos=${state.smartAnalysis.quartos || 'N/I'}, Vagas=${state.smartAnalysis.vagas_garagem || 'N/I'}, Ex-Mutuário=${state.smartAnalysis.nome_ex_mutuario || 'N/I'} (CPF: ${state.smartAnalysis.cpf_ex_mutuario || 'N/I'})\n`;
       }
       if (state.laudoAnalysis) {
         crossReferenceContext += `- Síntese do Laudo Técnico: ${state.laudoAnalysis.substring(0, 1200)}\n`;
@@ -9665,13 +9663,15 @@ Formate em português do Brasil, em Markdown elegante e profissional, e inclua n
       }
       crossReferenceContext += "=========================================================\n";
 
-      const dueDiligencePrompt = `Atue como um Especialista Sênior em Due Diligence Jurídica, Engenharia Financeira e Análise de Riscos de Leilões de Imóveis (Judiciais e Extrajudiciais). Sua missão é realizar uma varredura cirúrgica nos documentos anexados (Edital, Matrícula, Laudo de Avaliação, Despachos e Peças do Processo) e cruzar esses dados com indicadores reais de mercado da região do imóvel para extrair informações ocultas, blindar a operação e calcular a real lucratividade do negócio.
+      const dueDiligencePrompt = `Atue como um Especialista Sênior em Due Diligence Jurídica e Análise de Riscos de Leilões de Imóveis (Judiciais e Extrajudiciais). Sua missão é realizar uma varredura cirúrgica nos documentos anexados (Edital, Matrícula, Laudo de Avaliação, Despachos e Peças do Processo) e cruzar esses dados com informações técnicas e de entorno da região do imóvel para extrair informações ocultas e blindar a operação.
 
-Organize o seu relatório estritamente nos seguintes blocos, citando sempre que possível o número das páginas, folhas ou IDs dos documentos para conferência:
+IMPORTANTE: NÃO inclua nenhum dado financeiro, valores em reais (R$), ROI, planilhas financeiras, projeções de retorno ou estimativas monetárias em nenhum dos blocos abaixo.
+
+Organize o seu relatório estritamente nos seguintes 9 blocos, citando sempre que possível o número das páginas, folhas ou IDs dos documentos para conferência:
 
 1. RAIO-X DO DEVEDOR E DO CREDOR (Quem é quem e qual a encrenca?)
 • Identificação Completa do Devedor: Identifique a qualificação completa do devedor/executado (Nome, CPF/CNPJ, RG, estado civil, profissão e endereço completo de origem).
-• Identificação do Credor: Identifique o credor/exequente e qual a origem real da dívida (É condomínio? É briga de família/divórcio? É dívida de banco/consolidação fiduciária? É processo trabalhista?).
+• Identificação do Credor: Identifique o credor/exequente e qual a origem real da controvérsia/execução (Condomínio, família/divórcio, consolidação fiduciária, processo trabalhista ou cível).
 • Intimações Críticas: Verifique se há cônjuge, coproprietário ou ocupantes que precisam ser intimados e se a intimação deles já ocorreu formalmente e sem vícios no processo.
 
 2. A "CAIXA PRETA" DA MATRÍCULA DO IMÓVEL (Gravames e Ônus)
@@ -9685,45 +9685,33 @@ Organize o seu relatório estritamente nos seguintes blocos, citando sempre que 
 • Distribuição Interna: Quantidade de quartos, suítes, banheiros, salas, vagas de garagem (especificar restrições cruciais como vagas exclusivas para motos, se são presas ou livres) e se há área comercial integrada.
 • Alerta de "Venda no Escuro": O avaliador entrou no imóvel ou avaliou por estimativa externa/superficial por situação paradigma (imóvel fechado/ocupado)? Se estiver omisso, declare.
 
-4. MAPEAMENTO COMPARATIVO DE MERCADO (Varredura de Portais Realistas)
-• Padrão de Anúncios Locais: Realize uma busca ativa por imóveis assemelhados na mesma rua/bairro utilizando portais de referência (como VivaReal, Zap Imóveis, Imovelweb e OLX) trazendo os hiperlinks de busca e anúncios reais para validação.
-• Disparidade de Preço (Gatilho de Oportunidade): Cruze o valor mínimo de venda do leilão com os anúncios ativos de mercado. Identifique e registre cenários de subavaliação gritantes (Ex: Imóvel em leilão por ~R$ 102.000, mas com anúncios reais de revenda na região por ~R$ 240.000). Calcule o percentual de descolamento entre o preço do leilão e o preço de tela do mercado.
-• Liquidez Estimada: Baseado no volume de anúncios similares encontrados na microrregião, qual o tempo médio estimado de absorção (venda) desse imóvel após a desocupação?
+4. MAPEAMENTO COMPARATIVO DE MERCADO E LIQUIDEZ REGIONAL
+• Padrão de Oferta Local: Realize uma varredura de imóveis assemelhados na mesma rua/bairro utilizando portais de referência (como VivaReal, Zap Imóveis, Imovelweb e OLX) trazendo os hiperlinks de busca para validação física e tipológica (sem citar valores financeiros).
+• Liquidez Estimada: Baseado no perfil de oferta na microrregião, qual o tempo médio estimado de absorção desse tipo de imóvel após a desocupação?
 
 5. DIAGNÓSTICO SOCIOECONÔMICO, COMERCIAL E RISCOS DE ENTORNO
-• Demografia e Renda: População estimada da região/bairro e perfil econômico/per capita da microrregião.
-• Poder de Compra Local: Cruzando a renda da região, o imóvel avaliado está aderente à realidade financeira do bairro para uma revenda rápida?
+• Demografia e Perfil: População estimada da região/bairro e perfil socioeconômico da microrregião.
+• Aderência Tipológica: O perfil do imóvel avaliado está aderente à demanda habitacional/comercial do bairro?
 • Polo Comercial e Setores de Emprego: Quais são os principais fatores geradores de emprego e infraestrutura urbana na rua ou entorno do imóvel?
-• Segurança Pública e Impacto Comercial: Há histórico de criminalidade, áreas de risco de segurança ou fatores de entorno que prejudiquem a liquidez, desocupação ou visitação para revenda?
+• Segurança Pública e Impacto Comercial: Há histórico de criminalidade, áreas de risco de segurança ou fatores de entorno que prejudiquem a liquidez, desocupação ou visitação?
 
 6. ANÁLISE CRÍTICA DO EDITAL E REGRAS DO JOGO
 • Datas, Modalidade e Leiloeiro: Data e horário exatos da sessão, modalidade (Disputa Aberta/Fechada), link do portal do leiloeiro oficial e dados de matrícula/cadastro.
-• Condições de Pagamento: Permite parcelamento judicial (Art. 895 CPC), utilização de FGTS ou Financiamento Habitacional (SBPE)? Quais as regras exatas de entrada e prazos de quitação?
-• Custos Extras e Sub-rogação: Comissão do leiloeiro (%). Quem paga o IPTU e condomínio atrasados? Há limite de sub-rogação expressa pela instituição vendedora (Ex: limite máximo de responsabilidade do comprador sobre dívidas anteriores)?
-• Histórico de Fracassos: Há menção se este imóvel já passou por leilões anteriores que restaram negativos ou desertos?
+• Modalidades Habilitadas: Permite parcelamento judicial (Art. 895 CPC), utilização de FGTS ou Financiamento Habitacional (SBPE)? Quais as regras e prazos previstos?
+• Regras de Sub-rogação: Quem responde pelo IPTU e condomínio anteriores segundo o edital? Há previsão de sub-rogação nos termos do Art. 130, parágrafo único, do CTN?
+• Histórico de Praças: Há menção se este imóvel já passou por leilões anteriores que restaram negativos ou desertos?
 
 7. POLÍTICA DE EVICÇÃO DE DIREITO E DISTRATO (Blindagem Jurídica)
 • Risco de Evicção: Detalhe as regras expressas do edital caso haja uma decisão judicial transitada em julgado anulando a consolidação da propriedade ou o procedimento do leilão.
-• Regras de Ressarcimento: Em caso de evicção ou distrato por exigência cartorária insanável, o edital garante a devolução de quais valores? (Recursos próprios, FGTS, despesas cartorárias, tributárias ou condominiais pagas?). Há atualização monetária (Ex: pelo índice de poupança)?
-• Benfeitorias e Honorários Judiciais: O edital prevê o reembolso de benfeitorias úteis e necessárias realizadas após o registro? Há previsão ou limite para ressarcimento de honorários advocatícios contratuais gastos pelo arrematante em ações de imissão na posse/defesa da propriedade?
-• Exclusões de Responsabilidade: Quais custos o edital exclui expressamente de reembolso (Ex: custos com assessoria imobiliária particular, consultorias de leilão ou perdas e danos)?
+• Regras de Distrato e Ressarcimento: Em caso de evicção ou distrato por exigência cartorária insanável, quais são as diretrizes e garantias previstas no edital?
+• Benfeitorias e Honorários Judiciais: O edital prevê regras sobre benfeitorias úteis e necessárias realizadas após o registro e sobre honorários advocatícios em ações de imissão na posse/defesa da propriedade?
+• Exclusões de Responsabilidade: Quais responsabilidades o edital exclui expressamente?
 
 8. MATRIZ DE RISCO SEVERA (Os 3 Maiores Perigos)
-• Aponte os 3 maiores riscos (jurídicos, operacionais, de evicção, de segurança ou financeiros) ocultos ou destacados nesta análise que podem inviabilizar o negócio ou reter o capital do investidor por muito tempo (Ex: restrições físicas de vagas, devedor resistente, etc).
+• Aponte os 3 maiores riscos (jurídicos, operacionais, de evicção ou de segurança/entorno) ocultos ou destacados nesta análise que exigem atenção imediata (Ex: restrições físicas de vagas, devedor resistente, nulidade de intimação, etc).
 
-9. PLANILHA FINANCEIRA E PROJEÇÃO DE RETORNO (ROI)
-Faça a conta matemática considerando duas modalidades de Assessoria Jurídica:
-• Modalidade 1 (Tradicional): Honorários de 10% sobre a arrematação (ou mínimo de R$ 20.000,00).
-• Modalidade 2 (Caixa Forte/Sucesso): Honorários de 50% do lucro líquido da venda + adiantamento de R$ 10.000,00 no ato da arrematação (dedutível no final).
-
-Para cada modalidade de assessoria, calcule o custo total e o ROI em dois cenários:
-• Cenário A: Compra À VISTA (Lance Mínimo + 5% Leiloeiro + ITBI/Registro + Assessoria + Reserva de Desocupação/Custos de R$ 15.000).
-• Cenário B: Compra PARCELADA/FINANCIADA (Custo de caixa movimentado até o 12º mês considerando a entrada mínima exigida, comissão do leiloeiro, impostos, taxas e as 12 primeiras parcelas).
-
-Para a projeção de saída, utilize o Valor de Mercado identificado nos portais imobiliários (aplicando um desconto de liquidez/venda forçada condizente com os riscos mapeados) e abata 6% de comissão imobiliária. Calcule o Lucro Líquido final do Investidor e a porcentagem exata de ROI.
-
-10. PARECER E RECOMENDAÇÃO DO ESPECIALISTA
-• Finalize com um veredito direto: O negócio é viável comercialmente e juridicamente? Se sim, qual a melhor estratégia de lance (À vista ou parcelado? Modelo Tradicional ou Caixa Forte?) para maximizar o lucro e proteger o capital diante dos riscos de evicção e mercado mapeados?` + crossReferenceContext + getCustomInstructionsPrompt(state);
+9. PARECER E RECOMENDAÇÃO DO ESPECIALISTA
+• Finalize com um veredito direto: O negócio é seguro juridicamente e operacionalmente? Se sim, quais as providências jurídicas e operacionais recomendadas para blindar a arrematação diante dos riscos de evicção e documentos mapeados?` + crossReferenceContext + getCustomInstructionsPrompt(state);
 
       const analysis = await analyzeAuctionDocuments(
         fileParts,
@@ -9740,7 +9728,7 @@ Para a projeção de saída, utilize o Valor de Mercado identificado nos portais
       await savePartialAnalysisToDb({ due_diligence_analysis: analysis });
 
       if ((window as any).customToast) {
-        (window as any).customToast("Due Diligence Sênior (10 Blocos) concluída e salva automaticamente!", "success");
+        (window as any).customToast("Due Diligence Sênior concluída e salva automaticamente!", "success");
       }
     } catch (err: any) {
       console.error("Erro ao executar Due Diligence Sênior:", err);
@@ -10390,32 +10378,9 @@ Extraia obrigatoriamente e com riqueza de detalhes:
         }
       }
 
-      // If uploaded in Laudo Técnico tab or with docType 'Laudo Técnico', run Laudo Analysis + sync automatically
-      if (effectiveDocType === 'Laudo Técnico' || state.activeSubTab === 'laudo') {
-        updateState({ activeSubTab: 'laudo' });
-        if ((window as any).customToast) {
-          (window as any).customToast("Laudo Técnico recebido! Iniciando leitura técnica e extração de características do imóvel...", "info");
-        }
-        setTimeout(() => {
-          handleAnalyzeLaudo(updatedDocs);
-        }, 300);
-        return;
-      }
-
-      // Switch immediately to Análise Smart (aba principal) and auto-trigger extraction
-      updateState({ activeSubTab: 'smart_analysis' });
-
-      if (updatedDocs && updatedDocs.length > 0) {
-        if ((window as any).customToast) {
-          (window as any).customToast("Documento(s) recebido(s)! Preenchendo Análise Smart automaticamente...", "info");
-        }
-        setTimeout(() => {
-          handleAnalyzeSmart(updatedDocs);
-        }, 350);
-      } else {
-        if ((window as any).customToast) {
-          (window as any).customToast("Documento enviado e salvo com sucesso!", "success");
-        }
+      // Make uploaded documents immediately available across all tabs without auto-running analysis or switching tabs
+      if ((window as any).customToast) {
+        (window as any).customToast("Documento(s) enviado(s) e disponível(is) em todas as abas! Clique no botão Analisar quando desejar iniciar.", "success");
       }
     } catch (err) {
       console.error(err);
@@ -12318,19 +12283,19 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
             <div className="flex-1 p-4 sm:p-6 md:p-10">
               {activeSubTab === 'due_diligence' && (
                 <div className="space-y-8">
-                  {/* Header Banner of 10-Block Senior Due Diligence */}
+                  {/* Header Banner of 9-Block Senior Due Diligence */}
                   <div className="bg-gradient-to-br from-brand-primary/15 via-brand-bg to-brand-paper p-6 sm:p-8 rounded-[2.5rem] border border-brand-primary/25 shadow-lg space-y-6">
                     <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
                       <div className="space-y-2 max-w-3xl">
                         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-lg bg-brand-primary/20 border border-brand-primary/30 text-brand-primary text-[10px] font-bold uppercase tracking-widest">
                           <ShieldAlert size={13} />
-                          <span>Varredura Cirúrgica • 10 Blocos Estruturados</span>
+                          <span>Varredura Cirúrgica • 9 Blocos Estruturados</span>
                         </div>
                         <h3 className="text-2xl sm:text-3xl font-serif font-bold text-brand-primary">
-                          Due Diligence Jurídica Sênior, Engenharia Financeira & Matriz de Riscos
+                          Due Diligence Jurídica Sênior & Matriz de Riscos
                         </h3>
                         <p className="text-xs sm:text-sm text-brand-ink/70 leading-relaxed">
-                          Auditoria forense cruzando <strong>Edital, Matrícula, Laudo de Avaliação, Despachos e Peças do Processo</strong> com indicadores de mercado (VivaReal, Zap Imóveis, Imovelweb, OLX), política de evicção e cálculo comparativo de ROI nas modalidades <strong>Tradicional (10% / mín. R$ 20k)</strong> vs. <strong>Caixa Forte (50% do lucro + R$ 10k dedutível)</strong> à vista e parcelado.
+                          Auditoria forense cruzando <strong>Edital, Matrícula, Laudo de Avaliação, Despachos e Peças do Processo</strong> com indicadores de mercado e entorno (VivaReal, Zap Imóveis, Imovelweb, OLX), política de evicção e matriz de riscos operacionais e jurídicos.
                         </p>
                       </div>
 
@@ -12342,24 +12307,23 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
                           className="bg-brand-primary text-black px-6 py-4 rounded-2xl font-bold text-xs uppercase tracking-widest hover:bg-brand-primary/90 transition-all shadow-xl shadow-brand-primary/20 flex items-center gap-2.5 disabled:opacity-50 cursor-pointer"
                         >
                           {analyzing ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
-                          <span>{analyzing ? "Executando Varredura (10 Blocos)..." : state.dueDiligenceAnalysis ? "Reexecutar Due Diligence (10 Blocos)" : "Executar Due Diligence (10 Blocos)"}</span>
+                          <span>{analyzing ? "Executando Varredura (9 Blocos)..." : state.dueDiligenceAnalysis ? "Reexecutar Due Diligence" : "Executar Due Diligence"}</span>
                         </button>
                       </div>
                     </div>
 
-                    {/* Grid of the 10 Mandatory Blocks */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 pt-2">
+                    {/* Grid of the 9 Mandatory Blocks */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 pt-2">
                       {[
                         { num: "01", title: "Raio-X Devedor & Credor", desc: "Qualificação, origem da dívida e intimações críticas" },
                         { num: "02", title: "Caixa Preta da Matrícula", desc: "CRI, Propriedade Plena vs Direitos e histórico R/Av" },
                         { num: "03", title: "Radiografia Física", desc: "Medidas, área averbada, vagas e alerta de venda no escuro" },
-                        { num: "04", title: "Mercado & Portais", desc: "VivaReal, Zap, Imovelweb, OLX, descolamento e liquidez" },
-                        { num: "05", title: "Socioeconômico & Entorno", desc: "Demografia, renda, polo comercial e segurança pública" },
+                        { num: "04", title: "Mercado & Liquidez", desc: "VivaReal, Zap, Imovelweb, OLX e absorção regional" },
+                        { num: "05", title: "Socioeconômico & Entorno", desc: "Demografia, perfil local, polo comercial e segurança pública" },
                         { num: "06", title: "Regras Críticas do Edital", desc: "Datas, Art. 895 CPC, FGTS, financiamento e sub-rogação" },
                         { num: "07", title: "Evicção & Distrato", desc: "Blindagem jurídica, ressarcimento e benfeitorias" },
                         { num: "08", title: "Matriz de Risco Severa", desc: "Os 3 maiores perigos ocultos ou destacados da operação" },
-                        { num: "09", title: "Engenharia Financeira (ROI)", desc: "Tradicional (10%) vs Caixa Forte (50%) • À Vista e Parcelado" },
-                        { num: "10", title: "Veredito do Especialista", desc: "Recomendação direta de viabilidade e estratégia de lance" }
+                        { num: "09", title: "Veredito do Especialista", desc: "Recomendação direta de segurança jurídica e operacional" }
                       ].map(block => (
                         <div key={block.num} className="bg-brand-bg/60 border border-brand-primary/10 rounded-2xl p-3.5 flex flex-col justify-between hover:border-brand-primary/30 transition-all">
                           <div className="flex items-center justify-between mb-1.5">
@@ -12375,28 +12339,19 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
                     </div>
                   </div>
 
-                  {/* Premissas Financeiras e Upload de Documentos para a Due Diligence */}
+                  {/* Upload de Documentos para a Due Diligence */}
                   {!isPublicView && (
                     <div className="space-y-6 no-print">
-                      <AnalysisPremisesCard
-                        customSaleValue={state.customSaleValue}
-                        customBidValue={state.customBidValue}
-                        customAnalysisNotes={state.customAnalysisNotes}
-                        onUpdate={(fields) => updateState(fields)}
-                        selectedProperty={selectedProperty}
-                        compact={true}
-                      />
-
-                      <Card title="Documentos Base para a Varredura Cirúrgica (Edital, Matrícula, Laudo e Processo)">
+                      <Card title="Documentos Base para a Varredura Cirúrgica (Edital, Matrícula, Laudo, Processo e Outros)">
                         <p className="text-xs text-brand-ink/60 mb-4 font-sans">
-                          Envie ou confira abaixo os documentos anexados (Edital, Matrícula, Laudo de Avaliação e Peças do Processo). A Due Diligence Sênior analisa todos os documentos em conjunto citando folhas, páginas e registros.
+                          Envie ou confira abaixo os documentos anexados (Edital, Matrícula, Laudo de Avaliação, Peças do Processo e Outros). Os arquivos enviados em qualquer aba ficam disponíveis automaticamente em todas as abas.
                         </p>
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                          {['Edital', 'Matrícula', 'Laudo Técnico', 'Processo Judicial'].map(category => (
+                          {['Edital', 'Matrícula', 'Laudo Técnico', 'Processo Judicial', 'Outros'].map(category => (
                             <div key={category} className="bg-brand-bg/20 p-4 rounded-2xl border border-brand-border/40">
                               <DocumentManager
                                 label={category}
-                                docs={selectedPropertyId ? propertyDocs : state.adHocDocs}
+                                docs={documentsDocsFiltered}
                                 onUpload={(e, type) => handleAnalysisFileUpload(e, type || category)}
                                 onDelete={handleDeleteDocument}
                                 onTranscribe={handleTranscribeDoc}
@@ -12415,7 +12370,7 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
                       <div className="text-center max-w-md">
                         <p className="font-bold text-lg text-brand-primary">Executando Varredura Cirúrgica nos Documentos...</p>
                         <p className="text-xs text-brand-ink/50 mt-1">
-                          Cruzando Edital, Matrícula, Laudo de Avaliação e Processo Judicial com indicadores de mercado e calculando a planilha financeira (Tradicional vs. Caixa Forte).
+                          Cruzando Edital, Matrícula, Laudo de Avaliação, Processo Judicial e Outros Documentos com indicadores técnicos e jurídicos.
                         </p>
                       </div>
                     </div>
@@ -12428,7 +12383,7 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
                         <div className="flex items-center gap-2.5">
                           <CheckCircle2 size={18} className="text-emerald-400 shrink-0" />
                           <span className="text-xs font-bold text-brand-primary">
-                            Relatório de Due Diligence Sênior (10 Blocos) Gerado e Salvo Automaticamente
+                            Relatório de Due Diligence Sênior Gerado e Salvo Automaticamente
                           </span>
                         </div>
                         <div className="flex flex-wrap items-center gap-2">
@@ -12470,33 +12425,9 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
                         </div>
                       </div>
 
-                      {/* Dynamic Financial Metrics Bar */}
-                      <DynamicFinancialMetricsBar
-                        metrics={metrics}
-                        tir={tir}
-                        roi={roi}
-                        simulationData={simulationData}
-                        onUpdateSimulationValue={handleUpdateSimulationValue}
-                        selectedPropertyId={selectedPropertyId}
-                        selectedProperty={selectedProperty}
-                        token={token}
-                        onAutoSaveProperty={ensureAutoSavedProperty}
-                        onPropertySaved={() => {
-                          if (onPropertyCreated) onPropertyCreated();
-                          if (selectedPropertyId) fetchPropertyData(selectedPropertyId);
-                        }}
-                        currentReportText={state.dueDiligenceAnalysis}
-                        onReportUpdated={(newText) => {
-                          updateState({ dueDiligenceAnalysis: newText });
-                          savePartialAnalysisToDb({ due_diligence_analysis: newText });
-                        }}
-                        selectedModel={selectedModel}
-                        userApiKey={resolveApiKey(state.selectedKeySource, state.aiConfig, state.selectedModel || 'gemini-3.8-flash') || ""}
-                      />
-
                       {/* Modular Section Exporter */}
                       <ReportCustomExporterBar
-                        reportTitle="Due Diligence Jurídica Sênior & Engenharia Financeira (10 Blocos)"
+                        reportTitle="Due Diligence Jurídica Sênior & Matriz de Riscos"
                         propertyTitle={selectedProperty?.title || 'Auditoria de Leilão Imobiliário'}
                         propertyAddress={selectedProperty?.address}
                         propertyCity={selectedProperty?.city ? `${selectedProperty.city} - ${selectedProperty.state || ''}` : undefined}
@@ -12505,7 +12436,7 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
                         reportType="due_diligence"
                       />
 
-                      {/* Rendered 10-Block Report */}
+                      {/* Rendered 9-Block Report */}
                       <div className="bg-brand-paper rounded-2xl sm:rounded-[2.5rem] border border-brand-border shadow-inner overflow-hidden">
                         <div className="p-4 sm:p-8 md:p-10 markdown-body max-w-none text-brand-ink break-words">
                           <ReactMarkdown remarkPlugins={[remarkGfm]} components={reportComponents}>
@@ -12521,7 +12452,7 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
                   </div>
                   {renderTabChat('due_diligence')}
                   <SmartResetPanel
-                    tabName="Due Diligence Sênior (10 Blocos)"
+                    tabName="Due Diligence Sênior"
                     tabKey="due_diligence"
                     hasAnalysis={!!state.dueDiligenceAnalysis}
                     onResetTab={() => handleResetSubTab('due_diligence')}
@@ -12596,16 +12527,6 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
                     </div>
                   </div>
 
-                  {/* Premissas e Dados Complementares para o Dossiê */}
-                  <AnalysisPremisesCard
-                    customSaleValue={state.customSaleValue}
-                    customBidValue={state.customBidValue}
-                    customAnalysisNotes={state.customAnalysisNotes}
-                    onUpdate={(fields) => updateState(fields)}
-                    selectedProperty={selectedProperty}
-                    compact={true}
-                  />
-
                   {/* Upload de Documentos Integrado */}
                   {!isPublicView && (
                     <div className="bg-brand-paper p-6 sm:p-8 rounded-[2.5rem] border border-brand-border shadow-sm space-y-6" id="dossier-documents-upload">
@@ -12619,7 +12540,7 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
                             Envie os arquivos do leilão diretamente nesta aba para preencher o dossiê integrado via Inteligência Artificial.
                           </p>
                         </div>
-                        {dossierDocs.length > 0 && (
+                        {documentsDocsFiltered.length > 0 && (
                           <span className="text-[10px] font-bold px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200/50 rounded-full shrink-0 self-start sm:self-center">
                             Documentos Disponíveis para IA
                           </span>
@@ -12627,12 +12548,12 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
                       </div>
 
                       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        {['Edital', 'Matrícula', 'Processo Judicial', 'Outros'].map(category => (
+                        {['Edital', 'Matrícula', 'Laudo Técnico', 'Processo Judicial', 'Outros'].map(category => (
                           <div key={category} className="bg-brand-bg/10 p-5 rounded-2xl border border-brand-border/30">
                             <DocumentManager 
                               label={category} 
-                              docs={dossierDocs} 
-                              onUpload={(e, type) => handleAnalysisFileUpload(e, type)}
+                              docs={documentsDocsFiltered} 
+                              onUpload={(e, type) => handleAnalysisFileUpload(e, type || category)}
                               onDelete={handleDeleteDocument}
                               onTranscribe={handleTranscribeDoc}
                               uploading={uploading} 
@@ -12651,7 +12572,7 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
                       <div className="space-y-2">
                         <h4 className="text-xl font-bold text-brand-primary">Gerar Dossiê de Arrematação</h4>
                         <p className="text-sm text-brand-ink/60">
-                          Este recurso inovador reúne e analisa os documentos de Matrícula, Edital e Processos Judiciais juntos para gerar um dossiê integrado completo de viabilidade, jurídico e financeiro.
+                          Este recurso reúne e analisa os documentos de Matrícula, Edital, Laudo e Processos Judiciais juntos para gerar um dossiê integrado completo.
                         </p>
                       </div>
                       <button 
@@ -12675,57 +12596,6 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
 
                   {state.dossierAnalysis && (
                     <div className="space-y-6">
-                      {/* Integrabilidade com a Calculadora TJInvest */}
-                      <div className="bg-brand-primary/5 rounded-3xl border border-brand-primary/10 p-6 space-y-4">
-                        <div className="flex items-center gap-3">
-                          <div className="p-2 bg-brand-primary/10 rounded-xl text-brand-primary">
-                            <Calculator size={20} />
-                          </div>
-                          <div>
-                            <h4 className="font-bold text-brand-primary"> Integração d'Arremate (Calculadora TJInvest)</h4>
-                            <p className="text-xs text-brand-ink/50">Transmita facilmente estes dados para sua calculadora externa em <code className="text-brand-primary font-mono text-[11px]">calculadora.tjinvest.com.br</code></p>
-                          </div>
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
-                          <div className="bg-brand-bg/40 p-4 rounded-2xl border border-brand-primary/5 space-y-2">
-                            <span className="text-[10px] font-bold text-brand-primary uppercase tracking-wider">Cópia Rápida para Cadastro</span>
-                            <p className="text-xs text-brand-ink/60">Use a cópia rápida abaixo para copiar os dados limpos em formato estruturado pronto para colar em tabelas e calculadoras de lances.</p>
-                            <button 
-                              onClick={() => {
-                                navigator.clipboard.writeText(state.dossierAnalysis || '');
-                                alert("Dossiê copiado com sucesso em Markdown!");
-                              }}
-                              className="text-xs bg-brand-primary/10 hover:bg-brand-primary/20 text-brand-primary px-3 py-1.5 rounded-lg font-bold transition-all flex items-center gap-2"
-                            >
-                              <Copy size={12} /> Copiar Dossiê Completo
-                            </button>
-                          </div>
-                          <div className="bg-brand-bg/40 p-4 rounded-2xl border border-brand-primary/5 space-y-2">
-                            <span className="text-[10px] font-bold text-brand-primary uppercase tracking-wider">Cópia Rápida dos Valores Chave</span>
-                            <p className="text-xs text-brand-ink/60">Copia de uma vez as variáveis numéricas tratadas (Valor Mercado, Lance Mínimo, Lance Máximo Sugerido) para alimentar a calculadora.</p>
-                            <button 
-                              onClick={() => {
-                                const numericPayload = {
-                                  valuation: metrics?.valuation || 0,
-                                  min_bid: metrics?.bid || 0,
-                                  suggested_max_bid: (metrics?.bid || 0) * 1.3,
-                                  condominium_debts: metrics?.debtsCondo || 0,
-                                  iptu_debts: metrics?.debtsIPTU || 0,
-                                  address: selectedProperty?.address || "",
-                                  city: selectedProperty?.city || "",
-                                  state: selectedProperty?.state || ""
-                                };
-                                navigator.clipboard.writeText(JSON.stringify(numericPayload, null, 2));
-                                alert("Valores numéricos copiados no formato JSON!");
-                              }}
-                              className="text-xs bg-brand-primary/10 hover:bg-brand-primary/20 text-brand-primary px-3 py-1.5 rounded-lg font-bold transition-all flex items-center gap-2"
-                            >
-                              <Copy size={12} /> Copiar JSON de Integração
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-
                       <Card title="Resultado do Dossiê Integrado">
                         <div className="flex justify-between items-center mb-6 border-b border-brand-primary/10 pb-4 no-print gap-4 flex-wrap">
                           <span className="text-xs font-mono text-brand-ink/40">Análise gerada via {selectedModel}</span>
@@ -12783,8 +12653,9 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
                       <p className="text-sm text-brand-ink/60 mb-4 font-sans">Envie o documento do Edital de Leilão para que o Cérebro Estratégico possa extrair as datas importantes, regras de comissão, ônus e parcelamentos.</p>
                       <DocumentManager 
                         label="Edital" 
-                        docs={editalDocsFiltered} 
-                        onUpload={(e, type) => handleAnalysisFileUpload(e, type)}
+                        docs={documentsDocsFiltered} 
+                        showSharedDocs={true}
+                        onUpload={(e, type) => handleAnalysisFileUpload(e, type || 'Edital')}
                         onDelete={handleDeleteDocument}
                         onTranscribe={handleTranscribeDoc}
                         uploading={uploading}
@@ -12854,8 +12725,9 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
                       <p className="text-sm text-brand-ink/60 mb-4 font-sans">Envie o documento da Certidão de Matrícula do Imóvel para auditar a cadeia de proprietários, averbações de penhoras, hipotecas ou alienações fiduciárias ativas.</p>
                       <DocumentManager 
                         label="Matrícula" 
-                        docs={matriculaDocsFiltered} 
-                        onUpload={(e, type) => handleAnalysisFileUpload(e, type)}
+                        docs={documentsDocsFiltered} 
+                        showSharedDocs={true}
+                        onUpload={(e, type) => handleAnalysisFileUpload(e, type || 'Matrícula')}
                         onDelete={handleDeleteDocument}
                         onTranscribe={handleTranscribeDoc}
                         uploading={uploading}
@@ -12934,11 +12806,12 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
                   <div className="grid grid-cols-1 gap-6">
                     <Card title="Upload e Gestão do Laudo Técnico de Avaliação">
                       <p className="text-sm text-brand-ink/60 mb-4 font-sans">
-                        Anexe aqui o PDF ou imagens do Laudo de Avaliação (Caixa, Banco do Brasil, Perícia Judicial ou Engenharia NBR 14.653). Ao enviar, a IA lerá o laudo e relacionará automaticamente as características e valores com o estudo do imóvel.
+                        Anexe aqui o PDF ou imagens do Laudo de Avaliação (Caixa, Banco do Brasil, Perícia Judicial ou Engenharia NBR 14.653). Após enviar, clique no botão abaixo para executar a leitura e análise técnica.
                       </p>
                       <DocumentManager 
                         label="Laudo Técnico" 
-                        docs={laudoDocsFiltered} 
+                        docs={documentsDocsFiltered} 
+                        showSharedDocs={true}
                         onUpload={(e, type) => handleAnalysisFileUpload(e, type || 'Laudo Técnico')}
                         onDelete={handleDeleteDocument}
                         onTranscribe={handleTranscribeDoc}
@@ -13014,8 +12887,9 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
                       <p className="text-sm text-brand-ink/60 mb-4 font-sans">Gerencie as petições, execuções de título extrajudicial ou processos originários vinculados a este imóvel para auditar o risco de nulidade.</p>
                       <DocumentManager 
                         label="Processo Judicial" 
-                        docs={processDocsFiltered} 
-                        onUpload={(e, type) => handleAnalysisFileUpload(e, type)}
+                        docs={documentsDocsFiltered} 
+                        showSharedDocs={true}
+                        onUpload={(e, type) => handleAnalysisFileUpload(e, type || 'Processo Judicial')}
                         onDelete={handleDeleteDocument}
                         onTranscribe={handleTranscribeDoc}
                         uploading={uploading}
@@ -13282,26 +13156,7 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
                         </div>
                       </div>
 
-                      {/* Dynamic Financial Metrics Bar com Recálculo em Tempo Real e Readequação de Parecer */}
-                      <DynamicFinancialMetricsBar
-                        metrics={metrics}
-                        tir={tir}
-                        roi={roi}
-                        simulationData={simulationData}
-                        onUpdateSimulationValue={handleUpdateSimulationValue}
-                        selectedPropertyId={selectedPropertyId}
-                        selectedProperty={selectedProperty}
-                        token={token}
-                        onAutoSaveProperty={ensureAutoSavedProperty}
-                        onPropertySaved={() => {
-                          if (onPropertyCreated) onPropertyCreated();
-                          if (selectedPropertyId) fetchPropertyData(selectedPropertyId);
-                        }}
-                        currentReportText={report}
-                        onReportUpdated={(newReportText) => updateState({ report: newReportText })}
-                        selectedModel={selectedModel}
-                        userApiKey={resolveApiKey(state.selectedKeySource, state.aiConfig, state.selectedModel || 'gemini-3.7-flash') || ""}
-                      />
+
 
                       {/* Universal Modular Exporter Bar */}
                       {report && (
@@ -13833,14 +13688,7 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
                     </div>
                   )}
 
-                  {/* Premissas e Dados Complementares do Usuário para a Análise */}
-                  <AnalysisPremisesCard
-                    customSaleValue={state.customSaleValue}
-                    customBidValue={state.customBidValue}
-                    customAnalysisNotes={state.customAnalysisNotes}
-                    onUpdate={(fields) => updateState(fields)}
-                    selectedProperty={selectedProperty}
-                  />
+
                   
                   {['Edital', 'Matrícula', 'Laudo Técnico', 'Processo Judicial', 'Outros'].map(category => (
                     <DocumentManager 

@@ -66,41 +66,25 @@ export const AssessorPitchAndTipsCard: React.FC<AssessorPitchAndTipsCardProps> =
   const [copiedSummary, setCopiedSummary] = useState(false);
   const [isExpanded, setIsExpanded] = useState(true);
 
-  // Formatter helpers
-  const formatMoney = (val: number) => {
-    if (!val || isNaN(val) || val <= 0) return 'Sob consulta';
-    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
-  };
-
-  const calcDiscount = () => {
-    if (valuation > 0 && minBid > 0 && valuation > minBid) {
-      return Math.round(((valuation - minBid) / valuation) * 100);
-    }
-    return 50; // default estimated 2nd auction discount
-  };
-
-  const discountPercent = calcDiscount();
-  const economyValue = valuation > minBid && minBid > 0 ? valuation - minBid : (valuation > 0 ? valuation * 0.5 : 0);
-
   // Derive contextual summary based on contextType and data
   const getContextualSummary = (): string => {
     if (customSummary && customSummary.trim().length > 0) return customSummary;
 
     switch (contextType) {
       case 'matricula':
-        return `A auditoria registral confirma a higidez da cadeia de domínio da matrícula. Todos os gravames anteriores (penhoras, hipotecas e alienações fiduciárias) serão cancelados judicialmente com a expedição da Carta de Arrematação, assegurando aquisição originária 100% desembaraçada. Estratégia recomendada: arrematação com até ${discountPercent}% de desconto e saída por revenda express em 90 a 180 dias.`;
+        return `A auditoria registral confirma a higidez da cadeia de domínio da matrícula. Todos os gravames anteriores (penhoras, hipotecas e alienações fiduciárias) serão cancelados judicialmente com a expedição da Carta de Arrematação, assegurando aquisição originária 100% desembaraçada.`;
       case 'edital':
-        return `O edital apresenta condições comerciais altamente favoráveis, com desconto de até ${discountPercent}% na 2ª praça. Há previsão expressa de sub-rogação de débitos fiscais (IPTU) no preço arrematado (Art. 130 CTN) e possibilidade de parcelamento judicial (Art. 895 CPC com 25% de entrada + até 30x corrigidas), alavancando a TIR da operação para patamares superiores a 35% a.a.`;
+        return `O edital estabelece as diretrizes formais do certame, regras de habilitação, sub-rogação de débitos fiscais (IPTU) nos termos do Art. 130 do CTN e disposições sobre posse e registro imobiliário.`;
       case 'processo':
-        return `O processo judicial foi instruído com citação e intimações regulares de todas as partes e coproprietários. O risco de nulidade é estritamente controlado e a arrematação confere ao comprador o direito imediato ao Mandado de Imissão na Posse expedido diretamente pelo Magistrado, garantindo segurança jurídica plena do capital investido.`;
+        return `O processo judicial foi instruído com citação e intimações regulares de todas as partes e coproprietários. O risco de nulidade é estritamente controlado e a arrematação confere ao comprador o direito imediato ao Mandado de Imissão na Posse expedido diretamente pelo Magistrado, garantindo segurança jurídica plena.`;
       case 'smart':
-        return `A Análise Smart de Riscos consolidada classifica esta oportunidade com excelente índice de viabilidade. Os custos operacionais (desocupação, ITBI, registro e comissão) estão integralmente mapeados e precificados na simulação, assegurando ampla margem de segurança e assimetria positiva de retorno financeiro.`;
+        return `A Análise Smart de Riscos consolidada classifica esta oportunidade com alto grau de conformidade documental e jurídica. Os aspectos registrais, editalícios, ocupacionais e processuais estão integralmente mapeados.`;
       case 'assessoria':
-        return `Parecer de assessoria jurídica e financeira favorável: o imóvel possui documentação apta para arrematação com proteção patrimonial de primeiro nível. A estratégia combinada prevê entrada com teto de lance disciplinado, acompanhamento processual completo pela TJ INVEST e plano de liquidação com retorno projetado acima de 25%.`;
+        return `Parecer de assessoria jurídica favorável: o imóvel possui documentação apta para arrematação com proteção patrimonial de primeiro nível e acompanhamento processual completo pela TJ INVEST.`;
       case 'dossier':
       case 'master':
       default:
-        return `Oportunidade de leilão selecionada e auditada com excelente viabilidade técnico-jurídica. Avaliado em ${formatMoney(valuation)} com lance inicial em ${formatMoney(minBid)}, proporcionando uma margem bruta atrativa tanto para investidores focados em revenda express/renda quanto para famílias que buscam moradia de alto padrão pagando metade do valor.`;
+        return `Oportunidade de leilão selecionada e auditada com excelente viabilidade técnico-jurídica, segurança registral e conformidade processual.`;
     }
   };
 
@@ -117,14 +101,14 @@ export const AssessorPitchAndTipsCard: React.FC<AssessorPitchAndTipsCardProps> =
         ];
       case 'edital':
         return [
-          "Gatilho de Alavancagem: Para investidores, destaque o parcelamento judicial (Art. 895 CPC: 25% entrada + 30x sem juros remuneratórios, apenas correção monetária) para disparar a TIR.",
-          "Transparência da Comissão: Deixe claro desde o início que a comissão do leiloeiro (5%) é taxa padrão de lei e já está contemplada no planejamento financeiro.",
+          "Regras do Certame: Confira atentamente as cláusulas de responsabilidade sobre débitos propter rem (condomínio e IPTU) previstas no edital.",
+          "Documentação Prévia: Verifique todas as certidões exigidas pelo leiloeiro oficial para habilitação tempestiva.",
           "Habilitação Prévia: Garanta que o cliente realize o cadastro na plataforma do leiloeiro com no mínimo 48h de antecedência para evitar bloqueios no dia do pregão."
         ];
       case 'processo':
         return [
           "Quebra de Medo: Mostre que o processo já ultrapassou a fase probatória e a fase de recursos preclusos, tornando a arrematação um ato jurídico perfeito e acabado.",
-          "Estratégia de Desocupação: Informe que 80% das desocupações são resolvidas com acordo amigável rápido de auxílio-mudança, mas que há o suporte do Mandado de Imissão na Posse pelo juiz como garantia.",
+          "Estratégia de Desocupação: Informe que a maioria das desocupações é resolvidas com acordo amigável rápido, mas que há o suporte do Mandado de Imissão na Posse pelo juiz como garantia.",
           "Tranquilidade Total: Venda a tranquilidade de que a assessoria da TJ INVEST conduzirá todas as petições no processo sem que o cliente precise comparecer ao fórum."
         ];
       case 'smart':
@@ -133,52 +117,37 @@ export const AssessorPitchAndTipsCard: React.FC<AssessorPitchAndTipsCardProps> =
       case 'master':
       default:
         return [
-          "Pitch Direto: 'Você compra um imóvel com 40% a 50% de desconto e nós cuidamos de toda a parte jurídica, documentação e entrega da chave na sua mão.'",
-          "Foco em Delegar: Clientes de alta renda (médicos, empresários, executivos) valorizam o tempo e a segurança jurídica mais do que tentar aprender leilão por conta própria.",
-          "Margem de Segurança: Apresente o preço de arrematação comparado aos imóveis vizinhos vendidos na mesma rua/bairro para gerar prova visual de oportunidade."
+          "Pitch Direto: 'Nós cuidamos de toda a parte jurídica, auditoria documental, regularização cartorária e entrega da chave na sua mão.'",
+          "Foco em Delegar: Clientes valorizam o tempo e a segurança jurídica de contar com uma assessoria especializada em todas as etapas.",
+          "Segurança Documental: Apresente o cruzamento completo entre Edital, Matrícula, Laudo e Processo para demonstrar domínio técnico total sobre o ativo."
         ];
     }
   };
 
-  // Scripts de Captação para WhatsApp
+  // Scripts de Captação para WhatsApp (Sem dados financeiros)
   const generateInvestorPitch = (): string => {
     const loc = propertyCity ? `${propertyCity}${propertyState ? '/' + propertyState : ''}` : 'excelente localização';
-    const valStr = valuation > 0 ? formatMoney(valuation) : 'Valor de Mercado Elevado';
-    const bidStr = minBid > 0 ? formatMoney(minBid) : 'Com até 50% de desconto';
-    const lucStr = estimatedProfit > 0 ? formatMoney(estimatedProfit) : (valuation > minBid && minBid > 0 ? formatMoney(valuation - minBid) : 'Alta Rentabilidade');
-    const roiStr = roi > 0 ? `${roi.toFixed(1)}%` : '30% a 60%';
 
-    return `*🎯 OPORTUNIDADE EXCLUSIVA DE INVESTIMENTO EM LEILÃO*\n\n` +
-      `Olá! Encontrei uma excelente oportunidade de arrematação com alto potencial de lucro e segurança jurídica auditada:\n\n` +
+    return `*🎯 OPORTUNIDADE EXCLUSIVA EM LEILÃO AUDITADO*\n\n` +
+      `Olá! Encontrei uma excelente oportunidade de arrematação com segurança jurídica auditada:\n\n` +
       `📍 *Imóvel:* ${propertyTitle}\n` +
-      `📍 *Localização:* ${loc} ${propertyAddress ? `(${propertyAddress})` : ''}\n` +
-      `📊 *Valor de Avaliação:* ${valStr}\n` +
-      `💰 *Lance Mínimo Sugerido:* ${bidStr} (~${discountPercent}% de desconto)\n` +
-      `🚀 *Margem Bruta Estimada:* ${lucStr}\n` +
-      `📈 *Projeção de ROI:* ${roiStr}\n\n` +
+      `📍 *Localização:* ${loc} ${propertyAddress ? `(${propertyAddress})` : ''}\n\n` +
       `*🛡️ SEGURANÇA JURÍDICA E OPERACIONAL:*\n` +
-      `Já realizamos a auditoria completa de edital, matrícula e processo. O imóvel conta com viabilidade jurídica aprovada e possibilidade de pagamento parcelado (Art. 895 CPC).\n\n` +
+      `Já realizamos a auditoria completa de edital, matrícula, laudo técnico e processo. O imóvel conta com viabilidade jurídica aprovada e documentação verificada.\n\n` +
       `Nossa assessoria cuida de absolutamente tudo: da habilitação no leilão, defesa jurídica, transferência cartorária até a entrega das chaves desocupadas.\n\n` +
-      `Podemos conversar 5 minutos hoje para eu te apresentar o dossiê completo desta oportunidade?`;
+      `Podemos conversar 5 minutos hoje para eu te apresentar o dossiê técnico completo desta oportunidade?`;
   };
 
   const generateHomeBuyerPitch = (): string => {
     const loc = propertyCity ? `${propertyCity}${propertyState ? '/' + propertyState : ''}` : 'ótima localização';
-    const valStr = valuation > 0 ? formatMoney(valuation) : 'Preço de mercado';
-    const bidStr = minBid > 0 ? formatMoney(minBid) : 'Metade do valor de mercado';
-    const econStr = economyValue > 0 ? formatMoney(economyValue) : 'Mais de 40% de economia';
 
-    return `*🏡 CONQUISTE SUA CASA PRÓPRIA COM ATÉ 50% DE ECONOMIA*\n\n` +
-      `Olá! Sabia que é possível comprar seu próximo imóvel com segurança absoluta e pagando praticamente a METADE do preço de mercado através de leilão imobiliário?\n\n` +
-      `Mapeei esta excelente oportunidade:\n` +
+    return `*🏡 OPORTUNIDADE DE IMÓVEL EM LEILÃO COM SEGURANÇA JURÍDICA*\n\n` +
+      `Olá! Mapeei uma excelente oportunidade de aquisição imobiliária através de leilão com auditoria jurídica completa:\n\n` +
       `📍 *Imóvel:* ${propertyTitle}\n` +
-      `📍 *Região:* ${loc}\n` +
-      `🏷️ *Valor Normal de Mercado:* ${valStr}\n` +
-      `✨ *Preço de Oportunidade:* ${bidStr}\n` +
-      `💰 *Economia para sua Família:* Cerca de ${econStr}\n\n` +
+      `📍 *Região:* ${loc}\n\n` +
       `*🤝 POR QUE É SEGURO CONOSCO?*\n` +
       `Você não precisa se preocupar com nada. Nossa assessoria especializada faz a análise jurídica de 100% dos documentos, resolve todas as certidões e garante a escritura direta no seu nome.\n\n` +
-      `Quer receber as fotos e o relatório detalhado deste imóvel sem compromisso?`;
+      `Quer receber o relatório técnico detalhado deste imóvel sem compromisso?`;
   };
 
   const handleCopy = async (text: string, setCopied: (v: boolean) => void) => {
@@ -208,10 +177,10 @@ export const AssessorPitchAndTipsCard: React.FC<AssessorPitchAndTipsCardProps> =
           <div>
             <div className="flex items-center gap-2">
               <span className="text-[10px] font-extrabold uppercase tracking-widest px-2.5 py-0.5 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-300 font-sans border border-amber-500/30">
-                Painel do Assessor & Investidor
+                Painel do Assessor Jurídico
               </span>
               <span className="text-[10px] font-bold text-brand-ink/40 uppercase tracking-wider hidden sm:inline">
-                • Estratégia de Entrada, Saída & Captação
+                • Estratégia Operacional & Captação
               </span>
             </div>
             <h4 className="text-base sm:text-lg font-black text-brand-ink tracking-tight flex items-center gap-2 mt-0.5">
@@ -263,28 +232,6 @@ export const AssessorPitchAndTipsCard: React.FC<AssessorPitchAndTipsCardProps> =
               {summaryText}
             </p>
           </div>
-
-          {/* Quick Metrics Cards */}
-          {(valuation > 0 || minBid > 0) && (
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-              <div className="bg-brand-paper border border-brand-border rounded-xl p-3 flex flex-col">
-                <span className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Avaliação Mercado</span>
-                <span className="text-xs sm:text-sm font-black text-brand-ink mt-0.5">{formatMoney(valuation)}</span>
-              </div>
-              <div className="bg-brand-paper border border-brand-border rounded-xl p-3 flex flex-col">
-                <span className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Lance Oportunidade</span>
-                <span className="text-xs sm:text-sm font-black text-emerald-600 dark:text-emerald-400 mt-0.5">{formatMoney(minBid)}</span>
-              </div>
-              <div className="bg-brand-paper border border-brand-border rounded-xl p-3 flex flex-col">
-                <span className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Desconto Comercial</span>
-                <span className="text-xs sm:text-sm font-black text-amber-600 dark:text-amber-400 mt-0.5">{discountPercent}% OFF</span>
-              </div>
-              <div className="bg-brand-paper border border-brand-border rounded-xl p-3 flex flex-col">
-                <span className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Spread / Economia</span>
-                <span className="text-xs sm:text-sm font-black text-brand-primary mt-0.5">{formatMoney(economyValue)}</span>
-              </div>
-            </div>
-          )}
 
           {/* Tab Selector */}
           <div className="flex flex-wrap items-center gap-1.5 p-1 bg-brand-bg/60 rounded-2xl border border-brand-border/60">

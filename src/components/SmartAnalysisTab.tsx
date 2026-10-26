@@ -1024,13 +1024,13 @@ export default function SmartAnalysisTab({
       },
       {
         id: 'debitos',
-        title: 'Débitos & Encargos do Imóvel',
-        text: `**IPTU em Atraso:** R$ ${localData.iptu_atraso.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}\n**Condomínio em Atraso:** R$ ${localData.condominio_atraso.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}\n**Outros Débitos:** R$ ${localData.outros_debitos.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}\n\n**Observações dos Débitos:**\n${localData.observacoes_debitos || 'Nenhuma observação informada.'}`.trim()
+        title: 'Situação Tributária & Encargos do Imóvel',
+        text: `**Inscrição / Cadastro IPTU:** ${localData.cadastro_imobiliario || 'Não informado'}\n\n**Observações sobre Encargos e Sub-rogação:**\n${localData.observacoes_debitos || 'Nenhuma observação informada.'}`.trim()
       },
       {
         id: 'desocupacao',
         title: 'Análise de Desocupação & Posse',
-        text: `**Nível de Risco de Desocupação:** ${localData.risco_desocupacao || localData.nivel_risco_desocupacao}\n**Prazo Estimado:** ${localData.estimativa_prazo_desocupacao || localData.prazo_estimado_desocupacao || 'A calcular'}\n**Custo Estimado de Desocupação:** R$ ${(localData.custo_estimado_desocupacao || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}\n\n**Indicadores de Resistência / Ações:**\n- Liminar bloqueando: ${localData.liminar_bloqueando ? 'Sim (Alerta)' : 'Não'}\n- Ação anulatória ativa: ${localData.acao_anulatoria ? 'Sim (Alerta)' : 'Não'}\n- Embargos pendentes: ${localData.embargos_pendentes ? 'Sim' : 'Não'}\n- Recursos pendentes: ${localData.recurso_pendente ? 'Sim' : 'Não'}\n\n**Observações de Desocupação:**\n${localData.observacoes_desocupacao || 'Sem observações.'}`.trim()
+        text: `**Nível de Risco de Desocupação:** ${localData.risco_desocupacao || localData.nivel_risco_desocupacao}\n**Prazo Estimado:** ${localData.estimativa_prazo_desocupacao || localData.prazo_estimado_desocupacao || 'A calcular'}\n\n**Indicadores de Resistência / Ações:**\n- Liminar bloqueando: ${localData.liminar_bloqueando ? 'Sim (Alerta)' : 'Não'}\n- Ação anulatória ativa: ${localData.acao_anulatoria ? 'Sim (Alerta)' : 'Não'}\n- Embargos pendentes: ${localData.embargos_pendentes ? 'Sim' : 'Não'}\n- Recursos pendentes: ${localData.recurso_pendente ? 'Sim' : 'Não'}\n\n**Observações de Desocupação:**\n${localData.observacoes_desocupacao || 'Sem observações.'}`.trim()
       },
       {
         id: 'nulidade',
@@ -1163,17 +1163,7 @@ export default function SmartAnalysisTab({
         </div>
       )}
 
-      {/* Premissas e Dados Complementares do Usuário para a Análise Smart */}
-      {onUpdatePremises && (
-        <AnalysisPremisesCard
-          customSaleValue={customSaleValue}
-          customBidValue={customBidValue}
-          customAnalysisNotes={customAnalysisNotes}
-          onUpdate={onUpdatePremises}
-          selectedProperty={selectedProperty}
-          compact={false}
-        />
-      )}
+
 
       {/* Upload de Documentos Integrado */}
       <div className="bg-brand-paper p-6 sm:p-8 rounded-[2.5rem] border border-brand-border shadow-sm space-y-6" id="smart-analysis-documents-upload">
@@ -1210,43 +1200,7 @@ export default function SmartAnalysisTab({
         </div>
       </div>
 
-      {/* ======================================================== */}
-      {/* ATALHO E NOTIFICAÇÃO DA NOVA ABA DE VIABILIDADE         */}
-      {/* ======================================================== */}
-      <div className="bg-gradient-to-r from-emerald-500/10 via-brand-bg/50 to-brand-bg/20 p-5 rounded-[2rem] border border-emerald-500/25 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-xs">
-        <div className="flex items-center gap-3.5">
-          <div className="p-3 bg-emerald-500/20 text-emerald-600 rounded-2xl shrink-0">
-            <TrendingUp size={22} />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/20">
-                Aba Exclusiva Criada
-              </span>
-              <span className="text-[10px] text-brand-ink/50 font-semibold">
-                Dossiê Completo em PDF
-              </span>
-            </div>
-            <h5 className="font-serif font-bold text-base text-brand-ink mt-0.5">
-              Estudo de Viabilidade Econômica & Liquidez
-            </h5>
-            <p className="text-xs text-brand-ink/65 leading-relaxed">
-              Os demonstrativos de custos, fluxo de desembolso real, margem líquida e simulação habitacional (SAC/PRICE) agora possuem uma <strong>aba dedicada exclusiva</strong>.
-            </p>
-          </div>
-        </div>
-        
-        {onNavigateToViabilidade && (
-          <button
-            type="button"
-            onClick={onNavigateToViabilidade}
-            className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-emerald-700/20 flex items-center gap-2 cursor-pointer shrink-0 hover:scale-[1.02] active:scale-[0.98]"
-          >
-            <span>Acessar Estudo de Viabilidade</span>
-            <ArrowRight size={14} />
-          </button>
-        )}
-      </div>
+
 
       {/* Top Banner: Parecer do Investidor (Collapsible) */}
       <div className="bg-brand-paper rounded-[2rem] border border-brand-border shadow-sm overflow-hidden" id="smart-analysis-parecer-banner">
@@ -1663,7 +1617,7 @@ export default function SmartAnalysisTab({
               aiAction={renderSectionAIButton('desocupacao')}
               badge={renderProgressBadge(countRiscoDesocupacao().current, countRiscoDesocupacao().total)}
             >
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="flex flex-col gap-1.5">
                   <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Nível de Risco</label>
                   <select 
@@ -1691,17 +1645,6 @@ export default function SmartAnalysisTab({
                       handleChange('prazo_estimado_desocupacao', e.target.value);
                     }}
                     placeholder="Ex: 3 a 6 meses"
-                    className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium"
-                  />
-                </div>
-
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Custo Estimado (R$)</label>
-                  <input
-                    type="number"
-                    value={localData.custo_estimado_desocupacao || ''}
-                    onChange={e => handleChange('custo_estimado_desocupacao', parseFloat(e.target.value) || 0)}
-                    placeholder="Ex: 5000"
                     className="p-3 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium"
                   />
                 </div>
@@ -2221,19 +2164,15 @@ export default function SmartAnalysisTab({
               </div>
             </CollapsibleCard>
 
-            {/* 3. Débitos do Imóvel */}
+            {/* 3. Situação Tributária e Encargos do Imóvel */}
             <CollapsibleCard
               id="card-debitos-imovel"
-              title="Débitos do Imóvel"
-              icon={<DollarSign size={18} />}
-              statusDotColor={
-                (localData.iptu_atraso + localData.condominio_atraso + localData.outros_debitos) > 0 
-                  ? 'bg-amber-500' 
-                  : 'bg-emerald-500'
-              }
+              title="Situação Tributária e Encargos"
+              icon={<FileText size={18} />}
+              statusDotColor="bg-emerald-500"
               summaryPreview={
                 <span>
-                  Total Débitos: <strong>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format((localData.iptu_atraso || 0) + (localData.condominio_atraso || 0) + (localData.outros_debitos || 0))}</strong> (IPTU: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(localData.iptu_atraso || 0)})
+                  Inscrição IPTU: <strong>{localData.cadastro_imobiliario || 'Não informada'}</strong>
                 </span>
               }
               isOpen={openSections.debitos}
@@ -2256,38 +2195,6 @@ export default function SmartAnalysisTab({
                   </button>
                 </div>
               )}
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div className="flex flex-col gap-1">
-                  <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">IPTU Atraso (R$)</label>
-                  <input
-                    type="number"
-                    value={localData.iptu_atraso}
-                    onChange={e => handleChange('iptu_atraso', parseFloat(e.target.value) || 0)}
-                    className="p-2.5 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium"
-                  />
-                </div>
-
-                <div className="flex flex-col gap-1">
-                  <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Condomínio (R$)</label>
-                  <input
-                    type="number"
-                    value={localData.condominio_atraso}
-                    onChange={e => handleChange('condominio_atraso', parseFloat(e.target.value) || 0)}
-                    className="p-2.5 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium"
-                  />
-                </div>
-
-                <div className="flex flex-col gap-1">
-                  <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Outros (R$)</label>
-                  <input
-                    type="number"
-                    value={localData.outros_debitos}
-                    onChange={e => handleChange('outros_debitos', parseFloat(e.target.value) || 0)}
-                    className="p-2.5 border border-brand-border bg-brand-bg rounded-xl outline-none text-xs font-medium"
-                  />
-                </div>
-              </div>
 
               <div className="flex flex-col gap-1.5">
                 <label className="text-[10px] font-bold text-brand-ink/50 uppercase tracking-wider">Observações e Origem dos Débitos</label>
@@ -2721,13 +2628,7 @@ export default function SmartAnalysisTab({
                 <span>🤝</span> 4. Aspecto Social e Desocupação
               </button>
 
-              <button
-                type="button"
-                onClick={() => handleInsertTemplate("Inconsistência de Avaliação", "O laudo pericial (fls. [X]) avaliou o imóvel em R$ [X], valor substancialmente abaixo do mercado atual da região, propiciando excelente margem de segurança ao investidor.")}
-                className="px-3 py-1.5 bg-brand-bg hover:bg-brand-primary/15 border border-brand-border hover:border-brand-primary/40 rounded-xl text-[11px] font-semibold text-brand-ink transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
-              >
-                <span>💰</span> Inconsistência de Avaliação
-              </button>
+
 
               <button
                 type="button"

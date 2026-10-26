@@ -942,9 +942,7 @@ export const MatriculaReport: React.FC<MatriculaReportProps> = ({
                 <span className="text-[10px] font-bold text-brand-ink/40 uppercase tracking-widest block">Transações de Venda</span>
                 <div className="flex items-baseline gap-2">
                   <span className="text-3xl font-bold text-brand-ink font-sans">{data.kpis.num_vendas}</span>
-                  {data.kpis.ultimo_venda_valor && (
-                    <span className="text-[11px] text-emerald-500 font-bold font-mono">Último: {data.kpis.ultimo_venda_valor}</span>
-                  )}
+                  <span className="text-[10px] text-brand-ink/50 font-semibold">registradas no histórico</span>
                 </div>
               </div>
 
@@ -1690,10 +1688,7 @@ export const MatriculaReport: React.FC<MatriculaReportProps> = ({
                             )}
                           </div>
                         </div>
-                        
-                        {onus.valor && (
-                          <p className="text-md font-bold text-emerald-500 font-mono">{onus.valor}</p>
-                        )}
+
 
                         <div className="text-xs space-y-1 leading-snug">
                           {onus.credor && <p className="text-brand-ink/75"><span className="font-semibold text-brand-ink/50">Credor:</span> {onus.credor}</p>}
@@ -2073,65 +2068,9 @@ export const MatriculaReport: React.FC<MatriculaReportProps> = ({
                 </div>
               </div>
 
-              {/* NOVO: Simulador de Custos e Checklist Pós-Arrematação */}
+              {/* Checklist Pós-Arrematação */}
               <div className="border-t border-brand-primary/10 pt-6 space-y-6">
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {/* Simulador Inteligente de Gastos Reais */}
-                  <div className="bg-brand-primary/[0.03] rounded-2xl border border-brand-primary/10 p-5 space-y-4">
-                    <div className="flex items-center gap-2">
-                      <Calculator size={16} className="text-brand-primary" />
-                      <h5 className="text-sm font-bold text-brand-ink">Simulador Inteligente de Gastos Reais</h5>
-                    </div>
-                    <p className="text-xs text-brand-ink/65 leading-relaxed">
-                      Ajuste o seu lance planejado para ver uma estimativa exata de todas as taxas, impostos e custos finais de cartório:
-                    </p>
-
-                    <div className="space-y-3">
-                      <div>
-                        <label className="block text-[10px] font-bold uppercase tracking-wider text-brand-ink/50 mb-1">
-                          Valor Estimado do seu Lance (R$)
-                        </label>
-                        <div className="relative">
-                          <span className="absolute left-3 top-2 text-xs font-bold text-brand-ink/40">R$</span>
-                          <input
-                            type="number"
-                            className="w-full pl-9 pr-3 py-1.5 text-xs font-semibold rounded-xl border border-brand-border bg-brand-bg text-brand-ink focus:outline-none focus:border-brand-primary"
-                            value={customBid}
-                            onChange={(e) => setCustomBid(Number(e.target.value))}
-                          />
-                        </div>
-                      </div>
-
-                      <div className="divide-y divide-brand-border/30 text-xs pt-1">
-                        <div className="py-2 flex justify-between">
-                          <span className="text-brand-ink/60">Lance de Arrematação:</span>
-                          <span className="font-mono font-medium">R$ {customBid.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                        </div>
-                        <div className="py-2 flex justify-between">
-                          <span className="text-brand-ink/60">Comissão do Leiloeiro (5%):</span>
-                          <span className="font-mono font-medium">R$ {(customBid * 0.05).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                        </div>
-                        <div className="py-2 flex justify-between">
-                          <span className="text-brand-ink/60">ITBI Estimado (3%):</span>
-                          <span className="font-mono font-medium">R$ {(customBid * 0.03).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                        </div>
-                        <div className="py-2 flex justify-between">
-                          <span className="text-brand-ink/60">Custos de Registro e Emolumentos (1.2%):</span>
-                          <span className="font-mono font-medium">R$ {(customBid * 0.012).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                        </div>
-                        {data.kpis.num_onus_ativos > 0 && (
-                          <div className="py-2 flex justify-between text-brand-ink/65">
-                            <span>Baixa de {data.kpis.num_onus_ativos || 1} Ônus/Penhora(s) (Est.):</span>
-                            <span className="font-mono font-medium">R$ {(1200).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                          </div>
-                        )}
-                        <div className="py-3 flex justify-between font-bold text-brand-primary border-t-2 border-brand-primary/20">
-                          <span>CUSTO REAL TOTAL ESTIMADO:</span>
-                          <span className="font-mono">R$ {(customBid + (customBid * 0.092) + 1200).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+                <div className="grid grid-cols-1 gap-6">
 
                   {/* Checklist Interativo */}
                   <div className="bg-brand-primary/[0.03] rounded-2xl border border-brand-primary/10 p-5 space-y-4">

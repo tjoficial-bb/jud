@@ -603,7 +603,7 @@ export const ProcessoReport: React.FC<ProcessoReportProps> = ({
             </div>
 
             {/* Quick Process Info Strip */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 pt-4 text-xs font-sans">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-4 text-xs font-sans">
               <div>
                 <span className="text-[10px] text-brand-ink/45 font-bold uppercase tracking-wider block">Autos do Processo</span>
                 <span className="font-mono font-bold text-brand-ink text-[13px] block truncate">{data.processo_principal.numero_processo}</span>
@@ -611,10 +611,6 @@ export const ProcessoReport: React.FC<ProcessoReportProps> = ({
               <div>
                 <span className="text-[10px] text-brand-ink/45 font-bold uppercase tracking-wider block">Vara / Comarca</span>
                 <span className="font-bold text-brand-ink text-[13px] block truncate">{data.processo_principal.vara_comarca || '13ª Vara Cível'}</span>
-              </div>
-              <div>
-                <span className="text-[10px] text-brand-ink/45 font-bold uppercase tracking-wider block">Valor Executado</span>
-                <span className="font-bold text-brand-primary text-[13px] block truncate">{data.processo_principal.valor_execucao || 'R$ ' + (valuation * 0.4).toLocaleString('pt-BR')}</span>
               </div>
               <div>
                 <span className="text-[10px] text-brand-ink/45 font-bold uppercase tracking-wider block">Natureza da Dívida</span>
@@ -775,40 +771,6 @@ export const ProcessoReport: React.FC<ProcessoReportProps> = ({
                     <p className="text-xs text-brand-ink/75 font-medium leading-relaxed">
                       {data.cenarios_imissao_posse?.cenario_conservador?.descricao || 'Ocupante interpõe embargos ou recursos protelatórios sem efeito suspensivo até a imissão forçada.'}
                     </p>
-                  </div>
-                </div>
-
-                {/* Planilha de Custos Estimados de Desocupação */}
-                <div className="bg-brand-bg/20 rounded-2xl border border-brand-border/60 p-4 space-y-3">
-                  <div className="flex items-center justify-between border-b border-brand-border/40 pb-2.5">
-                    <div className="flex items-center gap-2 text-xs font-bold text-brand-ink">
-                      <DollarSign size={15} className="text-brand-primary" />
-                      Estimativa de Custos Operacionais de Desocupação
-                    </div>
-                    <span className="text-xs font-black text-brand-primary">
-                      Total: {data.cenarios_imissao_posse?.custos_estimados_desocupacao?.total_estimado || 'R$ 4.500,00'}
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
-                    <div className="p-2.5 bg-white/60 dark:bg-zinc-900/60 rounded-xl border border-brand-border/30">
-                      <span className="text-[10px] text-brand-ink/50 font-bold uppercase tracking-wider block">Honorários Imissão</span>
-                      <span className="font-bold text-brand-ink block mt-0.5">
-                        {data.cenarios_imissao_posse?.custos_estimados_desocupacao?.honorarios || 'R$ 3.000,00'}
-                      </span>
-                    </div>
-                    <div className="p-2.5 bg-white/60 dark:bg-zinc-900/60 rounded-xl border border-brand-border/30">
-                      <span className="text-[10px] text-brand-ink/50 font-bold uppercase tracking-wider block">Oficial & Diligências</span>
-                      <span className="font-bold text-brand-ink block mt-0.5">
-                        {data.cenarios_imissao_posse?.custos_estimados_desocupacao?.oficial_e_diligencias || 'R$ 800,00'}
-                      </span>
-                    </div>
-                    <div className="p-2.5 bg-white/60 dark:bg-zinc-900/60 rounded-xl border border-brand-border/30">
-                      <span className="text-[10px] text-brand-ink/50 font-bold uppercase tracking-wider block">Chaveiro & Mudança</span>
-                      <span className="font-bold text-brand-ink block mt-0.5">
-                        {data.cenarios_imissao_posse?.custos_estimados_desocupacao?.despesas_chaveiro_transporte || 'R$ 700,00'}
-                      </span>
-                    </div>
                   </div>
                 </div>
               </div>
@@ -1112,7 +1074,6 @@ export const ProcessoReport: React.FC<ProcessoReportProps> = ({
                   <GridRow label="Número do Processo" value={data.processo_principal.numero_processo} highlight />
                   <GridRow label="Vara / Comarca" value={data.processo_principal.vara_comarca || '13ª Vara Cível'} />
                   <GridRow label="Tribunal" value={data.processo_principal.tribunal || 'Tribunal de Justiça de São Paulo (TJSP)'} />
-                  <GridRow label="Valor da Execução" value={data.processo_principal.valor_execucao || 'R$ ' + (valuation * 0.4).toLocaleString('pt-BR')} />
                   <GridRow label="Executante / Autor" value={data.processo_principal.executante} />
                   <GridRow label="Executado / Ex-Proprietário" value={data.processo_principal.executado} />
                   <GridRow label="Terceiros Interessados" value={data.processo_principal.terceiros_interessados} />
@@ -1293,11 +1254,10 @@ export const ProcessoReport: React.FC<ProcessoReportProps> = ({
                   <>
                     <GridRow label="Idade estimada da construção" value={data.averbacao_area_construida.idade_construcao_anos || 'Não especificado'} />
                     <GridRow label="Prescrição de ISS de Regularização (5 anos)" value={data.averbacao_area_construida.prescricao_iss_5_anos || 'Pendente de verificação'} />
-                    <GridRow label="Estimativa de Custos de Regularização" value={data.averbacao_area_construida.estimativa_custos_regularizacao || 'R$ 0,00'} highlight />
                     
                     {data.averbacao_area_construida.detalhes_regularizacao && (
                       <div className="py-4 antialiased leading-relaxed">
-                        <span className="text-[10px] font-semibold text-brand-ink/45 block mb-1 uppercase tracking-wider font-sans">Detalhamento dos Custos e Memorial de Obras</span>
+                        <span className="text-[10px] font-semibold text-brand-ink/45 block mb-1 uppercase tracking-wider font-sans">Detalhamento da Regularização e Memorial de Obras</span>
                         <p className="text-xs text-brand-ink/80 font-semibold leading-relaxed bg-brand-bg/15 border border-brand-border/65 p-4 rounded-2xl">
                           {data.averbacao_area_construida.detalhes_regularizacao}
                         </p>
@@ -1359,7 +1319,7 @@ export const ProcessoReport: React.FC<ProcessoReportProps> = ({
                     </p>
                   ) : (
                     <p className="text-amber-400 font-medium">
-                      <strong>⚠️ Caso Prático Detectado:</strong> Área não averbada ou parcialmente averbada. Você poderá ter de arcar com taxas de regularização de obra, prefeitura (ISS) e INSS, estimadas em aproximadamente {data.averbacao_area_construida.estimativa_custos_regularizacao || 'R$ 0,00'}.
+                      <strong>⚠️ Caso Prático Detectado:</strong> Área não averbada ou parcialmente averbada. Verifique a necessidade de regularização documental da edificação junto à prefeitura e ao Cartório de Registro de Imóveis.
                     </p>
                   )}
                 </div>
