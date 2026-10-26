@@ -9663,55 +9663,84 @@ IMPORTANTE: NÃO inclua valores financeiros, planilhas de custos, ROI ou estimat
       }
       crossReferenceContext += "=========================================================\n";
 
-      const dueDiligencePrompt = `Atue como um Especialista Sênior em Due Diligence Jurídica e Análise de Riscos de Leilões de Imóveis (Judiciais e Extrajudiciais). Sua missão é realizar uma varredura cirúrgica nos documentos anexados (Edital, Matrícula, Laudo de Avaliação, Despachos e Peças do Processo) e cruzar esses dados com informações técnicas e de entorno da região do imóvel para extrair informações ocultas e blindar a operação.
+      const dueDiligencePrompt = `Atue como um Especialista Sênior em Due Diligence Jurídica, Engenharia Financeira e Análise de Riscos de Leilões de Imóveis (Judiciais e Extrajudiciais). Sua missão é realizar uma varredura cirúrgica nos documentos anexados (Edital, Matrícula, Laudo de Avaliação, Despachos e Peças do Processo Judicial) e cruzar esses dados com indicadores reais de mercado da região do imóvel para extrair informações ocultas, blindar a operação contra prejuízos e calcular a real lucratividade do negócio.
 
-IMPORTANTE: NÃO inclua nenhum dado financeiro, valores em reais (R$), ROI, planilhas financeiras, projeções de retorno ou estimativas monetárias em nenhum dos blocos abaixo.
+Antes de iniciar o relatório detalhado, você deve obrigatoriamente gerar o bloco estruturado abaixo:
 
-Organize o seu relatório estritamente nos seguintes 9 blocos, citando sempre que possível o número das páginas, folhas ou IDs dos documentos para conferência:
+📌 RESUMO PARA COMENTÁRIO CURTO (Ficha de Cadastro Rápido)
+• Imóvel: [Nome do condomínio, Bloco, Número da Unidade e Endereço Completo com Bairro/Cidade-UF]
+• Tipologia: [Número de quartos, suítes, banheiros, salas, cozinhas e demais dependências da unidade]
+• Áreas: [Área privativa principal, área privativa acessória (se houver) e área total construída]
+• Matrícula: [Número da matrícula e Cartório de Registro de Imóveis competente]
+• Vaga de Garagem: [Número da vaga e restrições explícitas observadas na matrícula, ex: exclusiva para moto]
+• Ex-Mutuário / Devedor: [Nome completo, CPF, profissão e renda contratual/esocial identificada nas peças]
+• Processo Judicial Ativo: [Número do processo judicial ativo e órgão julgador/Vara competente, se houver]
+• Resumo da Encrenca: [Síntese curta das teses de defesa do devedor e status atual da liminar/tutela de urgência]
+• Gatilho Financeiro: [Valor mínimo de venda no edital da Caixa/Leilão vs. Valor real estimado de revenda de mercado]
+
+Após a ficha de cadastro rápido, organize o seu relatório estritamente nos seguintes blocos, citando sempre que possível o número das páginas, folhas ou IDs dos documentos para conferência:
 
 1. RAIO-X DO DEVEDOR E DO CREDOR (Quem é quem e qual a encrenca?)
-• Identificação Completa do Devedor: Identifique a qualificação completa do devedor/executado (Nome, CPF/CNPJ, RG, estado civil, profissão e endereço completo de origem).
-• Identificação do Credor: Identifique o credor/exequente e qual a origem real da controvérsia/execução (Condomínio, família/divórcio, consolidação fiduciária, processo trabalhista ou cível).
-• Intimações Críticas: Verifique se há cônjuge, coproprietário ou ocupantes que precisam ser intimados e se a intimação deles já ocorreu formalmente e sem vícios no processo.
+• Identificação Completa do Devedor: Identifique a qualificação completa do devedor/executado (Nome, CPF/CNPJ, RG, estado civil, profissão, empregador e faixa de renda, se houver).
+• Identificação do Credor: Identifique o credor/exequente e qual a origem real da dívida (É condomínio? É briga de família/divórcio? É dívida de banco/consolidação fiduciária? É processo trabalhista?).
+• Intimações Críticas e Ocupação: Verifique se há cônjuge, coproprietário ou ocupantes que precisam ser intimados e se a intimação deles já ocorreu formalmente e sem vícios no procedimento administrativo ou judicial.
 
-2. A "CAIXA PRETA" DA MATRÍCULA DO IMÓVEL (Gravames e Ônus)
+2. RADIOGRAFIA DA JUDICIALIZAÇÃO (Processos Ativos e Liminares)
+• Dados do Processo: Identifique o número do processo judicial, a Vara/Comarca competente, o nome do magistrado e a data de distribuição.
+• Teses de Defesa do Devedor: Mapeie os argumentos utilizados pelo devedor para tentar anular o leilão (Ex: falta de notificação pessoal, preço vil, intervalo ilegal entre o 1º e 2º leilão, juros abusivos).
+• Status Urgente e Riscos: Verifique se houve pedido de tutela antecipada (liminar) e qual foi a decisão do juiz (Deferida, Indeferida ou Pendente). Identifique se há recursos em segunda instância (Agravo de Instrumento) capazes de paralisar a imissão de posse.
+
+3. A "CAIXA PRETA" DA MATRÍCULA DO IMÓVEL (Gravames e Ônus)
 • Dados Cartorários: Número da matrícula, data de emissão e Cartório de Registro de Imóveis (CRI) competente.
 • Natureza do Direito: Verifique se o leilão é da PROPRIEDADE PLENA ou apenas de DIREITOS AQUISITIVOS (Posse/Contrato).
 • Histórico de Gravames: Liste em ordem cronológica todos os registros (R) e averbações (Av) críticos (Alienação fiduciária ativa, consolidação de propriedade, outras penhoras, hipotecas, usufruto, indisponibilidades pela CNIB, ou cláusulas de impenhorabilidade/inalienabilidade).
 
-3. RADIOGRAFIA FÍSICA DETALHADA (O que estou comprando de verdade?)
-• Medidas de Matrícula: Área total do terreno, área privativa real (principal e acessória), testada, fundos e confrontantes.
-• Área Construída: Área averbada e benfeitorias reais descritas no Laudo do Perito, do Oficial de Justiça ou informações de engenharia da instituição vendedora.
-• Distribuição Interna: Quantidade de quartos, suítes, banheiros, salas, vagas de garagem (especificar restrições cruciais como vagas exclusivas para motos, se são presas ou livres) e se há área comercial integrada.
+4. RADIOGRAFIA FÍSICA DETALHADA E TIPOLOGIA (O que estou comprando de verdade?)
+• Dados da Unidade: Tipo de imóvel, numeração interna, bloco, andar e nome do condomínio.
+• Tipologia e Cômodos: Quantidade exata de quartos, suítes, banheiros (WC), salas, cozinhas, áreas de serviço, varandas ou quintal.
+• Medidas de Matrícula: Área total do terreno, fração ideal, área privativa real principal, área privativa acessória e área comum.
+• Restrições Ocultas da Garagem: Detalhe se a vaga de garagem é coberta ou descoberta, livre ou presa, e se há restrição de uso explícita na matrícula (Ex: vaga exclusiva para estacionamento de motocicleta).
 • Alerta de "Venda no Escuro": O avaliador entrou no imóvel ou avaliou por estimativa externa/superficial por situação paradigma (imóvel fechado/ocupado)? Se estiver omisso, declare.
 
-4. MAPEAMENTO COMPARATIVO DE MERCADO E LIQUIDEZ REGIONAL
-• Padrão de Oferta Local: Realize uma varredura de imóveis assemelhados na mesma rua/bairro utilizando portais de referência (como VivaReal, Zap Imóveis, Imovelweb e OLX) trazendo os hiperlinks de busca para validação física e tipológica (sem citar valores financeiros).
-• Liquidez Estimada: Baseado no perfil de oferta na microrregião, qual o tempo médio estimado de absorção desse tipo de imóvel após a desocupação?
+5. MAPEAMENTO COMPARATIVO DE MERCADO (Varredura de Portais Realistas)
+• Padrão de Anúncios Locais: Realize uma busca ativa por imóveis assemelhados na mesma rua/bairro utilizando portais de referência (como VivaReal, Zap Imóveis, Imovelweb e OLX) trazendo os hiperlinks de busca e anúncios reais para validação.
+• Disparidade de Preço (Gatilho de Oportunidade): Cruze o valor mínimo de venda do leilão com os anúncios ativos de mercado. Identifique e registre cenários de subavaliação gritantes (Ex: Imóvel em leilão por ~R$ 102.000, mas com anúncios reais de revenda na região por ~R$ 240.000). Calcule o percentual de descolamento entre o preço do leilão e o preço de tela do mercado.
+• Liquidez Estimada: Baseado no volume de anúncios similares encontrados na microrregião, qual o tempo médio estimado de absorção (venda) desse imóvel após a desocupação?
 
-5. DIAGNÓSTICO SOCIOECONÔMICO, COMERCIAL E RISCOS DE ENTORNO
-• Demografia e Perfil: População estimada da região/bairro e perfil socioeconômico da microrregião.
-• Aderência Tipológica: O perfil do imóvel avaliado está aderente à demanda habitacional/comercial do bairro?
+6. DIAGNÓSTICO SOCIOECONÔMICO, COMERCIAL E RISCOS DE ENTORNO
+• Demografia e Renda: População estimada da região/bairro e perfil econômico/per capita da microrregião.
+• Poder de Compra Local: Cruzando a renda da região, o imóvel avaliado está aderente à realidade financeira do bairro para uma revenda rápida?
 • Polo Comercial e Setores de Emprego: Quais são os principais fatores geradores de emprego e infraestrutura urbana na rua ou entorno do imóvel?
-• Segurança Pública e Impacto Comercial: Há histórico de criminalidade, áreas de risco de segurança ou fatores de entorno que prejudiquem a liquidez, desocupação ou visitação?
+• Segurança Pública e Impacto Comercial: Há histórico de criminalidade, áreas de risco de segurança ou fatores de entorno que prejudiquem a liquidez, desocupação ou visitação para revenda?
 
-6. ANÁLISE CRÍTICA DO EDITAL E REGRAS DO JOGO
-• Datas, Modalidade e Leiloeiro: Data e horário exatos da sessão, modalidade (Disputa Aberta/Fechada), link do portal do leiloeiro oficial e dados de matrícula/cadastro.
-• Modalidades Habilitadas: Permite parcelamento judicial (Art. 895 CPC), utilização de FGTS ou Financiamento Habitacional (SBPE)? Quais as regras e prazos previstos?
-• Regras de Sub-rogação: Quem responde pelo IPTU e condomínio anteriores segundo o edital? Há previsão de sub-rogação nos termos do Art. 130, parágrafo único, do CTN?
-• Histórico de Praças: Há menção se este imóvel já passou por leilões anteriores que restaram negativos ou desertos?
+7. ANÁLISE CRÍTICA DO EDITAL E REGRAS DO JOGO
+• Datas, Modalidade e Leiloeiro: Data e horário exatos da sessão, modalidade (Disputa Aberta/Fechada, Licitação Aberta, Venda Direta, 1º/2º Leilão), link do portal do leiloeiro oficial e dados de matrícula/cadastro.
+• Formas de Pagamento: Permite parcelamento (Art. 895 CPC ou parcelamento administrativo), utilização de FGTS ou Financiamento Habitacional (SBPE)? Qual a comissão do leiloeiro e taxas administrativas?
+• Dívidas Propter Rem e Sub-rogação: Qual o passivo acumulado de IPTU e Condomínio? Quem paga a conta segundo o edital (o arrematante assume ou há sub-rogação no preço conforme Art. 130, parágrafo único, do CTN / regras da instituição vendedora)?
+• Histórico de Fracassos: Há menção se este imóvel já passou por leilões anteriores que restaram negativos ou desertos?
 
-7. POLÍTICA DE EVICÇÃO DE DIREITO E DISTRATO (Blindagem Jurídica)
+8. POLÍTICA DE EVICÇÃO DE DIREITO E DISTRATO (Blindagem Jurídica)
 • Risco de Evicção: Detalhe as regras expressas do edital caso haja uma decisão judicial transitada em julgado anulando a consolidação da propriedade ou o procedimento do leilão.
-• Regras de Distrato e Ressarcimento: Em caso de evicção ou distrato por exigência cartorária insanável, quais são as diretrizes e garantias previstas no edital?
-• Benfeitorias e Honorários Judiciais: O edital prevê regras sobre benfeitorias úteis e necessárias realizadas após o registro e sobre honorários advocatícios em ações de imissão na posse/defesa da propriedade?
-• Exclusões de Responsabilidade: Quais responsabilidades o edital exclui expressamente?
+• Regras de Ressarcimento e Distrato: Em caso de evicção ou distrato por exigência cartorária insanável, o edital garante a devolução integral dos valores pagos (preço do imóvel, comissão do leiloeiro, ITBI, custas de registro e despesas de condomínio/IPTU pagas pelo adquirente) devidamente corrigidos?
+• Benfeitorias e Honorários Judiciais: O edital indeniza benfeitorias úteis e necessárias realizadas após o registro? Quem arca com os honorários advocatícios em ações de imissão na posse ou defesa da propriedade?
+• Exclusões de Responsabilidade: Quais indenizações o edital exclui expressamente (ex: lucros cessantes, danos morais ou taxas de assessoria particular)?
 
-8. MATRIZ DE RISCO SEVERA (Os 3 Maiores Perigos)
-• Aponte os 3 maiores riscos (jurídicos, operacionais, de evicção ou de segurança/entorno) ocultos ou destacados nesta análise que exigem atenção imediata (Ex: restrições físicas de vagas, devedor resistente, nulidade de intimação, etc).
+9. MATRIZ DE RISCO SEVERA (Os 3 Maiores Perigos)
+• Aponte de forma direta os 3 maiores riscos (jurídicos, financeiros, operacionais, de evicção ou de segurança) ocultos ou destacados nesta análise que podem destruir a margem de lucro da operação (Ex: restrições físicas de vagas de garagem, devedor litigante com processo ativo, nulidade de intimação, dívida de condomínio superior ao patrimônio, etc.).
 
-9. PARECER E RECOMENDAÇÃO DO ESPECIALISTA
-• Finalize com um veredito direto: O negócio é seguro juridicamente e operacionalmente? Se sim, quais as providências jurídicas e operacionais recomendadas para blindar a arrematação diante dos riscos de evicção e documentos mapeados?` + crossReferenceContext + getCustomInstructionsPrompt(state);
+10. PLANILHA FINANCEIRA E PROJEÇÃO DE RETORNO (ROI)
+• Monte um quadro financeiro claro e detalhado estimando:
+  - Valor de Aquisição (Lance Mínimo / Recomendado)
+  - Comissão do Leiloeiro (5% ou aplicável) e Taxas do Edital
+  - Custos de Transferência (ITBI + Escritura + Registro no CRI)
+  - Custos de Desocupação (Advogado para Imissão na Posse / Acordo) e Reforma Estimada
+  - Passivo de Dívidas Assumidas (Condomínio e IPTU não sub-rogados, se houver)
+  - Custos de Manutenção até a Revenda (Condomínio + IPTU durante o tempo de absorção)
+  - Valor Estimado de Revenda no Mercado Real (baseado nos portais locais)
+  - Lucro Líquido Projetado (R$) e ROI Líquido Estimado (%)
+
+11. PARECER E RECOMENDAÇÃO DO ESPECIALISTA
+• Finalize com um veredito direto: Vale a pena entrar na disputa? Se sim, qual é o Teto Máximo de Lance para manter a operação segura e lucrativa, e qual a melhor estratégia jurídica e operacional diante dos riscos de judicialização, evicção e mercado mapeados?` + crossReferenceContext + getCustomInstructionsPrompt(state);
 
       const analysis = await analyzeAuctionDocuments(
         fileParts,
@@ -12283,19 +12312,19 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
             <div className="flex-1 p-4 sm:p-6 md:p-10">
               {activeSubTab === 'due_diligence' && (
                 <div className="space-y-8">
-                  {/* Header Banner of 9-Block Senior Due Diligence */}
+                  {/* Header Banner of Senior Due Diligence (Ficha Rápida + 11 Blocos) */}
                   <div className="bg-gradient-to-br from-brand-primary/15 via-brand-bg to-brand-paper p-6 sm:p-8 rounded-[2.5rem] border border-brand-primary/25 shadow-lg space-y-6">
                     <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
                       <div className="space-y-2 max-w-3xl">
                         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-lg bg-brand-primary/20 border border-brand-primary/30 text-brand-primary text-[10px] font-bold uppercase tracking-widest">
                           <ShieldAlert size={13} />
-                          <span>Varredura Cirúrgica • 9 Blocos Estruturados</span>
+                          <span>Varredura Cirúrgica • Ficha Rápida + 11 Blocos Estruturados</span>
                         </div>
                         <h3 className="text-2xl sm:text-3xl font-serif font-bold text-brand-primary">
-                          Due Diligence Jurídica Sênior & Matriz de Riscos
+                          Due Diligence Jurídica Sênior, Engenharia Financeira & Riscos
                         </h3>
                         <p className="text-xs sm:text-sm text-brand-ink/70 leading-relaxed">
-                          Auditoria forense cruzando <strong>Edital, Matrícula, Laudo de Avaliação, Despachos e Peças do Processo</strong> com indicadores de mercado e entorno (VivaReal, Zap Imóveis, Imovelweb, OLX), política de evicção e matriz de riscos operacionais e jurídicos.
+                          Auditoria forense cruzando <strong>Edital, Matrícula, Laudo de Avaliação, Despachos e Peças do Processo Judicial</strong> com indicadores reais de mercado da região (VivaReal, Zap Imóveis, Imovelweb, OLX), judicialização, política de evicção e cálculo de lucratividade real (ROI).
                         </p>
                       </div>
 
@@ -12307,28 +12336,31 @@ Gere as 3 grandes seções descritas nas instruções do sistema para o tipo 'do
                           className="bg-brand-primary text-black px-6 py-4 rounded-2xl font-bold text-xs uppercase tracking-widest hover:bg-brand-primary/90 transition-all shadow-xl shadow-brand-primary/20 flex items-center gap-2.5 disabled:opacity-50 cursor-pointer"
                         >
                           {analyzing ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
-                          <span>{analyzing ? "Executando Varredura (9 Blocos)..." : state.dueDiligenceAnalysis ? "Reexecutar Due Diligence" : "Executar Due Diligence"}</span>
+                          <span>{analyzing ? "Executando Varredura (11 Blocos)..." : state.dueDiligenceAnalysis ? "Reexecutar Due Diligence" : "Executar Due Diligence"}</span>
                         </button>
                       </div>
                     </div>
 
-                    {/* Grid of the 9 Mandatory Blocks */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 pt-2">
+                    {/* Grid of Ficha de Cadastro Rápido + 11 Mandatory Blocks */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 pt-2">
                       {[
-                        { num: "01", title: "Raio-X Devedor & Credor", desc: "Qualificação, origem da dívida e intimações críticas" },
-                        { num: "02", title: "Caixa Preta da Matrícula", desc: "CRI, Propriedade Plena vs Direitos e histórico R/Av" },
-                        { num: "03", title: "Radiografia Física", desc: "Medidas, área averbada, vagas e alerta de venda no escuro" },
-                        { num: "04", title: "Mercado & Liquidez", desc: "VivaReal, Zap, Imovelweb, OLX e absorção regional" },
-                        { num: "05", title: "Socioeconômico & Entorno", desc: "Demografia, perfil local, polo comercial e segurança pública" },
-                        { num: "06", title: "Regras Críticas do Edital", desc: "Datas, Art. 895 CPC, FGTS, financiamento e sub-rogação" },
-                        { num: "07", title: "Evicção & Distrato", desc: "Blindagem jurídica, ressarcimento e benfeitorias" },
-                        { num: "08", title: "Matriz de Risco Severa", desc: "Os 3 maiores perigos ocultos ou destacados da operação" },
-                        { num: "09", title: "Veredito do Especialista", desc: "Recomendação direta de segurança jurídica e operacional" }
+                        { num: "📌", badge: "FICHA RÁPIDA", title: "Resumo para Comentário Curto", desc: "Imóvel, tipologia, áreas, matrícula, vaga, devedor, processo, encrenca e gatilho financeiro" },
+                        { num: "01", badge: "BLOCO 01", title: "Raio-X Devedor & Credor", desc: "Qualificação completa, renda, origem da dívida e intimações críticas" },
+                        { num: "02", badge: "BLOCO 02", title: "Radiografia da Judicialização", desc: "Processos ativos, teses de defesa do devedor, liminares e recursos" },
+                        { num: "03", badge: "BLOCO 03", title: "Caixa Preta da Matrícula", desc: "CRI, Propriedade Plena vs Direitos e histórico cronológico R/Av" },
+                        { num: "04", badge: "BLOCO 04", title: "Radiografia Física & Tipologia", desc: "Cômodos, medidas, restrições ocultas de garagem e venda no escuro" },
+                        { num: "05", badge: "BLOCO 05", title: "Mapeamento de Mercado", desc: "VivaReal, Zap, Imovelweb, OLX, disparidade de preço e liquidez" },
+                        { num: "06", badge: "BLOCO 06", title: "Socioeconômico & Entorno", desc: "Demografia, poder de compra, polo comercial e segurança pública" },
+                        { num: "07", badge: "BLOCO 07", title: "Análise Crítica do Edital", desc: "Datas, formas de pagamento, dívidas propter rem e histórico" },
+                        { num: "08", badge: "BLOCO 08", title: "Evicção & Distrato", desc: "Blindagem jurídica, ressarcimento integral e benfeitorias" },
+                        { num: "09", badge: "BLOCO 09", title: "Matriz de Risco Severa", desc: "Os 3 maiores perigos ocultos que impactam a margem da operação" },
+                        { num: "10", badge: "BLOCO 10", title: "Planilha Financeira & ROI", desc: "Custos de aquisição, transferência, desocupação, revenda e lucro líquido" },
+                        { num: "11", badge: "BLOCO 11", title: "Parecer do Especialista", desc: "Veredito direto, teto máximo de lance e estratégia recomendada" }
                       ].map(block => (
                         <div key={block.num} className="bg-brand-bg/60 border border-brand-primary/10 rounded-2xl p-3.5 flex flex-col justify-between hover:border-brand-primary/30 transition-all">
                           <div className="flex items-center justify-between mb-1.5">
                             <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-brand-primary/15 text-brand-primary">
-                              BLOCO {block.num}
+                              {block.badge}
                             </span>
                             <CheckCircle2 size={13} className={state.dueDiligenceAnalysis ? "text-emerald-400" : "text-brand-ink/20"} />
                           </div>

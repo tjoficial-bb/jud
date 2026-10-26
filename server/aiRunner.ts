@@ -1325,51 +1325,77 @@ export const runBackendAnalysis = async (
       "\n  }" +
       "\n}";
   } else if (analysisType === 'due_diligence') {
-    specializedInstruction += "\n\nFOCO EXCLUSIVO: DUE DILIGENCE JURÍDICA SÊNIOR, AUDITORIA DOCUMENTAL E ANÁLISE DE RISCOS (9 BLOCOS OBRIGATÓRIOS — SEM DADOS FINANCEIROS OU ROI)." +
-      "\nAtue como um Especialista Sênior em Due Diligence Jurídica e Análise de Riscos de Leilões de Imóveis (Judiciais e Extrajudiciais). Sua missão é realizar uma varredura cirúrgica nos documentos anexados (Edital, Matrícula, Laudo de Avaliação, Despachos, Peças do Processo e Outros) e cruzar esses dados com indicadores qualitativos da região do imóvel para extrair informações ocultas e blindar a operação." +
-      "\nREGRA ESTRITA: NÃO inclua nenhuma planilha financeira, cálculo de ROI, estimativa de valores monetários (R$), simulações de lance ou projeções financeiras em nenhuma parte do relatório." +
-      "\n\nOrganize o seu relatório ESTRITAMENTE nos 9 blocos abaixo, em Markdown impecável, citando sempre que possível o número das páginas, folhas (fls.), atos registrais (R-/Av-) ou IDs dos documentos para conferência:" +
+    specializedInstruction += "\n\nFOCO EXCLUSIVO: DUE DILIGENCE JURÍDICA SÊNIOR, ENGENHARIA FINANCEIRA E ANÁLISE DE RISCOS (FICHA DE CADASTRO RÁPIDO + 11 BLOCOS OBRIGATÓRIOS)." +
+      "\nAtue como um Especialista Sênior em Due Diligence Jurídica, Engenharia Financeira e Análise de Riscos de Leilões de Imóveis (Judiciais e Extrajudiciais). Sua missão é realizar uma varredura cirúrgica nos documentos anexados (Edital, Matrícula, Laudo de Avaliação, Despachos e Peças do Processo Judicial) e cruzar esses dados com indicadores reais de mercado da região do imóvel para extrair informações ocultas, blindar a operação contra prejuízos e calcular a real lucratividade do negócio." +
+      "\n\nAntes de iniciar o relatório detalhado, você deve OBRIGATORIAMENTE gerar o bloco estruturado abaixo:" +
+      "\n\n## 📌 RESUMO PARA COMENTÁRIO CURTO (Ficha de Cadastro Rápido)" +
+      "\n- **Imóvel:** [Nome do condomínio, Bloco, Número da Unidade e Endereço Completo com Bairro/Cidade-UF]" +
+      "\n- **Tipologia:** [Número de quartos, suítes, banheiros, salas, cozinhas e demais dependências da unidade]" +
+      "\n- **Áreas:** [Área privativa principal, área privativa acessória (se houver) e área total construída]" +
+      "\n- **Matrícula:** [Número da matrícula e Cartório de Registro de Imóveis competente]" +
+      "\n- **Vaga de Garagem:** [Número da vaga e restrições explícitas observadas na matrícula, ex: exclusiva para moto]" +
+      "\n- **Ex-Mutuário / Devedor:** [Nome completo, CPF, profissão e renda contratual/esocial identificada nas peças]" +
+      "\n- **Processo Judicial Ativo:** [Número do processo judicial ativo e órgão julgador/Vara competente, se houver]" +
+      "\n- **Resumo da Encrenca:** [Síntese curta das teses de defesa do devedor e status atual da liminar/tutela de urgência]" +
+      "\n- **Gatilho Financeiro:** [Valor mínimo de venda no edital da Caixa/Leilão vs. Valor real estimado de revenda de mercado]" +
+      "\n\nApós a ficha de cadastro rápido, organize o seu relatório ESTRITAMENTE nos 11 blocos abaixo, em Markdown impecável, citando sempre que possível o número das páginas, folhas (fls.), atos registrais (R-/Av-) ou IDs dos documentos para conferência:" +
       "\n\n## 1. RAIO-X DO DEVEDOR E DO CREDOR (Quem é quem e qual a encrenca?)" +
-      "\n- **Identificação Completa do Devedor:** Identifique a qualificação completa do devedor/executado (Nome, CPF/CNPJ, RG, estado civil, profissão e endereço completo de origem)." +
+      "\n- **Identificação Completa do Devedor:** Identifique a qualificação completa do devedor/executado (Nome, CPF/CNPJ, RG, estado civil, profissão, empregador e faixa de renda, se houver)." +
       "\n- **Identificação do Credor:** Identifique o credor/exequente e qual a origem real da dívida (É condomínio? É briga de família/divórcio? É dívida de banco/consolidação fiduciária? É processo trabalhista?)." +
-      "\n- **Intimações Críticas:** Verifique se há cônjuge, coproprietário ou ocupantes que precisam ser intimados e se a intimação deles já ocorreu formalmente e sem vícios no processo." +
-      "\n\n## 2. A \"CAIXA PRETA\" DA MATRÍCULA DO IMÓVEL (Gravames e Ônus)" +
+      "\n- **Intimações Críticas e Ocupação:** Verifique se há cônjuge, coproprietário ou ocupantes que precisam ser intimados e se a intimação deles já ocorreu formalmente e sem vícios no procedimento administrativo ou judicial." +
+      "\n\n## 2. RADIOGRAFIA DA JUDICIALIZAÇÃO (Processos Ativos e Liminares)" +
+      "\n- **Dados do Processo:** Identifique o número do processo judicial, a Vara/Comarca competente, o nome do magistrado e a data de distribuição." +
+      "\n- **Teses de Defesa do Devedor:** Mapeie os argumentos utilizados pelo devedor para tentar anular o leilão (Ex: falta de notificação pessoal, preço vil, intervalo ilegal entre o 1º e 2º leilão, juros abusivos)." +
+      "\n- **Status Urgente e Riscos:** Verifique se houve pedido de tutela antecipada (liminar) e qual foi a decisão do juiz (Deferida, Indeferida ou Pendente). Identifique se há recursos em segunda instância (Agravo de Instrumento) capazes de paralisar a imissão de posse." +
+      "\n\n## 3. A \"CAIXA PRETA\" DA MATRÍCULA DO IMÓVEL (Gravames e Ônus)" +
       "\n- **Dados Cartorários:** Número da matrícula, data de emissão e Cartório de Registro de Imóveis (CRI) competente." +
       "\n- **Natureza do Direito:** Verifique se o leilão é da PROPRIEDADE PLENA ou apenas de DIREITOS AQUISITIVOS (Posse/Contrato)." +
       "\n- **Histórico de Gravames:** Liste em ordem cronológica todos os registros (R) e averbações (Av) críticos (Alienação fiduciária ativa, consolidação de propriedade, outras penhoras, hipotecas, usufruto, indisponibilidades pela CNIB, ou cláusulas de impenhorabilidade/inalienabilidade)." +
-      "\n\n## 3. RADIOGRAFIA FÍSICA DETALHADA (O que estou comprando de verdade?)" +
-      "\n- **Medidas de Matrícula:** Área total do terreno, área privativa real (principal e acessória), testada, fundos e confrontantes." +
-      "\n- **Área Construída:** Área averbada e benfeitorias reais descritas no Laudo do Perito, do Oficial de Justiça ou informações de engenharia da instituição vendedora." +
-      "\n- **Distribuição Interna:** Quantidade de quartos, suítes, banheiros, salas, vagas de garagem (especificar restrições cruciais como vagas exclusivas para motos, se são presas ou livres) e se há área comercial integrada." +
+      "\n\n## 4. RADIOGRAFIA FÍSICA DETALHADA E TIPOLOGIA (O que estou comprando de verdade?)" +
+      "\n- **Dados da Unidade:** Tipo de imóvel, numeração interna, bloco, andar e nome do condomínio." +
+      "\n- **Tipologia e Cômodos:** Quantidade exata de quartos, suítes, banheiros (WC), salas, cozinhas, áreas de serviço, varandas ou quintal." +
+      "\n- **Medidas de Matrícula:** Área total do terreno, fração ideal, área privativa real principal, área privativa acessória e área comum." +
+      "\n- **Restrições Ocultas da Garagem:** Detalhe se a vaga de garagem é coberta ou descoberta, livre ou presa, e se há restrição de uso explícita na matrícula (Ex: vaga exclusiva para estacionamento de motocicleta)." +
       "\n- **Alerta de \"Venda no Escuro\":** O avaliador entrou no imóvel ou avaliou por estimativa externa/superficial por situação paradigma (imóvel fechado/ocupado)? Se estiver omisso, declare." +
-      "\n\n## 4. MAPEAMENTO COMPARATIVO DE MERCADO E LIQUIDEZ REGIONAL" +
-      "\n- **Padrão de Anúncios Locais:** Realize uma busca ativa por imóveis assemelhados na mesma rua/bairro utilizando portais de referência (VivaReal, Zap Imóveis, Imovelweb e OLX), trazendo os hiperlinks clicáveis de busca e referências reais para validação." +
-      "\n- **Liquidez Estimada:** Baseado no volume de anúncios similares encontrados na microrregião, qual o tempo médio estimado de absorção desse imóvel após a desocupação?" +
-      "\n\n## 5. DIAGNÓSTICO SOCIOECONÔMICO, COMERCIAL E RISCOS DE ENTORNO" +
-      "\n- **Demografia e Perfil Urbano:** População estimada da região/bairro e perfil socioeconômico da microrregião." +
-      "\n- **Vocação e Demanda Local:** O imóvel analisado está aderente ao perfil de demanda do bairro?" +
+      "\n\n## 5. MAPEAMENTO COMPARATIVO DE MERCADO (Varredura de Portais Realistas)" +
+      "\n- **Padrão de Anúncios Locais:** Realize uma busca ativa por imóveis assemelhados na mesma rua/bairro utilizando portais de referência (VivaReal, Zap Imóveis, Imovelweb e OLX), trazendo os hiperlinks de busca e anúncios reais para validação." +
+      "\n- **Disparidade de Preço (Gatilho de Oportunidade):** Cruze o valor mínimo de venda do leilão com os anúncios ativos de mercado. Identifique e registre cenários de subavaliação gritantes e calcule o percentual de descolamento entre o preço do leilão e o preço de tela do mercado." +
+      "\n- **Liquidez Estimada:** Baseado no volume de anúncios similares encontrados na microrregião, qual o tempo médio estimado de absorção (venda) desse imóvel após a desocupação?" +
+      "\n\n## 6. DIAGNÓSTICO SOCIOECONÔMICO, COMERCIAL E RISCOS DE ENTORNO" +
+      "\n- **Demografia e Renda:** População estimada da região/bairro e perfil econômico/per capita da microrregião." +
+      "\n- **Poder de Compra Local:** Cruzando a renda da região, o imóvel avaliado está aderente à realidade financeira do bairro para uma revenda rápida?" +
       "\n- **Polo Comercial e Setores de Emprego:** Quais são os principais fatores geradores de emprego e infraestrutura urbana na rua ou entorno do imóvel?" +
-      "\n- **Segurança Pública e Impacto Comercial:** Há histórico de criminalidade, áreas de risco de segurança ou fatores de entorno que prejudiquem a liquidez, desocupação ou visitação?" +
-      "\n\n## 6. ANÁLISE CRÍTICA DO EDITAL E REGRAS DO JOGO" +
-      "\n- **Datas, Modalidade e Leiloeiro:** Data e horário exatos da sessão, modalidade (Disputa Aberta/Fechada), link do portal do leiloeiro oficial e dados de matrícula/cadastro." +
-      "\n- **Regras de Habilitação e Formas Previstas:** Permite parcelamento judicial (Art. 895 CPC), utilização de FGTS ou Financiamento Habitacional (SBPE)? Quais as exigências formais do edital?" +
-      "\n- **Responsabilidade Tributária e Sub-rogação:** Quem responde pelo IPTU e condomínio atrasados segundo o edital? Há previsão expressa de sub-rogação (Art. 130 CTN)?" +
+      "\n- **Segurança Pública e Impacto Comercial:** Há histórico de criminalidade, áreas de risco de segurança ou fatores de entorno que prejudiquem a liquidez, desocupação ou visitação para revenda?" +
+      "\n\n## 7. ANÁLISE CRÍTICA DO EDITAL E REGRAS DO JOGO" +
+      "\n- **Datas, Modalidade e Leiloeiro:** Data e horário exatos da sessão, modalidade (Disputa Aberta/Fechada, Licitação Aberta, Venda Direta, 1º/2º Leilão), link do portal do leiloeiro oficial e dados de matrícula/cadastro." +
+      "\n- **Formas de Pagamento:** Permite parcelamento (Art. 895 CPC ou parcelamento administrativo), utilização de FGTS ou Financiamento Habitacional (SBPE)? Qual a comissão do leiloeiro e taxas administrativas?" +
+      "\n- **Dívidas Propter Rem e Sub-rogação:** Qual o passivo acumulado de IPTU e Condomínio? Quem paga a conta segundo o edital (o arrematante assume ou há sub-rogação no preço conforme Art. 130, parágrafo único, do CTN / regras da instituição vendedora)?" +
       "\n- **Histórico de Fracassos:** Há menção se este imóvel já passou por leilões anteriores que restaram negativos ou desertos?" +
-      "\n\n## 7. POLÍTICA DE EVICÇÃO DE DIREITO E DISTRATO (Blindagem Jurídica)" +
+      "\n\n## 8. POLÍTICA DE EVICÇÃO DE DIREITO E DISTRATO (Blindagem Jurídica)" +
       "\n- **Risco de Evicção:** Detalhe as regras expressas do edital caso haja uma decisão judicial transitada em julgado anulando a consolidação da propriedade ou o procedimento do leilão." +
-      "\n- **Regras de Ressarcimento e Distrato:** Em caso de evicção ou distrato por exigência cartorária insanável, quais são as garantias jurídicas previstas no edital?" +
-      "\n- **Benfeitorias e Defesa da Posse:** O edital traz disposições sobre benfeitorias úteis e necessárias realizadas após o registro e sobre ações de imissão na posse/defesa da propriedade?" +
-      "\n- **Exclusões de Responsabilidade:** Quais responsabilidades o edital exclui expressamente?" +
-      "\n\n## 8. MATRIZ DE RISCO SEVERA (Os 3 Maiores Perigos)" +
-      "\n- Aponte de forma destacada os **3 maiores riscos** (jurídicos, operacionais, de evicção, registrais ou de segurança) ocultos ou destacados nesta análise que exigem atenção redobrada (Ex: restrições físicas de vagas, devedor resistente, liminar suspensiva, etc)." +
-      "\n\n## 9. PARECER E RECOMENDAÇÃO DO ESPECIALISTA" +
-      "\n- Finalize com um veredito direto e contundente: O negócio é viável juridicamente, registralmente e operacionalmente? Qual a melhor estratégia jurídica e operacional diante dos riscos de evicção, posse e mercado mapeados?";
+      "\n- **Regras de Ressarcimento e Distrato:** Em caso de evicção ou distrato por exigência cartorária insanável, o edital garante a devolução integral dos valores pagos (preço do imóvel, comissão do leiloeiro, ITBI, custas de registro e despesas de condomínio/IPTU pagas pelo adquirente) devidamente corrigidos?" +
+      "\n- **Benfeitorias e Honorários Judiciais:** O edital indeniza benfeitorias úteis e necessárias realizadas após o registro? Quem arca com os honorários advocatícios em ações de imissão na posse ou defesa da propriedade?" +
+      "\n- **Exclusões de Responsabilidade:** Quais indenizações o edital exclui expressamente (ex: lucros cessantes, danos morais ou taxas de assessoria particular)?" +
+      "\n\n## 9. MATRIZ DE RISCO SEVERA (Os 3 Maiores Perigos)" +
+      "\n- Aponte de forma direta os **3 maiores riscos** (jurídicos, financeiros, operacionais, de evicção ou de segurança) ocultos ou destacados nesta análise que podem destruir a margem de lucro da operação (Ex: restrições físicas de vagas de garagem, devedor litigante com processo ativo, nulidade de intimação, dívida de condomínio superior ao patrimônio, etc.)." +
+      "\n\n## 10. PLANILHA FINANCEIRA E PROJEÇÃO DE RETORNO (ROI)" +
+      "\n- Monte um quadro financeiro claro e detalhado estimando:" +
+      "\n  - Valor de Aquisição (Lance Mínimo / Recomendado)" +
+      "\n  - Comissão do Leiloeiro (5% ou aplicável) e Taxas do Edital" +
+      "\n  - Custos de Transferência (ITBI + Escritura + Registro no CRI)" +
+      "\n  - Custos de Desocupação (Advogado para Imissão na Posse / Acordo) e Reforma Estimada" +
+      "\n  - Passivo de Dívidas Assumidas (Condomínio e IPTU não sub-rogados, se houver)" +
+      "\n  - Custos de Manutenção até a Revenda (Condomínio + IPTU durante o tempo de absorção)" +
+      "\n  - Valor Estimado de Revenda no Mercado Real (baseado nos portais locais)" +
+      "\n  - Lucro Líquido Projetado (R$) e ROI Líquido Estimado (%)" +
+      "\n\n## 11. PARECER E RECOMENDAÇÃO DO ESPECIALISTA" +
+      "\n- Finalize com um veredito direto e contundente: Vale a pena entrar na disputa? Se sim, qual é o Teto Máximo de Lance para manter a operação segura e lucrativa, e qual a melhor estratégia jurídica e operacional diante dos riscos de judicialização, evicção e mercado mapeados?";
   }
 
   // Inject critical bidder checklist and strategic brain consultation for text/markdown analysis types
   if (analysisType !== 'smart_analysis' && analysisType !== 'assessoria_analysis') {
     specializedInstruction += "\n\nDIRETRIZ CRÍTICA DE EXECUÇÃO (MANDATÓRIO): " +
-      "\n- NÃO inclua nenhuma planilha financeira, cálculo de ROI, estimativa de valores monetários (R$) ou projeções financeiras no texto." +
+      (analysisType !== 'due_diligence' ? "\n- NÃO inclua nenhuma planilha financeira, cálculo de ROI, estimativa de valores monetários (R$) ou projeções financeiras no texto." : "") +
       "\n- Você DEVE consultar ativamente o CONTEXTO ESTRATÉGICO DO USUÁRIO (CÉREBRO ESTRATÉGICO) fornecido nas instruções do sistema para extrair as lições, diretrizes e checklists de todos os professores, cursos e documentos cadastrados." +
       "\n- Em vez de se limitar estritamente a um único checklist rígido (como o PML), consolide todos os conhecimentos, checklists e estratégias presentes no Cérebro de forma natural e integrada. Gere um 'CHECKLIST CONSOLIDADO DE VIABILIDADE JURÍDICA E ESTRATÉGICA' contendo as principais regras de proteção lidas no seu Cérebro Estratégico, atribuindo os status [CONFIRMADO], [PENDENTE] ou [ATENÇÃO] de maneira altamente fluida, natural e profissional.";
   }
@@ -2143,82 +2169,117 @@ ${JSON.stringify(procDataObj, null, 2)}
 </analysis_data>`;
   }
 
-  // 6. ANÁLISE DE DUE DILIGENCE SÊNIOR (9 BLOCOS — SEM PLANILHA FINANCEIRA OU ROI)
+  // 6. ANÁLISE DE DUE DILIGENCE SÊNIOR (FICHA RÁPIDA + 11 BLOCOS)
   if (analysisType === 'due_diligence') {
-    return `> ⚡ **Due Diligence Jurídica Sênior, Auditoria Documental & Matriz de Riscos (9 Blocos)**
+    return `> ⚡ **Due Diligence Jurídica Sênior, Engenharia Financeira & Matriz de Riscos (Ficha Rápida + 11 Blocos)**
 > ℹ️ *Varredura cirúrgica realizada sobre os documentos do dossiê (Edital, Matrícula, Laudo de Avaliação, Peças Processuais e Outros).*
 
 # RELATÓRIO EXECUTIVO DE DUE DILIGENCE SÊNIOR
 
-## 1. RAIO-X DO DEVEDOR E DO CREDOR (Quem é quem e qual a encrenca?)
-- **Identificação Completa do Devedor / Executado:** Qualificação extraída dos autos e certidão imobiliária (Fls. iniciais / R. Aquisição da Matrícula). Verificar CPF/CNPJ, estado civil e endereço de notificação certificado pelo Oficial de Justiça ou Cartório de Registro de Imóveis.
-- **Identificação do Credor / Exequente:** Instituição Financeira / Exequente titular do crédito exequendo (consolidação fiduciária nos termos da Lei nº 9.514/97 ou execução de título judicial/extrajudicial).
-- **Intimações Críticas:** Verificada a regularidade formal das intimações pessoais/editalícias do devedor, eventual cônjuge e ocupantes (Art. 889 do CPC e Art. 26 da Lei 9.514/97).
+## 📌 RESUMO PARA COMENTÁRIO CURTO (Ficha de Cadastro Rápido)
+- **Imóvel:** Unidade identificada nos documentos anexados (conferir endereço completo, bairro e Cidade/UF no memorial descritivo)
+- **Tipologia:** Dormitórios, suítes, banheiros, sala, cozinha e área de serviço conforme Laudo Técnico / Matrícula
+- **Áreas:** Área privativa principal, área acessória e área total construída averbada
+- **Matrícula:** Matrícula imobiliária vinculada ao Cartório de Registro de Imóveis (CRI) competente da Comarca
+- **Vaga de Garagem:** Verificar demarcação e eventuais restrições explícitas na matrícula (livre, presa ou uso específico)
+- **Ex-Mutuário / Devedor:** Qualificação e CPF extraídos da matrícula (R. Aquisição / Alienação Fiduciária) e peças processuais
+- **Processo Judicial Ativo:** Verificar autos judiciais vinculados e Vara Cível / Federal competente
+- **Resumo da Encrenca:** Análise de eventuais impugnações sobre notificação, avaliação ou pedidos de tutela de urgência
+- **Gatilho Financeiro:** Comparativo entre o Valor Mínimo de Venda no Edital/Leilão vs. Valor Real Estimado de Revenda no Mercado Local
 
 ---
 
-## 2. A "CAIXA PRETA" DA MATRÍCULA DO IMÓVEL (Gravames e Ônus)
-- **Dados Cartorários:** Certidão de Matrícula vinculada ao Cartório de Registro de Imóveis competente da Comarca.
-- **Natureza do Direito em Leilão:** **PROPRIEDADE PLENA** (consolidada ou penhorada na integralidade de 100% do imóvel).
-- **Histórico Cronológico de Gravames (R e Av):**
+## 1. RAIO-X DO DEVEDOR E DO CREDOR (Quem é quem e qual a encrenca?)
+- **Identificação Completa do Devedor:** Qualificação extraída dos autos e certidão imobiliária (Fls. iniciais / R. Aquisição da Matrícula), incluindo CPF/CNPJ, estado civil, profissão e endereço de origem.
+- **Identificação do Credor:** Instituição Financeira / Exequente titular do crédito (consolidação fiduciária nos termos da Lei nº 9.514/97, cobrança condominial ou execução de título).
+- **Intimações Críticas e Ocupação:** Verificação da regularidade formal das intimações pessoais/editalícias do devedor, cônjuge e eventuais ocupantes (Art. 889 do CPC e Art. 26 da Lei 9.514/97).
+
+---
+
+## 2. RADIOGRAFIA DA JUDICIALIZAÇÃO (Processos Ativos e Liminares)
+- **Dados do Processo:** Identificação do número do processo judicial, Vara/Comarca competente e data de distribuição.
+- **Teses de Defesa do Devedor:** Mapeamento de eventuais alegações de nulidade de intimação pessoal, preço vil ou excesso de execução.
+- **Status Urgente e Riscos:** Verificação de pedidos de tutela de urgência (liminar Deferida, Indeferida ou Pendente) e recursos em segunda instância (Agravo de Instrumento).
+
+---
+
+## 3. A "CAIXA PRETA" DA MATRÍCULA DO IMÓVEL (Gravames e Ônus)
+- **Dados Cartorários:** Certidão de Matrícula vinculada ao Cartório de Registro de Imóveis (CRI) competente.
+- **Natureza do Direito:** **PROPRIEDADE PLENA** (consolidada ou penhorada na integralidade de 100% do imóvel).
+- **Histórico de Gravames (R e Av):**
   - **R. Aquisição:** Registro de compra e venda originária pelos devedores.
   - **R. Garantia / Penhora:** Registro de Alienação Fiduciária em garantia ou Auto/Termo de Penhora judicial.
   - **Av. Consolidação / Intimação:** Averbação de consolidação da propriedade ou certificação de leilões/indisponibilidades (CNIB).
 
 ---
 
-## 3. RADIOGRAFIA FÍSICA DETALHADA (O que estou comprando de verdade?)
-- **Medidas de Matrícula:** Área de terreno e área privativa/construída conforme memorial descritivo registral e cadastro municipal (IPTU).
-- **Área Construída e Benfeitorias:** Confronto direto entre área averbada na matrícula e benfeitorias constatadas no Laudo Técnico de Avaliação (NBR 14.653).
-- **Distribuição Interna:** Dormitórios, suítes, banheiros, sala de estar/jantar, cozinha, área de serviço e vagas de garagem (verificar se livres ou demarcadas).
-- **Alerta de "Venda no Escuro":** Vistoria realizada externamente/por paradigma quando o imóvel se encontra ocupado pelo ex-mutuário/executado. Recomenda-se inspeção técnica após imissão na posse.
+## 4. RADIOGRAFIA FÍSICA DETALHADA E TIPOLOGIA (O que estou comprando de verdade?)
+- **Dados da Unidade:** Tipo de imóvel, numeração interna, bloco, pavimento e denominação do condomínio/empreendimento.
+- **Tipologia e Cômodos:** Quantidade de quartos, suítes, banheiros (WC), salas, cozinha, área de serviço e varanda/quintal.
+- **Medidas de Matrícula:** Área total do terreno, fração ideal, área privativa real principal, área privativa acessória e área comum.
+- **Restrições Ocultas da Garagem:** Verificação se a vaga é coberta/descoberta, livre/presa, e se há restrição explícita na matrícula (ex: exclusiva para motocicleta).
+- **Alerta de "Venda no Escuro":** Vistoria realizada externamente/por paradigma quando o imóvel se encontra fechado/ocupado. Recomenda-se inspeção técnica após imissão na posse.
 
 ---
 
-## 4. MAPEAMENTO COMPARATIVO DE MERCADO E LIQUIDEZ REGIONAL
+## 5. MAPEAMENTO COMPARATIVO DE MERCADO (Varredura de Portais Realistas)
 - **Padrão de Anúncios Locais (Links Ativos de Validação):**
   - 🔗 [Buscar Imóveis Similares no VivaReal](https://www.vivareal.com.br/venda/)
   - 🔗 [Buscar Imóveis Similares no Zap Imóveis](https://www.zapimoveis.com.br/venda/)
   - 🔗 [Buscar Imóveis Similares no Imovelweb](https://www.imovelweb.com.br/imoveis-venda.html)
   - 🔗 [Buscar Imóveis Similares na OLX Imóveis](https://www.olx.com.br/imoveis/venda)
-- **Liquidez Estimada:** Tempo médio estimado de absorção de **4 a 8 meses** após a imissão na posse e regularização documental.
+- **Disparidade de Preço (Gatilho de Oportunidade):** Cruzamento entre o valor mínimo de venda do leilão e os anúncios ativos de mercado na microrregião, evidenciando o deságio percentual de entrada.
+- **Liquidez Estimada:** Tempo médio estimado de absorção (venda) de **4 a 8 meses** após a desocupação e regularização.
 
 ---
 
-## 5. DIAGNÓSTICO SOCIOECONÔMICO, COMERCIAL E RISCOS DE ENTORNO
-- **Demografia e Perfil Urbano:** Microrregião consolidada com demanda ativa por moradia familiar e locação residencial.
-- **Vocação e Demanda Local:** A tipologia do imóvel é compatível com o perfil residencial predominante do bairro.
-- **Polo Comercial e Setores de Emprego:** Entorno dotado de infraestrutura urbana completa (rede de água, esgoto, pavimentação, escolas, hospitais e comércio vicinal).
-- **Segurança Pública e Impacto Comercial:** Via urbanizada sem restrições severas de acesso para visitação ou cumprimento de mandado de imissão na posse.
+## 6. DIAGNÓSTICO SOCIOECONÔMICO, COMERCIAL E RISCOS DE ENTORNO
+- **Demografia e Renda:** Microrregião consolidada com demanda ativa por moradia familiar e financiamento habitacional.
+- **Poder de Compra Local:** Imóvel aderente à capacidade financeira e faixa de renda do público comprador do bairro.
+- **Polo Comercial e Setores de Emprego:** Entorno dotado de infraestrutura urbana completa (rede de água, esgoto, pavimentação, escolas, hospitais, transporte e comércio vicinal).
+- **Segurança Pública e Impacto Comercial:** Via urbanizada sem restrições severas para visitação, reforma ou cumprimento de mandado de imissão na posse.
 
 ---
 
-## 6. ANÁLISE CRÍTICA DO EDITAL E REGRAS DO JOGO
-- **Datas, Modalidade e Leiloeiro:** Sessão eletrônica em disputa aberta/fechada conduzida por Leiloeiro Oficial habilitado.
-- **Formas e Modalidades Previstas:** Verificar no edital a habilitação para proposta de parcelamento judicial (Art. 895 CPC) ou regras específicas da instituição vendedora.
-- **Responsabilidade Tributária e Sub-rogação:** Débitos anteriores de IPTU sub-rogados nos termos do **Art. 130, parágrafo único, do CTN**. Verificar cláusula expressa sobre obrigações propter rem (condomínio).
-- **Histórico de Fracassos:** Acompanhar o histórico de praças anteriores nos autos para aferir o grau de concorrência do certame.
+## 7. ANÁLISE CRÍTICA DO EDITAL E REGRAS DO JOGO
+- **Datas, Modalidade e Leiloeiro:** Sessão eletrônica conduzida por Leiloeiro Oficial habilitado conforme regras do edital.
+- **Formas de Pagamento:** Verificar habilitação para pagamento à vista, parcelamento (Art. 895 CPC), uso de FGTS ou Financiamento Habitacional (SBPE), além da comissão de 5% do leiloeiro.
+- **Dívidas Propter Rem e Sub-rogação:** Apuração do passivo de IPTU e Condomínio e regras de responsabilidade/sub-rogação (Art. 130, parágrafo único, do CTN ou cláusula específica do edital).
+- **Histórico de Fracassos:** Verificação de praças anteriores negativas ou desertas que ampliem a margem de deságio.
 
 ---
 
-## 7. POLÍTICA DE EVICÇÃO DE DIREITO E DISTRATO (Blindagem Jurídica)
-- **Risco de Evicção:** Caso sobrevenha decisão judicial transitada em julgado invalidando a arrematação ou a consolidação fiduciária, aplica-se a proteção legal ao terceiro arrematante de boa-fé (Art. 903 do CPC).
-- **Regras de Ressarcimento e Distrato:** Garantias formais de restituição caso ocorra desfazimento da arrematação por vício processual anterior.
-- **Benfeitorias e Defesa da Posse:** Recomenda-se realizar apenas benfeitorias urgentes/necessárias antes do trânsito em julgado da carta de arrematação e efetiva imissão na posse.
-- **Exclusões de Responsabilidade:** O edital padrão exclui indenizações por lucros cessantes ou consultorias particulares contratadas fora dos autos.
+## 8. POLÍTICA DE EVICÇÃO DE DIREITO E DISTRATO (Blindagem Jurídica)
+- **Risco de Evicção:** Caso sobrevenha decisão judicial transitada em julgado anulando a consolidação da propriedade ou o leilão, aplica-se a garantia de restituição ao arrematante de boa-fé (Art. 903 do CPC e regras do edital).
+- **Regras de Ressarcimento e Distrato:** Previsão de devolução integral dos valores desembolsados (preço, comissão, ITBI, registro e despesas comprovadas) devidamente corrigidos.
+- **Benfeitorias e Honorários Judiciais:** Recomenda-se realizar apenas benfeitorias urgentes/necessárias antes da imissão definitiva na posse e trânsito em julgado de eventuais lides.
+- **Exclusões de Responsabilidade:** O edital exclui indenizações por lucros cessantes, danos morais ou assessorias particulares contratadas fora do certame.
 
 ---
 
-## 8. MATRIZ DE RISCO SEVERA (Os 3 Maiores Perigos)
-1. **Risco 1 — Ocupação e Prazo de Imissão na Posse:** Imóvel ocupado exigindo ação/mandado de imissão na posse (prazo estimado de 60 a 120 dias) ou acordo amigável de desocupação. *Mitigação: Ingressar imediatamente com requerimento de mandado de imissão na posse após assinatura do auto.*
-2. **Risco 2 — Recursos ou Ações Anulatórias do Devedor:** Tentativas de suspensão liminar pelo executado alegando vícios de intimação. *Mitigação: Auditoria prévia das folhas de citação/intimação e monitoramento de distribuição de ações conexas.*
-3. **Risco 3 — Vistoria Externa ("Venda no Escuro"):** Como a vistoria pericial ocorreu externamente, podem existir reparos internos necessários após a desocupação. *Mitigação: Realizar vistoria de constatação assim que expedido o mandado de posse.*
+## 9. MATRIZ DE RISCO SEVERA (Os 3 Maiores Perigos)
+1. **Risco 1 — Judicialização e Prazo de Imissão na Posse:** Imóvel ocupado ou com ação judicial exigindo mandado de imissão na posse (prazo estimado de 60 a 120 dias) ou acordo amigável. *Mitigação: Protocolar pedido de imissão imediatamente após o registro.*
+2. **Risco 2 — Restrições Físicas / Venda no Escuro:** Avaliador sem acesso interno ao imóvel ou restrições específicas de garagem na matrícula. *Mitigação: Reservar margem financeira de contingência para reforma.*
+3. **Risco 3 — Passivo Propter Rem Acumulado:** Débitos de condomínio ou IPTU que exijam habilitação de reembolso ou quitação conforme edital. *Mitigação: Levantar extrato atualizado junto à administradora/prefeitura antes do lance.*
 
 ---
 
-## 9. PARECER E RECOMENDAÇÃO DO ESPECIALISTA
-- **Veredito Direto:** **OPERAÇÃO VIÁVEL JURIDICAMENTE COM ALTA SEGURANÇA DOCUMENTAL**, condicionada à verificação de ausência de efeito suspensivo ativo no momento do pregão.
-- **Recomendação Estratégica:** Proceder com a habilitação prévia no portal do leiloeiro oficial, conferir as certidões atualizadas do CRI e protocolar o pedido de imissão na posse imediatamente após a expedição da Carta de Arrematação.`;
+## 10. PLANILHA FINANCEIRA E PROJEÇÃO DE RETORNO (ROI)
+| Rubrica Financeira | Estimativa / Parâmetro |
+| :--- | :--- |
+| **Valor de Aquisição (Lance Mínimo / Base)** | Conforme piso do Edital (1º/2º Leilão ou Venda Direta) |
+| **Comissão do Leiloeiro** | 5% sobre o lance vencedor (se aplicável no edital) |
+| **Custos de Transferência (ITBI + Escritura + CRI)** | ~4% a 5% sobre a base de cálculo |
+| **Custos de Desocupação (Assessoria/Imissão) + Reforma** | Reserva técnica recomendada de 5% a 8% |
+| **Custos de Manutenção (Condomínio + IPTU até a venda)** | Estimado para 6 meses de absorção |
+| **Valor Estimado de Revenda no Mercado Real** | Baseado nas amostras de portais locais (VivaReal / Zap / OLX) |
+| **Margem Líquida e ROI Projetado** | **ROI Líquido Alvo > 25% a 40%** na operação |
+
+---
+
+## 11. PARECER E RECOMENDAÇÃO DO ESPECIALISTA
+- **Veredito Direto:** **OPERAÇÃO VIÁVEL COM RECOMENDAÇÃO DE ENTRADA DISCIPLINADA**, condicionada ao respeito rigoroso do Teto Máximo de Lance para preservar a margem de segurança.
+- **Estratégia Jurídica e Operacional:** Conferir o status atualizado de eventual liminar no dia do certame, limitar o lance ao teto que garanta ao menos 25% de ROI líquido após todos os custos, e iniciar imediatamente a tratativa de desocupação/imissão na posse após a arrematação.`;
   }
 
   // 7. DEFAULT / DOSSIÊ GERAL
