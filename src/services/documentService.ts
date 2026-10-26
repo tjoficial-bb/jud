@@ -202,24 +202,24 @@ export async function uploadDocuments(
   for (const file of files) {
     let clientExtractedText = "";
     
-    // Only attempt client-side preview extraction for smaller PDFs (<= 12MB) with timeout protection
-    if (file.name.toLowerCase().endsWith('.pdf') && file.size <= 12 * 1024 * 1024) {
+    // Attempt full client-side text extraction for PDFs up to 35MB with generous timeout protection
+    if (file.name.toLowerCase().endsWith('.pdf') && file.size <= 35 * 1024 * 1024) {
       if (onProgress) {
-        onProgress(`Indexando prévia de ${file.name}...`);
+        onProgress(`Lendo páginas de ${file.name}...`);
       }
       try {
         const timeoutPromise = new Promise<string>((_, reject) => 
-          setTimeout(() => reject(new Error('Extraction timeout')), 5000)
+          setTimeout(() => reject(new Error('Extraction timeout')), 30000)
         );
         const extractPromise = extractTextFromPdfClientSide(file, (pct, page, total) => {
           if (onProgress) {
-            onProgress(`Indexando prévia: ${page}/${total} págs (${pct}%)`);
+            onProgress(`Lendo processo: ${page}/${total} págs (${pct}%)`);
           }
         });
 
         clientExtractedText = await Promise.race([extractPromise, timeoutPromise]);
         if (clientExtractedText) {
-          console.log(`[documentService] Texto extraído com sucesso de ${file.name}: ${clientExtractedText.length} caracteres.`);
+          console.log(`[documentService] Texto completo extraído com sucesso de ${file.name}: ${clientExtractedText.length} caracteres.`);
         }
       } catch (err: any) {
         console.warn(`[documentService] Falha ou timeout na extração local para ${file.name}:`, err.message);
