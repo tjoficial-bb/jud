@@ -8143,7 +8143,33 @@ function AIAnalysisView({ token, properties, onPropertyCreated, state, setState,
     if (isChatAttachmentDoc(d)) return false;
     const cat = getCleanDocType(d);
     const fn = getCleanDocFilename(d);
-    return cat.includes('processo') || cat.includes('judicial') || fn.includes('processo') || fn.includes('autos') || fn.includes('execuc');
+    return (
+      cat.includes('processo') || 
+      cat.includes('judicial') || 
+      cat.includes('autos') || 
+      cat.includes('execuc') ||
+      cat.includes('peticao') ||
+      cat.includes('despacho') ||
+      cat.includes('sentenca') ||
+      cat.includes('acordao') ||
+      cat.includes('trf') ||
+      cat.includes('tj') ||
+      fn.includes('processo') || 
+      fn.includes('autos') || 
+      fn.includes('execuc') ||
+      fn.includes('trf') ||
+      fn.includes('tj') ||
+      fn.includes('parte_') ||
+      fn.includes('peticao') ||
+      fn.includes('despacho') ||
+      fn.includes('sentenca') ||
+      fn.includes('acordao') ||
+      fn.includes('agravo') ||
+      fn.includes('embargos') ||
+      fn.includes('cumprimento') ||
+      /\d{7}[-_.]?\d{2}[-_.]?\d{4}/.test(fn) ||
+      /\d{15,25}/.test(fn)
+    );
   };
 
   const isLaudoDoc = (d: any) => {
@@ -9306,6 +9332,207 @@ Sua resposta deve ser APENAS um objeto JSON válido, sem qualquer bloco de códi
     }
   };
 
+  const buildSeniorProcessDueDiligencePrompt = (options: {
+    processDocs?: any[];
+    propertyTitle?: string;
+    propertyStatus?: string;
+    manualAuctionType?: string;
+    customInstructions?: string;
+  }): string => {
+    const { processDocs = [], propertyTitle = '', propertyStatus = '', manualAuctionType = 'auto', customInstructions = '' } = options;
+
+    let detectedProcessNumber = "A identificar nos autos anexados";
+    let detectedCourt = "Justiça Estadual / Justiça Federal / TRT";
+
+    for (const d of processDocs) {
+      const fn = d.filename || "";
+      const txt = d.extracted_text || d.extractedText || "";
+      const cnjMatch = fn.match(/\b\d{7}[-.]?\d{2}[-.]?\d{4}[-.]?\d[-.]?\d{2}[-.]?\d{4}\b/) || 
+                       txt.match(/\b\d{7}[-.]?\d{2}[-.]?\d{4}[-.]?\d[-.]?\d{2}[-.]?\d{4}\b/) ||
+                       fn.match(/\b\d{20}\b/) || txt.match(/\b\d{20}\b/);
+      if (cnjMatch) {
+        detectedProcessNumber = cnjMatch[0];
+        break;
+      }
+    }
+
+    if (detectedProcessNumber === "A identificar nos autos anexados" && propertyTitle) {
+      const titleMatch = propertyTitle.match(/\b\d{7}[-.]?\d{2}[-.]?\d{4}[-.]?\d[-.]?\d{2}[-.]?\d{4}\b/) || propertyTitle.match(/\b\d{20}\b/);
+      if (titleMatch) detectedProcessNumber = titleMatch[0];
+    }
+
+    for (const d of processDocs) {
+      const fn = (d.filename || "").toUpperCase();
+      const txt = (d.extracted_text || d.extractedText || "").toUpperCase();
+      if (fn.includes("TRF6") || txt.includes("TRF6") || txt.includes("TRF-6") || txt.includes("TRIBUNAL REGIONAL FEDERAL DA 6")) {
+        detectedCourt = "Justiça Federal / TRF-6";
+        break;
+      } else if (fn.includes("TRF1") || txt.includes("TRF1") || txt.includes("TRF-1")) {
+        detectedCourt = "Justiça Federal / TRF-1";
+        break;
+      } else if (fn.includes("TRF3") || txt.includes("TRF3") || txt.includes("TRF-3")) {
+        detectedCourt = "Justiça Federal / TRF-3";
+        break;
+      } else if (fn.includes("TJSP") || txt.includes("TJSP") || txt.includes("SÃO PAULO")) {
+        detectedCourt = "Justiça Estadual / TJSP";
+        break;
+      } else if (fn.includes("TJMG") || txt.includes("TJMG") || txt.includes("MINAS GERAIS")) {
+        detectedCourt = "Justiça Estadual / TJMG";
+        break;
+      } else if (fn.includes("TRT") || txt.includes("TRABALHO")) {
+        detectedCourt = "Justiça do Trabalho / TRT";
+        break;
+      }
+    }
+
+    const detectedAuctionType = manualAuctionType === 'judicial' 
+      ? 'Judicial - Novo CPC' 
+      : manualAuctionType === 'extrajudicial' 
+      ? 'Extrajudicial - Lei 9.514/97' 
+      : 'Extrajudicial - Lei 9.514/97 ou Judicial - Novo CPC (Identificar no processo/edital)';
+
+    const detectedOccupancy = propertyStatus === 'Desocupado' 
+      ? 'Desocupado' 
+      : propertyStatus === 'Ocupado' 
+      ? 'Ocupado' 
+      : 'Ocupado / Desocupado (Apurar nas certidões dos autos)';
+
+    return `Você é um Advogado Sênior especialista em contencioso imobiliário e leilões de imóveis, atuando em conjunto com um Arrematante Profissional de alta performance. Sua missão é realizar uma Auditoria Jurídica Processual (Due Diligence Avançada) com base nas informações, número do processo ou andamentos judiciais que fornecerei abaixo.
+
+Seu foco não é apenas listar riscos, mas encontrar brechas na defesa do executado/mutuário e garantir a imissão na posse no menor tempo possível, protegendo o capital do investidor.
+
+DADOS DA ARREMATAÇÃO / PROCESSO:
+- Número do Processo (se houver): ${detectedProcessNumber}
+- Tipo de Leilão: ${detectedAuctionType}
+- Status Atual do Imóvel: ${detectedOccupancy}
+- Órgão Julgador: ${detectedCourt}
+
+Aja como nosso conselheiro legal e estrute seu parecer técnico e pragmático nos 5 blocos abaixo:
+
+---
+
+### 🔍 1. CHECKLIST DE NULIDADES E REGULARIDADE DO PROCEDIMENTO
+Analise o procedimento expropriatório com foco em teses de anulação (defesa do devedor). Avalie rigorosamente:
+- Notificação/Intimação Pessoal: Houve intimação pessoal e válida do devedor para a purgação da mora? E para as datas dos leilões públicos (conforme entendimento consolidado do STJ)?
+- Preço Vil: O valor do lance mínimo atende ao limite legal? (Se extrajudicial, 2º leilão pelo valor da dívida/despesas; se judicial, mínimo de 50% da avaliação ou o teto fixado pelo juiz).
+- Publicidade e Edital: O edital cumpriu os requisitos legais de descrição do bem, ônus incidentes e foi publicado nos prazos peremptórios da lei?
+- Direito de Preferência: No leilão extrajudicial da Caixa, foi respeitado o prazo legal para o ex-mutuário exercer o direito de preferência até a assinatura do auto de arrematação?
+
+### 🛡️ 2. MAPEAMENTO DE AÇÕES JUDICIAIS EM CURSO (Anulatória / Embargos)
+Caso o devedor já tenha acionado o Judiciário contra a execução ou o leilão:
+- Status das Ações e Liminares: Há pedido de tutela de urgência/liminar deferido para suspender os efeitos do leilão ou a consolidação da propriedade?
+- Histórico Recursal: Houve interposição de Agravo de Instrumento? O efeito suspensivo foi negado pelo Tribunal?
+- Força dos Argumentos do Devedor: As alegações são genéricas (ex: "juros abusivos", "direito social à moradia") ou apontam vícios formais graves (ex: falta de intimação comprovada)?
+- Jurisprudência Concreta e Súmulas: Quais súmulas ou teses consolidadas dos tribunais superiores (STJ/STF) e do tribunal local rebatem os argumentos do mutuário?
+- Conexão e Prevenção: O juízo da ação anulatória é o mesmo da execução? Há risco de decisões conflitantes?
+
+### ⚡ 3. ESTRATÉGIA AGRESSIVA DE IMISSÃO NA POSSE
+Trace a rota crítica para a tomada de posse rápida e desocupação:
+- Desocupação Amigável vs. Forçada: Qual a probabilidade de acordo amigável mediante "ajuda de custo" (cash for keys) vs. necessidade imediata de ordem judicial de desocupação com uso de força policial e arrombamento?
+- Prazo Estimado de Imissão: Qual a estimativa realista de tempo (em semanas ou meses) até a posse definitiva, considerando o perfil da Comarca/Vara?
+- Custos Operacionais Ocultos: Preveja despesas com oficial de justiça, arrombamento, chaveiro, caminhão de mudança e depósito de bens.
+- Via Judicial (Art. 901 e 903 do CPC): Na arrematação judicial, requerer a expedição do mandado de imissão na posse nos próprios autos da execução, sem necessidade de ação autônoma (jurisprudência consolidada do STJ).
+- Via Extrajudicial (Art. 30 da Lei 9.514/97): Na alienação fiduciária, fundamentar a concessão de liminar para desocupação em até 60 dias, comprovada a consolidação e registro da arrematação.
+- Taxa de Ocupação e Lucros Cessantes: Requerer a fixação de taxa de ocupação mensal (Art. 37-A da Lei 9.514/97 - 1% ao mês sobre o valor do imóvel) e indenização por danos materiais/lucros cessantes para pressionar o desocupante.
+
+### ⚖️ 4. PASSIVOS AMBIENTAIS, TRIBUTÁRIOS E CONDOMINIAIS ("PROPTER REM")
+- IPTU e Taxas Municipais: O edital sub-roga os débitos de IPTU sobre o preço da arrematação (art. 130, parágrafo único, CTN) ou transfere a responsabilidade expressamente ao arrematante?
+- Dívidas de Condomínio: O condomínio está ciente ou cobra dívida propter rem? O edital isenta expressamente o arrematante ou há risco de responsabilização solidária? (Conforme REsp 1.944.403/SP do STJ, se o edital for omisso, o arrematante não responde pelas dívidas condominiais anteriores).
+
+### 🏆 5. VCTOR (VEREDITO E MATRIZ DE RISCO DO ADVOGADO)
+- Recomendação Final de Arrematação: ( ) LANCE LIVRE (Risco Mínimo) | ( ) LANCE COM CAUTELA (Risco Gerenciável com Desconto no Lance) | ( ) ABORTAR / NÃO ENTRAR (Risco Crítico de Anulação/Prejuízo).
+- Resumo Executivo: Em até 3 parágrafos, dê o seu parecer final objetivo indicando se a operação é segura e qual o gatilho jurídico de proteção do arrematante.
+- Classificação do Risco Global: [BAIXO / MÉDIO / ALTO] - com fundamentação taxativa.
+- Timeframe Realista de Desocupação e Posse Efetiva: Cronograma estimado em meses para a imissão na posse definitiva.
+- Plano de Ataque Prático: Roteiro passo a passo com a 1ª petição a ser protocolada imediatamente após a homologação do lance ou registro da escritura, incluindo requerimento de força policial e arrombamento para cumprimento da ordem se necessário.
+
+---
+
+### 📑 6. AUDITORIA FORENSE FOLHA A FOLHA / PEÇA A PEÇA (CRONOLOGIA COMPLETA)
+Efetue a leitura exaustiva de todas as páginas dos arquivos anexados (petições, despachos, laudos, decisões e certidões de oficial de justiça) e estruture uma tabela cronológica detalhada contendo:
+| Fls. / ID | Data do Evento | Peça / Documento | Resumo da Ocorrência | Impacto no Leilão (Favorável / Alerta / Desfavorável / Neutro) | Recomendação Tática ao Arrematante |
+
+### 🛡️ 7. MATRIZ DE BLINDAGEM JURÍDICA: PRÓS E CONTRAS PROCESSUAIS
+- **Pontos Fortes (Blindagens do Procedimento):** Elementos processuais consolidados que protegem o arrematante (preclusão de prazos, trânsito em julgado, arrematação de boa-fé pelo Art. 903 do CPC, etc.).
+- **Pontos de Atenção (Riscos de Ataque pelo Mutuário) & Mitigações Imediatas:** Para cada risco levantado, forneça a respectiva contra-argumentação legal que anula a tese da defesa.
+
+⚠️ DIRETRIZ FINANCEIRA MANDATÓRIA:
+NÃO inclua simulações financeiras de investimento (como ROI, TIR, margem de lucro estimada ou planilhas de compra/venda). O foco desta aba de processos é estritamente forense, jurídico, imissão na posse e passivos propter rem.
+
+IMPORTANTE: Ao final do seu parecer em Markdown de alto nível, inclua OBRIGATORIAMENTE o bloco estruturado JSON delimitado exatamente pelas tags <analysis_data>...</analysis_data> com o seguinte schema para integração perfeita com a interface do sistema:
+<analysis_data>
+{
+  "decisao_investimento": {
+    "recomendacao": "ARREMATAR (GO)" ou "ARREMATAR COM CAUTELA / CONDICIONAL" ou "NÃO ARREMATAR / ALTO RISCO (NO GO)",
+    "score_seguranca_juridica": 85,
+    "termo_risco_anulacao": "BAIXO" ou "MÉDIO" ou "ALTO",
+    "risco_suspensao_leilao": "BAIXO" ou "MÉDIO" ou "ALTO",
+    "sintese_decisao": "Síntese conclusiva e pragmática do parecer"
+  },
+  "checklist_validade_leilao_cpc889": {
+    "citacao_executado": { "status": "REGULAR" ou "IRREGULAR", "detalhes": "...", "folha": "fls. ..." },
+    "intimacao_conjuge": { "status": "REGULAR" ou "DISPENSADA" ou "PENDENTE", "detalhes": "...", "folha": "fls. ..." },
+    "intimacao_credores_garantia_real": { "status": "REGULAR" ou "DISPENSADA", "credor": "...", "detalhes": "...", "folha": "fls. ..." },
+    "laudo_avaliacao_e_preco_vil": { "status": "REGULAR", "valor_avaliacao": "...", "detalhes": "...", "folha": "fls. ..." },
+    "recursos_e_efeito_suspensivo": { "status": "SEM EFEITO SUSPENSIVO", "detalhes": "..." },
+    "bem_de_familia_alegacao": { "status": "REJEITADA" ou "NÃO CABÍVEL", "detalhes": "..." },
+    "publicidade_edital_juntada": { "status": "REGULAR", "detalhes": "...", "folha": "fls. ..." }
+  },
+  "cenarios_imissao_posse": {
+    "cenario_otimista": { "prazo": "30 a 60 dias", "descricao": "...", "probabilidade": "60%" },
+    "cenario_realista": { "prazo": "60 a 120 dias", "descricao": "...", "probabilidade": "30%" },
+    "cenario_conservador": { "prazo": "120 a 240 dias", "descricao": "...", "probabilidade": "10%" },
+    "custos_estimados_desocupacao": {
+      "honorarios": "R$ 3.000,00",
+      "oficial_e_diligencias": "R$ 800,00",
+      "despesas_chaveiro_transporte": "R$ 700,00",
+      "total_estimado": "R$ 4.500,00"
+    }
+  },
+  "processo_principal": {
+    "numero_processo": "...",
+    "vara_comarca": "...",
+    "tribunal": "...",
+    "valor_execucao": "...",
+    "executante": "...",
+    "executado": "...",
+    "terceiros_interessados": "...",
+    "motivacao_judicial": "...",
+    "segredo_justica": "Não",
+    "principais_pecas": [
+      { "peca": "...", "pagina": "fls. ...", "descricao": "...", "impacto": "...", "risco": "BAIXO" }
+    ]
+  },
+  "auditoria_pagina_a_pagina": [
+    {
+      "pagina_folha": "fls. ...",
+      "peca_documento": "...",
+      "data_evento": "DD/MM/AAAA",
+      "resumo_analise": "...",
+      "impacto_leilao": "...",
+      "tipo_impacto": "FAVORAVEL",
+      "grau_risco": "BAIXO",
+      "recomendacao_arrematante": "..."
+    }
+  ],
+  "pros_e_contras": {
+    "pros": [
+      { "titulo": "...", "descricao": "...", "impacto_positivo": "..." }
+    ],
+    "contras": [
+      { "titulo": "...", "risco": "...", "mitigacao": "...", "gravidade": "BAIXO" }
+    ]
+  },
+  "parecer_consolidado_risco": {
+    "classificacao_geral": "BAIXO" ou "MÉDIO" ou "ALTO",
+    "risco_anulacao": "BAIXO" ou "MÉDIO" ou "ALTO",
+    "estimativa_tempo_desocupacao": "60 a 120 dias",
+    "recomendacao_estrategica": "..."
+  }
+}
+</analysis_data>${customInstructions ? `\n\n${customInstructions}` : ''}`;
+  };
+
   const triggerAutomaticProcessAnalysis = async (docsToUse: any[]) => {
     let processDocs = docsToUse.filter(isProcessoDoc);
     if (processDocs.length === 0 && docsToUse.length > 0) {
@@ -9330,44 +9557,13 @@ Sua resposta deve ser APENAS um objeto JSON válido, sem qualquer bloco de códi
         };
       });
       const selectedProperty = properties.find(p => p.id === selectedPropertyId);
-      const propertyContext = selectedProperty ? `\n\nIMÓVEL EM LEILÃO: ${selectedProperty.title}` : "\n\nIMÓVEL EM LEILÃO: Não especificado.";
-      const processesPrompt = `Você é um Advogado e Juiz Sênior Especialista em Leilões Imobiliários Judiciais e Extrajudiciais.
-Realize uma AUDITORIA JURÍDICA FORENSE COMPLETA E INTELIGENTE de todas as peças e folhas do processo judicial anexado, focada na TOMADA DE DECISÃO DE INVESTIMENTO DO ARREMATANTE.
-
-${propertyContext}
-
-Sua análise DEVE responder com precisão cirúrgica:
-
-1. MATRIZ DE DECISÃO EXECUTIVA DE INVESTIMENTO:
-   - Recomendação objetiva: 'ARREMATAR (GO)', 'ARREMATAR COM CAUTELA / CONDICIONAL' ou 'NÃO ARREMATAR / ALTO RISCO (NO GO)'.
-   - Score de Segurança Jurídica da Arrematação (0 a 100).
-   - Termômetro de Risco de Anulação do Leilão (Baixo, Médio ou Alto com fundamentação legal).
-   - Risco de Suspensão Liminar da Praça (Baixo, Médio ou Alto).
-   - Síntese Executiva de Tomada de Decisão (orientação direta e prática para o investidor).
-
-2. CHECKLIST FORENSE DE VALIDADE DO LEILÃO (Art. 889 CPC / Lei 9.514/97):
-   - Citação do Executado (Pessoal, por hora certa ou edital - atestar validade e fls.).
-   - Intimação de Cônjuge / Coproprietário (se há meação resguardada ou vício de intimação).
-   - Intimação de Credores com Garantia Real (Credor fiduciário/hipotecário/penhora anterior - prazo de 10 dias úteis).
-   - Avaliação e Preço Vil (Data do laudo, conformidade com o mercado e piso do 2º leilão).
-   - Recursos e Efeito Suspensivo (Agravos, apelações ou embargos - verificar se há liminar suspensiva ativa).
-   - Bem de Família (Lei 8.009/90) (se arguido, se rejeitado ou inaplicável por ser débito propter rem).
-   - Publicidade e Prazos do Edital (Juntada tempestiva nos autos e ampla publicidade).
-
-3. CENÁRIOS DE IMISSÃO NA POSSE E CUSTOS DE DESOCUPAÇÃO:
-   - Cenário Otimista (amigável): prazo estimado em dias e probabilidade.
-   - Cenário Realista (mandado de imissão na posse com oficial): prazo e probabilidade.
-   - Cenário Conservador / Adverso (resistência/recursos protelatórios): prazo e contingência.
-   - Planilha de Custos Estimados de Desocupação (honorários advocatícios, diligências do oficial de justiça, chaveiro e transporte/depósito).
-
-4. AUDITORIA PEÇA A PEÇA / FOLHA A FOLHA:
-   - Tabela cronológica com Fls., Peça/Documento, Resumo, Impacto no Leilão (Favorável, Alerta, Ponto de Risco ou Neutro) e Recomendação ao Arrematante.
-
-5. PRÓS E CONTRAS PROCESSUAIS:
-   - Prós (Blindagens e pontos fortes do processo).
-   - Contras (Riscos reais) acompanhados da respectiva SOLUÇÃO TÁTICA DE MITIGAÇÃO.
-
-Formate em português do Brasil, em Markdown elegante e profissional, e inclua no final o bloco JSON obrigatório <analysis_data>...</analysis_data>.` + getCustomInstructionsPrompt(state);
+      const processesPrompt = buildSeniorProcessDueDiligencePrompt({
+        processDocs,
+        propertyTitle: selectedProperty?.title || '',
+        propertyStatus: selectedProperty?.status || '',
+        manualAuctionType: state.manualAuctionType,
+        customInstructions: getCustomInstructionsPrompt(state)
+      });
       
       const userApiKey = resolveApiKey(state.selectedKeySource, state.aiConfig, state.selectedModel || 'gemini-3.7-flash') || "";
       const analysis = await analyzeAuctionDocuments(fileParts, processesPrompt, state.selectedModel || 'gemini-3.7-flash', userApiKey || undefined, [], 'processo');
@@ -9518,43 +9714,13 @@ Formate em português do Brasil, em Markdown elegante e profissional, e inclua n
       });
       
       const selectedProperty = properties.find(p => p.id === selectedPropertyId);
-      const propertyContext = selectedProperty ? `\n\nIMÓVEL EM LEILÃO: ${selectedProperty.title}` : "\n\nIMÓVEL EM LEILÃO: Não especificado.";
-      const prompt = `Você é um Advogado e Juiz Sênior Especialista em Leilões Imobiliários Judiciais e Extrajudiciais.
-Realize uma AUDITORIA JURÍDICA FORENSE COMPLETA E INTELIGENTE de todas as peças e folhas do processo judicial anexado, focada na TOMADA DE DECISÃO DE INVESTIMENTO DO ARREMATANTE.
-
-${propertyContext}
-
-Sua análise DEVE responder com precisão cirúrgica:
-
-1. MATRIZ DE DECISÃO EXECUTIVA DE INVESTIMENTO:
-   - Recomendação objetiva: 'ARREMATAR (GO)', 'ARREMATAR COM CAUTELA / CONDICIONAL' ou 'NÃO ARREMATAR / ALTO RISCO (NO GO)'.
-   - Score de Segurança Jurídica da Arrematação (0 a 100).
-   - Termômetro de Risco de Anulação do Leilão (Baixo, Médio ou Alto com fundamentação legal).
-   - Risco de Suspensão Liminar da Praça (Baixo, Médio ou Alto).
-   - Síntese Executiva de Tomada de Decisão (orientação direta e prática para o investidor).
-
-2. CHECKLIST FORENSE DE VALIDADE DO LEILÃO (Art. 889 CPC / Lei 9.514/97):
-   - Citação do Executado (Pessoal, por hora certa ou edital - atestar validade e fls.).
-   - Intimação de Cônjuge / Coproprietário (se há meação resguardada ou vício de intimação).
-   - Intimação de Credores com Garantia Real (Credor fiduciário/hipotecário/penhora anterior - prazo de 10 dias úteis).
-   - Avaliação e Preço Vil (Data do laudo, conformidade com o mercado e piso do 2º leilão).
-   - Recursos e Efeito Suspensivo (Agravos, apelações ou embargos - verificar se há liminar suspensiva ativa).
-   - Bem de Família (Lei 8.009/90) (se arguido, se rejeitado ou inaplicável por ser débito propter rem).
-   - Publicidade e Prazos do Edital (Juntada tempestiva nos autos e ampla publicidade).
-
-3. CENÁRIOS DE IMISSÃO NA POSSE E DESOCUPAÇÃO:
-   - Cenário Otimista (amigável): prazo estimado em dias e probabilidade.
-   - Cenário Realista (mandado de imissão na posse com oficial): prazo e probabilidade.
-   - Cenário Conservador / Adverso (resistência/recursos protelatórios): prazo e contingência.
-
-4. AUDITORIA PEÇA A PEÇA / FOLHA A FOLHA:
-   - Tabela cronológica com Fls., Peça/Documento, Resumo, Impacto no Leilão (Favorável, Alerta, Ponto de Risco ou Neutro) e Recomendação ao Arrematante.
-
-5. PRÓS E CONTRAS PROCESSUAIS:
-   - Prós (Blindagens e pontos fortes do processo).
-   - Contras (Riscos reais) acompanhados da respectiva SOLUÇÃO TÁTICA DE MITIGAÇÃO.
-
-IMPORTANTE: NÃO inclua valores financeiros, planilhas de custos, ROI ou estimativas monetárias em nenhuma seção. Formate em português do Brasil, em Markdown elegante e profissional, e inclua no final o bloco JSON obrigatório <analysis_data>...</analysis_data>.` + getCustomInstructionsPrompt(state);
+      const prompt = buildSeniorProcessDueDiligencePrompt({
+        processDocs,
+        propertyTitle: selectedProperty?.title || '',
+        propertyStatus: selectedProperty?.status || '',
+        manualAuctionType: state.manualAuctionType,
+        customInstructions: getCustomInstructionsPrompt(state)
+      });
       
       const userApiKey = resolveApiKey(state.selectedKeySource, state.aiConfig, state.selectedModel || 'gemini-3.7-flash') || "";
       const analysis = await analyzeAuctionDocuments(fileParts, prompt, state.selectedModel || 'gemini-3.7-flash', userApiKey || undefined, [], 'processo');
@@ -10959,25 +11125,13 @@ Extraia obrigatoriamente e com riqueza de detalhes:
       const processFileParts = makeFileParts(processDocs);
 
       const activeProperty = properties.find(p => p.id === selectedPropertyId);
-      const propertyContext = activeProperty ? `\n\nIMÓVEL EM LEILÃO: ${activeProperty.title}` : "\n\nIMÓVEL EM LEILÃO: Não especificado.";
-      const processesPrompt = `Analise detalhadamente cada documento ou peça do processo judicial anexado para identificar e resumir quaisquer riscos relacionados à arrematação do imóvel.
-
-      ${propertyContext}
-
-      Para cada documento analisado, identifique os seguintes pontos de impacto:
-      1. NOME DETALHADO DO DOCUMENTO (Petição, Decisão, Recurso, Certidão, etc.).
-      2. OBJETIVO PRINCIPAL: Qual a pretensão da peça ou o teor da decisão?
-      3. DISCUSSÕES SOBRE NULIDADES: Há alguma alegação de falta de intimação regular (de cônjuge, coproprietário, credor hipotecário, etc.), preço vil ou irregularidade processual?
-      4. RECURSOS PENDENTES: Quais recursos estão tramitando ou podem ser interpostos? Há pedidos de suspensão do leilão em andamento?
-      5. IMPACTO POTENCIAL NA POSSE: Qual o efeito da peça na imissão/obtenção da posse pelo arrematante (ex: resistência ativa dos ocupantes, embargos à adjudicação ou à execução)?
-
-      Ao final, apresente um PARECER CONSOLIDADO DE RISCO PROCESSUAL:
-      - Classificação Geral de Risco (Baixo, Médio ou Alto).
-      - Risco de Anulação do Leilão (Sim/Não - Justificado).
-      - Estimativa de Tempo de Desocupação / Ganho de Posse.
-      - Recomendação Estratégica Executiva (Se vale a pena arrematar e quais cautelas adotar).
-
-      Formate toda a resposta em português do Brasil, utilizando uma estrutura visual rica e limpa em Markdown, destacando os alertas cruciais.`;
+      const processesPrompt = buildSeniorProcessDueDiligencePrompt({
+        processDocs,
+        propertyTitle: activeProperty?.title || '',
+        propertyStatus: activeProperty?.status || '',
+        manualAuctionType: state.manualAuctionType,
+        customInstructions: getCustomInstructionsPrompt(state)
+      });
 
       // Run analysis (unified)
       setState(prev => ({ ...prev, isGeneratingStory: true }));

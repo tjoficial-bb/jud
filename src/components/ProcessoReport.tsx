@@ -394,20 +394,20 @@ export const ProcessoReport: React.FC<ProcessoReportProps> = ({
     ].filter(Boolean).join('\n');
 
     return [
-      { id: 'decisao_investimento', title: 'Decisão Executiva de Investimento (GO/NO GO)', text: decText },
-      { id: 'checklist_cpc', title: 'Checklist Forense de Validade do Leilão (Art. 889 CPC)', text: checklistText },
-      { id: 'cenarios_posse', title: 'Cenários de Desocupação e Custos de Imissão', text: posseText },
-      { id: 'auditoria_folhas', title: 'Auditoria Página a Página (Folha a Folha)', text: auditoriaText },
-      { id: 'pros_e_contras', title: 'Prós e Contras do Processo Judicial', text: prosContrasText },
-      { id: 'processo_principal', title: 'Processo Principal da Execução', text: procText },
-      { id: 'acoes_ex_mutuario', title: 'Pesquisa de Ações do Ex-Mutuário (CPF)', text: acoesText },
-      { id: 'gravames_processo', title: 'Gravames e Penhoras no Processo', text: gravamesText },
-      { id: 'averbacao_obra', title: 'Averbação de Obra & Passivo de ISS', text: averbacaoText },
+      { id: 'checklist_cpc', title: '🔍 1. Checklist de Nulidades e Regularidade do Procedimento', text: checklistText },
+      { id: 'acoes_ex_mutuario', title: '🛡️ 2. Mapeamento de Ações Judiciais em Curso (Anulatória / Embargos)', text: acoesText },
+      { id: 'cenarios_posse', title: '⚡ 3. Estratégia Agressiva de Imissão na Posse', text: posseText },
+      { id: 'gravames_processo', title: '⚖️ 4. Passivos Ambientais, Tributários e Condominiais ("Propter Rem")', text: gravamesText },
+      { id: 'decisao_investimento', title: '🏆 5. VCTOR (Veredito e Matriz de Risco do Advogado)', text: decText },
+      { id: 'auditoria_folhas', title: '📑 6. Auditoria Forense Folha a Folha / Peça a Peça (Cronologia)', text: auditoriaText },
+      { id: 'pros_e_contras', title: '🛡️ 7. Matriz de Blindagem Jurídica: Prós e Contras Processuais', text: prosContrasText },
+      { id: 'processo_principal', title: '⚖️ Dados do Processo Principal da Execução', text: procText },
+      { id: 'averbacao_obra', title: '🏗️ Averbação de Obra & Passivo de ISS', text: averbacaoText },
     ];
   }, [data]);
 
   const [selectedSectionIds, setSelectedSectionIds] = useState<string[]>([
-    'decisao_investimento', 'checklist_cpc', 'cenarios_posse', 'auditoria_folhas', 'pros_e_contras', 'processo_principal', 'acoes_ex_mutuario', 'gravames_processo', 'averbacao_obra'
+    'checklist_cpc', 'acoes_ex_mutuario', 'cenarios_posse', 'gravames_processo', 'decisao_investimento', 'auditoria_folhas', 'pros_e_contras', 'processo_principal', 'averbacao_obra'
   ]);
 
   const handleToggleSection = (id: string) => {
